@@ -42,7 +42,7 @@ use Illuminate\Notifications\Notifiable;
  *
  * @mixin Model
  */
-#[Hidden(['email', 'password', 'remember_token'])]
+#[Hidden(['password', 'remember_token'])]
 final class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */

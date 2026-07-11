@@ -36,6 +36,7 @@
         "laravel/pail": "^1.2.7",
         "laravel/pao": "^1.1.2",
         "laravel/pint": "^1.29.3",
+        "laraveldaily/filacheck": "^1.2.3",
         "mockery/mockery": "^1.6.12",
         "mrpunyapal/peststan": "^0.2.11",
         "mrpunyapal/rector-pest": "^0.2.17",
@@ -82,9 +83,7 @@
         ],
         "post-update-cmd": [
             "@php artisan vendor:publish --tag=laravel-assets --ansi --force",
-            "@php artisan clear",
-            "@php artisan boost:update --ansi",
-            "@update:requirements"
+            "@php artisan clear"
         ],
         "post-root-package-install": [
             "@php -r \"file_exists('.env') || copy('.env.example', '.env');\""
