@@ -1,0 +1,24 @@
+{
+    "agents": [
+        "claude_code"
+    ],
+    "cloud": true,
+    "guidelines": true,
+    "mcp": true,
+    "nightwatch": false,
+    "packages": [
+        "filament/filament",
+        "aldesrahim/filament-compass",
+        "nunomaduro/laravel-sluggable",
+        "fruitcake/laravel-debugbar"
+    ],
+    "sail": false,
+    "skills": [
+        "ai-sdk-development",
+        "laravel-best-practices",
+        "tailwindcss-development",
+        "filament-compass",
+        "debug-using-debugbar",
+        "deploying-laravel-cloud"
+    ]
+}

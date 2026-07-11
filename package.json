@@ -1,0 +1,22 @@
+{
+    "$schema": "https://www.schemastore.org/package.json",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "build": "vp build",
+        "dev": "vp dev",
+        "lint": "NODE_OPTIONS='--experimental-strip-types' vp fmt resources/ && NODE_OPTIONS='--experimental-strip-types' vp lint --fix resources/",
+        "test:lint": "NODE_OPTIONS='--experimental-strip-types' vp fmt --check resources/ && NODE_OPTIONS='--experimental-strip-types' vp lint resources/",
+        "test:types": "tsc --noEmit"
+    },
+    "devDependencies": {
+        "@tailwindcss/vite": "^4.3.2",
+        "concurrently": "^10.0.3",
+        "laravel-vite-plugin": "^3.1",
+        "npm-check-updates": "^22.2.9",
+        "tailwindcss": "^4.3.2",
+        "typescript": "^6.0.3",
+        "vite": "npm:@voidzero-dev/vite-plus-core@latest",
+        "vite-plus": "latest"
+    }
+}
