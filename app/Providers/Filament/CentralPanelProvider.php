@@ -19,16 +19,18 @@ use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
+use Illuminate\Support\Facades\Config;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 
-final class AdminPanelProvider extends PanelProvider
+final class CentralPanelProvider extends PanelProvider
 {
     public function panel(Panel $panel): Panel
     {
         return $panel
             ->default()
-            ->id('admin')
+            ->id('central')
             ->path('admin')
+            ->domains(array_filter(Config::array('tenancy.identification.central_domains'), is_string(...)))
             ->login()
             ->colors([
                 'primary' => Color::Amber,
