@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Tenants\Tables;
 
+use App\Filament\Resources\Tenants\TenantResource;
 use App\Models\Tenant;
+use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 
@@ -42,6 +45,10 @@ final class TenantsTable
                 //
             ])
             ->recordActions([
+                Action::make('manageUsers')
+                    ->label('Users')
+                    ->icon(Heroicon::OutlinedUsers)
+                    ->url(fn (Tenant $record): string => TenantResource::getUrl('users', ['record' => $record])),
                 EditAction::make(),
                 DeleteAction::make(),
             ])

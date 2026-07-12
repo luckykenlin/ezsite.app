@@ -19,7 +19,7 @@ final class DatabaseSeeder extends Seeder
     {
         // User::factory(10)->create();
 
-        User::factory()->create([
+        User::factory()->superAdmin()->create([
             'name' => 'Ken',
             'email' => 'luckykenlin@gmail.com',
             'password' => 'password',

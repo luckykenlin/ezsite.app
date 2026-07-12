@@ -20,6 +20,10 @@ per tenant. `DatabaseTenancyBootstrapper` is intentionally disabled;
   `tests/Pest.php`), not the sqlite used elsewhere — put RLS/identification
   tests there.
 - Required env: `TENANCY_RLS_USERNAME` / `TENANCY_RLS_PASSWORD`.
+- RLS only scopes rows, not panel entry. `User::canAccessPanel()` gates the
+  `central`/`tenant` Filament panels separately via `is_super_admin` and the
+  `tenant_user` membership pivot — a plain `User::factory()->create()` has no
+  panel access. See tenancy.md for details.
 
 Details: @.claude/docs/tenancy.md
 

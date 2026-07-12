@@ -24,7 +24,8 @@ test('rls policies exist for every table with a path to the tenants table, and o
     expect($actualTables->sort()->values()->all())->toBe($expectedTables->sort()->values()->all())
         ->and($expectedTables)->toContain('posts')
         ->and($expectedTables)->not->toContain('users')
-        ->and($expectedTables)->not->toContain('domains');
+        ->and($expectedTables)->not->toContain('domains')
+        ->and($expectedTables)->not->toContain('tenant_user');
 
     $hasher = resolve(CreateUserWithRLSPolicies::class);
 

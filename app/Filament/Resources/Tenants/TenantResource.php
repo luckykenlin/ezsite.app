@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\Tenants;
 
 use App\Filament\Resources\Tenants\Pages\ListTenants;
+use App\Filament\Resources\Tenants\Pages\ManageUsers;
 use App\Filament\Resources\Tenants\Schemas\TenantForm;
 use App\Filament\Resources\Tenants\Tables\TenantsTable;
 use App\Models\Tenant;
@@ -43,6 +44,7 @@ final class TenantResource extends Resource
     {
         return [
             'index' => ListTenants::route('/'),
+            'users' => ManageUsers::route('/{record}/users'),
         ];
     }
 }
