@@ -17,13 +17,6 @@ concurrency:
 jobs:
   ci:
     runs-on: ubuntu-latest
-    env:
-      DB_CONNECTION: pgsql
-      DB_HOST: 127.0.0.1
-      DB_PORT: 5432
-      DB_DATABASE: testing
-      DB_USERNAME: postgres
-      DB_PASSWORD: postgres
 
     services:
       postgres:
@@ -71,6 +64,11 @@ jobs:
 
       - name: Prepare Database
         run: php artisan migrate --force
+        env:
+          # .env.example points at the `ezsite` database, but the Postgres
+          # service above only seeds `testing` — override just for this step
+          # so later steps don't inherit it and fight phpunit.xml's sqlite setup.
+          DB_DATABASE: testing
 
       - name: Type Coverage
         run: composer test:type-coverage

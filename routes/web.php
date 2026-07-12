@@ -2,8 +2,14 @@
 
 declare(strict_types=1);
 
-use Illuminate\Contracts\View\Factory;
-use Illuminate\Contracts\View\View;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', fn (): Factory|View => view('welcome'));
+$centralDomains = array_filter(Config::array('tenancy.identification.central_domains'), is_string(...));
+
+foreach ($centralDomains as $domain) {
+    Route::domain($domain)->group(function (): void {
+        // Central domain routes
+        Route::view('/', 'central.welcome');
+    });
+}

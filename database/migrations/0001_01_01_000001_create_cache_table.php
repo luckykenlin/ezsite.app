@@ -22,4 +22,10 @@ return new class extends Migration
             $table->bigInteger('expiration')->index();
         });
     }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('cache');
+        Schema::dropIfExists('cache_locks');
+    }
 };
