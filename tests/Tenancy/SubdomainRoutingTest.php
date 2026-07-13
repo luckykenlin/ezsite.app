@@ -2,15 +2,30 @@
 
 declare(strict_types=1);
 
+use App\Models\Page;
 use App\Models\Tenant;
 
 beforeEach(function (): void {
     $this->centralDomain = array_first(config('tenancy.identification.central_domains'));
 });
 
+function createHomePage(Tenant $tenant): void
+{
+    tenancy()->initialize($tenant);
+    Page::query()->create([
+        'tenant_id' => $tenant->id,
+        'title' => 'Home',
+        'slug' => '/',
+        'layout' => 'main',
+        'blocks' => [['type' => 'heading', 'data' => ['content' => (string) $tenant->id]]],
+    ]);
+    tenancy()->end();
+}
+
 test('a request to a tenant subdomain resolves to that tenant', function (): void {
     $tenant = Tenant::factory()->create();
     $tenant->domains()->create(['domain' => 'acme']);
+    createHomePage($tenant);
 
     $response = $this->get(sprintf('http://acme.%s/', $this->centralDomain));
 
@@ -29,6 +44,7 @@ test('a request to an unknown subdomain redirects to the central home page', fun
 test("a request to a tenant's custom domain resolves to that tenant", function (): void {
     $tenant = Tenant::factory()->create();
     $tenant->domains()->create(['domain' => 'acme-inc.test']);
+    createHomePage($tenant);
 
     $response = $this->get('http://acme-inc.test/');
 

@@ -4,14 +4,17 @@ declare(strict_types=1);
 
 namespace App\Providers\Filament;
 
+use App\Models\Tenant;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
+use Filament\Navigation\NavigationItem;
 use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
+use Filament\Support\Icons\Heroicon;
 use Filament\Widgets\AccountWidget;
 use Filament\Widgets\FilamentInfoWidget;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
@@ -22,6 +25,7 @@ use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 use Stancl\Tenancy\Middleware\InitializeTenancyByDomainOrSubdomain;
 use Stancl\Tenancy\Middleware\PreventAccessFromUnwantedDomains;
+use Z3d0X\FilamentFabricator\FilamentFabricatorPlugin;
 
 final class TenantPanelProvider extends PanelProvider
 {
@@ -31,6 +35,7 @@ final class TenantPanelProvider extends PanelProvider
             ->id('tenant')
             ->path('admin')
             ->login()
+            ->profile()
             ->colors([
                 'primary' => Color::Emerald,
             ])
@@ -44,6 +49,15 @@ final class TenantPanelProvider extends PanelProvider
             ->widgets([
                 AccountWidget::class,
                 FilamentInfoWidget::class,
+            ])
+            ->plugins([
+                FilamentFabricatorPlugin::make(),
+            ])
+            ->navigationItems([
+                NavigationItem::make('Visit site')
+                    ->icon(Heroicon::OutlinedArrowTopRightOnSquare)
+                    ->url(fn (): ?string => $this->currentTenantDomainUrl(), shouldOpenInNewTab: true)
+                    ->sort(99),
             ])
             ->middleware([
                 InitializeTenancyByDomainOrSubdomain::class,
@@ -60,6 +74,15 @@ final class TenantPanelProvider extends PanelProvider
             ])
             ->authMiddleware([
                 Authenticate::class,
-            ]);
+            ])
+            ->spa();
+    }
+
+    private function currentTenantDomainUrl(): ?string
+    {
+        /** @var Tenant|null $currentTenant */
+        $currentTenant = tenant();
+
+        return $currentTenant?->domain?->getUrl();
     }
 }

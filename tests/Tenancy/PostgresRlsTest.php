@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Models\Page;
 use App\Models\Post;
 use App\Models\Tenant;
 use App\Models\User;
@@ -23,6 +24,7 @@ test('rls policies exist for every table with a path to the tenants table, and o
 
     expect($actualTables->sort()->values()->all())->toBe($expectedTables->sort()->values()->all())
         ->and($expectedTables)->toContain('posts')
+        ->and($expectedTables)->toContain('pages')
         ->and($expectedTables)->not->toContain('users')
         ->and($expectedTables)->not->toContain('domains')
         ->and($expectedTables)->not->toContain('tenant_user');
@@ -82,6 +84,28 @@ test('users stay global and are unaffected by tenancy', function (): void {
 
     tenancy()->initialize($tenant);
     expect(User::query()->where('name', 'Central User')->exists())->toBeTrue();
+    tenancy()->end();
+});
+
+test('a tenant can only see its own pages once tenancy is initialized', function (): void {
+    $tenantA = Tenant::factory()->create();
+    $tenantB = Tenant::factory()->create();
+
+    tenancy()->initialize($tenantA);
+    $page = Page::query()->create(['tenant_id' => $tenantA->id, 'title' => 'Home', 'slug' => '/', 'layout' => 'main', 'blocks' => []]);
+    expect($page->tenant->is($tenantA))->toBeTrue();
+    tenancy()->end();
+
+    tenancy()->initialize($tenantB);
+    Page::query()->create(['tenant_id' => $tenantB->id, 'title' => 'Home', 'slug' => '/', 'layout' => 'main', 'blocks' => []]);
+
+    expect(Page::query()->count())->toBe(1)
+        ->and(Page::query()->sole()->tenant_id)->toBe($tenantB->id);
+    tenancy()->end();
+
+    tenancy()->initialize($tenantA);
+    expect(Page::query()->count())->toBe(1)
+        ->and(Page::query()->sole()->tenant_id)->toBe($tenantA->id);
     tenancy()->end();
 });
 

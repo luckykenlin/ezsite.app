@@ -91,9 +91,10 @@ final class User extends Authenticatable implements FilamentUser
 
     private function belongsToCurrentTenant(): bool
     {
+        /** @var Tenant|null $currentTenant */
         $currentTenant = tenant();
 
-        if (! $currentTenant instanceof Tenant) {
+        if ($currentTenant === null) {
             return false;
         }
 
