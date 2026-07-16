@@ -10,9 +10,10 @@ DatabaseSessionBootstrapper, PostgresRLSBootstrapper.
   tenancy init; RLS policies filter rows by `tenant_id = current_setting(...)`.
 - One shared DB role (`TENANCY_RLS_USERNAME`) runs all tenant-scoped queries;
   there is no per-tenant DB user.
-- `tests/Tenancy/PostgresRlsTest.php` is the reference test for how policies
-  are verified (naming convention, table coverage, hard failure when the
-  session var is reset).
+- Reference RLS tests: `tests/Feature/Tenancy/RlsPolicyTest.php` (policy naming +
+  table coverage) and `RlsIsolationTest.php` (row isolation, hard failure when
+  the session var is reset). For test layout/conventions/backend, the
+  `pest-testing` skill is the single source of truth — don't restate them here.
 
 ## Identification
 - Default middleware: `InitializeTenancyByDomainOrSubdomain` (supports both
@@ -60,8 +61,8 @@ who can open a panel at all.
   leaks a `tenant` key into `toArray()`/`toJson()`. `->refresh()` does not
   clear it (reloads already-loaded relations) — re-fetch via
   `Model::query()->findOrFail($id)` in shape tests instead.
-- **Parallel test leftovers**: the `Tenancy` Pest group creates one Postgres
-  DB per parallel-runner token (`ezsite_testing_test_*`), and
+- **Parallel test leftovers**: the suite creates one Postgres DB per
+  parallel-runner token (`ezsite_testing_test_*`), and
   `FilesystemTenancyBootstrapper` creates `storage/tenant{uuid}/...` dirs per
   test tenant. Storage dirs are auto-cleaned in `tests/Pest.php`'s
   `afterEach`; the Postgres DBs are left behind by design (Laravel's own

@@ -21,10 +21,15 @@ jobs:
     services:
       postgres:
         image: postgres:17
+        # The whole test suite runs on Postgres (see tests/Pest.php). `postgres`
+        # is a superuser, which the suite requires so non-tenancy tests bypass
+        # RLS (asserted by tests/Feature/Tenancy/DatabaseRoleTest). This creates
+        # the base `ezsite_testing` DB; the parallel runner clones per-worker
+        # copies off it and runs its own migrate:fresh.
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: testing
+          POSTGRES_DB: ezsite_testing
         ports:
           - 5432:5432
         options: >-
@@ -61,19 +66,6 @@ jobs:
 
       - name: Generate Application Key
         run: php artisan key:generate
-
-      - name: Prepare Database
-        run: php artisan migrate --force
-        env:
-          # .env.example points at the `ezsite` database, but the Postgres
-          # service above only seeds `testing` — override just for this step
-          # so later steps don't inherit it and fight phpunit.xml's sqlite setup.
-          DB_DATABASE: testing
-
-      - name: Create Tenancy Test Database
-        # tests/Pest.php's Tenancy group connects to this database as its base
-        # connection so it can CREATE DATABASE the per-parallel-worker copies.
-        run: PGPASSWORD=postgres psql -h 127.0.0.1 -U postgres -c 'CREATE DATABASE ezsite_testing;'
 
       - name: Type Coverage
         run: composer test:type-coverage

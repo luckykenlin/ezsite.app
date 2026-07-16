@@ -1,6 +1,6 @@
 # 商家数据模型 — Brainstorm 存档
 
-> 状态：**头脑风暴阶段，尚未写代码**。本文档记录商家信息（Business / Location）建表的架构讨论与初步 schema 设计，下次继续时先过一遍对齐上下文。
+> 状态：**v1 已落地** —— `businesses` + `locations` 两张表、模型、工厂、RLS/隔离测试已建（`tests/Tenancy/BusinessAndLocationTest.php`）。三个开放问题已拍板（见下）。营业时间表、社交/口碑预留表、Filament 后台、block 绑定仍待做。
 > 关联文档：[PLAN.md](../PLAN.md)（网站构建器第一阶段）、[.claude/docs/tenancy.md](../.claude/docs/tenancy.md)（多租户内部机制）。
 
 ## 背景与目标
@@ -144,17 +144,19 @@ reply_content(text null), reply_status(string), reviewed_at, replied_at, meta(js
 - **`businesses.tenant_id` 加 `->comment('no-rls')`**：理由与现有 `domains.tenant_id`、`tenant_user.tenant_id` 一致 —— central 面板要**跨 tenant 列出/搜索所有客户商家**（agency 花名册），必须在 tenancy 解析之前就能查。因为是 1:1，租户内读取自己的 business 用 `where tenant_id = 当前` 即可，不依赖 RLS。
 - **`locations` / `location_hours` / `social_accounts` / `reviews` 的 `tenant_id` 走正常 RLS**：跟 `Post` 一样，不加 trait、不加 global scope，隔离完全交给自动生成的 RLS 策略。子表各自带 `tenant_id` 列，RLS 才能逐表隔离。
 
-## 开放问题（待拍板 → 才动手建 migration/model/factory）
+## 开放问题（已拍板）
 
-1. **品牌色放哪？**
-   - 方案 a（倾向）：`businesses` 存"品牌色源值"，网站 design token 从中派生。理由：品牌色是商家身份，社交发帖 / 评论回复 / 白标都要用，不该只属于网站。
-   - 方案 b：颜色完全归 PLAN.md 的 Design Token / Style Preset 系统，`businesses` 不存色，只存 logo。
-2. **`businesses` 字段颗粒度是否够 v1？** 是否要加：预约链接、菜单 URL、Yelp/大众点评等外部 profile 链接？
-3. **落地范围**：是否先只建 v1 的 `businesses` + `locations` + `location_hours`(+`special_hours`)，把 `social_accounts` / `reviews` 留到真正做社交模块时再建？
+1. **品牌色放哪？** → **方案 a**：`brand_primary` / `brand_secondary` / `brand_accent` 存在 `businesses`，作为品牌身份源值，网站 design token 从中派生。
+2. **`businesses` 字段颗粒度是否够 v1？** → **v1 不加**外部链接类字段（预约链接、菜单 URL、Yelp/大众点评 profile 等），保持精简，需要时再 migration。
+3. **落地范围** → **只先建 `businesses` + `locations`**。`location_hours`(+`special_hours`)、`social_accounts` / `reviews` 全部暂缓，后面慢慢加。
 
-## 下一步
+## 实现要点（v1 已完成）
 
-确认开放问题后，按 `php artisan make:model`（含 factory/seeder）动手，并在 `tests/Tenancy/*` 补 RLS/隔离测试（真实 Postgres）。
+- `businesses.tenant_id`：`->unique()->comment('no-rls')`（central 花名册，1:1，跨 tenant 可查）；`locations.tenant_id`：正常 RLS（照 `Post`）。
+- 模型依赖 `nunomaduro/essentials` 全局 unguard，**不加 `#[Fillable]`**（`Post` 旧的也已移除）。
+- `Business` slug 由 `#[Sluggable(from: 'name')]`（`nunomaduro/laravel-sluggable`）自动生成，Filament 表单无需手填。
+- 文件：`app/Models/{Business,Location}.php`、`database/migrations/*_create_{businesses,locations}_table.php`、`database/factories/{Business,Location}Factory.php`、`tests/Tenancy/BusinessAndLocationTest.php`；`tests/Tenancy/PostgresRlsTest.php` 加了 `toContain('locations')` / `not->toContain('businesses')`。
 
----
-*本文档记录头脑风暴结论，尚未开始编码。*
+## 下一步（未做）
+
+营业时间结构表 → 社交/口碑预留表 → central `BusinessResource` 与 tenant location 管理（Filament）→ page block 的 `{"bind":...}` 引用机制与 brand_* 派生 design token。

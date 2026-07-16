@@ -4,31 +4,15 @@ declare(strict_types=1);
 
 use App\Filament\Tenant\Resources\Posts\Pages\ListPosts;
 use App\Models\Post;
-use App\Models\Tenant;
-use App\Models\User;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\Testing\TestAction;
-use Filament\Facades\Filament;
 use Livewire\Livewire;
 
 beforeEach(function (): void {
-    $this->tenant = Tenant::factory()->create();
-
-    $user = User::factory()->create();
-    $user->tenants()->attach($this->tenant);
-    $this->actingAs($user);
-
-    tenancy()->initialize($this->tenant);
-
-    Filament::setCurrentPanel(Filament::getPanel('tenant'));
-    Filament::setTenant($this->tenant);
-});
-
-afterEach(function (): void {
-    tenancy()->end();
+    $this->tenant = $this->actingAsTenantPanelMember();
 });
 
 test('can list posts', function (): void {

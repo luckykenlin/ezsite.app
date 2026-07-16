@@ -16,9 +16,14 @@ per tenant. `DatabaseTenancyBootstrapper` is intentionally disabled;
 - `Domain->domain` holds either a bare subdomain label (`acme`) or a
   fully-qualified custom domain (`acme.example.com`); which one is inferred by
   checking for a `.` (`Domain::getUrl()`). Don't add a separate "type" column.
-- `tests/Tenancy/*` run against a real Postgres DB (own `migrate:fresh` in
-  `tests/Pest.php`), not the sqlite used elsewhere — put RLS/identification
-  tests there.
+- The whole test suite runs against a real Postgres DB (per-test `migrate:fresh`
+  in `tests/Pest.php`), never sqlite. The test DB role **must** be a SUPERUSER or
+  have BYPASSRLS (`DB_USERNAME=postgres`): non-tenancy tests write to
+  RLS-protected tables without initializing tenancy and rely on bypassing RLS
+  (`tests/Feature/Tenancy/DatabaseRoleTest` guards this). Call
+  `tenancy()->initialize()` to exercise isolation. RLS / identification / panel
+  tests live in `tests/Feature/Tenancy/*`. See the `pest-testing` skill for the
+  full test layout and conventions.
 - Required env: `TENANCY_RLS_USERNAME` / `TENANCY_RLS_PASSWORD`.
 - RLS only scopes rows, not panel entry. `User::canAccessPanel()` gates the
   `central`/`tenant` Filament panels separately via `is_super_admin` and the

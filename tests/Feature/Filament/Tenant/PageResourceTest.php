@@ -4,26 +4,10 @@ declare(strict_types=1);
 
 use App\Filament\Tenant\Resources\PageResource\Pages\CreatePage;
 use App\Models\Page;
-use App\Models\Tenant;
-use App\Models\User;
-use Filament\Facades\Filament;
 use Livewire\Livewire;
 
 beforeEach(function (): void {
-    $this->tenant = Tenant::factory()->create();
-
-    $user = User::factory()->create();
-    $user->tenants()->attach($this->tenant);
-    $this->actingAs($user);
-
-    tenancy()->initialize($this->tenant);
-
-    Filament::setCurrentPanel(Filament::getPanel('tenant'));
-    Filament::setTenant($this->tenant);
-});
-
-afterEach(function (): void {
-    tenancy()->end();
+    $this->tenant = $this->actingAsTenantPanelMember();
 });
 
 test('can create a page scoped to the current tenant', function (): void {

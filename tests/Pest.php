@@ -3,7 +3,6 @@
 declare(strict_types=1);
 
 use Illuminate\Database\QueryException;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
@@ -13,10 +12,19 @@ use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Sleep;
 use Illuminate\Support\Str;
+use Tests\Concerns\InteractsWithTenancy;
 use Tests\TestCase;
 
+/*
+ * The whole suite runs against a real Postgres database with RLS — the same
+ * engine as production — so tenant isolation is always exercised for real.
+ * Each test gets its own migrate:fresh (one database per parallel token).
+ * Non-tenancy tests run as the superuser connection, which bypasses RLS, so
+ * they read/write freely; tenancy tests call tenancy()->initialize() to switch
+ * to the restricted RLS role and observe isolation.
+ */
 pest()->extend(TestCase::class)
-    ->use(RefreshDatabase::class)
+    ->use(InteractsWithTenancy::class)
     ->beforeEach(function (): void {
         Str::createRandomStringsNormally();
         Str::createUuidsNormally();
@@ -25,16 +33,7 @@ pest()->extend(TestCase::class)
         Sleep::fake();
 
         $this->freezeTime();
-    })
-    ->in('Browser', 'Feature', 'Unit');
 
-/*
- * Postgres RLS can't be exercised on the sqlite connection the rest of the
- * suite uses, so this group runs against a dedicated real Postgres database
- * instead of relying on RefreshDatabase/sqlite.
- */
-pest()->extend(TestCase::class)
-    ->beforeEach(function (): void {
         $baseDatabase = 'ezsite_testing';
         $token = ParallelTesting::token();
         $database = $token ? sprintf('%s_test_%s', $baseDatabase, $token) : $baseDatabase;
@@ -45,8 +44,8 @@ pest()->extend(TestCase::class)
             // The package's CentralConnection trait always queries whatever connection
             // this key names, regardless of database.default, so it must point at pgsql too.
             'tenancy.database.central_connection' => 'pgsql',
-            // CacheTenancyBootstrapper doesn't support the 'array' store the rest of the
-            // suite uses for speed, so use the real 'database' store here instead.
+            // CacheTenancyBootstrapper doesn't support the 'array' store, so use the
+            // real 'database' store here instead.
             'cache.default' => 'database',
             'tenancy.cache.stores' => ['database'],
         ]);
@@ -75,10 +74,16 @@ pest()->extend(TestCase::class)
         ]);
     })
     ->afterEach(function (): void {
+        // End tenancy so a test that leaves it initialized can't leak the RLS
+        // session context into the next test. Idempotent when already ended.
+        tenancy()->end();
+
         // FilesystemTenancyBootstrapper creates storage/{tenant} directories as a
         // side effect of initializing tenancy; clean them up so they don't pile up.
+        // Parallel runners share this path, so a directory can vanish between the
+        // glob and the delete — ignore the resulting race rather than fail the test.
         foreach (File::glob(storage_path('tenant*')) as $tenantStoragePath) {
-            File::deleteDirectory($tenantStoragePath);
+            rescue(fn () => File::deleteDirectory($tenantStoragePath), report: false);
         }
     })
-    ->in('Tenancy');
+    ->in('Feature', 'Unit');
