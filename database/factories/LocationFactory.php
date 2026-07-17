@@ -8,6 +8,7 @@ use App\Models\Business;
 use App\Models\Location;
 use App\Models\Tenant;
 use Illuminate\Database\Eloquent\Factories\Factory;
+use Spatie\OpeningHours\OpeningHours;
 
 /**
  * @extends Factory<Location>
@@ -40,7 +41,42 @@ final class LocationFactory extends Factory
             'phone' => fake()->phoneNumber(),
             'email' => fake()->companyEmail(),
             'timezone' => fake()->timezone(),
+            'opening_hours' => OpeningHours::create([
+                'monday' => ['09:00-17:00'],
+                'tuesday' => ['09:00-17:00'],
+                'wednesday' => ['09:00-17:00'],
+                'thursday' => ['09:00-17:00'],
+                'friday' => ['09:00-17:00'],
+                'saturday' => ['10:00-14:00'],
+                'sunday' => [],
+            ]),
             'status' => 'active',
         ];
+    }
+
+    /**
+     * A location open around the clock, every day.
+     */
+    public function alwaysOpen(): self
+    {
+        return $this->state(fn (): array => [
+            'opening_hours' => OpeningHours::create([
+                'monday' => ['00:00-24:00'],
+                'tuesday' => ['00:00-24:00'],
+                'wednesday' => ['00:00-24:00'],
+                'thursday' => ['00:00-24:00'],
+                'friday' => ['00:00-24:00'],
+                'saturday' => ['00:00-24:00'],
+                'sunday' => ['00:00-24:00'],
+            ]),
+        ]);
+    }
+
+    /**
+     * A location with no opening hours recorded.
+     */
+    public function withoutOpeningHours(): self
+    {
+        return $this->state(fn (): array => ['opening_hours' => null]);
     }
 }

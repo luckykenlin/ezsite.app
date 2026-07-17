@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Casts\OpeningHours as OpeningHoursCast;
 use Database\Factories\LocationFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Spatie\OpeningHours\OpeningHours;
 
 /**
  * @property int $id
@@ -27,6 +29,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property string|null $phone
  * @property string|null $email
  * @property string|null $timezone
+ * @property OpeningHours|null $opening_hours
  * @property string $status
  *
  * @method static LocationFactory factory($count = null, $state = [])
@@ -63,6 +66,7 @@ final class Location extends Model
             'is_primary' => 'boolean',
             'latitude' => 'decimal:7',
             'longitude' => 'decimal:7',
+            'opening_hours' => OpeningHoursCast::class,
         ];
     }
 }

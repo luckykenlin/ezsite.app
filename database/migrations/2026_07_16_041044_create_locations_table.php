@@ -35,6 +35,7 @@ return new class extends Migration
             $table->string('email')->nullable();
 
             $table->string('timezone')->nullable();
+            $table->json('opening_hours')->nullable();
             $table->string('status')->default('active');
 
             $table->timestamps();

@@ -1,6 +1,6 @@
 # 商家数据模型 — Brainstorm 存档
 
-> 状态：**v1 已落地** —— `businesses` + `locations` 两张表、模型、工厂、RLS/隔离测试已建（`tests/Tenancy/BusinessAndLocationTest.php`）。三个开放问题已拍板（见下）。营业时间表、社交/口碑预留表、Filament 后台、block 绑定仍待做。
+> 状态：**v1 已落地** —— `businesses` + `locations` 两张表、模型、工厂、RLS/隔离测试已建。三个开放问题已拍板（见下）。**营业时间已落地**（`locations.opening_hours` JSON 列 + `spatie/opening-hours`，见下方"营业时间"）。社交/口碑预留表、Filament 后台、block 绑定仍待做。
 > 关联文档：[PLAN.md](../PLAN.md)（网站构建器第一阶段）、[.claude/docs/tenancy.md](../.claude/docs/tenancy.md)（多租户内部机制）。
 
 ## 背景与目标
@@ -52,9 +52,8 @@
 tenants (已存在, central, 无RLS)         ← 客户商家的身份/注册表
    │ 1:1
    ▼
-businesses ───1:N──▶ locations ───1:N──▶ location_hours
-   │                     │
-   │                     └──1:N──▶ location_special_hours
+businesses ───1:N──▶ locations
+   │                     │ opening_hours (JSON 列, spatie/opening-hours; 含 exceptions)
    │
    ├──1:N──▶ social_accounts   (预留, v1 不建/建空壳)
    └──1:N──▶ reviews           (预留)
@@ -102,21 +101,21 @@ pages / page_blocks (已存在, tenant-scoped) ──bind──▶ locations / b
 | status | string | |
 | timestamps | | |
 
-### `location_hours`（规律营业时间，按 GBP 结构建模）
+### 营业时间：`locations.opening_hours`（JSON 列 + `spatie/opening-hours`）—— 已落地
 
-| 列 | 类型 | 说明 |
-|---|---|---|
-| id | bigint PK | |
-| tenant_id | uuid, RLS-scoped | |
-| location_id | FK | |
-| day_of_week | tinyint 0–6 | |
-| open_time / close_time | time | |
-| is_closed | bool | 当天休息 |
+**决定改用 `spatie/opening-hours` 值对象 + 单个 JSON 列，放弃原计划的 `location_hours` / `location_special_hours` 两张结构表。**
 
-- 一天允许**多行**（午市/晚市分段，餐馆常见）。
-- 特殊日期（节假日）单独放 `location_special_hours`（date, open/close/is_closed）。
-- 该结构能直接映射 GBP 的 `regularHours` / `specialHours`。
-- 简化替代：营业时间存 location 上的一个 JSON 列。v1 够用，但接 GBP 时要转结构 —— 因此倾向一步到位用结构化表。
+理由：`spatie/opening-hours` 的 `OpeningHours` 值对象天然把"规律营业时间 + 特殊日期（exceptions）"装在一起，且自带 `isOpenAt()` / `nextOpen()` / `currentOpenRange()` 等查询能力,无需自己写。原来"结构表才好接 GBP"的顾虑被包解决了 —— 它的 `asStructuredData()` / `createFromStructuredData()` 用的正是 schema.org `OpeningHoursSpecification`（GBP 消费的同一格式）。
+
+实现：
+
+- `locations.opening_hours` 是 `json` 列(nullable),存 **schema.org structured data**,由 `App\Casts\OpeningHours` 双向转换。
+- 读出来是 `Spatie\OpeningHours\OpeningHours` 值对象,并把 location 自己的 `timezone` 列注入,所有查询按门店本地时区解析。
+- **赋值只接受 `OpeningHours` 实例或 `null`**(用 `OpeningHours::create([...])` 构造),不收裸数组 —— 让 authoring 格式在调用点(工厂/表单/测试)就被校验,同时规避 `create()` 那个 sealed array-shape 在 phpstan level max 下的摩擦。
+- 一天可**多段**(午市/晚市: `['09:00-12:00','13:00-17:00']`);特殊日期走 `exceptions`(节假日闭店 `['2026-12-25' => []]` 或临时时段)。
+- 工厂状态:`alwaysOpen()`(7×24)、`withoutOpeningHours()`(null)。
+- 文件:`app/Casts/OpeningHours.php`、`app/Models/Location.php`(cast + `opening_hours` 列)、`database/factories/LocationFactory.php`、`tests/Unit/Models/LocationTest.php`。
+- RLS 不受影响:只是 `locations` 上的一个列,隔离仍由 `locations.tenant_id` 的 RLS 策略负责,无新表。
 
 ## 预留钩子（现在定形状，v1 不做功能）
 
@@ -142,7 +141,7 @@ reply_content(text null), reply_status(string), reviewed_at, replied_at, meta(js
 ## RLS 放置（对齐 CLAUDE.md / tenancy.md 约定）
 
 - **`businesses.tenant_id` 加 `->comment('no-rls')`**：理由与现有 `domains.tenant_id`、`tenant_user.tenant_id` 一致 —— central 面板要**跨 tenant 列出/搜索所有客户商家**（agency 花名册），必须在 tenancy 解析之前就能查。因为是 1:1，租户内读取自己的 business 用 `where tenant_id = 当前` 即可，不依赖 RLS。
-- **`locations` / `location_hours` / `social_accounts` / `reviews` 的 `tenant_id` 走正常 RLS**：跟 `Post` 一样，不加 trait、不加 global scope，隔离完全交给自动生成的 RLS 策略。子表各自带 `tenant_id` 列，RLS 才能逐表隔离。
+- **`locations` / `social_accounts` / `reviews` 的 `tenant_id` 走正常 RLS**：跟 `Post` 一样，不加 trait、不加 global scope，隔离完全交给自动生成的 RLS 策略。子表各自带 `tenant_id` 列，RLS 才能逐表隔离。（营业时间已不是独立表，而是 `locations.opening_hours` JSON 列，隔离随 `locations` 走。）
 
 ## 开放问题（已拍板）
 
@@ -159,4 +158,4 @@ reply_content(text null), reply_status(string), reviewed_at, replied_at, meta(js
 
 ## 下一步（未做）
 
-营业时间结构表 → 社交/口碑预留表 → central `BusinessResource` 与 tenant location 管理（Filament）→ page block 的 `{"bind":...}` 引用机制与 brand_* 派生 design token。
+社交/口碑预留表 → central `BusinessResource` 与 tenant location 管理（Filament，含营业时间编辑 UI）→ page block 的 `{"bind":...}` 引用机制与 brand_* 派生 design token。

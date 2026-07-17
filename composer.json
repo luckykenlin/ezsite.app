@@ -23,6 +23,7 @@
         "laravel/tinker": "^3.0.2",
         "nunomaduro/essentials": "^1.2",
         "nunomaduro/laravel-sluggable": "^1.0",
+        "spatie/opening-hours": "^4.2",
         "stancl/tenancy": "dev-master",
         "z3d0x/filament-fabricator": "^4.1"
     },
