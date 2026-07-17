@@ -12,7 +12,9 @@ return new class extends Migration
     {
         Schema::create('posts', function (Blueprint $table): void {
             $table->id();
-            $table->string('tenant_id');
+            // Indexed: RLS injects `WHERE tenant_id = current_setting(...)` into every
+            // query, so an unindexed tenant_id means a sequential scan on the shared DB.
+            $table->string('tenant_id')->index();
             $table->string('title');
             $table->text('body')->nullable();
             $table->timestamps();

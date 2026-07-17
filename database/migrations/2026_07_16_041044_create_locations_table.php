@@ -41,6 +41,10 @@ return new class extends Migration
             $table->timestamps();
             $table->softDeletes();
 
+            // Leads with tenant_id for the RLS-injected predicate; the second column
+            // also serves the Business::locations() / soft-delete-cascade lookups.
+            $table->index(['tenant_id', 'business_id']);
+
             $table->foreign('tenant_id')->references('id')->on('tenants')->onUpdate('cascade')->onDelete('cascade');
         });
     }
