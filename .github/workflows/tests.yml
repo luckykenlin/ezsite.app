@@ -67,6 +67,28 @@ jobs:
       - name: Generate Application Key
         run: php artisan key:generate
 
+      # The tenancy layer does a check-then-CREATE USER for the cluster-global
+      # `tenancy_rls` role (vendor ManagesPostgresUsers::createUser). Under
+      # `pest --parallel`, every worker's first migrate:fresh fires `tenants:rls`
+      # at once and they race — one creates the role, the rest crash with
+      # "role tenancy_rls already exists". Creating it once, serially, up front
+      # makes every worker take the idempotent "already exists" path. Credentials
+      # mirror .env.example (TENANCY_RLS_USERNAME / TENANCY_RLS_PASSWORD); these
+      # are throwaway local/CI test creds, not secrets. See .claude/docs/tenancy.md.
+      - name: Pre-create the RLS role (prevents a parallel CREATE USER race)
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h 127.0.0.1 -p 5432 -U postgres -d ezsite_testing -v ON_ERROR_STOP=1 <<'SQL'
+          DO $$
+          BEGIN
+            IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'tenancy_rls') THEN
+              CREATE ROLE tenancy_rls LOGIN PASSWORD 'tenancy_rls_local_dev_password';
+            END IF;
+          END
+          $$;
+          SQL
+
       - name: Type Coverage
         run: composer test:type-coverage
 
