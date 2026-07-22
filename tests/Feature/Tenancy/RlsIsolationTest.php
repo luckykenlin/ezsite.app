@@ -105,21 +105,25 @@ test('users stay global and are unaffected by tenancy', function (): void {
     tenancy()->end();
 });
 
-test('businesses are not rls-isolated and are scoped manually by tenant_id', function (): void {
+test('a tenant sees only its own business once tenancy is initialized', function (): void {
     $tenantA = Tenant::factory()->create();
     $tenantB = Tenant::factory()->create();
 
     tenancy()->initialize($tenantA);
-    Business::factory()->create(['tenant_id' => $tenantA->id, 'name' => 'Acme A']);
+    $business = Business::factory()->create(['tenant_id' => $tenantA->id, 'name' => 'Acme A']);
+    expect($business->tenant->is($tenantA))->toBeTrue();
     tenancy()->end();
 
     tenancy()->initialize($tenantB);
     Business::factory()->create(['tenant_id' => $tenantB->id, 'name' => 'Acme B']);
 
-    // no-rls: tenant B's session still sees tenant A's business row
-    expect(Business::query()->count())->toBe(2)
-        ->and(Business::query()->where('tenant_id', $tenantA->id)->sole()->name)->toBe('Acme A')
-        ->and(Business::query()->where('tenant_id', $tenantB->id)->sole()->name)->toBe('Acme B');
+    expect(Business::query()->count())->toBe(1)
+        ->and(Business::query()->sole()->name)->toBe('Acme B');
+    tenancy()->end();
+
+    tenancy()->initialize($tenantA);
+    expect(Business::query()->count())->toBe(1)
+        ->and(Business::query()->sole()->name)->toBe('Acme A');
     tenancy()->end();
 });
 
