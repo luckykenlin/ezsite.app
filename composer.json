@@ -55,10 +55,7 @@
             "App\\": "app/",
             "Database\\Factories\\": "database/factories/",
             "Database\\Seeders\\": "database/seeders/"
-        },
-        "files": [
-            "app/Helpers.php"
-        ]
+        }
     },
     "autoload-dev": {
         "psr-4": {
@@ -113,7 +110,7 @@
             "rector --dry-run",
             "npm run test:lint"
         ],
-        "test:unit": "XDEBUG_MODE=\"coverage\" pest --parallel --coverage --exactly=100.0",
+        "test:unit": "XDEBUG_MODE=\"coverage\" pest --parallel --processes=8 --coverage --exactly=100.0",
         "test:types": [
             "phpstan --memory-limit=-1",
             "npm run test:types"

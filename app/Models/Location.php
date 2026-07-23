@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Casts\OpeningHours as OpeningHoursCast;
+use App\Concerns\RequiresTenantContext;
 use Database\Factories\LocationFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -39,6 +40,7 @@ final class Location extends Model
     /** @use HasFactory<LocationFactory> */
     use HasFactory;
 
+    use RequiresTenantContext;
     use SoftDeletes;
 
     /**

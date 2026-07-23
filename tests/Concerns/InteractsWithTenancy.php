@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Concerns;
 
+use App\Actions\RunInTenant;
 use App\Models\Page;
 use App\Models\Tenant;
 use App\Models\User;
+use Closure;
 use Filament\Facades\Filament;
 
 /**
@@ -40,6 +42,22 @@ trait InteractsWithTenancy
         Filament::setTenant($tenant);
 
         return $tenant;
+    }
+
+    /**
+     * Run a callback inside the tenant's RLS context via the same sanctioned
+     * channel production uses, so tests write RLS-scoped models the way real
+     * out-of-band writers must (the RequiresTenantContext guard rejects writes
+     * made in central context).
+     *
+     * @template TReturn
+     *
+     * @param  Closure(): TReturn  $callback
+     * @return TReturn
+     */
+    protected function runInTenant(Tenant|string $tenant, Closure $callback): mixed
+    {
+        return resolve(RunInTenant::class)->handle($tenant, $callback);
     }
 
     /**

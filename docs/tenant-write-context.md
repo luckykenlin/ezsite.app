@@ -112,7 +112,9 @@ app(RunInTenant::class)->handle($tenant, function () use ($payload): void {
 
 ### 闸 2 — `RequiresTenantContext`：运行时守卫（防呆，最强的一道）
 
-即使有人忘了走 `RunInTenant`，这道闸把"静默写错租户"变成"当场抛异常"。挂在**所有 RLS 作用域模型**上（`Post` / `Page` / `Location` / 未来的 `reviews` / `social_accounts`）——**不挂 no-rls 模型**（`Business`：它靠手动 `tenant_id` 隔离，且合法地在 central 面板被跨租户写，见 tenancy.md L4）。
+即使有人忘了走 `RunInTenant`，这道闸把"静默写错租户"变成"当场抛异常"。挂在**所有 RLS 作用域模型**上（`Post` / `Page` / `Location` / `Business` / 未来的 `reviews` / `social_accounts`）。哪些模型算"RLS 作用域"不靠手写清单维护——`RlsPolicyTest` 里有一条 fail-closed 测试从真实策略集反推：**任何背靠 RLS 保护表的 `App\Models` 模型都必须 use 本 trait**，新加的 RLS 表忘了挂守卫会当场红。
+
+> 注：`Business` 曾计划为 no-rls 花名册，但已改为受 RLS 保护（见 [business-data-model.md](./business-data-model.md) 的 RLS 放置更新），因此它也挂守卫。central 面板读花名册靠 BYPASSRLS，写回单租户走 `RunInTenant`。
 
 `app/Concerns/RequiresTenantContext.php`
 
@@ -227,13 +229,13 @@ abstract class TenantAware implements ShouldQueue
 
 新增 `tests/Arch/`（承接 REVIEW L21）：
 
-8. 每个 RLS 作用域模型（排除 no-rls 的 `Business`）**必须 use `RequiresTenantContext`**（arch 断言 trait 存在）。
+8. 每个背靠 RLS 保护表的 `App\Models` 模型（含 `Business`）**必须 use `RequiresTenantContext`**——从真实策略集反推的 fail-closed 测试（落在 `RlsPolicyTest`），而非手写清单。
 9. `App\Actions` 全部 `final readonly`（补 L21）。
 
 ## 7. 落地顺序
 
 1. 钉死 `stancl/tenancy` commit（REVIEW M6）。
-2. 建 `RequiresTenantContext` trait + 挂到 `Post`/`Page`/`Location`，跑现有租户测试确认不回归（它们都在 initialize 内写，应全绿）。
+2. 建 `RequiresTenantContext` trait + 挂到 `Post`/`Page`/`Location`/`Business`，跑现有租户测试。注意：部分 unit/shape 测试原本在 central 上下文靠超级用户 BYPASSRLS 裸写这些表，加守卫后会红——把它们的写包进 `RunInTenant`（测试用 `InteractsWithTenancy::runInTenant` helper）。
 3. 建 `RunInTenant` + 写路径测试 1–5。
 4. 建 `TenantAware` + 测试 6。
 5. 加角色权限锁定测试 7 + arch 测试 8–9。

@@ -18,10 +18,11 @@ arch('models are final classes')
     ->toBeClasses()
     ->toBeFinal();
 
-arch('actions are final and expose a single handle entrypoint')
+arch('actions are final readonly and expose a single handle entrypoint')
     ->expect('App\Actions')
     ->toBeClasses()
     ->toBeFinal()
+    ->toBeReadonly()
     ->toHaveMethod('handle');
 
 arch('page blocks extend the app base block and are final')

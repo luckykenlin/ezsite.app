@@ -10,72 +10,89 @@ use Illuminate\Database\QueryException;
 test('a tenant can only have one business (unique tenant_id)', function (): void {
     $tenant = Tenant::factory()->create();
 
-    Business::factory()->create(['tenant_id' => $tenant->id, 'name' => 'First Business']);
+    $this->runInTenant($tenant, function () use ($tenant): void {
+        Business::factory()->create(['tenant_id' => $tenant->id, 'name' => 'First Business']);
 
-    expect(fn () => Business::factory()->create(['tenant_id' => $tenant->id, 'name' => 'Second Business']))
-        ->toThrow(QueryException::class, 'tenant_id');
+        expect(fn () => Business::factory()->create(['tenant_id' => $tenant->id, 'name' => 'Second Business']))
+            ->toThrow(QueryException::class, 'tenant_id');
+    });
 });
 
 test('tenant relation returns the owning tenant', function (): void {
     $tenant = Tenant::factory()->create();
-    $business = Business::factory()->create(['tenant_id' => $tenant->id]);
+    $business = $this->runInTenant($tenant, fn (): Business => Business::factory()->create(['tenant_id' => $tenant->id]));
+    $business = Business::query()->findOrFail($business->getKey());
 
     expect($business->tenant->is($tenant))->toBeTrue();
 });
 
 test('locations relation returns the business locations', function (): void {
-    $business = Business::factory()->create();
-    Location::factory()->count(2)->create([
-        'tenant_id' => $business->tenant_id,
-        'business_id' => $business->id,
-    ]);
+    $tenant = Tenant::factory()->create();
+    $business = $this->runInTenant($tenant, function () use ($tenant): Business {
+        $business = Business::factory()->create(['tenant_id' => $tenant->id]);
+        Location::factory()->count(2)->create(['tenant_id' => $tenant->id, 'business_id' => $business->id]);
 
-    expect($business->locations)->toHaveCount(2);
+        return $business;
+    });
+
+    expect(Business::query()->findOrFail($business->getKey())->locations)->toHaveCount(2);
 });
 
 test('slug is auto-generated from name via laravel-sluggable', function (): void {
-    $business = Business::factory()->create(['name' => 'The Corner Cafe']);
+    $tenant = Tenant::factory()->create();
+    $business = $this->runInTenant($tenant, fn (): Business => Business::factory()->create([
+        'tenant_id' => $tenant->id,
+        'name' => 'The Corner Cafe',
+    ]));
 
     expect($business->slug)->toBe('the-corner-cafe');
 });
 
 test('slug is scoped per tenant so two tenants can share a name and slug', function (): void {
-    $businessA = Business::factory()->create(['name' => 'Shared Name']);
-    $businessB = Business::factory()->create(['name' => 'Shared Name']);
+    $tenantA = Tenant::factory()->create();
+    $tenantB = Tenant::factory()->create();
+
+    $businessA = $this->runInTenant($tenantA, fn (): Business => Business::factory()->create(['tenant_id' => $tenantA->id, 'name' => 'Shared Name']));
+    $businessB = $this->runInTenant($tenantB, fn (): Business => Business::factory()->create(['tenant_id' => $tenantB->id, 'name' => 'Shared Name']));
 
     expect($businessA->slug)->toBe('shared-name')
         ->and($businessB->slug)->toBe('shared-name');
 });
 
 test('soft-deleting a business cascades to its locations and restoring brings them back', function (): void {
-    $business = Business::factory()->create();
-    Location::factory()->count(2)->create([
-        'tenant_id' => $business->tenant_id,
-        'business_id' => $business->id,
-    ]);
+    $tenant = Tenant::factory()->create();
+    $businessId = $this->runInTenant($tenant, function () use ($tenant): int {
+        $business = Business::factory()->create(['tenant_id' => $tenant->id]);
+        Location::factory()->count(2)->create(['tenant_id' => $tenant->id, 'business_id' => $business->id]);
 
-    $business->delete();
+        return $business->getKey();
+    });
+
+    $this->runInTenant($tenant, fn () => Business::query()->findOrFail($businessId)->delete());
     expect(Location::query()->count())->toBe(0)
         ->and(Location::withTrashed()->count())->toBe(2);
 
-    $business->restore();
+    $this->runInTenant($tenant, fn () => Business::withTrashed()->findOrFail($businessId)->restore());
     expect(Location::query()->count())->toBe(2);
 });
 
 test('force-deleting a business skips the soft-delete cascade and removes locations via the DB cascade', function (): void {
-    $business = Business::factory()->create();
-    Location::factory()->count(2)->create([
-        'tenant_id' => $business->tenant_id,
-        'business_id' => $business->id,
-    ]);
+    $tenant = Tenant::factory()->create();
+    $businessId = $this->runInTenant($tenant, function () use ($tenant): int {
+        $business = Business::factory()->create(['tenant_id' => $tenant->id]);
+        Location::factory()->count(2)->create(['tenant_id' => $tenant->id, 'business_id' => $business->id]);
 
-    $business->forceDelete();
+        return $business->getKey();
+    });
+
+    $this->runInTenant($tenant, fn () => Business::query()->findOrFail($businessId)->forceDelete());
 
     expect(Location::withTrashed()->count())->toBe(0);
 });
 
 test('to array', function (): void {
-    $business = Business::factory()->create();
+    $tenant = Tenant::factory()->create();
+    $business = $this->runInTenant($tenant, fn (): Business => Business::factory()->create(['tenant_id' => $tenant->id]));
     $business = Business::query()->findOrFail($business->getKey());
 
     expect(array_keys($business->toArray()))

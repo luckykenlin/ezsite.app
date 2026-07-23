@@ -2,6 +2,10 @@
 
 declare(strict_types=1);
 
+use App\Concerns\RequiresTenantContext;
+use App\Models\Business;
+use App\Models\Post;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Events\MigrationsEnded;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
@@ -110,4 +114,38 @@ test('rls policy generation succeeds for the current schema', function (): void 
     $manager = resolve(config()->string('tenancy.rls.manager'));
 
     expect(fn () => $manager->generateQueries())->not->toThrow(Exception::class);
+});
+
+/*
+ * Fail-CLOSED write guard. RLS scopes rows but the central role bypasses it, so a
+ * write made without a tenant context lands under the wrong tenant silently. Every
+ * Eloquent model backed by an RLS-protected table must therefore use
+ * RequiresTenantContext (see docs/tenant-write-context.md). Derived from the live
+ * policy set rather than a hand-kept list, so a NEW RLS-protected model that forgets
+ * the guard fails here instead of shipping an unscoped write.
+ */
+test('every model on an RLS-protected table guards writes with RequiresTenantContext', function (): void {
+    /** @var RLSPolicyManager $manager */
+    $manager = resolve(config()->string('tenancy.rls.manager'));
+    $rlsTables = array_keys($manager->generateQueries());
+
+    $models = collect(glob(app_path('Models/*.php')))
+        ->map(fn (string $file): string => 'App\\Models\\'.pathinfo($file, PATHINFO_FILENAME))
+        ->filter(fn (string $class): bool => is_subclass_of($class, Model::class));
+
+    // Sanity check: discovery actually found the known RLS-backed models, so a silent
+    // glob/namespace regression can't make this guard vacuously pass.
+    expect($models->all())->toContain(Post::class, Business::class);
+
+    $unguarded = $models
+        ->filter(fn (string $class): bool => in_array((new $class)->getTable(), $rlsTables, true))
+        ->reject(fn (string $class): bool => in_array(RequiresTenantContext::class, class_uses_recursive($class), true))
+        ->values()
+        ->all();
+
+    expect($unguarded)->toBe([], sprintf(
+        'These models are backed by an RLS-protected table but do not use RequiresTenantContext: %s. '
+        .'Add `use RequiresTenantContext;` so out-of-band writes fail loud instead of writing under the wrong tenant.',
+        implode(', ', $unguarded),
+    ));
 });

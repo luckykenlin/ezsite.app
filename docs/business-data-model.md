@@ -71,7 +71,7 @@ pages / page_blocks (已存在, tenant-scoped) ──bind──▶ locations / b
 | 列 | 类型 | 说明 |
 |---|---|---|
 | id | bigint PK | |
-| tenant_id | uuid, unique, FK→tenants, **`no-rls`** | 见下方 RLS 说明 |
+| tenant_id | uuid, unique, FK→tenants, **RLS-scoped** | 见下方 RLS 说明（已从原计划的 no-rls 改为受 RLS 保护） |
 | name / display_name | string | 对外展示名 |
 | slug | string | 用 `#[Sluggable]` 自动生成 |
 | category | string | **字符串 + 注册表**，不写死 enum（同 PLAN.md §4 对 block type 的约定；行业气质将来接 Style Preset） |
@@ -140,8 +140,12 @@ reply_content(text null), reply_status(string), reviewed_at, replied_at, meta(js
 
 ## RLS 放置（对齐 CLAUDE.md / tenancy.md 约定）
 
-- **`businesses.tenant_id` 加 `->comment('no-rls')`**：理由与现有 `domains.tenant_id`、`tenant_user.tenant_id` 一致 —— central 面板要**跨 tenant 列出/搜索所有客户商家**（agency 花名册），必须在 tenancy 解析之前就能查。因为是 1:1，租户内读取自己的 business 用 `where tenant_id = 当前` 即可，不依赖 RLS。
-- **`locations` / `social_accounts` / `reviews` 的 `tenant_id` 走正常 RLS**：跟 `Post` 一样，不加 trait、不加 global scope，隔离完全交给自动生成的 RLS 策略。子表各自带 `tenant_id` 列，RLS 才能逐表隔离。（营业时间已不是独立表，而是 `locations.opening_hours` JSON 列，隔离随 `locations` 走。）
+> **更新（后于本文档初稿）**：`businesses` 已改为**受 RLS 保护**（`tenant_id` 去掉了 `no-rls`），不再是 no-rls 花名册。`RlsPolicyTest` 断言 businesses 在策略集内，`tenancy.md` 的 Models 一节也把 Business 列为 "all RLS-only"。下面保留原始推理供追溯，实际以本更新为准。
+
+- **`businesses` 走正常 RLS**（与 `locations` 一致）：`tenant_id` 直接 FK 到 `tenants`、单跳 RLS 策略。`Business` 模型 use `RequiresTenantContext` 守卫写入（见 [tenant-write-context.md](./tenant-write-context.md)）。
+  - central 面板仍能**跨 tenant 列出/搜索所有客户商家**（agency 花名册）——靠的是 central 角色 BYPASSRLS **读**所有租户，而不是 no-rls；写回单个租户走 `RunInTenant`。
+  - ~~原计划：`businesses.tenant_id` 加 `->comment('no-rls')`，理由是花名册要在 tenancy 解析前可查。~~ 已废弃：读花名册靠 BYPASSRLS 即可，no-rls 会让 businesses 零隔离，得不偿失。
+- **`locations` / `social_accounts` / `reviews` 的 `tenant_id` 走正常 RLS**：跟 `Post` 一样，不加 global scope，隔离完全交给自动生成的 RLS 策略；写入由 `RequiresTenantContext` 守卫。子表各自带 `tenant_id` 列，RLS 才能逐表隔离。（营业时间已不是独立表，而是 `locations.opening_hours` JSON 列，隔离随 `locations` 走。）
 
 ## 开放问题（已拍板）
 
@@ -151,7 +155,7 @@ reply_content(text null), reply_status(string), reviewed_at, replied_at, meta(js
 
 ## 实现要点（v1 已完成）
 
-- `businesses.tenant_id`：`->unique()->comment('no-rls')`（central 花名册，1:1，跨 tenant 可查）；`locations.tenant_id`：正常 RLS（照 `Post`）。
+- `businesses.tenant_id`：`->unique()`，受正常 RLS 保护（1:1；花名册的跨租户读靠 central BYPASSRLS，不靠 no-rls）；`locations.tenant_id`：正常 RLS（照 `Post`）。两者的模型均 use `RequiresTenantContext` 守卫写入。
 - 模型依赖 `nunomaduro/essentials` 全局 unguard，**不加 `#[Fillable]`**（`Post` 旧的也已移除）。
 - `Business` slug 由 `#[Sluggable(from: 'name')]`（`nunomaduro/laravel-sluggable`）自动生成，Filament 表单无需手填。
 - 文件：`app/Models/{Business,Location}.php`、`database/migrations/*_create_{businesses,locations}_table.php`、`database/factories/{Business,Location}Factory.php`、`tests/Tenancy/BusinessAndLocationTest.php`；`tests/Tenancy/PostgresRlsTest.php` 加了 `toContain('locations')` / `not->toContain('businesses')`。

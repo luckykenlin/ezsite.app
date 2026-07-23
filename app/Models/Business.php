@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Concerns\RequiresTenantContext;
 use Database\Factories\BusinessFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -40,6 +41,7 @@ final class Business extends Model
     /** @use HasFactory<BusinessFactory> */
     use HasFactory;
 
+    use RequiresTenantContext;
     use SoftDeletes;
 
     /**

@@ -48,6 +48,13 @@ pest()->extend(TestCase::class)
             // real 'database' store here instead.
             'cache.default' => 'database',
             'tenancy.cache.stores' => ['database'],
+            // FilesystemTenancyBootstrapper names tenant storage dirs
+            // "{suffix_base}{tenant_id}" under the shared storage_path(). Parallel
+            // runners share that path, so scope the base per process token — the same
+            // isolation the per-token database name gives above. Without this, one
+            // process's afterEach cleanup deletes a live tenant dir owned by another
+            // process, and its next storage write throws mid-test.
+            'tenancy.filesystem.suffix_base' => $token ? sprintf('tenant_token%s_', $token) : 'tenant',
         ]);
 
         DB::purge('pgsql');
@@ -78,11 +85,13 @@ pest()->extend(TestCase::class)
         // session context into the next test. Idempotent when already ended.
         tenancy()->end();
 
-        // FilesystemTenancyBootstrapper creates storage/{tenant} directories as a
-        // side effect of initializing tenancy; clean them up so they don't pile up.
-        // Parallel runners share this path, so a directory can vanish between the
-        // glob and the delete — ignore the resulting race rather than fail the test.
-        foreach (File::glob(storage_path('tenant*')) as $tenantStoragePath) {
+        // FilesystemTenancyBootstrapper creates {suffix_base}{tenant_id} directories
+        // under storage_path() as a side effect of initializing tenancy; clean them up
+        // so they don't pile up. The glob is scoped to THIS process's token-specific
+        // suffix_base (set in beforeEach) so a parallel runner never deletes a tenant
+        // dir a concurrent process is still using. rescue() covers the residual case
+        // where our own dir vanishes between the glob and the delete.
+        foreach (File::glob(storage_path(config('tenancy.filesystem.suffix_base').'*')) as $tenantStoragePath) {
             rescue(fn () => File::deleteDirectory($tenantStoragePath), report: false);
         }
     })
