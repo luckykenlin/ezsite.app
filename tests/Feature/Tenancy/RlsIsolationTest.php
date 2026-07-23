@@ -16,8 +16,7 @@ test('a tenant sees only its own posts once tenancy is initialized', function ()
     $tenantB = Tenant::factory()->create();
 
     tenancy()->initialize($tenantA);
-    $post = Post::query()->create(['tenant_id' => $tenantA->id, 'title' => 'Post from A']);
-    expect($post->tenant->is($tenantA))->toBeTrue();
+    Post::query()->create(['tenant_id' => $tenantA->id, 'title' => 'Post from A']);
     tenancy()->end();
 
     tenancy()->initialize($tenantB);
@@ -38,8 +37,7 @@ test('a tenant sees only its own pages once tenancy is initialized', function ()
     $tenantB = Tenant::factory()->create();
 
     tenancy()->initialize($tenantA);
-    $page = Page::query()->create(['tenant_id' => $tenantA->id, 'title' => 'Home', 'slug' => '/', 'layout' => 'main', 'blocks' => []]);
-    expect($page->tenant->is($tenantA))->toBeTrue();
+    Page::query()->create(['tenant_id' => $tenantA->id, 'title' => 'Home', 'slug' => '/', 'layout' => 'main', 'blocks' => []]);
     tenancy()->end();
 
     tenancy()->initialize($tenantB);
@@ -61,8 +59,7 @@ test('a tenant sees only its own locations once tenancy is initialized', functio
 
     tenancy()->initialize($tenantA);
     $businessA = Business::factory()->create(['tenant_id' => $tenantA->id]);
-    $location = Location::factory()->create(['tenant_id' => $tenantA->id, 'business_id' => $businessA->id, 'label' => 'A HQ']);
-    expect($location->tenant->is($tenantA))->toBeTrue();
+    Location::factory()->create(['tenant_id' => $tenantA->id, 'business_id' => $businessA->id, 'label' => 'A HQ']);
     tenancy()->end();
 
     tenancy()->initialize($tenantB);
@@ -110,8 +107,7 @@ test('a tenant sees only its own business once tenancy is initialized', function
     $tenantB = Tenant::factory()->create();
 
     tenancy()->initialize($tenantA);
-    $business = Business::factory()->create(['tenant_id' => $tenantA->id, 'name' => 'Acme A']);
-    expect($business->tenant->is($tenantA))->toBeTrue();
+    Business::factory()->create(['tenant_id' => $tenantA->id, 'name' => 'Acme A']);
     tenancy()->end();
 
     tenancy()->initialize($tenantB);

@@ -1,6 +1,6 @@
 ---
 name: pest-testing
-description: "Write and organize Pest tests for this project. Activate when adding or modifying tests, when a change needs coverage, when the CI coverage gate (--exactly=100.0) fails, or when deciding where a test belongs. Covers the all-Postgres backend, the type-first tests/ folder taxonomy (Unit vs Feature, mirroring app/ and grouped by concern), naming conventions, the InteractsWithTenancy trait, factory states, datasets, arch tests, the `to array` shape convention, and the 100% coverage requirement."
+description: "Write and organize Pest tests for this project. Activate when adding or modifying tests, when a change needs coverage, when the CI coverage gate (--exactly=100.0) fails, or when deciding where a test belongs. Covers the all-Postgres backend, the type-first tests/ folder taxonomy (Unit vs Feature, mirroring app/ and grouped by concern), naming conventions, the InteractsWithTenancy trait, factory states, datasets, arch tests, the per-model test template (relations, side-effects, casts, constraints, `to array`), and the 100% coverage requirement."
 metadata:
   author: ezsite
 ---
@@ -140,13 +140,50 @@ assertions (strict types everywhere, models & actions `final`, actions expose
 `handle()`, no `dd`/`dump`/`ray`). Add an expectation here when you introduce a
 new structural convention rather than relying on review.
 
-## The `to array` shape convention
+## Model tests (the per-model template)
 
-Every model test file includes a `to array` test asserting the exact key order
-of `toArray()` — this locks the serialized shape and catches accidental
-`$hidden`/`$appends`/column changes. Column order follows the migration.
+**Every model in `app/Models` gets a `tests/Unit/Models/{Model}Test.php`.** The
+model test file is the canonical, complete home for everything the model does —
+coverage that happens to exist incidentally elsewhere (an inline assert in a
+feature test) does not replace it. In particular, **relation tests are required
+even when the relation is a one-line `belongsTo`/`hasMany`**; never remove them
+as "framework behavior" or "redundant coverage".
+
+Cover, in this order:
+
+1. **Relations** — one test per relation, asserting the wiring end-to-end:
+   `$model->relation->is($expected)` for to-one, attach + assert membership for
+   pivots (`$user->memberWorkspaces->pluck('id')->all()`-style).
+2. **Creation side-effects** — generated slugs/codes, defaults, `booted()`
+   listeners (e.g. Business's soft-delete cascade, covered branch by branch —
+   see the worked example below).
+3. **Domain methods & casts** — predicates like `isExpired()`, value-object
+   casts (`opening_hours`), custom route keys (`getRouteKeyName`).
+4. **DB constraints the model relies on** — unique indexes, NULLS NOT DISTINCT
+   (create the conflicting row and assert the `QueryException`).
+5. **`to array` last** — the exact key order of `toArray()`, locking the
+   serialized shape against `$hidden`/`$appends`/column drift. Column order
+   follows the migration.
 
 ```php
+<?php
+
+declare(strict_types=1);
+
+use App\Models\Business;
+use App\Models\Tenant;
+
+test('tenant relation returns the owning tenant', function (): void {
+    $tenant = Tenant::factory()->create();
+    $business = $this->runInTenant($tenant, fn (): Business => Business::factory()->create(['tenant_id' => $tenant->id]));
+
+    expect($business->tenant->is($tenant))->toBeTrue();
+});
+
+test('slug is auto-generated from name via laravel-sluggable', function (): void {
+    // creation side-effect: assert the generated value, not just non-null
+});
+
 test('to array', function (): void {
     $business = Business::factory()->create();
     $business = Business::query()->findOrFail($business->getKey()); // re-fetch, don't use the created instance
@@ -161,7 +198,8 @@ Always **re-fetch via `Model::query()->findOrFail($id)`** rather than asserting
 on the just-created instance. Freshly saved `Tenant`/`Domain` instances leak a
 lazy-loaded `tenant` relation into `toArray()` (VirtualColumn saved-listener),
 and `->refresh()` does not clear it — a clean query does. Follow the same
-pattern everywhere for consistency.
+pattern everywhere for consistency (RLS-scoped models also need the re-fetch to
+land on the central connection after `runInTenant`).
 
 ## Factories
 

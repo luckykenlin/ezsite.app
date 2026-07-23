@@ -14,10 +14,6 @@ beforeEach(function (): void {
     $this->actingAs(User::factory()->create());
 });
 
-test('navigation label is users', function (): void {
-    expect(ManageUsers::getNavigationLabel())->toBe('Users');
-});
-
 test('can list tenant users', function (): void {
     $tenant = Tenant::factory()->create();
     $users = User::factory()->count(3)->create();

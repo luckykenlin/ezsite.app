@@ -38,20 +38,15 @@ test('can create a user', function (): void {
     expect(Hash::check('password', $user->password))->toBeTrue();
 });
 
-test("edit form is prefilled with the user's email", function (): void {
-    $user = User::factory()->create();
-
-    Livewire::test(ListUsers::class)
-        ->mountAction(TestAction::make(EditAction::class)->table($user))
-        ->assertSchemaStateSet(['email' => $user->email]);
-});
-
-test('can update a user without changing the password', function (): void {
+test('can update a user without changing the password, through an edit form prefilled with their email', function (): void {
     $user = User::factory()->create();
     $originalPassword = $user->password;
 
     Livewire::test(ListUsers::class)
-        ->callAction(TestAction::make(EditAction::class)->table($user), data: ['name' => 'Updated Name', 'password' => null])
+        ->mountAction(TestAction::make(EditAction::class)->table($user))
+        ->assertSchemaStateSet(['email' => $user->email])
+        ->setActionData(['name' => 'Updated Name', 'password' => null])
+        ->callMountedAction()
         ->assertHasNoFormErrors();
 
     $user->refresh();

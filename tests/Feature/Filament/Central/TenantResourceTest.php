@@ -24,7 +24,7 @@ test('can list tenants', function (): void {
         ->assertCanSeeTableRecords($tenants);
 });
 
-test('can create a tenant', function (): void {
+test('can create a tenant with a default subdomain generated from its name', function (): void {
     Livewire::test(ListTenants::class)
         ->callAction(CreateAction::class, [
             'name' => 'Acme Inc',
@@ -36,15 +36,6 @@ test('can create a tenant', function (): void {
         'name' => 'Acme Inc',
         'email' => 'owner@acme.test',
     ]);
-});
-
-test('creating a tenant generates a default subdomain from its name', function (): void {
-    Livewire::test(ListTenants::class)
-        ->callAction(CreateAction::class, [
-            'name' => 'Acme Inc',
-            'email' => 'owner@acme.test',
-        ])
-        ->assertHasNoFormErrors();
 
     $tenant = Tenant::query()->where('name', 'Acme Inc')->firstOrFail();
 
@@ -72,19 +63,14 @@ test('creating a tenant with a name that slugs to an existing subdomain appends 
     ]);
 });
 
-test("edit form is prefilled with the tenant's name", function (): void {
+test("can update a tenant through the edit form, which is prefilled with the tenant's name", function (): void {
     $tenant = Tenant::factory()->create();
 
     Livewire::test(ListTenants::class)
         ->mountAction(TestAction::make(EditAction::class)->table($tenant))
-        ->assertSchemaStateSet(['name' => $tenant->name]);
-});
-
-test('can update a tenant', function (): void {
-    $tenant = Tenant::factory()->create();
-
-    Livewire::test(ListTenants::class)
-        ->callAction(TestAction::make(EditAction::class)->table($tenant), data: ['name' => 'Updated Name'])
+        ->assertSchemaStateSet(['name' => $tenant->name])
+        ->setActionData(['name' => 'Updated Name'])
+        ->callMountedAction()
         ->assertHasNoFormErrors();
 
     expect($tenant->refresh()->name)->toBe('Updated Name');
