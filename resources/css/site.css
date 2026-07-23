@@ -1,0 +1,20 @@
+/*
+ * Tenant public-site stylesheet (FilamentFabricator front-end).
+ *
+ * Kept separate from app.css so the site's design system (DaisyUI: semantic
+ * slots, themes) stays out of the admin bundle, and so per-tenant
+ * token/theme derivation has a clean home. Loaded via
+ * FilamentFabricator::registerStyles() in FilamentServiceProvider.
+ */
+@import 'tailwindcss';
+
+@plugin 'daisyui';
+
+@source '../views/components/filament-fabricator/**/*.blade.php';
+
+@theme {
+    --font-sans:
+        'Instrument Sans', ui-sans-serif, system-ui, sans-serif,
+        'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
+        'Noto Color Emoji';
+}

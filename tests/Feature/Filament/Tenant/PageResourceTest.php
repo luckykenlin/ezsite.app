@@ -17,7 +17,7 @@ test('can create a page scoped to the current tenant', function (): void {
             'slug' => '/',
             'layout' => 'main',
             'blocks' => [
-                ['type' => 'heading', 'data' => ['content' => 'Welcome']],
+                ['type' => 'heading', 'data' => ['content' => 'Welcome', 'level' => 'h3']],
             ],
         ])
         ->call('create')
@@ -26,5 +26,5 @@ test('can create a page scoped to the current tenant', function (): void {
     $page = Page::query()->where('slug', '/')->firstOrFail();
 
     expect($page->tenant_id)->toBe($this->tenant->id)
-        ->and($page->blocks)->toBe([['type' => 'heading', 'data' => ['content' => 'Welcome']]]);
+        ->and($page->blocks)->toBe([['type' => 'heading', 'data' => ['content' => 'Welcome', 'level' => 'h3']]]);
 });

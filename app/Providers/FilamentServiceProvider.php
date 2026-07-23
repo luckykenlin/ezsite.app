@@ -15,7 +15,9 @@ use Filament\Support\Enums\Width;
 use Filament\Tables\Columns\Column;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Foundation\Vite;
 use Illuminate\Support\ServiceProvider;
+use Z3d0X\FilamentFabricator\Facades\FilamentFabricator;
 
 final class FilamentServiceProvider extends ServiceProvider
 {
@@ -24,6 +26,15 @@ final class FilamentServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Load the tenant site's stylesheet into the <head> of every
+        // FilamentFabricator-rendered front-end page, via the plugin's own asset
+        // API. Skipped under tests: registerStyles evaluates Vite eagerly at boot
+        // and there is no build manifest in the test/CI environment (front-end
+        // tests assert markup, not styling).
+        if (! $this->app->runningUnitTests()) {
+            FilamentFabricator::registerStyles([resolve(Vite::class)('resources/css/site.css')]);
+        }
+
         Repeater::configureUsing(function (Repeater $repeater): void {
             $repeater->deleteAction(
                 fn (Action $action): Action => $action->requiresConfirmation(),

@@ -127,16 +127,16 @@
         },
         {
             "name": "aws/aws-sdk-php",
-            "version": "3.388.12",
+            "version": "3.388.13",
             "source": {
                 "type": "git",
                 "url": "https://github.com/aws/aws-sdk-php.git",
-                "reference": "9eca8f6408501a47efe5dee2ce494b93eac983a6"
+                "reference": "45b9e9814f42cdeceb046434d068c9e77fd2a530"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/aws/aws-sdk-php/zipball/9eca8f6408501a47efe5dee2ce494b93eac983a6",
-                "reference": "9eca8f6408501a47efe5dee2ce494b93eac983a6",
+                "url": "https://api.github.com/repos/aws/aws-sdk-php/zipball/45b9e9814f42cdeceb046434d068c9e77fd2a530",
+                "reference": "45b9e9814f42cdeceb046434d068c9e77fd2a530",
                 "shasum": ""
             },
             "require": {
@@ -218,9 +218,9 @@
             "support": {
                 "forum": "https://github.com/aws/aws-sdk-php/discussions",
                 "issues": "https://github.com/aws/aws-sdk-php/issues",
-                "source": "https://github.com/aws/aws-sdk-php/tree/3.388.12"
+                "source": "https://github.com/aws/aws-sdk-php/tree/3.388.13"
             },
-            "time": "2026-07-22T18:05:00+00:00"
+            "time": "2026-07-23T18:06:54+00:00"
         },
         {
             "name": "blade-ui-kit/blade-heroicons",
@@ -14276,12 +14276,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/Roave/SecurityAdvisories.git",
-                "reference": "a149dec0fd68dfc62ce9c67b4db2542d80b4f605"
+                "reference": "cfd18923fba8aa5324d151b69ea4196710f2932a"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/Roave/SecurityAdvisories/zipball/a149dec0fd68dfc62ce9c67b4db2542d80b4f605",
-                "reference": "a149dec0fd68dfc62ce9c67b4db2542d80b4f605",
+                "url": "https://api.github.com/repos/Roave/SecurityAdvisories/zipball/cfd18923fba8aa5324d151b69ea4196710f2932a",
+                "reference": "cfd18923fba8aa5324d151b69ea4196710f2932a",
                 "shasum": ""
             },
             "conflict": {
@@ -14927,7 +14927,7 @@
                 "phpoffice/common": "<0.2.9",
                 "phpoffice/math": "<=0.2",
                 "phpoffice/phpexcel": "<=1.8.2",
-                "phpoffice/phpspreadsheet": "<=1.30.4|>=2,<=2.1.15|>=2.2,<=2.4.4|>=3,<=3.10.4|>=4,<=5.6",
+                "phpoffice/phpspreadsheet": "<=1.30.5|>=2,<=2.1.17|>=2.2,<=2.4.6|>=3,<=3.10.6|>=4,<=5.8",
                 "phppgadmin/phppgadmin": "<=7.13",
                 "phpseclib/phpseclib": "<=2.0.54|>=3,<=3.0.53",
                 "phpservermon/phpservermon": "<3.6",
@@ -15390,7 +15390,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-07-22T23:02:35+00:00"
+            "time": "2026-07-23T15:56:28+00:00"
         },
         {
             "name": "sebastian/cli-parser",

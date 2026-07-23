@@ -49,16 +49,31 @@ trait InteractsWithTenancy
      */
     protected function createTenantHomePage(Tenant $tenant): void
     {
+        $this->createTenantPage($tenant, [
+            ['type' => 'heading', 'data' => ['content' => (string) $tenant->id]],
+        ]);
+    }
+
+    /**
+     * Create a page (default slug "/") with the given block set, wrapping the
+     * write in the tenant's context so RLS accepts it. Returns the page.
+     *
+     * @param  array<int, mixed>  $blocks
+     */
+    protected function createTenantPage(Tenant $tenant, array $blocks, string $slug = '/'): Page
+    {
         tenancy()->initialize($tenant);
 
-        Page::query()->create([
+        $page = Page::query()->create([
             'tenant_id' => $tenant->id,
             'title' => 'Home',
-            'slug' => '/',
+            'slug' => $slug,
             'layout' => 'main',
-            'blocks' => [['type' => 'heading', 'data' => ['content' => (string) $tenant->id]]],
+            'blocks' => $blocks,
         ]);
 
         tenancy()->end();
+
+        return $page;
     }
 }

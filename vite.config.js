@@ -10,7 +10,13 @@ export default defineConfig({
             typeCheck: true,
         },
         plugins: ['eslint', 'typescript'],
-        ignorePatterns: ['vite.config.js'],
+        ignorePatterns: [
+            'vite.config.js',
+            'public/**',
+            'vendor/**',
+            'bootstrap/ssr/**',
+            'storage/**',
+        ],
     },
     fmt: {
         printWidth: 80,
@@ -43,7 +49,11 @@ export default defineConfig({
     },
     plugins: [
         laravel({
-            input: ['resources/css/app.css', 'resources/js/app.ts'],
+            input: [
+                'resources/css/app.css',
+                'resources/css/site.css',
+                'resources/js/app.ts',
+            ],
             refresh: true,
             fonts: [
                 bunny('Instrument Sans', {
