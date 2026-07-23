@@ -28,10 +28,11 @@ final class FilamentServiceProvider extends ServiceProvider
     {
         // Load the tenant site's stylesheet into the <head> of every
         // FilamentFabricator-rendered front-end page, via the plugin's own asset
-        // API. Skipped under tests: registerStyles evaluates Vite eagerly at boot
-        // and there is no build manifest in the test/CI environment (front-end
-        // tests assert markup, not styling).
-        if (! $this->app->runningUnitTests()) {
+        // API. Skipped in the console: registerStyles evaluates Vite eagerly at
+        // boot and there is no build manifest during artisan commands (tests,
+        // `package:discover` in CI, queue workers) — and the front-end is never
+        // served from the console anyway, so the stylesheet isn't needed there.
+        if (! $this->app->runningInConsole()) {
             FilamentFabricator::registerStyles([resolve(Vite::class)('resources/css/site.css')]);
         }
 
