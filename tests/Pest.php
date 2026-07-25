@@ -85,6 +85,15 @@ pest()->extend(TestCase::class)
         // session context into the next test. Idempotent when already ended.
         tenancy()->end();
 
+        // Close every DB connection this test opened. Tenancy initialization
+        // opens extra connections (tenant, tenant_host_connection) that would
+        // otherwise accumulate as idle Postgres sessions across a worker's
+        // test sequence — at 8 parallel workers that exhausts the default
+        // max_connections=100 and later tests die with "too many clients".
+        foreach (array_keys(DB::getConnections()) as $connectionName) {
+            DB::purge($connectionName);
+        }
+
         // FilesystemTenancyBootstrapper creates {suffix_base}{tenant_id} directories
         // under storage_path() as a side effect of initializing tenancy; clean them up
         // so they don't pile up. The glob is scoped to THIS process's token-specific
