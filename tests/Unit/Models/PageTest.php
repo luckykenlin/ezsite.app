@@ -52,10 +52,10 @@ test('to array', function (): void {
             'slug',
             'layout',
             'blocks',
+            'status',
             'parent_id',
             'created_at',
             'updated_at',
-            'status',
         ]);
 });
 

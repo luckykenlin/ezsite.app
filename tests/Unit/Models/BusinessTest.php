@@ -110,6 +110,7 @@ test('to array', function (): void {
             'brand_primary',
             'brand_secondary',
             'brand_accent',
+            'design_tokens',
             'contact_email',
             'contact_phone',
             'website_url',
@@ -120,7 +121,6 @@ test('to array', function (): void {
             'created_at',
             'updated_at',
             'deleted_at',
-            'design_tokens',
         ]);
 });
 

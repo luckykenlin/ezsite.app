@@ -9,7 +9,6 @@ $centralDomains = array_filter(Config::array('tenancy.identification.central_dom
 
 foreach ($centralDomains as $domain) {
     Route::domain($domain)->group(function (): void {
-        // Central domain routes
         Route::view('/', 'central.welcome');
     });
 }

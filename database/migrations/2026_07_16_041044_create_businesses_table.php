@@ -30,6 +30,7 @@ return new class extends Migration
             $table->string('brand_primary')->nullable();
             $table->string('brand_secondary')->nullable();
             $table->string('brand_accent')->nullable();
+            $table->jsonb('design_tokens')->nullable();
 
             $table->string('contact_email')->nullable();
             $table->string('contact_phone')->nullable();
