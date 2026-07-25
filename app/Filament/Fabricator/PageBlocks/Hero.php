@@ -43,11 +43,11 @@ final class Hero extends Block
                 ->maxLength(500),
             TextInput::make('cta_label')
                 ->maxLength(60),
+            // No ->url(): internal links are relative paths ("/contact") or
+            // anchors ("#contact"), which the url rule rejects.
             TextInput::make('cta_url')
-                ->url()
                 ->maxLength(2048),
             TextInput::make('image_url')
-                ->url()
                 ->maxLength(2048),
         ];
     }
