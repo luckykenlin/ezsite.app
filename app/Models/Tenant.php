@@ -53,6 +53,14 @@ final class Tenant extends BaseTenant implements TenantWithDatabase
     }
 
     /**
+     * @return HasOne<Business, $this>
+     */
+    public function business(): HasOne
+    {
+        return $this->hasOne(Business::class);
+    }
+
+    /**
      * @return BelongsToMany<User, $this>
      */
     public function users(): BelongsToMany

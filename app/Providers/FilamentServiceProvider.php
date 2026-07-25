@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Design\ThemeVariables;
+use App\Filament\Fabricator\BindResolver;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
@@ -12,12 +14,18 @@ use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Support\Enums\Width;
+use Filament\Support\Facades\FilamentView;
 use Filament\Tables\Columns\Column;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Foundation\Vite;
+use Illuminate\Support\HtmlString;
 use Illuminate\Support\ServiceProvider;
+use ReflectionClass;
 use Z3d0X\FilamentFabricator\Facades\FilamentFabricator;
+use Z3d0X\FilamentFabricator\Layouts\Layout;
+use Z3d0X\FilamentFabricator\PageBlocks\PageBlock;
+use Z3d0X\FilamentFabricator\View\LayoutRenderHook;
 
 final class FilamentServiceProvider extends ServiceProvider
 {
@@ -35,6 +43,36 @@ final class FilamentServiceProvider extends ServiceProvider
         if (! $this->app->runningInConsole()) {
             FilamentFabricator::registerStyles([resolve(Vite::class)('resources/css/site.css')]);
         }
+
+        // Fabricator's own service provider SKIPS layout/block registration in
+        // console processes (except unit tests) — but the queue worker runs the
+        // AI draft pipeline, whose vocabulary, schema and validator all read
+        // the registry. Without this, every generated block is judged
+        // "unknown type" on the worker. Mirror the package's discovery here.
+        if ($this->app->runningInConsole() && ! $this->app->runningUnitTests()) {
+            $this->registerFabricatorComponentsForConsole();
+        }
+
+        // Per-tenant theme: emit the tenant's font preloads and design-token
+        // CSS variables into the Fabricator front-end <head>. Registered
+        // unconditionally (unlike registerStyles above) — the closure is lazy,
+        // it only runs when a Fabricator page renders, and Vite::fonts()
+        // degrades to '' when no build manifest exists (tests, CI).
+        FilamentView::registerRenderHook(LayoutRenderHook::HEAD_END, function (): HtmlString {
+            // Reuse the request-scoped BindResolver so theming shares the
+            // page render's single memoized business query — and never
+            // touch it outside tenancy, where the query would be unscoped.
+            $business = tenant() === null ? null : resolve(BindResolver::class)->business();
+
+            if ($business === null) {
+                return new HtmlString('');
+            }
+
+            return new HtmlString(
+                resolve(Vite::class)->fonts($business->design_tokens->fontPair->viteAliases())
+                .ThemeVariables::style($business)->toHtml(),
+            );
+        });
 
         Repeater::configureUsing(function (Repeater $repeater): void {
             $repeater->deleteAction(
@@ -83,5 +121,30 @@ final class FilamentServiceProvider extends ServiceProvider
         Field::configureUsing(function (Field $field): void {
             $field->translateLabel();
         });
+    }
+
+    /**
+     * Console-only glue, unreachable under the test runner (there the package
+     * itself registers via its runningUnitTests exception).
+     *
+     * @codeCoverageIgnore
+     */
+    private function registerFabricatorComponentsForConsole(): void
+    {
+        foreach (glob(app_path('Filament/Fabricator/Layouts/*.php')) ?: [] as $file) {
+            $class = 'App\\Filament\\Fabricator\\Layouts\\'.basename($file, '.php');
+
+            if (is_subclass_of($class, Layout::class)) {
+                FilamentFabricator::registerLayout($class);
+            }
+        }
+
+        foreach (glob(app_path('Filament/Fabricator/PageBlocks/*.php')) ?: [] as $file) {
+            $class = 'App\\Filament\\Fabricator\\PageBlocks\\'.basename($file, '.php');
+
+            if (is_subclass_of($class, PageBlock::class) && ! new ReflectionClass($class)->isAbstract()) {
+                FilamentFabricator::registerPageBlock($class);
+            }
+        }
     }
 }

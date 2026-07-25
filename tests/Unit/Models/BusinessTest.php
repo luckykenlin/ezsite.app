@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use App\Design\ColorPalette;
+use App\Design\StylePreset;
 use App\Models\Business;
 use App\Models\Location;
 use App\Models\Tenant;
@@ -118,5 +120,53 @@ test('to array', function (): void {
             'created_at',
             'updated_at',
             'deleted_at',
+            'design_tokens',
         ]);
+});
+
+test('design tokens are cast to the value object with a lenient fallback', function (): void {
+    $tenant = Tenant::factory()->create();
+
+    $business = $this->runInTenant($tenant, fn (): Business => Business::factory()
+        ->themed(StylePreset::WarmCraft)
+        ->create(['tenant_id' => $tenant->id]));
+    $business = Business::query()->findOrFail($business->getKey());
+
+    expect($business->design_tokens->preset)->toBe(StylePreset::WarmCraft)
+        ->and($business->design_tokens->palette)->toBe(ColorPalette::WarmSand);
+});
+
+test('null or malformed stored design tokens hydrate as the defaults', function (): void {
+    $tenant = Tenant::factory()->create();
+    $business = $this->runInTenant($tenant, fn (): Business => Business::factory()->create(['tenant_id' => $tenant->id]));
+
+    $this->runInTenant($tenant, function () use ($business): void {
+        Business::query()->whereKey($business->getKey())->update(['design_tokens' => json_encode(['palette' => 'not-a-palette'])]);
+    });
+    $business = Business::query()->findOrFail($business->getKey());
+
+    expect($business->design_tokens->palette)->toBe(ColorPalette::Default)
+        ->and($business->design_tokens->preset)->toBeNull();
+});
+
+test('design tokens can be reset to null, hydrating as the defaults', function (): void {
+    $tenant = Tenant::factory()->create();
+    $business = $this->runInTenant($tenant, fn (): Business => Business::factory()
+        ->themed(StylePreset::WarmCraft)
+        ->create(['tenant_id' => $tenant->id]));
+
+    $this->runInTenant($tenant, fn (): bool => $business->update(['design_tokens' => null]));
+    $business = Business::query()->findOrFail($business->getKey());
+
+    expect($business->design_tokens->preset)->toBeNull()
+        ->and($business->design_tokens->palette)->toBe(ColorPalette::Default);
+});
+
+test('design tokens reject raw array assignment', function (): void {
+    $tenant = Tenant::factory()->create();
+    $business = $this->runInTenant($tenant, fn (): Business => Business::factory()->create(['tenant_id' => $tenant->id]));
+
+    expect(function () use ($tenant, $business): void {
+        $this->runInTenant($tenant, fn (): bool => $business->update(['design_tokens' => ['palette' => 'ocean']]));
+    })->toThrow(InvalidArgumentException::class);
 });

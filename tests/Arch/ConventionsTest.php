@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+use App\Design\Contrast;
+use App\Design\DesignTokens;
+use App\Design\ThemeVariables;
 use App\Filament\Fabricator\BlockRegistry;
 use App\Filament\Fabricator\PageBlocks\Block;
 
@@ -33,6 +36,15 @@ arch('page blocks extend the app base block and are final')
 
 arch('the block registry is final')
     ->expect(BlockRegistry::class)
+    ->toBeFinal();
+
+arch('the design module classes are final')
+    // The enums in App\Design are final by construction; list the classes.
+    ->expect([
+        Contrast::class,
+        DesignTokens::class,
+        ThemeVariables::class,
+    ])
     ->toBeFinal();
 
 test('page block views never use unescaped output', function (): void {

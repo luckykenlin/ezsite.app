@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Database\Factories;
 
+use App\Design\StylePreset;
 use App\Models\Business;
 use App\Models\Tenant;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -40,5 +41,13 @@ final class BusinessFactory extends Factory
             'currency' => 'USD',
             'status' => 'draft',
         ];
+    }
+
+    /**
+     * A business themed with a style preset's tokens.
+     */
+    public function themed(StylePreset $preset = StylePreset::WarmCraft): self
+    {
+        return $this->state(fn (): array => ['design_tokens' => $preset->tokens()]);
     }
 }

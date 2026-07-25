@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Casts\DesignTokens as DesignTokensCast;
 use App\Concerns\RequiresTenantContext;
+use App\Design\DesignTokens;
 use Database\Factories\BusinessFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -32,6 +34,7 @@ use NunoMaduro\LaravelSluggable\Attributes\Sluggable;
  * @property string|null $locale
  * @property string|null $currency
  * @property string $status
+ * @property DesignTokens $design_tokens
  *
  * @method static BusinessFactory factory($count = null, $state = [])
  */
@@ -77,5 +80,15 @@ final class Business extends Model
         self::restoring(function (Business $business): void {
             $business->locations()->onlyTrashed()->restore();
         });
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'design_tokens' => DesignTokensCast::class,
+        ];
     }
 }

@@ -56,8 +56,31 @@ export default defineConfig({
             ],
             refresh: true,
             fonts: [
+                // Every family a FontPair (app/Design/FontPair.php) can pick
+                // must be bundled here; names must match viteAliases() exactly.
                 bunny('Instrument Sans', {
+                    weights: [400, 500, 600, 700],
+                }),
+                bunny('Playfair Display', {
+                    weights: [600, 700],
+                }),
+                bunny('Source Sans 3', {
+                    weights: [400, 600],
+                }),
+                bunny('Fraunces', {
+                    weights: [600, 700],
+                }),
+                bunny('Inter', {
                     weights: [400, 500, 600],
+                }),
+                bunny('Nunito', {
+                    weights: [700, 800],
+                }),
+                bunny('Nunito Sans', {
+                    weights: [400, 600],
+                }),
+                bunny('Space Grotesk', {
+                    weights: [500, 700],
                 }),
             ],
         }),
