@@ -28,4 +28,12 @@ final class PageFactory extends Factory
             'blocks' => [],
         ];
     }
+
+    /**
+     * A page that is not publicly visible yet.
+     */
+    public function draft(): self
+    {
+        return $this->state(fn (): array => ['status' => 'draft']);
+    }
 }

@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Enums\PageStatus;
 use App\Models\Page;
 use App\Models\Tenant;
 use Illuminate\Database\QueryException;
@@ -54,5 +55,17 @@ test('to array', function (): void {
             'parent_id',
             'created_at',
             'updated_at',
+            'status',
         ]);
+});
+
+test('status is cast to the PageStatus enum, defaulting to published', function (): void {
+    $tenant = Tenant::factory()->create();
+    $page = $this->runInTenant($tenant, fn (): Page => Page::factory()->create(['tenant_id' => $tenant->id]));
+    $draft = $this->runInTenant($tenant, fn (): Page => Page::factory()->draft()->create(['tenant_id' => $tenant->id]));
+
+    expect(Page::query()->findOrFail($page->getKey())->status)->toBe(PageStatus::Published)
+        ->and(Page::query()->findOrFail($page->getKey())->isDraft())->toBeFalse()
+        ->and(Page::query()->findOrFail($draft->getKey())->status)->toBe(PageStatus::Draft)
+        ->and(Page::query()->findOrFail($draft->getKey())->isDraft())->toBeTrue();
 });

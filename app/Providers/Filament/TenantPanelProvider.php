@@ -75,6 +75,7 @@ final class TenantPanelProvider extends PanelProvider
             ->authMiddleware([
                 Authenticate::class,
             ])
+            ->databaseNotifications()
             ->spa();
     }
 

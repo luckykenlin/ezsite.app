@@ -28,6 +28,7 @@ test('rls policies exist for every table with a path to the tenants table, and o
         ->and($expectedTables)->toContain('pages')
         ->and($expectedTables)->toContain('locations')
         ->and($expectedTables)->toContain('businesses')
+        ->and($expectedTables)->toContain('site_settings')
         ->and($expectedTables)->not->toContain('users')
         ->and($expectedTables)->not->toContain('domains')
         ->and($expectedTables)->not->toContain('tenant_user');
@@ -66,6 +67,9 @@ test('every table is RLS-protected or an explicitly documented exemption', funct
         'password_reset_tokens', 'sessions',
         // Global identity — users are shared across tenants, not tenant-owned (see tenancy.md).
         'users',
+        // Filament database notifications hang off the global users table
+        // (notifiable), not off a tenant — same reasoning as 'users'.
+        'notifications',
         // The tenant table itself, and the two 'no-rls' tables that must be queryable
         // before tenancy resolves / from the central panel (domains.tenant_id, tenant_user.tenant_id).
         'tenants', 'domains', 'tenant_user',
