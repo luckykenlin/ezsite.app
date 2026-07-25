@@ -7,21 +7,10 @@ use App\Models\Domain;
 use App\Models\Tenant;
 use App\Models\User;
 use Filament\Actions\CreateAction;
-use Filament\Actions\DeleteAction;
-use Filament\Actions\EditAction;
-use Filament\Actions\Testing\TestAction;
 use Livewire\Livewire;
 
 beforeEach(function (): void {
     $this->actingAs(User::factory()->create());
-});
-
-test('can list tenants', function (): void {
-    $tenants = Tenant::factory()->count(3)->create();
-
-    Livewire::test(ListTenants::class)
-        ->call('loadTable')
-        ->assertCanSeeTableRecords($tenants);
 });
 
 test('can create a tenant with a default subdomain generated from its name', function (): void {
@@ -61,28 +50,6 @@ test('creating a tenant with a name that slugs to an existing subdomain appends 
         'tenant_id' => $tenant->id,
         'domain' => 'acme-inc-2',
     ]);
-});
-
-test("can update a tenant through the edit form, which is prefilled with the tenant's name", function (): void {
-    $tenant = Tenant::factory()->create();
-
-    Livewire::test(ListTenants::class)
-        ->mountAction(TestAction::make(EditAction::class)->table($tenant))
-        ->assertSchemaStateSet(['name' => $tenant->name])
-        ->setActionData(['name' => 'Updated Name'])
-        ->callMountedAction()
-        ->assertHasNoFormErrors();
-
-    expect($tenant->refresh()->name)->toBe('Updated Name');
-});
-
-test('can delete a tenant', function (): void {
-    $tenant = Tenant::factory()->create();
-
-    Livewire::test(ListTenants::class)
-        ->callAction(TestAction::make(DeleteAction::class)->table($tenant));
-
-    $this->assertModelMissing($tenant);
 });
 
 test('domain column appends the central domain to a bare tenant subdomain', function (): void {

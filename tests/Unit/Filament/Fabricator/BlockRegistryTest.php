@@ -22,7 +22,11 @@ it('enumerates every block contract in the vocabulary', function (): void {
         ->and($vocabulary['heading']['variants'])->toBeEmpty()
         ->and($vocabulary['contact']['bind'])->toBe('location')
         ->and($vocabulary['header']['bind'])->toBe('business')
-        ->and($vocabulary['footer']['bind'])->toBe('location');
+        ->and($vocabulary['footer']['bind'])->toBe('location')
+        // The factual blocks above are the ONLY bound ones; every other block
+        // is content-only and must declare no bind.
+        ->and(array_keys(array_filter($vocabulary, fn (array $contract): bool => $contract['bind'] !== null)))
+        ->toEqualCanonicalizing(['header', 'contact', 'footer']);
 });
 
 it('resolves a valid variant to its component', function (): void {

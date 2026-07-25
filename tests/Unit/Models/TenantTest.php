@@ -27,36 +27,16 @@ test('users relation returns attached users', function (): void {
     expect($tenant->users()->whereKey($user->id)->exists())->toBeTrue();
 });
 
-test('a tenant can be created and given a domain', function (): void {
+test("a tenant's domain accessor returns its oldest domain", function (): void {
     // With subdomain identification, the domain column stores just the
     // subdomain fragment (e.g. "acme"), not the full hostname.
-    $tenant = Tenant::factory()->create();
-    $domain = $tenant->domains()->create(['domain' => 'acme']);
-
-    expect($domain)->toBeInstanceOf(Domain::class)
-        ->and($domain->tenant_id)->toBe($tenant->id);
-
-    $this->assertDatabaseHas('tenants', ['id' => $tenant->id]);
-    $this->assertDatabaseHas('domains', [
-        'domain' => 'acme',
-        'tenant_id' => $tenant->id,
-    ]);
-});
-
-test('a tenant can have multiple domains', function (): void {
-    $tenant = Tenant::factory()->create();
-    $tenant->domains()->create(['domain' => 'acme']);
-    $tenant->domains()->create(['domain' => 'acme-alt']);
-
-    expect($tenant->domains()->count())->toBe(2);
-});
-
-test("a tenant's domain accessor returns its oldest domain", function (): void {
     $tenant = Tenant::factory()->create();
     $oldest = $tenant->domains()->create(['domain' => 'acme', 'created_at' => now()->subMinute()]);
     $tenant->domains()->create(['domain' => 'acme-alt']);
 
-    expect($tenant->domain->is($oldest))->toBeTrue();
+    expect($oldest)->toBeInstanceOf(Domain::class)
+        ->and($oldest->tenant_id)->toBe($tenant->id)
+        ->and($tenant->domain->is($oldest))->toBeTrue();
 });
 
 test('to array', function (): void {

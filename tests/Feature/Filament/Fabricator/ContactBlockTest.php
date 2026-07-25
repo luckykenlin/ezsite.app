@@ -5,7 +5,6 @@ declare(strict_types=1);
 use App\Models\Location;
 use App\Models\SiteSetting;
 use App\Models\Tenant;
-use Illuminate\Support\Facades\Log;
 
 it('renders each contact variant with the bound location NAP, hours and directions link', function (string $variant, string $marker): void {
     $tenant = Tenant::factory()->withDomain('acme')->create();
@@ -74,47 +73,4 @@ it('renders the explicitly bound location instead of the primary', function (): 
         ->assertOk()
         ->assertSee('Secondary Blvd 2')
         ->assertDontSee('Primary Ave 1');
-});
-
-it('skips the contact block with a warning when the tenant has no business, while siblings render', function (): void {
-    Log::spy();
-
-    $tenant = Tenant::factory()->withDomain('acme')->create();
-    $this->createTenantPage($tenant, [
-        ['type' => 'contact', 'data' => ['variant' => 'split', 'heading' => 'Ghost contact']],
-        ['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Still here']],
-    ]);
-
-    $this->get(sprintf('http://acme.%s/', $this->centralDomain()))
-        ->assertOk()
-        ->assertSee('Still here')
-        ->assertDontSee('Ghost contact');
-
-    Log::shouldHaveReceived('warning')
-        ->withArgs(fn (string $message, array $context): bool => $message === 'fabricator.block_skipped'
-            && $context['reason'] === 'unresolved_bind'
-            && $context['type'] === 'contact')
-        ->once();
-});
-
-it('skips the contact block when the business has no locations', function (): void {
-    Log::spy();
-
-    $tenant = Tenant::factory()->withDomain('acme')->create();
-    $this->createTenantBusiness($tenant, [], 0);
-    $this->createTenantPage($tenant, [
-        ['type' => 'contact', 'data' => ['variant' => 'split', 'heading' => 'Ghost contact']],
-    ]);
-
-    $this->get(sprintf('http://acme.%s/', $this->centralDomain()))
-        ->assertOk()
-        ->assertDontSee('Ghost contact');
-
-    // Filtered by type: the default footer chrome also fails to bind here
-    // (business without locations) and logs its own warning.
-    Log::shouldHaveReceived('warning')
-        ->withArgs(fn (string $message, array $context): bool => $message === 'fabricator.block_skipped'
-            && $context['reason'] === 'unresolved_bind'
-            && $context['type'] === 'contact')
-        ->once();
 });

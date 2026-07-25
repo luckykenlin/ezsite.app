@@ -34,13 +34,10 @@ arch('page blocks extend the app base block and are final')
     ->toBeFinal()
     ->ignoring(Block::class);
 
-arch('the block registry is final')
-    ->expect(BlockRegistry::class)
-    ->toBeFinal();
-
-arch('the design module classes are final')
+arch('the design module and block registry classes are final')
     // The enums in App\Design are final by construction; list the classes.
     ->expect([
+        BlockRegistry::class,
         Contrast::class,
         DesignTokens::class,
         ThemeVariables::class,

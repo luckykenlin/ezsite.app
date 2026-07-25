@@ -23,36 +23,25 @@ function themedBusiness(?StylePreset $preset = null): Business
     );
 }
 
-it('compiles the full variable set from the business tokens', function (): void {
-    $variables = ThemeVariables::variables(
-        Business::query()->findOrFail(themedBusiness(StylePreset::WarmCraft)->getKey()),
-    );
+it('compiles stored tokens into the variable set, defaulting without them, and renders one scoped style tag', function (): void {
+    $themed = Business::query()->findOrFail(themedBusiness(StylePreset::WarmCraft)->getKey());
+    $bare = Business::query()->findOrFail(themedBusiness()->getKey());
+
+    $variables = ThemeVariables::variables($themed);
 
     expect($variables['--color-primary'])->toBe('oklch(55% 0.12 40)') // WarmSand
         ->and($variables['--radius-box'])->toBe('1rem') // Lg
         ->and($variables['--spacing'])->toBe('0.28125rem') // Spacious
         ->and($variables['--font-heading'])->toContain('Playfair Display') // ElegantSerif
         ->and($variables['--font-sans'])->toContain('Source Sans 3');
-});
 
-it('compiles default variables for a business without stored tokens', function (): void {
-    $variables = ThemeVariables::variables(
-        Business::query()->findOrFail(themedBusiness()->getKey()),
-    );
+    $defaults = ThemeVariables::variables($bare);
 
-    expect($variables['--color-primary'])->toBe('oklch(45% 0.24 277.023)')
-        ->and($variables['--radius-box'])->toBe('0.5rem')
-        ->and($variables['--spacing'])->toBe('0.25rem')
-        ->and($variables['--font-heading'])->toContain('Instrument Sans');
-});
-
-it('renders a single scoped style tag', function (): void {
-    $style = ThemeVariables::style(
-        Business::query()->findOrFail(themedBusiness(StylePreset::BoldEditorial)->getKey()),
-    )->toHtml();
-
-    expect($style)->toStartWith('<style data-site-theme>:root{')
+    expect($defaults['--color-primary'])->toBe('oklch(45% 0.24 277.023)')
+        ->and($defaults['--radius-box'])->toBe('0.5rem')
+        ->and($defaults['--spacing'])->toBe('0.25rem')
+        ->and($defaults['--font-heading'])->toContain('Instrument Sans')
+        ->and(ThemeVariables::style($themed)->toHtml())->toStartWith('<style data-site-theme>:root{')
         ->toEndWith('}</style>')
-        ->toContain('--radius-box: 0;')
-        ->toContain('--color-primary: oklch(45% 0.15 320);'); // Plum
+        ->toContain('--color-primary: oklch(55% 0.12 40);');
 });

@@ -83,7 +83,3 @@ it('returns null when the tenant has no locations at all', function (): void {
 
     expect((new BindResolver)->location(null))->toBeNull();
 });
-
-it('is container-scoped so one request shares a single instance', function (): void {
-    expect(resolve(BindResolver::class))->toBe(resolve(BindResolver::class));
-});

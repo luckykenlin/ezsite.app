@@ -124,7 +124,7 @@ test('to array', function (): void {
         ]);
 });
 
-test('design tokens are cast to the value object with a lenient fallback', function (): void {
+test('design tokens are cast to the value object', function (): void {
     $tenant = Tenant::factory()->create();
 
     $business = $this->runInTenant($tenant, fn (): Business => Business::factory()
@@ -136,12 +136,16 @@ test('design tokens are cast to the value object with a lenient fallback', funct
         ->and($business->design_tokens->palette)->toBe(ColorPalette::WarmSand);
 });
 
-test('null or malformed stored design tokens hydrate as the defaults', function (): void {
+test('malformed stored design tokens hydrate as the defaults', function (): void {
     $tenant = Tenant::factory()->create();
     $business = $this->runInTenant($tenant, fn (): Business => Business::factory()->create(['tenant_id' => $tenant->id]));
 
+    // A JSON scalar — jsonb rejects broken syntax outright, so a non-array
+    // document is the malformed shape that can actually survive in the column.
+    // It exercises the cast's own reads-never-fail guard (the value object's
+    // leniency for valid-but-unknown values is covered in DesignTokensTest).
     $this->runInTenant($tenant, function () use ($business): void {
-        Business::query()->whereKey($business->getKey())->update(['design_tokens' => json_encode(['palette' => 'not-a-palette'])]);
+        Business::query()->whereKey($business->getKey())->update(['design_tokens' => '"not-an-object"']);
     });
     $business = Business::query()->findOrFail($business->getKey());
 

@@ -16,14 +16,6 @@ beforeEach(function (): void {
     $this->actingAs(User::factory()->create());
 });
 
-test('can list users', function (): void {
-    $users = User::factory()->count(3)->create();
-
-    Livewire::test(ListUsers::class)
-        ->call('loadTable')
-        ->assertCanSeeTableRecords($users);
-});
-
 test('can create a user', function (): void {
     Livewire::test(ListUsers::class)
         ->callAction(CreateAction::class, [
@@ -56,23 +48,17 @@ test('can update a user without changing the password, through an edit form pref
         ->and($user->password)->toBe($originalPassword);
 });
 
-test('can delete a user', function (): void {
-    $user = User::factory()->create();
-
-    Livewire::test(ListUsers::class)
-        ->callAction(TestAction::make(DeleteAction::class)->table($user));
-
-    $this->assertModelMissing($user);
-});
-
-test('cannot delete their own account', function (): void {
+test('can delete other users but not their own account', function (): void {
     $currentUser = User::factory()->create();
     $this->actingAs($currentUser);
+    $otherUser = User::factory()->create();
 
     Livewire::test(ListUsers::class)
-        ->assertActionHidden(TestAction::make(DeleteAction::class)->table($currentUser));
+        ->assertActionHidden(TestAction::make(DeleteAction::class)->table($currentUser))
+        ->callAction(TestAction::make(DeleteAction::class)->table($otherUser));
 
     $this->assertModelExists($currentUser);
+    $this->assertModelMissing($otherUser);
 });
 
 test('cannot bulk delete their own account', function (): void {

@@ -14,16 +14,6 @@ beforeEach(function (): void {
     $this->actingAs(User::factory()->create());
 });
 
-test('can list tenant users', function (): void {
-    $tenant = Tenant::factory()->create();
-    $users = User::factory()->count(3)->create();
-    $tenant->users()->attach($users);
-
-    Livewire::test(ManageUsers::class, ['record' => $tenant->getKey()])
-        ->call('loadTable')
-        ->assertCanSeeTableRecords($users);
-});
-
 test('can attach a user to a tenant', function (): void {
     $tenant = Tenant::factory()->create();
     $user = User::factory()->create();

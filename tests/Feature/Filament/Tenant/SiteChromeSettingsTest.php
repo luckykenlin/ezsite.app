@@ -64,8 +64,11 @@ test('saving again updates the same row', function (): void {
 test('the form is pre-filled from the saved configuration', function (): void {
     SiteSetting::factory()->withHeader()->create(['tenant_id' => $this->tenant->id]);
 
-    $header = array_values(Livewire::test(SiteChromeSettings::class)->get('data.header'));
+    Livewire::test(SiteChromeSettings::class)
+        ->assertSchemaStateSet(function (array $state): void {
+            $entry = array_first($state['header']);
 
-    expect($header[0]['type'])->toBe('header')
-        ->and($header[0]['data']['variant'])->toBe('centered');
+            expect($entry['type'])->toBe('header')
+                ->and($entry['data']['variant'])->toBe('centered');
+        });
 });

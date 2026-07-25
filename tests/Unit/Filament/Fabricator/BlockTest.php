@@ -2,17 +2,11 @@
 
 declare(strict_types=1);
 
-use App\Enums\BindType;
 use App\Filament\Fabricator\PageBlocks\Block;
 use App\Filament\Fabricator\PageBlocks\Contact;
-use App\Filament\Fabricator\PageBlocks\Cta;
-use App\Filament\Fabricator\PageBlocks\Features;
-use App\Filament\Fabricator\PageBlocks\Footer;
-use App\Filament\Fabricator\PageBlocks\Gallery;
 use App\Filament\Fabricator\PageBlocks\Header;
 use App\Filament\Fabricator\PageBlocks\Heading;
 use App\Filament\Fabricator\PageBlocks\Hero;
-use App\Filament\Fabricator\PageBlocks\Testimonials;
 use App\Models\Location;
 use App\Models\Tenant;
 use Filament\Forms\Components\Field;
@@ -35,24 +29,6 @@ function containerizedBlockComponents(Filament\Forms\Components\Builder\Block $b
 
     return $block->container(Schema::make($livewire))->getChildComponents();
 }
-
-it('declares no bind type for content-only blocks', function (): void {
-    expect(Hero::bindType())->toBeNull()
-        ->and(Heading::bindType())->toBeNull()
-        ->and(Features::bindType())->toBeNull()
-        ->and(Testimonials::bindType())->toBeNull()
-        ->and(Gallery::bindType())->toBeNull()
-        ->and(Cta::bindType())->toBeNull();
-});
-
-it('declares the bind target of factual blocks in their contracts', function (): void {
-    expect(Header::bindType())->toBe(BindType::Business)
-        ->and(Contact::bindType())->toBe(BindType::Location)
-        ->and(Footer::bindType())->toBe(BindType::Location)
-        ->and(Header::contract()['bind'])->toBe('business')
-        ->and(Contact::contract()['bind'])->toBe('location')
-        ->and(Footer::contract()['bind'])->toBe('location');
-});
 
 it('auto-injects a location picker between the variant selector and content fields on Location-bound blocks', function (): void {
     $tenant = Tenant::factory()->create();
