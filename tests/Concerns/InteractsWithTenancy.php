@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Tests\Concerns;
 
 use App\Actions\RunInTenant;
+use App\Models\Business;
+use App\Models\Location;
 use App\Models\Page;
 use App\Models\Tenant;
 use App\Models\User;
@@ -70,6 +72,30 @@ trait InteractsWithTenancy
         $this->createTenantPage($tenant, [
             ['type' => 'heading', 'data' => ['content' => (string) $tenant->id]],
         ]);
+    }
+
+    /**
+     * Create a tenant's Business plus a number of Locations (the first one
+     * primary), wrapping the writes in the tenant's context so RLS accepts
+     * them. Returns the business.
+     *
+     * @param  array<string, mixed>  $attributes
+     */
+    protected function createTenantBusiness(Tenant $tenant, array $attributes = [], int $locations = 1): Business
+    {
+        return $this->runInTenant($tenant, function () use ($tenant, $attributes, $locations): Business {
+            $business = Business::factory()->create($attributes + ['tenant_id' => $tenant->id]);
+
+            for ($index = 0; $index < $locations; $index++) {
+                Location::factory()->create([
+                    'tenant_id' => $tenant->id,
+                    'business_id' => $business->id,
+                    'is_primary' => $index === 0,
+                ]);
+            }
+
+            return $business;
+        });
     }
 
     /**

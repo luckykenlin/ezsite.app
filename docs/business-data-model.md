@@ -1,6 +1,6 @@
 # 商家数据模型 — Brainstorm 存档
 
-> 状态：**v1 已落地** —— `businesses` + `locations` 两张表、模型、工厂、RLS/隔离测试已建。三个开放问题已拍板（见下）。**营业时间已落地**（`locations.opening_hours` JSON 列 + `spatie/opening-hours`，见下方"营业时间"）。社交/口碑预留表、Filament 后台、block 绑定仍待做。
+> 状态：**v1 已落地** —— `businesses` + `locations` 两张表、模型、工厂、RLS/隔离测试已建。三个开放问题已拍板（见下）。**营业时间已落地**（`locations.opening_hours` JSON 列 + `spatie/opening-hours`，见下方"营业时间"）。**Filament 后台与 block 绑定已落地**（2026-07，见文末"bind 机制（已落地）"）。社交/口碑预留表仍待做。
 > 关联文档：[PLAN.md](../PLAN.md)（网站构建器第一阶段）、[.claude/docs/tenancy.md](../.claude/docs/tenancy.md)（多租户内部机制）。
 
 ## 背景与目标
@@ -32,7 +32,7 @@
 （对应"网站内容 vs 商家资料"关系，用户交由我方决定。）
 
 - **事实型数据**（名称/地址/电话 NAP、营业时间、社交链接）→ 存 `businesses` / `locations` 表。
-  网站的 Contact / Footer / Hours / Map 这类 block **引用**它（block config 存 `{"bind":"location","location_id":X}`），**不复制**。改一处，网站 + GBP + 评论回复署名全部同步 —— 正是 Vista Social 需要的。
+  网站的 Contact / Footer / Hours / Map 这类 block **引用**它（block data 存 `{"bind": {"location_id": X|null}}`，null/省略 = primary location；最终形状与本档早期草案的 `{"bind":"location",...}` 有意偏离——bind 的类型已由块类的 `$bindType` 在 contract 里声明，data 里不再存第二份），**不复制**。改一处，网站 + GBP + 评论回复署名全部同步 —— 正是 Vista Social 需要的。
 - **叙事型文案**（Hero 标题、About 故事、卖点文案）→ 留在 Fabricator 的 blocks JSON 里，因为这是网站专属创意内容，也正是 PLAN.md 里 AI 聊天编辑器要改的东西。
 
 这样既不破坏 PLAN.md "聊天只改内容和 token" 的范围，又让结构化事实 DRY 且可复用到社交业务。
@@ -160,6 +160,14 @@ reply_content(text null), reply_status(string), reviewed_at, replied_at, meta(js
 - `Business` slug 由 `#[Sluggable(from: 'name')]`（`nunomaduro/laravel-sluggable`）自动生成，Filament 表单无需手填。
 - 文件：`app/Models/{Business,Location}.php`、`database/migrations/*_create_{businesses,locations}_table.php`、`database/factories/{Business,Location}Factory.php`、`tests/Tenancy/BusinessAndLocationTest.php`；`tests/Tenancy/PostgresRlsTest.php` 加了 `toContain('locations')` / `not->toContain('businesses')`。
 
+## bind 机制（已落地，2026-07）
+
+- **形状**：`data.bind = {"location_id": <int|null>}`，仅 Location-bound 块存储；null/省略 = primary location。Business-bound 块不落库（tenant 1:1）。
+- **解析**：请求级 memoize 的 `App\Filament\Fabricator\BindResolver`（容器 scoped），整页（含 chrome）最多 businesses 1 查 + locations 1 查；失效的显式 location_id 回退 primary 并 `Log::warning`。`BlockRegistry::bindAttributes()` 把 `business`/`location` 注入块视图 props；解析失败（无 Business/零 Location）→ 跳块 + `fabricator.block_skipped` 警告，不 500。
+- **消费者**：`Contact`（location）、`Footer`（location，另注入 business）、`Header`（business）。
+- **站点 chrome**：`site_settings` 表（tenant_id unique，RLS 单跳）存 header/footer 块条目，`SiteChrome`（scoped）渲染，无保存值且有 Business 时回退默认 chrome。
+- **后台**（tenant 面板）：`BusinessProfile` 设置页（单例表单）、`SiteChromeSettings` 设置页（Builder 复用块 schema）、`Locations` 列表资源（营业时间 = 7 个按天文本框，经 `FormatOpeningHours`/`BuildOpeningHours` 与 spatie cast 互转，date exceptions 在编辑往返中保留）。
+
 ## 下一步（未做）
 
-社交/口碑预留表 → central `BusinessResource` 与 tenant location 管理（Filament，含营业时间编辑 UI）→ page block 的 `{"bind":...}` 引用机制与 brand_* 派生 design token。
+社交/口碑预留表 → brand_* 派生 design token / 每租户主题（进行中，见 PLAN.md 三里程碑计划的 M2/M3）。

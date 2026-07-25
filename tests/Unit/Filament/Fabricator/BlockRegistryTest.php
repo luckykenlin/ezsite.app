@@ -3,18 +3,26 @@
 declare(strict_types=1);
 
 use App\Filament\Fabricator\BlockRegistry;
+use App\Models\Business;
+use App\Models\Location;
+use App\Models\Tenant;
 
 it('enumerates every block contract in the vocabulary', function (): void {
     $vocabulary = BlockRegistry::vocabulary();
 
-    expect($vocabulary)->toHaveKeys(['hero', 'heading'])
+    expect($vocabulary)->toHaveKeys([
+        'hero', 'heading', 'header', 'features', 'testimonials', 'gallery', 'cta', 'contact', 'footer',
+    ])
         ->and($vocabulary['hero'])->toBe([
             'type' => 'hero',
             'variants' => ['centered-minimal', 'left-text-right-image', 'full-bleed-overlay'],
             'bind' => null,
             'fields' => ['eyebrow', 'heading', 'subheading', 'cta_label', 'cta_url', 'image_url'],
         ])
-        ->and($vocabulary['heading']['variants'])->toBeEmpty();
+        ->and($vocabulary['heading']['variants'])->toBeEmpty()
+        ->and($vocabulary['contact']['bind'])->toBe('location')
+        ->and($vocabulary['header']['bind'])->toBe('business')
+        ->and($vocabulary['footer']['bind'])->toBe('location');
 });
 
 it('resolves a valid variant to its component', function (): void {
@@ -65,4 +73,79 @@ it('normalizes data: tolerates a non-array data payload', function (): void {
         'type' => 'hero',
         'data' => 'oops',
     ]))->toBe(['variant' => 'centered-minimal']);
+});
+
+it('returns no bind attributes for a block without a bind declaration', function (): void {
+    expect(BlockRegistry::bindAttributes(['type' => 'hero', 'data' => []]))->toBeEmpty()
+        ->and(BlockRegistry::bindAttributes(['type' => 'heading', 'data' => []]))->toBeEmpty();
+});
+
+it('returns no bind attributes for an unknown or malformed type', function (array $block): void {
+    expect(BlockRegistry::bindAttributes($block))->toBeEmpty();
+})->with([
+    'unknown type' => [['type' => 'ghost', 'data' => []]],
+    'missing type' => [['data' => []]],
+]);
+
+it('injects the business into a Business-bound block', function (): void {
+    $tenant = Tenant::factory()->create();
+    $business = $this->createTenantBusiness($tenant, [], 0);
+
+    $attributes = BlockRegistry::bindAttributes(['type' => 'header', 'data' => []]);
+
+    expect($attributes)->toHaveKeys(['business'])
+        ->and($attributes)->not->toHaveKey('location')
+        ->and($attributes['business']->is(Business::query()->findOrFail($business->getKey())))->toBeTrue();
+});
+
+it('injects the business and primary location into a Location-bound block without a stored id', function (): void {
+    $tenant = Tenant::factory()->create();
+    $this->createTenantBusiness($tenant, [], 2);
+    $primary = Location::query()->where('is_primary', true)->firstOrFail();
+
+    $attributes = BlockRegistry::bindAttributes(['type' => 'contact', 'data' => []]);
+
+    expect($attributes)->toHaveKeys(['business', 'location'])
+        ->and($attributes['location']->is($primary))->toBeTrue();
+});
+
+it('injects the explicitly bound location, tolerating the string ids Filament selects dehydrate', function (): void {
+    $tenant = Tenant::factory()->create();
+    $this->createTenantBusiness($tenant, [], 2);
+    $secondary = Location::query()->where('is_primary', false)->firstOrFail();
+
+    $attributes = BlockRegistry::bindAttributes([
+        'type' => 'contact',
+        'data' => ['bind' => ['location_id' => (string) $secondary->id]],
+    ]);
+
+    expect($attributes['location']->is($secondary))->toBeTrue();
+});
+
+it('treats a malformed stored bind as unset and resolves the primary location', function (mixed $bind): void {
+    $tenant = Tenant::factory()->create();
+    $this->createTenantBusiness($tenant, [], 2);
+    $primary = Location::query()->where('is_primary', true)->firstOrFail();
+
+    $attributes = BlockRegistry::bindAttributes([
+        'type' => 'contact',
+        'data' => ['bind' => $bind],
+    ]);
+
+    expect($attributes['location']->is($primary))->toBeTrue();
+})->with([
+    'non-array bind' => ['oops'],
+    'non-numeric id' => [['location_id' => 'abc']],
+    'missing id key' => [[]],
+]);
+
+it('returns null for a bound block when the tenant has no business', function (string $type): void {
+    expect(BlockRegistry::bindAttributes(['type' => $type, 'data' => []]))->toBeNull();
+})->with(['header', 'contact']);
+
+it('returns null for a Location-bound block when the business has no locations', function (): void {
+    $tenant = Tenant::factory()->create();
+    $this->createTenantBusiness($tenant, [], 0);
+
+    expect(BlockRegistry::bindAttributes(['type' => 'contact', 'data' => []]))->toBeNull();
 });

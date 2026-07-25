@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Fabricator\PageBlocks;
 
 use App\Enums\BindType;
+use App\Models\Location;
 use Filament\Forms\Components\Builder\Block as BuilderBlock;
 use Filament\Forms\Components\Field;
 use Filament\Forms\Components\Select;
@@ -102,13 +103,20 @@ abstract class Block extends PageBlock
 
     /**
      * Compose the Filament Builder block: a required variant selector (only when
-     * the block declares variants) followed by the subclass's content fields.
+     * the block declares variants), a location picker (only for Location-bound
+     * blocks), then the subclass's content fields.
      */
     final public static function defineBlock(BuilderBlock $block): BuilderBlock
     {
-        $schema = static::$variants === []
-            ? static::fields()
-            : [static::variantField(), ...static::fields()];
+        $schema = static::fields();
+
+        if (static::$bindType === BindType::Location) {
+            $schema = [static::bindField(), ...$schema];
+        }
+
+        if (static::$variants !== []) {
+            $schema = [static::variantField(), ...$schema];
+        }
 
         return $block->schema($schema);
     }
@@ -125,5 +133,24 @@ abstract class Block extends PageBlock
             ->default(self::defaultVariant())
             ->selectablePlaceholder(false)
             ->required();
+    }
+
+    /**
+     * The auto-injected location picker for Location-bound blocks. Its dotted
+     * name nests the value into `data.bind.location_id`; a null selection means
+     * "the primary location" (resolved at render time), so a block keeps
+     * working when locations change. Options are lazy so building the schema
+     * (e.g. for {@see contract()}) never queries.
+     */
+    protected static function bindField(): Select
+    {
+        return Select::make(self::BIND_KEY.'.location_id')
+            ->label('Location')
+            ->options(fn (): array => Location::query()
+                ->orderByDesc('is_primary')
+                ->orderBy('id')
+                ->pluck('label', 'id')
+                ->all())
+            ->placeholder('Primary location');
     }
 }

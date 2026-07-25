@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Filament\Fabricator;
 
+use App\Enums\BindType;
 use App\Filament\Fabricator\PageBlocks\Block;
+use App\Models\Business;
+use App\Models\Location;
 use Z3d0X\FilamentFabricator\Facades\FilamentFabricator;
 
 /**
@@ -99,6 +102,69 @@ final class BlockRegistry
         }
 
         return $data;
+    }
+
+    /**
+     * The bound model attributes a block's view should receive: `[]` when the
+     * block declares no bind, the `business` (and, for Location binds, the
+     * `location`) props when resolution succeeds, or null when the bind cannot
+     * be resolved — no Business row, or a Location bind with zero locations.
+     * The render loop skips null the same way it skips unresolved components.
+     *
+     * @param  array<string, mixed>  $block
+     * @return array{business?: Business, location?: Location}|null
+     */
+    public static function bindAttributes(array $block): ?array
+    {
+        $type = self::blockType($block);
+        $class = $type === null ? null : FilamentFabricator::getPageBlockFromName($type);
+
+        if (! is_string($class) || ! is_subclass_of($class, Block::class)) {
+            return [];
+        }
+
+        $bindType = $class::bindType();
+
+        if ($bindType === null) {
+            return [];
+        }
+
+        $resolver = resolve(BindResolver::class);
+        $business = $resolver->business();
+
+        if ($business === null) {
+            return null;
+        }
+
+        if ($bindType === BindType::Business) {
+            return ['business' => $business];
+        }
+
+        $location = $resolver->location(self::boundLocationId($block));
+
+        return $location === null
+            ? null
+            : ['business' => $business, 'location' => $location];
+    }
+
+    /**
+     * The `data.bind.location_id` a block stores, defensively: anything that is
+     * not an integer (or an all-digit string, as Filament selects dehydrate) is
+     * treated as "unset" and resolves to the primary location.
+     *
+     * @param  array<string, mixed>  $block
+     */
+    private static function boundLocationId(array $block): ?int
+    {
+        $data = is_array($block['data'] ?? null) ? $block['data'] : [];
+        $bind = $data[Block::BIND_KEY] ?? null;
+        $id = is_array($bind) ? ($bind['location_id'] ?? null) : null;
+
+        if (is_int($id)) {
+            return $id;
+        }
+
+        return is_string($id) && ctype_digit($id) ? (int) $id : null;
     }
 
     /**

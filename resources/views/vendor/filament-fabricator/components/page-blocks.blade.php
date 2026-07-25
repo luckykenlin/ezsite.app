@@ -56,11 +56,22 @@
         @php
             $blockClass = \Z3d0X\FilamentFabricator\Facades\FilamentFabricator::getPageBlockFromName($block['type']);
             $blockData = \App\Filament\Fabricator\BlockRegistry::normalizeData($block);
+            $bindAttributes = \App\Filament\Fabricator\BlockRegistry::bindAttributes($block);
+
+            if ($bindAttributes === null) {
+                \Illuminate\Support\Facades\Log::warning('fabricator.block_skipped', [
+                    'reason' => 'unresolved_bind',
+                    'type' => $block['type'],
+                    'index' => $blockIndex,
+                ]);
+            }
         @endphp
 
-        <x-dynamic-component
-            :component="$component"
-            :attributes="new \Illuminate\View\ComponentAttributeBag($blockClass::mutateData($blockData))"
-        />
+        @if ($bindAttributes !== null)
+            <x-dynamic-component
+                :component="$component"
+                :attributes="new \Illuminate\View\ComponentAttributeBag($blockClass::mutateData($blockData) + $bindAttributes)"
+            />
+        @endif
     @endif
 @endforeach

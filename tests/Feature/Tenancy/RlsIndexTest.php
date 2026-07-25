@@ -9,7 +9,7 @@ test('every rls-scoped table indexes tenant_id so the injected predicate avoids 
         ->contains(fn (array $index): bool => ($index['columns'][0] ?? null) === 'tenant_id');
 
     expect($leadsWithTenantId)->toBeTrue(sprintf('Table [%s] must carry an index leading with tenant_id for RLS.', $table));
-})->with(['posts', 'pages', 'locations']);
+})->with(['posts', 'pages', 'locations', 'site_settings']);
 
 test('locations carries a (tenant_id, business_id) index for the business relation lookup', function (): void {
     $hasComposite = collect(Schema::getIndexes('locations'))

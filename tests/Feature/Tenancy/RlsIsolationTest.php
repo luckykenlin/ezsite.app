@@ -6,6 +6,7 @@ use App\Models\Business;
 use App\Models\Location;
 use App\Models\Page;
 use App\Models\Post;
+use App\Models\SiteSetting;
 use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Database\QueryException;
@@ -74,6 +75,28 @@ test('a tenant sees only its own locations once tenancy is initialized', functio
     tenancy()->initialize($tenantA);
     expect(Location::query()->count())->toBe(1)
         ->and(Location::query()->sole()->label)->toBe('A HQ');
+    tenancy()->end();
+});
+
+test('a tenant sees only its own site settings once tenancy is initialized', function (): void {
+    $tenantA = Tenant::factory()->create();
+    $tenantB = Tenant::factory()->create();
+
+    tenancy()->initialize($tenantA);
+    SiteSetting::factory()->withHeader()->create(['tenant_id' => $tenantA->id]);
+    tenancy()->end();
+
+    tenancy()->initialize($tenantB);
+
+    SiteSetting::factory()->withFooter()->create(['tenant_id' => $tenantB->id]);
+
+    expect(SiteSetting::query()->count())->toBe(1)
+        ->and(SiteSetting::query()->sole()->tenant_id)->toBe($tenantB->id);
+    tenancy()->end();
+
+    tenancy()->initialize($tenantA);
+    expect(SiteSetting::query()->count())->toBe(1)
+        ->and(SiteSetting::query()->sole()->tenant_id)->toBe($tenantA->id);
     tenancy()->end();
 });
 

@@ -1,0 +1,45 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Filament\Fabricator\PageBlocks;
+
+use App\Enums\BindType;
+use Filament\Forms\Components\Field;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
+
+/**
+ * Contact section. The first bind-consuming block: NAP, hours, and the
+ * directions link come from the bound {@see \App\Models\Location} (and
+ * {@see \App\Models\Business} fallbacks) at render time — never copied into
+ * block data. Only the narrative lead-in is authored here.
+ */
+final class Contact extends Block
+{
+    protected static string $name = 'contact';
+
+    /**
+     * @var array<string, string>
+     */
+    protected static array $variants = [
+        'split' => 'Intro beside details',
+        'stacked' => 'Stacked, centered',
+    ];
+
+    protected static ?BindType $bindType = BindType::Location;
+
+    /**
+     * @return array<int, Field>
+     */
+    protected static function fields(): array
+    {
+        return [
+            TextInput::make('heading')
+                ->maxLength(200),
+            Textarea::make('intro')
+                ->rows(3)
+                ->maxLength(500),
+        ];
+    }
+}
