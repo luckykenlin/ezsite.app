@@ -6,6 +6,7 @@ namespace App\Filament\Tenant\Resources;
 
 use App\Enums\PageStatus;
 use App\Filament\Tenant\Resources\PageResource\Pages\CreatePage;
+use App\Filament\Tenant\Resources\PageResource\Pages\PageEditor;
 use App\Models\Page;
 use Filament\Actions\Action;
 use Filament\Support\Icons\Heroicon;
@@ -19,6 +20,9 @@ final class PageResource extends FabricatorPageResource
     {
         return array_replace(parent::getPages(), [
             'create' => CreatePage::route('/create'),
+            // The visual editor IS the edit experience — every edit link
+            // (table action, getUrl('edit')) lands on the three-pane canvas.
+            'edit' => PageEditor::route('/{record}/edit'),
         ]);
     }
 

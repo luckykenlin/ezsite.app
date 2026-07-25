@@ -7,9 +7,17 @@
     500 the whole page. This version delegates resolution to BlockRegistry and
     degrades gracefully: any block it cannot render is skipped and logged, never
     fatal. Rendering stays escaped (`{{ }}`) — block views forbid `{!! !!}`.
+
+    Editor mode: the page editor's canvas passes `editorKeys` (one transient
+    key per block, parallel by index). Each rendered block is then wrapped in a
+    `data-block-key` div for click-to-select, and blocks the live site would
+    skip render a visible placeholder instead (selectable, so they stay
+    deletable from the editor) — without the warning logs, since the
+    placeholder itself surfaces the problem on every canvas refresh. With
+    `editorKeys` null (every live-site render), output is unchanged.
 --}}
 @aware(['page'])
-@props(['blocks' => []])
+@props(['blocks' => [], 'editorKeys' => null])
 
 @php
     // Preload related data per type, guarded so a malformed/unknown entry can't
@@ -34,21 +42,25 @@
 
 @foreach ($blocks as $blockIndex => $block)
     @php
+        $editorKey = is_array($editorKeys) ? ($editorKeys[$blockIndex] ?? null) : null;
+
         $component = is_array($block)
             ? \App\Filament\Fabricator\BlockRegistry::resolveComponent($block)
             : null;
 
-        if (! is_array($block)) {
-            \Illuminate\Support\Facades\Log::warning('fabricator.block_skipped', [
-                'reason' => 'not_an_array',
-                'index' => $blockIndex,
-            ]);
-        } elseif ($component === null) {
-            \Illuminate\Support\Facades\Log::warning('fabricator.block_skipped', [
-                'reason' => 'unresolved',
-                'type' => $block['type'] ?? null,
-                'index' => $blockIndex,
-            ]);
+        if ($editorKey === null) {
+            if (! is_array($block)) {
+                \Illuminate\Support\Facades\Log::warning('fabricator.block_skipped', [
+                    'reason' => 'not_an_array',
+                    'index' => $blockIndex,
+                ]);
+            } elseif ($component === null) {
+                \Illuminate\Support\Facades\Log::warning('fabricator.block_skipped', [
+                    'reason' => 'unresolved',
+                    'type' => $block['type'] ?? null,
+                    'index' => $blockIndex,
+                ]);
+            }
         }
     @endphp
 
@@ -58,7 +70,7 @@
             $blockData = \App\Filament\Fabricator\BlockRegistry::normalizeData($block);
             $bindAttributes = \App\Filament\Fabricator\BlockRegistry::bindAttributes($block);
 
-            if ($bindAttributes === null) {
+            if ($bindAttributes === null && $editorKey === null) {
                 \Illuminate\Support\Facades\Log::warning('fabricator.block_skipped', [
                     'reason' => 'unresolved_bind',
                     'type' => $block['type'],
@@ -68,10 +80,33 @@
         @endphp
 
         @if ($bindAttributes !== null)
-            <x-dynamic-component
-                :component="$component"
-                :attributes="new \Illuminate\View\ComponentAttributeBag($blockClass::mutateData($blockData) + $bindAttributes)"
-            />
+            @if ($editorKey !== null)
+                <div data-block-key="{{ $editorKey }}">
+                    <x-dynamic-component
+                        :component="$component"
+                        :attributes="new \Illuminate\View\ComponentAttributeBag($blockClass::mutateData($blockData) + $bindAttributes)"
+                    />
+                </div>
+            @else
+                <x-dynamic-component
+                    :component="$component"
+                    :attributes="new \Illuminate\View\ComponentAttributeBag($blockClass::mutateData($blockData) + $bindAttributes)"
+                />
+            @endif
+        @elseif ($editorKey !== null)
+            <div
+                data-block-key="{{ $editorKey }}"
+                style="margin: 0.75rem; padding: 2.5rem 1.5rem; border: 2px dashed #f59e0b; border-radius: 0.5rem; background: #fffbeb; color: #92400e; font-family: ui-sans-serif, system-ui, sans-serif; text-align: center;"
+            >
+                This "{{ $block['type'] }}" block needs business details that aren't set up yet — it is hidden on the live site.
+            </div>
         @endif
+    @elseif ($editorKey !== null)
+        <div
+            data-block-key="{{ $editorKey }}"
+            style="margin: 0.75rem; padding: 2.5rem 1.5rem; border: 2px dashed #f59e0b; border-radius: 0.5rem; background: #fffbeb; color: #92400e; font-family: ui-sans-serif, system-ui, sans-serif; text-align: center;"
+        >
+            This block can't be rendered ({{ is_array($block) ? ($block['type'] ?? 'missing type') : 'malformed entry' }}) — it is hidden on the live site.
+        </div>
     @endif
 @endforeach
