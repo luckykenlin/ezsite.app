@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Models\Tenant;
+use Illuminate\Session\SessionManager;
 
 /**
  * DatabaseSessionBootstrapper resolves the `tenant` connection *by name*, and
@@ -17,7 +18,7 @@ beforeEach(function (): void {
 
     // StartSession resolves the driver on every real request; the array driver
     // is used in tests, so resolve it explicitly to reproduce that state.
-    app('session')->driver('database');
+    resolve(SessionManager::class)->driver('database');
 });
 
 test('the database session handler follows tenancy into tenant context and back', function (): void {
