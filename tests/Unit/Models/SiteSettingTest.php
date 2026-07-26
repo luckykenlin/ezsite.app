@@ -14,20 +14,6 @@ test('tenant relation returns the owning tenant', function (): void {
     expect($setting->tenant->is($tenant))->toBeTrue();
 });
 
-test('header and footer are cast to arrays holding block entries', function (): void {
-    $tenant = Tenant::factory()->create();
-    $setting = $this->runInTenant($tenant, fn (): SiteSetting => SiteSetting::factory()
-        ->withHeader()
-        ->withFooter()
-        ->create(['tenant_id' => $tenant->id]));
-    $setting = SiteSetting::query()->findOrFail($setting->getKey());
-
-    expect($setting->header)->toBeArray()
-        ->and($setting->header[0]['type'])->toBe('header')
-        ->and($setting->footer)->toBeArray()
-        ->and($setting->footer[0]['type'])->toBe('footer');
-});
-
 test('a tenant can only have one site settings row (unique tenant_id)', function (): void {
     $tenant = Tenant::factory()->create();
 
@@ -41,10 +27,16 @@ test('a tenant can only have one site settings row (unique tenant_id)', function
 
 test('to array', function (): void {
     $tenant = Tenant::factory()->create();
-    $setting = $this->runInTenant($tenant, fn (): SiteSetting => SiteSetting::factory()->create(['tenant_id' => $tenant->id]));
+    $setting = $this->runInTenant($tenant, fn (): SiteSetting => SiteSetting::factory()
+        ->withHeader()
+        ->withFooter()
+        ->create(['tenant_id' => $tenant->id]));
     $setting = SiteSetting::query()->findOrFail($setting->getKey());
 
     expect(array_keys($setting->toArray()))->toBe([
         'id', 'tenant_id', 'header', 'footer', 'created_at', 'updated_at',
-    ]);
+    ])
+        // Both slots round-trip as arrays of Fabricator block entries.
+        ->and($setting->header[0]['type'])->toBe('header')
+        ->and($setting->footer[0]['type'])->toBe('footer');
 });

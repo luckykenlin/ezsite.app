@@ -160,6 +160,78 @@ it('renders each block variant with its own layout', function (array $block, arr
     ],
 ]);
 
+/**
+ * The per-block views' conditional branches on partial data — the other side of
+ * the happy paths above. Repeater state arrives either uuid-keyed (Filament) or
+ * as a plain list (AI output), and individual items may be malformed.
+ *
+ * @param  array<int, string>  $see
+ * @param  array<int, string>  $dontSee
+ * @param  array<string, mixed>  $business
+ */
+it('renders optional fields and skips malformed repeater items per block view', function (array $block, array $see, array $dontSee, array $business): void {
+    $tenant = Tenant::factory()->withDomain('acme')->create();
+
+    if ($business !== []) {
+        $this->createTenantBusiness($tenant, $business, 0);
+    }
+
+    $this->createTenantPage($tenant, [$block]);
+
+    $response = $this->get(sprintf('http://acme.%s/', $this->centralDomain()))->assertOk();
+
+    foreach ($see as $text) {
+        $response->assertSee($text);
+    }
+
+    foreach ($dontSee as $text) {
+        $response->assertDontSee($text);
+    }
+})->with([
+    'cta omits a link button when the url is missing' => [
+        ['type' => 'cta', 'data' => [
+            'variant' => 'banner',
+            'heading' => 'Just a headline',
+            'cta_label' => 'Label without url',
+        ]],
+        ['Just a headline'], ['Label without url'], [],
+    ],
+    'features skips a malformed repeater item' => [
+        ['type' => 'features', 'data' => [
+            'variant' => 'grid',
+            'features' => [
+                'a1b2-uuid' => ['title' => 'From the panel'],
+                'bad-item' => 'not an array',
+            ],
+        ]],
+        ['From the panel'], ['not an array'], [],
+    ],
+    'gallery skips an image without a url' => [
+        ['type' => 'gallery', 'data' => [
+            'variant' => 'grid',
+            'images' => [
+                'a1b2-uuid' => ['url' => 'https://example.com/panel.jpg'],
+                'no-url' => ['caption' => 'Orphan caption'],
+            ],
+        ]],
+        ['https://example.com/panel.jpg'], ['Orphan caption'], [],
+    ],
+    'testimonials skips a malformed repeater item' => [
+        ['type' => 'testimonials', 'data' => [
+            'variant' => 'grid',
+            'testimonials' => [
+                'a1b2-uuid' => ['quote' => 'Panel-authored quote', 'author' => 'Cara'],
+                'bad-item' => 'not an array',
+            ],
+        ]],
+        ['Panel-authored quote', 'Cara'], ['not an array'], [],
+    ],
+    'header renders the business logo when one is set' => [
+        ['type' => 'header', 'data' => ['variant' => 'simple']],
+        ['logos/corner.png'], [], ['name' => 'Corner Cafe', 'logo_path' => 'logos/corner.png'],
+    ],
+]);
+
 it('escapes authored block content to prevent stored XSS', function (): void {
     $payload = '<script>alert(1)</script>';
     $tenant = Tenant::factory()->withDomain('acme')->create();

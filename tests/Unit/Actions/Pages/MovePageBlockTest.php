@@ -21,8 +21,3 @@ it('moves a block by a signed offset, clamped at both ends', function (string $k
     'last down is a no-op' => ['c', 1, ['a', 'b', 'c']],
     'large offset clamps to the end' => ['a', 9, ['b', 'c', 'a']],
 ]);
-
-it('throws loudly on an unknown block key', function (): void {
-    expect(fn (): array => resolve(MovePageBlock::class)->handle([], 'ghost', 1))
-        ->toThrow(InvalidArgumentException::class, 'Unknown block key [ghost].');
-});

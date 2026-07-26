@@ -42,12 +42,19 @@ it('persists a draft home page with preset-stamped variants and no AI-authored r
     SiteDraftAgent::fake([fakeDraftResponse()])->preventStrayPrompts();
 
     $tenant = Tenant::factory()->create();
+    $otherTenant = Tenant::factory()->create();
     $this->createTenantBusiness($tenant, ['name' => 'Corner Cafe'], 1);
 
     generateFor($tenant);
     $page = Page::query()->sole();
 
+    tenancy()->initialize($otherTenant);
+    $visibleToOther = Page::query()->count();
+    tenancy()->end();
+
     expect($page->tenant_id)->toBe($tenant->id)
+        // RLS scopes the generated page to its own tenant.
+        ->and($visibleToOther)->toBe(0)
         ->and($page->slug)->toBe('/')
         ->and($page->status)->toBe(PageStatus::Draft)
         ->and($page->title)->toBe('Corner Cafe — Home')
@@ -120,20 +127,4 @@ it('rejects a response without structured output after the retry also fails', fu
 
     expect(fn (): Page => generateFor($tenant))
         ->toThrow(SiteDraftInvalid::class, 'no structured output');
-});
-
-it('keeps the generated page scoped to its own tenant under RLS', function (): void {
-    SiteDraftAgent::fake([fakeDraftResponse()]);
-
-    $tenantA = Tenant::factory()->create();
-    $tenantB = Tenant::factory()->create();
-    $this->createTenantBusiness($tenantA, [], 1);
-
-    generateFor($tenantA);
-
-    tenancy()->initialize($tenantB);
-    $visibleToB = Page::query()->count();
-    tenancy()->end();
-
-    expect($visibleToB)->toBe(0);
 });

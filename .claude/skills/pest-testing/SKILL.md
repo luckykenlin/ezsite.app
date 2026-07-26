@@ -140,6 +140,63 @@ assertions (strict types everywhere, models & actions `final`, actions expose
 `handle()`, no `dd`/`dump`/`ray`). Add an expectation here when you introduce a
 new structural convention rather than relying on review.
 
+## What a test should assert (three standing conventions)
+
+Derived from a full audit of the suite; each one names the shape that keeps a
+test from degrading into a change detector.
+
+**1. Enum tests assert structural invariants over `::cases()`, never literal
+values.** Iterate every case and assert the shape holds — the full variable set
+is emitted, values match the expected format, an ordered scale grows
+monotonically, a declared default exists in the referenced vocabulary. A new
+case is then covered automatically; a test that copies each constant is a
+change detector that a new case silently escapes. See
+`Unit/Design/TokenScalesTest` (radius/spacing scales), `ColorPaletteTest`
+("every palette emits all 12 variables"), and `StylePresetTest` (every preset's
+`blockVariantDefaults()` cross-checked against `BlockRegistry::vocabulary()` —
+a typo there would silently fall back to the wrong layout).
+
+**2. A `scoped` container binding is guarded by its consequence, not its
+identity.** `expect(resolve(X))->toBe(resolve(X))` passes identically for
+`scoped`, `singleton` and any already-resolved instance, so it cannot catch the
+regression that matters: dropping to `bind()` gives every caller its own
+instance, and the memoization those classes exist for disappears. The visible
+damage is an N+1 on every public page render — `BindResolver` re-queries the
+business and locations once per bound block, `SiteChrome` once per chrome slot.
+Assert the query count through a real render instead:
+`Feature/Filament/Fabricator/BindResolutionTest` (one businesses + one locations
+query per page) and `SiteChromeRenderTest`'s "single settings query" test. Both
+fail when the binding degrades; the identity assertion does not.
+
+(`scoped` rather than `singleton` is about long-lived processes: the container
+only forgets scoped instances in the queue worker between jobs
+(`QueueServiceProvider`), and under Octane between requests. Nothing in this app
+resolves these two classes off the render path today, so the distinction is
+currently defensive — it becomes load-bearing the moment a job renders a page or
+reads tenant business data, where a `singleton` would carry one tenant's
+memoized rows into the next tenant's job.)
+
+**3. A shared primitive gets a test named after itself.** When several classes
+delegate to one helper, test the helper directly and parameterize the
+consumers in a single dataset — do not restate its behavior once per consumer.
+`Unit/Actions/Pages/FindPageBlockIndexTest` is the reference: one dataset
+invokes all four key-addressed actions, so each delegation is still exercised
+while the contract lives under the primitive's own name.
+
+### Gotcha: scoped instances survive between `$this->get()` calls
+
+Nothing flushes scoped instances at an HTTP request boundary. Under php-fpm none
+is needed — each request is a fresh process with a fresh container, so isolation
+comes from the process dying. The test harness instead reuses one application
+across every request in a test.
+
+So a test that renders, **mutates the data, and renders again** replays the first
+render's memoized `BindResolver` / `SiteChrome` and asserts stale values. Prefer
+one render per test — that is what production does, and it keeps the test free of
+container-lifecycle knowledge. If a test genuinely needs two renders of changed
+data, `$this->app->forgetScopedInstances()` between them reproduces the fresh
+container a real second request would get.
+
 ## Model tests (the per-model template)
 
 **Every model in `app/Models` gets a `tests/Unit/Models/{Model}Test.php`.** The

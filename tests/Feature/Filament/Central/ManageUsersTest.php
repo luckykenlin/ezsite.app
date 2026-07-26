@@ -14,7 +14,7 @@ beforeEach(function (): void {
     $this->actingAs(User::factory()->create());
 });
 
-test('can attach a user to a tenant', function (): void {
+test('can attach and detach a tenant member', function (): void {
     $tenant = Tenant::factory()->create();
     $user = User::factory()->create();
 
@@ -23,12 +23,6 @@ test('can attach a user to a tenant', function (): void {
         ->assertHasNoFormErrors();
 
     expect($tenant->users()->whereKey($user->id)->exists())->toBeTrue();
-});
-
-test('can detach a user from a tenant', function (): void {
-    $tenant = Tenant::factory()->create();
-    $user = User::factory()->create();
-    $tenant->users()->attach($user);
 
     Livewire::test(ManageUsers::class, ['record' => $tenant->getKey()])
         ->callAction(TestAction::make(DetachAction::class)->table($user));

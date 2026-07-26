@@ -69,7 +69,3 @@ it('memoizes the settings row so both slots cost a single query', function (): v
 
     expect($settingQueries)->toBe(1);
 });
-
-it('is container-scoped so one request shares a single instance', function (): void {
-    expect(resolve(SiteChrome::class))->toBe(resolve(SiteChrome::class));
-});

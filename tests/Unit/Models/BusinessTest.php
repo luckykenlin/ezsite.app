@@ -40,17 +40,7 @@ test('locations relation returns the business locations', function (): void {
     expect(Business::query()->findOrFail($business->getKey())->locations)->toHaveCount(2);
 });
 
-test('slug is auto-generated from name via laravel-sluggable', function (): void {
-    $tenant = Tenant::factory()->create();
-    $business = $this->runInTenant($tenant, fn (): Business => Business::factory()->create([
-        'tenant_id' => $tenant->id,
-        'name' => 'The Corner Cafe',
-    ]));
-
-    expect($business->slug)->toBe('the-corner-cafe');
-});
-
-test('slug is scoped per tenant so two tenants can share a name and slug', function (): void {
+test('slug is auto-generated from the name and scoped per tenant', function (): void {
     $tenantA = Tenant::factory()->create();
     $tenantB = Tenant::factory()->create();
 

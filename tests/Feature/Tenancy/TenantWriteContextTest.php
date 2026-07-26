@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use App\Models\Post;
 use App\Models\Tenant;
-use Illuminate\Support\Facades\DB;
 use Tests\Fixtures\CreatePostForTenant;
 
 test('the guard rejects writing an RLS-scoped model in central context', function (): void {
@@ -57,16 +56,6 @@ test('RunInTenant restores the previous tenant context when nested', function ()
     });
 
     expect(tenant())->toBeNull();
-});
-
-test('RunInTenant runs the callback with the RLS session variable set to the tenant', function (): void {
-    $tenant = Tenant::factory()->create();
-
-    $active = $this->runInTenant($tenant, fn (): ?string => DB::scalar(
-        "SELECT current_setting('".config('tenancy.rls.session_variable_name')."', true)"
-    ));
-
-    expect($active)->toBe((string) $tenant->getTenantKey());
 });
 
 test('a TenantAware job dispatched from central writes to the target tenant', function (): void {

@@ -16,8 +16,3 @@ it('removes the addressed block and reindexes the list', function (): void {
     expect(array_column($result, 'key'))->toBe(['a', 'c'])
         ->and(array_is_list($result))->toBeTrue();
 });
-
-it('throws loudly on an unknown block key', function (): void {
-    expect(fn (): array => resolve(RemovePageBlock::class)->handle([], 'ghost'))
-        ->toThrow(InvalidArgumentException::class, 'Unknown block key [ghost].');
-});

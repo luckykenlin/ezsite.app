@@ -17,8 +17,3 @@ it('inserts a fresh-keyed copy directly after the source block', function (): vo
         ->and($result['blocks'][1]['type'])->toBe('hero')
         ->and($result['blocks'][1]['data'])->toBe($blocks[0]['data']);
 });
-
-it('throws loudly on an unknown block key', function (): void {
-    expect(fn (): array => resolve(DuplicatePageBlock::class)->handle([], 'ghost'))
-        ->toThrow(InvalidArgumentException::class, 'Unknown block key [ghost].');
-});

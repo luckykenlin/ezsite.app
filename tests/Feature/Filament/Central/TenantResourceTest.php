@@ -52,7 +52,9 @@ test('creating a tenant with a name that slugs to an existing subdomain appends 
     ]);
 });
 
-test('domain column appends the central domain to a bare tenant subdomain', function (): void {
+// The subdomain-vs-custom-domain distinction belongs to Domain::getUrl() and is
+// covered by Unit/Models/DomainTest; here we only assert the column delegates to it.
+test('domain column links to the tenant resolved url', function (): void {
     $centralDomain = array_first(config('tenancy.identification.central_domains'));
     $tenant = Tenant::factory()->create();
     Domain::factory()->create(['tenant_id' => $tenant->id, 'domain' => 'acme-inc']);
@@ -62,19 +64,6 @@ test('domain column appends the central domain to a bare tenant subdomain', func
         ->assertTableColumnExists(
             'domain.domain',
             fn ($column): bool => $column->getUrl() === sprintf('http://acme-inc.%s/', $centralDomain),
-            record: $tenant,
-        );
-});
-
-test('domain column links directly to a fully-qualified custom domain', function (): void {
-    $tenant = Tenant::factory()->create();
-    Domain::factory()->create(['tenant_id' => $tenant->id, 'domain' => 'acme-inc.example.com']);
-
-    Livewire::test(ListTenants::class)
-        ->call('loadTable')
-        ->assertTableColumnExists(
-            'domain.domain',
-            fn ($column): bool => $column->getUrl() === 'http://acme-inc.example.com/',
             record: $tenant,
         );
 });

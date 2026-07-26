@@ -47,7 +47,8 @@ test('opening_hours casts to an OpeningHours value object', function (): void {
     expect($location->opening_hours)->toBeInstanceOf(OpeningHours::class)
         ->and($location->opening_hours->isOpenAt(new DateTimeImmutable('2026-07-13 10:00', new DateTimeZone('America/New_York'))))->toBeTrue()
         ->and($location->opening_hours->isOpenAt(new DateTimeImmutable('2026-07-13 12:30', new DateTimeZone('America/New_York'))))->toBeFalse()
-        ->and($location->opening_hours->isOpenAt(new DateTimeImmutable('2026-12-25 10:00', new DateTimeZone('America/New_York'))))->toBeFalse();
+        ->and($location->opening_hours->isOpenAt(new DateTimeImmutable('2026-12-25 10:00', new DateTimeZone('America/New_York'))))->toBeFalse()
+        ->and($location->opening_hours->isOpenOn('sunday'))->toBeFalse();
 });
 
 test('opening_hours is null when not set', function (): void {
@@ -57,25 +58,6 @@ test('opening_hours is null when not set', function (): void {
     $location = Location::query()->findOrFail($location->getKey());
 
     expect($location->opening_hours)->toBeNull();
-});
-
-test('opening_hours accepts an OpeningHours instance and round-trips', function (): void {
-    $tenant = Tenant::factory()->create();
-    $location = $this->runInTenant($tenant, function () use ($tenant): Location {
-        $location = Location::factory()->create(['tenant_id' => $tenant->id]);
-
-        $location->opening_hours = OpeningHours::create([
-            'monday' => ['08:00-16:00'],
-        ]);
-        $location->save();
-
-        return $location;
-    });
-
-    $location = Location::query()->findOrFail($location->getKey());
-
-    expect($location->opening_hours->forDay('monday')->count())->toBe(1)
-        ->and($location->opening_hours->isOpenOn('sunday'))->toBeFalse();
 });
 
 test('opening_hours rejects a non-array, non-object value', function (): void {

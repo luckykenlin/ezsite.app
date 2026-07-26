@@ -35,7 +35,10 @@ it('assembles the profile, locations, vocabulary, presets and language sections'
         ->toContain('Main Street (primary)')
         ->toContain('Fremont')
         ->toContain('"hero"') // vocabulary JSON
-        ->toContain('do NOT include them') // chrome exclusion note
+        // Not a copy snapshot: this is the second of three guards on "the AI never
+        // authors chrome" (schema enum in SiteDraftAgentTest, server-side drop in
+        // SiteDraftValidatorTest). Rewording the instruction should be deliberate.
+        ->toContain('do NOT include them')
         ->toContain('warm-craft') // preset menu
         ->toContain('vibes:')
         ->toContain('Write all user-visible copy in: zh_TW');

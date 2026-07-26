@@ -31,21 +31,15 @@ it('inserts at an explicit position and clamps out-of-range positions', function
 
     expect(array_column($result['blocks'], 'type'))->toHaveCount(3)
         ->and($result['blocks'][$expectedIndex]['type'])->toBe('cta')
-        ->and($result['blocks'][$expectedIndex]['key'])->toBe($result['key']);
+        ->and($result['blocks'][$expectedIndex]['key'])->toBe($result['key'])
+        // Keys stay unique: canvas selection addresses blocks by key.
+        ->and($result['key'])->not->toBeIn(['a', 'b']);
 })->with([
     'at the start' => [0, 0],
     'in the middle' => [1, 1],
     'past the end clamps to the end' => [9, 2],
     'negative clamps to the start' => [-3, 0],
 ]);
-
-it('generates a unique key per added block', function (): void {
-    $first = resolve(AddPageBlock::class)->handle([], 'hero');
-    $second = resolve(AddPageBlock::class)->handle($first['blocks'], 'hero');
-
-    expect($second['key'])->not->toBe($first['key'])
-        ->and(array_column($second['blocks'], 'key'))->toHaveCount(2);
-});
 
 it('throws loudly on an unknown block type', function (): void {
     expect(fn (): array => resolve(AddPageBlock::class)->handle([], 'carousel'))
