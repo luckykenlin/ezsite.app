@@ -16,6 +16,16 @@ arch('no debugging statements are left behind')
     ->expect(['dd', 'dump', 'ray', 'var_dump', 'var_export', 'print_r'])
     ->not->toBeUsed();
 
+arch('assert() is never used')
+    // CI's PHP runs php.ini-production (zend.assertions=-1), which compiles
+    // `assert()` out while Xdebug still counts its line as executable — the
+    // `--exactly=100.0` coverage gate then fails on code that is fully covered
+    // locally. setup-php's `ini-values` cannot undo it: once the main php.ini
+    // says -1, only that file or `php -d` can raise it. Narrow types with an
+    // inline `/** @var X $var */` instead.
+    ->expect('assert')
+    ->not->toBeUsed();
+
 arch('models are final classes')
     ->expect('App\Models')
     ->toBeClasses()

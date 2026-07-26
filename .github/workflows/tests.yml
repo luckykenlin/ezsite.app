@@ -49,12 +49,15 @@ jobs:
           extensions: pdo, pdo_pgsql, pgsql
           tools: composer:v2
           coverage: xdebug
-          # setup-php ships php.ini-production, which sets zend.assertions=-1 and
-          # compiles `assert()` out. Xdebug still counts those lines as executable
-          # but never-hit, so the --exactly=100.0 coverage gate fails on code that
-          # is fully covered locally (PHP's own default is 1). It can't be fixed
-          # from phpunit.xml — -1 is a startup-only value.
-          ini-values: zend.assertions=1
+          # NOTE: CI's PHP loads php.ini-production, so zend.assertions=-1 and
+          # `assert()` is compiled out while Xdebug still counts its line as
+          # executable — the --exactly=100.0 gate then fails on code that is
+          # fully covered locally (PHP's own default is 1). It can't be raised
+          # from here: once the *main* php.ini says -1, only that file or
+          # `php -d` can change it, and setup-php's `ini-values` writes to an
+          # additional ini file, which PHP ignores for this directive. So app/
+          # stays `assert()`-free — enforced by the arch test "assert() is never
+          # used"; narrow types with an inline `/** @var X $var */` instead.
 
       - name: Cache Composer dependencies
         uses: actions/cache@v6

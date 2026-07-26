@@ -1377,8 +1377,8 @@ final class PageEditor extends Page
 
     private function pageRecord(): PageModel
     {
+        /** @var PageModel $record */
         $record = $this->getRecord();
-        assert($record instanceof PageModel);
 
         return $record;
     }
