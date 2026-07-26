@@ -4,6 +4,8 @@
     'intro' => null,
     'business' => null,
     'location' => null,
+    'show_form' => true,
+    'success_message' => null,
 ])
 @php
     $addressLines = array_filter([
@@ -25,6 +27,12 @@
 
             @if ($intro)
                 <p class="mt-4 text-lg text-base-content/70">{{ $intro }}</p>
+            @endif
+
+            @if ($show_form)
+                <div class="mt-8">
+                    <x-lead-form :location="$location" :page="$page" :success-message="$success_message" />
+                </div>
             @endif
         </div>
 

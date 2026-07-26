@@ -49,7 +49,7 @@ it('auto-injects a location picker between the variant selector and content fiel
         ->and($bindSelect->isRequired())->toBeFalse()
         ->and(array_values($bindSelect->getOptions()))->toBe(['Main spot'])
         ->and(array_map(fn (Field $field): string => $field->getName(), array_slice($components, 2)))
-        ->toBe(['heading', 'intro']);
+        ->toBe(['heading', 'intro', 'show_form', 'success_message']);
 
     // Both auto-injected selects are explicitly live WITHOUT a debounce, so
     // they override the page editor's debounced section binding — switching

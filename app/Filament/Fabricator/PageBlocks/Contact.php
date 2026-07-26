@@ -8,6 +8,7 @@ use App\Enums\BindType;
 use Filament\Forms\Components\Field;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Support\Icons\Heroicon;
 
 /**
@@ -28,6 +29,7 @@ final class Contact extends Block
     protected static array $sample = [
         'heading' => 'Get in touch',
         'intro' => "Questions? We'd love to hear from you.",
+        'show_form' => true,
     ];
 
     /**
@@ -51,6 +53,14 @@ final class Contact extends Block
             Textarea::make('intro')
                 ->rows(3)
                 ->maxLength(500),
+            Toggle::make('show_form')
+                ->label('Show enquiry form')
+                ->helperText('Visitors leave their name and phone; enquiries appear under Leads.')
+                ->default(true),
+            TextInput::make('success_message')
+                ->label('Thank-you message')
+                ->placeholder('Thanks — we got your message and will be in touch.')
+                ->maxLength(200),
         ];
     }
 }

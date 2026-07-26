@@ -126,10 +126,32 @@
 
 仍未做:上传降采样(curator 不自动压,后续 Observer 兜底)。
 
+## ✅ 迭代 7 「上线闭环:SEO + 线索捕获」【2026-07-26 已完成】
+
+> 编辑器本身收尾后,缺口不在编辑器里而在"站点交付出去能不能带来生意"。计划文件:
+> `~/.claude/plans/claude-docs-editor-roadmap-md-temporal-lark.md`。
+
+| 组件 | 实现 |
+|---|---|
+| SEO 渲染层 | `ralphjsmit/laravel-seo` **只用渲染层**:`BuildPageSeoData` 组装 `SEOData`(标题/描述/OG/Twitter/canonical/robots/JSON-LD),包的 `seo` 多态表与 `HasSEO` **故意不用**(无 tenant_id,会被 `RlsPolicyTest` fail-closed 守卫拦下)。**`config/seo.php` 是中央单例**,租户相关值(site_name/后缀/图/favicon)一律走 SEOData,标题后缀自己拼 + `enableTitleSuffix: false` |
+| per-page 覆盖 | `pages` 加 `seo_title`/`seo_description`/`seo_image_media_id`(FK curator,nullOnDelete)/`is_indexable`;编辑器 Page settings 弹窗新增折叠「Search & sharing」区(复用 `ImageInput`)。留空则回退:页面标题 → Business tagline/description → logo |
+| LocalBusiness JSON-LD | `BuildLocalBusinessSchema`(仅首页):NAP + geo + `openingHoursSpecification` **直接取 `opening_hours->asStructuredData()`**——该列本就存 schema.org 结构化数据,零解析 |
+| 布局接线 | 覆盖 vendor `layouts/base.blade.php`(唯一原因:它硬编码 `<title>` 会与包重复),新增 `seoData` prop;`main.blade.php` 仅在**非编辑模式**(`! is_array($editorKeys)`)传值——画布预览零 canonical/OG/JSON-LD(有泄漏断言) |
+| sitemap / robots | 自写租户路由:`sitemap.xml` 实时列已发布且可索引页(RLS 天然限定租户,`getUrl()` 带父子路径),`robots.txt` 指向本租户 sitemap 并挡 `/admin`、`/_editor` |
+| AI 顺带 | `SiteDraftAgent` schema + prompt 加 `meta_description`,验证器去标签截 160 落 `seo_description`;模型漏写时**不覆盖**运营已写的描述 |
+| 线索捕获 | `leads` 表(单跳 `tenant_id` + nullable location/page FK,策略自动生成);`CaptureLead` 入库 + 给租户成员发 Filament 数据库通知(带「Open inbox」跳转);`POST /_leads` + `StoreLeadController`(`throttle:5,1`、蜜罐 `_hp` 静默丢弃、email/phone 二者必填一、陈旧 location/page id 降级为 null 而非报错) |
+| 表单 | `Contact` 块加 `show_form`(默认开)+ `success_message`;共享匿名组件 `x-lead-form`(CSRF + 蜜罐 + `@error` + session 成功态,零 JS,画布内因捕获阶段 preventDefault 不会误提交) |
+| 收件箱 | 只读 `LeadResource`(列表/详情/状态筛选/标记已读/归档/批量 + 侧栏未读徽章);`markAsRead` 幂等(已读的批量再扫不改 `read_at`) |
+
+**踩坑记录**:CuratorPicker 在 action 弹窗里不能用 `fillForm(media 数组)`(渲染期 `Undefined array key "ext"`),要 `->set('mountedActions.0.data.<field>', [$media->toArray()])`;`assertActionDataSet`/`setActionData` 已废弃(filacheck 会拦),用 `assertSchemaStateSet`/`fillForm`;deferLoading 表格测试必须先 `->call('loadTable')`;在 tenancy 内创建的模型实例记着 `tenant` 连接名,跨 tenancy 读关系/`is()` 前要重新查一次。
+
 ## NOT NOW(明确推迟,及理由)
 
 | 提案 | 推迟理由 |
 |---|---|
+| 线索邮件通知 | 迭代 7 只做站内通知(本地 `MAIL_MAILER=log`);`CaptureLead::notifyOperators()` 是唯一接入点 |
+| Google 搜索结果预览小样 | SEO 字段先跑起来看真实使用,预览小样是纯装饰 |
+| `Post` 前台/博客线 | 依赖 SEO 基础(已就位),但内容线要先有商家愿意写;`ArticleSchema`/`BreadcrumbListSchema` 已随包免费待用 |
 | ✅ 画布内联文本编辑【2026-07-25 已完成】 | 双击选中块文本 → 父窗口按草稿字段值**精确匹配**授权(只有与某字符串字段完全一致的文本可编辑,含 chrome)→ `contenteditable="plaintext-only"`(旧浏览器回退 + paste 剥离)→ 防抖 400ms 走 `$wire.set` + 单块补丁;Enter/blur 提交(`$refresh` 同步右栏),Esc 还原;编辑中抑制该块 patch。零服务端新代码 |
 | Livewire snapshot 瘦身(非选中块移出 wire 状态) | 草稿唯一权威移入 cache 意味着缓存驱逐=丢稿,还改变 `applyBlocks` 语义;等幂等化+补丁落地后实测体积再决定 |
 | Section 预设(预填块组合) | 文案编写与预设腐烂的维护成本前置;AI 初稿已覆盖该场景;等 phase-2 AI few-shot 设计时一起做,复用一份数据 |

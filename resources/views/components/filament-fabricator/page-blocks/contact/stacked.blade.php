@@ -4,6 +4,8 @@
     'intro' => null,
     'business' => null,
     'location' => null,
+    'show_form' => true,
+    'success_message' => null,
 ])
 @php
     $addressLines = array_filter([
@@ -63,6 +65,12 @@
                 target="_blank"
                 rel="noopener"
             >{{ __('Get directions') }}</a>
+        @endif
+
+        @if ($show_form)
+            <div class="mt-10 flex w-full justify-center text-start">
+                <x-lead-form :location="$location" :page="$page" :success-message="$success_message" />
+            </div>
         @endif
     </div>
 </section>
