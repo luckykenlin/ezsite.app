@@ -1,12 +1,12 @@
+@use('App\Enums\ChromeSlot')
 <x-filament-panels::page>
     {{--
         Three-pane visual editor. The pane skeleton is styled with a scoped
         stylesheet (Filament CSS variables for theming) so it needs no
         Tailwind rebuild; interactive controls reuse core Filament components.
-        The Alpine root owns the iframe lifecycle: canvas reloads (with scroll
-        preserved and a progress bar), the postMessage bridge to the preview
-        document (select / hover / floating-toolbar actions / forwarded
-        shortcuts), the device-width preview, and the unsaved-changes guards.
+        The Alpine root (resources/js/page-editor/editor.ts) owns the iframe
+        lifecycle, the postMessage bridge to the preview document, the
+        device-width preview, and the unsaved-changes guards.
     --}}
     <style>
         .pe-layout {
@@ -387,235 +387,13 @@
 
     <div
         class="pe-layout"
-        x-data="{
-            device: 'desktop',
-            reloading: false,
-            deviceWidths: { desktop: '100%', tablet: '768px', mobile: '390px', overview: '100%' },
+        x-data="pageEditor({
             libraryTypes: @js(array_keys($this->blockLibrary())),
-            reload(url) {
-                const iframe = this.$refs.canvas;
-                let scrollY = 0;
-
-                try {
-                    scrollY = iframe.contentWindow.scrollY;
-                } catch (e) {}
-
-                this.reloading = true;
-
-                iframe.onload = () => {
-                    this.reloading = false;
-
-                    try {
-                        iframe.contentWindow.scrollTo(0, scrollY);
-                    } catch (e) {}
-                };
-
-                iframe.src = url;
-            },
-            postToCanvas(payload) {
-                try {
-                    this.$refs.canvas.contentWindow.postMessage(
-                        { ns: 'ezsite-editor', ...payload },
-                        window.location.origin,
-                    );
-                } catch (e) {}
-            },
-            hoverBlock(key) {
-                this.postToCanvas({ type: 'hover', key });
-            },
-            runShortcut(name) {
-                if (name === 'save') this.$wire.save();
-                if (name === 'undo') this.$wire.undo();
-                if (name === 'redo') this.$wire.redo();
-                if (name === 'deselect') this.$wire.deselectBlock();
-                if (name === 'remove-selected') this.removeSelected();
-                if (name === 'move-selected-up') this.moveSelected(-1);
-                if (name === 'move-selected-down') this.moveSelected(1);
-            },
-            selectedPageBlockKey() {
-                const key = this.$wire.selectedBlockKey;
-
-                return key && ! key.startsWith('chrome:') ? key : null;
-            },
-            removeSelected() {
-                const key = this.selectedPageBlockKey();
-
-                if (key && confirm('{{ __('Remove this block?') }}')) {
-                    this.$wire.removeBlock(key);
-                }
-            },
-            moveSelected(offset) {
-                const key = this.selectedPageBlockKey();
-
-                if (key) {
-                    this.$wire.moveBlock(key, offset);
-                }
-            },
-            inField(target) {
-                return target instanceof Element
-                    && target.closest('input, textarea, select, [contenteditable]') !== null;
-            },
-            modalOpen() {
-                return (this.$wire.mountedActions ?? []).length > 0;
-            },
-            onLibraryDragStart(event, type) {
-                event.dataTransfer.setData('application/x-ezsite-block', type);
-                event.dataTransfer.effectAllowed = 'copy';
-                this.postToCanvas({ type: 'library-drag', active: true });
-            },
-            onLibraryDragEnd() {
-                this.postToCanvas({ type: 'library-drag', active: false });
-            },
-            onMessage(event) {
-                if (event.origin !== window.location.origin || event.data?.ns !== 'ezsite-editor') {
-                    return;
-                }
-
-                const message = event.data;
-
-                if (message.type === 'ready') {
-                    this.reloading = false;
-                    this.postToCanvas({ type: 'select', key: this.$wire.selectedBlockKey, scroll: false });
-                }
-
-                if (message.type === 'block-clicked') {
-                    this.$wire.selectBlock(message.key);
-                }
-
-                if (message.type === 'action') {
-                    if (message.action === 'move-up') this.$wire.moveBlock(message.key, -1);
-                    if (message.action === 'move-down') this.$wire.moveBlock(message.key, 1);
-                    if (message.action === 'duplicate') this.$wire.duplicateBlock(message.key);
-                    if (message.action === 'remove' && confirm('{{ __('Remove this block?') }}')) {
-                        this.$wire.removeBlock(message.key);
-                    }
-                }
-
-                if (message.type === 'reorder' && Array.isArray(message.keys)) {
-                    this.$wire.reorderBlocks(message.keys);
-                }
-
-                if (message.type === 'insert-at' && Number.isInteger(message.position)) {
-                    this.$wire.queueInsertAt(message.position).then(() => {
-                        this.postToCanvas({ type: 'insert-armed', position: this.$wire.pendingInsertPosition });
-                    });
-                }
-
-                if (
-                    message.type === 'library-drop'
-                    && Number.isInteger(message.position)
-                    && this.libraryTypes.includes(message.blockType)
-                ) {
-                    this.$wire.addBlockAt(message.blockType, message.position);
-                }
-
-                if (message.type === 'deselect') {
-                    this.$wire.deselectBlock();
-                }
-
-                if (message.type === 'inline-edit-request' && message.key === this.$wire.selectedBlockKey) {
-                    // Grant only when the double-clicked text exactly matches
-                    // one of the selected block's string draft fields — that
-                    // field becomes the contenteditable target.
-                    const draft = this.$wire.data?.block ?? {};
-                    const text = (message.text ?? '').trim();
-                    const match = text === '' ? null : Object.entries(draft)
-                        .find(([, value]) => typeof value === 'string' && value.trim() === text);
-
-                    if (match) {
-                        this.postToCanvas({ type: 'inline-edit-grant', field: match[0] });
-                    }
-                }
-
-                if (
-                    message.type === 'inline-input'
-                    && message.key === this.$wire.selectedBlockKey
-                    && typeof message.field === 'string'
-                    && /^[a-z0-9_]+$/.test(message.field)
-                ) {
-                    this.$wire.set('data.block.' + message.field, message.value);
-                }
-
-                if (message.type === 'inline-commit') {
-                    // Sync the right pane (skipRender left it stale while typing).
-                    this.$wire.$refresh();
-                }
-
-                if (message.type === 'shortcut') {
-                    this.runShortcut(message.name);
-                }
-            },
-            onKeydown(event) {
-                // Never hijack keys while typing or while a modal is open.
-                if (this.modalOpen() || this.inField(event.target)) {
-                    return;
-                }
-
-                if (event.key === 'Escape') {
-                    this.runShortcut('deselect');
-
-                    return;
-                }
-
-                if (event.key === 'Delete' || event.key === 'Backspace') {
-                    event.preventDefault();
-                    this.runShortcut('remove-selected');
-
-                    return;
-                }
-
-                if (! (event.metaKey || event.ctrlKey)) {
-                    return;
-                }
-
-                if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
-                    event.preventDefault();
-                    this.runShortcut(event.key === 'ArrowUp' ? 'move-selected-up' : 'move-selected-down');
-                }
-
-                if (event.key === 's') {
-                    event.preventDefault();
-                    this.runShortcut('save');
-                }
-
-                if (event.key === 'z') {
-                    event.preventDefault();
-                    this.runShortcut(event.shiftKey ? 'redo' : 'undo');
-                }
-            },
-            onBeforeUnload(event) {
-                if (this.$wire.isDirty) {
-                    event.preventDefault();
-                    event.returnValue = '';
-                }
-            },
-            onNavigate(event) {
-                if (this.$wire.isDirty && ! confirm('{{ __('You have unsaved changes. Leave this page?') }}')) {
-                    event.preventDefault();
-                }
-            },
-            patch(url, fallbackUrl, key) {
-                fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-                    .then((response) => {
-                        if (! response.ok) {
-                            throw new Error(response.status);
-                        }
-
-                        return response.text();
-                    })
-                    .then((html) => this.postToCanvas({ type: 'patch', key, html }))
-                    .catch(() => this.reload(fallbackUrl));
-            },
-            init() {
-                this.$wire.on('page-editor:refresh-canvas', ({ url }) => this.reload(url));
-                this.$wire.on('page-editor:patch-canvas', ({ url, fallbackUrl, key }) => {
-                    this.patch(url, fallbackUrl, key);
-                });
-                this.$wire.on('page-editor:select-canvas-block', ({ key, scroll }) => {
-                    this.postToCanvas({ type: 'select', key, scroll });
-                });
-            },
-        }"
+            labels: @js([
+                'confirmRemove' => __('Remove this block?'),
+                'confirmLeave' => __('You have unsaved changes. Leave this page?'),
+            ]),
+        })"
         x-on:message.window="onMessage($event)"
         x-on:keydown.window="onKeydown($event)"
         x-on:beforeunload.window="onBeforeUnload($event)"
@@ -657,8 +435,8 @@
                     type="button"
                     class="pe-structure-row pe-chrome-row"
                     style="margin-top: 0.5rem; width: 100%;"
-                    @if ($this->selectedBlockKey === \App\Filament\Tenant\Resources\PageResource\Pages\PageEditor::CHROME_HEADER_KEY) data-selected @endif
-                    wire:click="selectBlock('chrome:header')"
+                    @if ($this->selectedBlockKey === ChromeSlot::Header->editorKey()) data-selected @endif
+                    wire:click="selectBlock('{{ ChromeSlot::Header->editorKey() }}')"
                 >
                     <x-filament::icon icon="heroicon-o-bars-3" class="pe-row-icon" />
                     <span class="pe-row-main">
@@ -730,8 +508,8 @@
                     type="button"
                     class="pe-structure-row pe-chrome-row"
                     style="width: 100%;"
-                    @if ($this->selectedBlockKey === \App\Filament\Tenant\Resources\PageResource\Pages\PageEditor::CHROME_FOOTER_KEY) data-selected @endif
-                    wire:click="selectBlock('chrome:footer')"
+                    @if ($this->selectedBlockKey === ChromeSlot::Footer->editorKey()) data-selected @endif
+                    wire:click="selectBlock('{{ ChromeSlot::Footer->editorKey() }}')"
                 >
                     <x-filament::icon icon="heroicon-o-bars-3-bottom-left" class="pe-row-icon" />
                     <span class="pe-row-main">

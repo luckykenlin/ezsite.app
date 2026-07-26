@@ -52,7 +52,10 @@ export default defineConfig({
             input: [
                 'resources/css/app.css',
                 'resources/css/site.css',
+                'resources/css/page-editor-canvas.css',
                 'resources/js/app.ts',
+                'resources/js/page-editor/canvas.ts',
+                'resources/js/page-editor/editor.ts',
                 'resources/css/filament/tenant/theme.css',
             ],
             refresh: true,

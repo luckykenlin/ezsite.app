@@ -21,6 +21,27 @@ load-bearing — everything else is in tenancy.md:
 Details (RLS conventions, routing, identification, models, authorization,
 gotchas): @.claude/docs/tenancy.md
 
+## Page editor layout (deliberate exceptions)
+
+Tenant resources follow Filament's `<Plural>/{XResource.php, Pages/, Schemas/,
+Tables/}` layout — `Posts/`, `Leads/`, `Locations/`. **`PageResource` does
+not**, and that is intentional: the new layout would nest it at
+`Resources/Pages/Pages/`, where "Pages" means two different things. It keeps
+the flat `Resources/PageResource.php` + `Resources/PageResource/` form. Don't
+"fix" it for consistency.
+
+Two more conventions inside that directory:
+
+- `PageResource/Actions/` holds the editor's modal builders (`static
+  make(PageEditor $editor): Action`). Anything that is a Filament modal
+  belongs there, NOT on `PageEditor` — the page class is the block/undo/preview
+  state machine and should stay that.
+- The editor's browser code lives in `resources/js/page-editor/*.ts` and
+  `resources/css/page-editor-canvas.css`, never inline in Blade. Inline
+  `<script>`/`x-data` bodies escape `npm run test:lint` and `tsc --noEmit`.
+  `protocol.ts` is the single definition of the editor↔canvas message
+  contract; the chrome key prefix in it mirrors `App\Enums\ChromeSlot`.
+
 <laravel-boost-guidelines>
 === .ai/app.actions rules ===
 

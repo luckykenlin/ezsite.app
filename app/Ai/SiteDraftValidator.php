@@ -217,40 +217,52 @@ final readonly class SiteDraftValidator
      */
     private function value(mixed $value): mixed
     {
+        $scalar = $this->scalar($value);
+
+        if ($scalar !== null) {
+            return $scalar;
+        }
+
+        if (! is_array($value)) {
+            return null;
+        }
+
+        $items = [];
+
+        foreach ($value as $item) {
+            if (! is_array($item)) {
+                continue;
+            }
+
+            $fields = [];
+
+            foreach ($item as $field => $fieldValue) {
+                $clean = is_string($field) ? $this->scalar($fieldValue) : null;
+
+                if ($clean !== null) {
+                    $fields[$field] = $clean;
+                }
+            }
+
+            if ($fields !== []) {
+                $items[] = $fields;
+            }
+        }
+
+        return $items === [] ? null : $items;
+    }
+
+    /**
+     * One leaf value: strings are de-tagged, other scalars pass through, and
+     * anything else (arrays, objects, null) is "not a scalar" — the single
+     * rule both the top level and repeater items apply.
+     */
+    private function scalar(mixed $value): string|int|float|bool|null
+    {
         if (is_string($value)) {
             return strip_tags($value);
         }
 
-        if (is_int($value) || is_float($value) || is_bool($value)) {
-            return $value;
-        }
-
-        if (is_array($value)) {
-            $items = [];
-
-            foreach ($value as $item) {
-                if (! is_array($item)) {
-                    continue;
-                }
-
-                $fields = [];
-
-                foreach ($item as $field => $fieldValue) {
-                    if (is_string($field) && is_string($fieldValue)) {
-                        $fields[$field] = strip_tags($fieldValue);
-                    } elseif (is_string($field) && (is_int($fieldValue) || is_float($fieldValue) || is_bool($fieldValue))) {
-                        $fields[$field] = $fieldValue;
-                    }
-                }
-
-                if ($fields !== []) {
-                    $items[] = $fields;
-                }
-            }
-
-            return $items === [] ? null : $items;
-        }
-
-        return null;
+        return is_int($value) || is_float($value) || is_bool($value) ? $value : null;
     }
 }

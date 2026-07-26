@@ -20,7 +20,7 @@ function cachePreviewFor(Tenant $tenant, Page $page, array $blocks, string $toke
     );
 }
 
-it('renders the cached draft state with block wrappers and the selection script', function (): void {
+it('renders the cached draft state with block wrappers and insert affordances', function (): void {
     $tenant = Tenant::factory()->withDomain('acme')->create();
     $page = $this->createTenantPage($tenant, [
         ['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Stored heading']],
@@ -35,7 +35,7 @@ it('renders the cached draft state with block wrappers and the selection script'
         ->assertSee('Draft heading')
         ->assertDontSee('Stored heading')
         ->assertSee('data-block-key="k1"', false)
-        ->assertSee('ezsite-editor');
+        ->assertSee('data-editor-insert="0"', false);
 
     // The draft renders through the real layout chain — same base layout as the live site.
     $response->assertSee('filament-fabricator-body', false);
@@ -231,6 +231,5 @@ it('leaks no editor markup into live-site renders', function (): void {
         ->assertOk()
         ->assertSee('Welcome friends')
         ->assertDontSee('data-block-key')
-        ->assertDontSee('data-editor-insert')
-        ->assertDontSee('ezsite-editor');
+        ->assertDontSee('data-editor-insert');
 });

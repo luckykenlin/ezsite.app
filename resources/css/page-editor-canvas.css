@@ -1,0 +1,166 @@
+/*
+ * Editor-only canvas chrome, injected into the page editor's preview
+ * document (never the live tenant site): selection outlines, the floating
+ * block toolbar, the collapsed drag/insert modes, and the insertion lines.
+ *
+ * Plain CSS rather than Tailwind: this stylesheet is loaded INTO the preview
+ * document, which renders the tenant's own site styles — utility classes
+ * from the panel's build have no business leaking in there.
+ *
+ * The behaviour that toggles these attributes lives in
+ * resources/js/page-editor/canvas.ts.
+ */
+
+[data-block-key] {
+    cursor: pointer;
+    position: relative;
+}
+
+[data-block-key]:hover,
+[data-editor-hover] {
+    outline: 2px dashed rgba(99, 102, 241, 0.5);
+    outline-offset: -2px;
+}
+
+[data-editor-selected] {
+    outline: 2px solid #6366f1 !important;
+    outline-offset: -2px;
+}
+
+[data-editor-dragging] {
+    opacity: 0.5;
+}
+
+/* Drag mode (reorder) and insert mode (dragging a library block in):
+   full-height sections are impossible to aim at, so every block
+   collapses into a labeled compact card for the duration of the drag —
+   the page becomes a short, scannable list. */
+html[data-editor-drag-mode] [data-block-key],
+html[data-editor-insert-mode] [data-block-key] {
+    max-height: 4.5rem;
+    min-height: 4.5rem;
+    overflow: hidden;
+    outline: 1px solid rgba(99, 102, 241, 0.35);
+    outline-offset: -1px;
+}
+
+html[data-editor-drag-mode] [data-block-key]::after,
+html[data-editor-insert-mode] [data-block-key]::after {
+    content: attr(data-block-type);
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.8);
+    font:
+        600 0.8125rem ui-sans-serif,
+        system-ui,
+        sans-serif;
+    letter-spacing: 0.03em;
+    text-transform: capitalize;
+    color: #4338ca;
+    pointer-events: none;
+}
+
+html[data-editor-drag-mode] [data-editor-insert],
+html[data-editor-drag-mode] [data-editor-toolbar] button,
+html[data-editor-insert-mode] [data-editor-toolbar] {
+    display: none;
+}
+
+/* While a library block hovers over the canvas, every insertion line is
+   visible and the nearest one is armed. */
+html[data-editor-insert-mode] [data-editor-insert] {
+    opacity: 0.5;
+}
+
+html[data-editor-insert-mode] [data-editor-insert][data-armed] {
+    opacity: 1;
+}
+
+[data-editor-toolbar] {
+    position: absolute;
+    top: 0.375rem;
+    right: 0.375rem;
+    z-index: 9999;
+    display: flex;
+    gap: 0.125rem;
+    background: #6366f1;
+    border-radius: 0.375rem;
+    padding: 0.125rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+[data-editor-toolbar] button,
+[data-editor-toolbar] [data-editor-drag] {
+    border: 0;
+    background: transparent;
+    color: #fff;
+    font-size: 0.8125rem;
+    line-height: 1;
+    padding: 0.3125rem 0.4375rem;
+    border-radius: 0.25rem;
+    cursor: pointer;
+}
+
+[data-editor-toolbar] [data-editor-drag] {
+    cursor: grab;
+    user-select: none;
+}
+
+[data-editor-toolbar] button:hover,
+[data-editor-toolbar] [data-editor-drag]:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+[data-editor-insert] {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    border: 0;
+    background: transparent;
+    padding: 0;
+    height: 1.125rem;
+    margin: -0.1875rem 0;
+    opacity: 0;
+    cursor: pointer;
+    transition: opacity 0.15s ease;
+    position: relative;
+    z-index: 20;
+}
+
+[data-editor-insert]:hover,
+[data-editor-insert][data-armed] {
+    opacity: 1;
+}
+
+[data-editor-insert]::before,
+[data-editor-insert]::after {
+    content: '';
+    flex: 1;
+    height: 2px;
+    background: rgba(99, 102, 241, 0.6);
+}
+
+[data-editor-insert] span {
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    font-size: 0.6875rem;
+    line-height: 1;
+    color: #fff;
+    background: #6366f1;
+    border-radius: 9999px;
+    padding: 0.1875rem 0.625rem;
+    white-space: nowrap;
+}
+
+[data-editor-insert][data-armed]::before,
+[data-editor-insert][data-armed]::after {
+    background: #6366f1;
+}
+
+[contenteditable] {
+    outline: 2px solid #22c55e !important;
+    outline-offset: 2px;
+    cursor: text;
+}

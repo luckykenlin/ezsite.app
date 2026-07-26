@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
-use App\Casts\DesignTokens as DesignTokensCast;
+use App\Casts\AsDesignTokens;
 use App\Concerns\RequiresTenantContext;
 use App\Design\DesignTokens;
 use App\Filament\Fabricator\MediaResolver;
@@ -108,7 +108,7 @@ final class Business extends Model
     protected function casts(): array
     {
         return [
-            'design_tokens' => DesignTokensCast::class,
+            'design_tokens' => AsDesignTokens::class,
         ];
     }
 }

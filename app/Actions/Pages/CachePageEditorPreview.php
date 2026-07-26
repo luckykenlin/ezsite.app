@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Actions\Pages;
 
+use App\Enums\ChromeSlot;
 use App\Models\Page;
 use Illuminate\Support\Facades\Cache;
 
@@ -45,12 +46,27 @@ final readonly class CachePageEditorPreview
                 $blocks,
             ),
             'keys' => array_column($blocks, 'key'),
-            // Stored render-ready: each slot is a (possibly empty) entry list.
-            'chrome' => $chrome === null ? null : [
-                'header' => isset($chrome['header']) ? [$chrome['header']] : [],
-                'footer' => isset($chrome['footer']) ? [$chrome['footer']] : [],
-            ],
+            'chrome' => $chrome === null ? null : $this->renderReadyChrome($chrome),
             'design_tokens' => $designTokens,
         ], now()->addHours(2));
+    }
+
+    /**
+     * Every slot as a (possibly empty) entry list — the shape the preview
+     * view's block loop consumes directly.
+     *
+     * @param  array<string, array{type: string, data: array<string, mixed>}|null>  $chrome
+     * @return array<string, list<array{type: string, data: array<string, mixed>}>>
+     */
+    private function renderReadyChrome(array $chrome): array
+    {
+        $entries = [];
+
+        foreach (ChromeSlot::cases() as $slot) {
+            $entry = $chrome[$slot->value] ?? null;
+            $entries[$slot->value] = $entry === null ? [] : [$entry];
+        }
+
+        return $entries;
     }
 }

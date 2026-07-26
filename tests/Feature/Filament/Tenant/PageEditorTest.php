@@ -6,6 +6,7 @@ use App\Actions\Pages\CachePageEditorPreview;
 use App\Design\StylePreset;
 use App\Enums\PageStatus;
 use App\Filament\Fabricator\BlockRegistry;
+use App\Filament\Tenant\Resources\PageResource\Actions\PageIdentityFields;
 use App\Filament\Tenant\Resources\PageResource\Pages\PageEditor;
 use App\Models\Business;
 use App\Models\Location;
@@ -660,15 +661,12 @@ it('previews the final path for slug and parent combinations', function (): void
     $parent = Page::query()->create([
         'tenant_id' => tenant('id'), 'title' => 'Services', 'slug' => 'services', 'layout' => 'main', 'blocks' => [],
     ]);
-    $page = editorPage([]);
 
-    $editor = Livewire::test(PageEditor::class, ['record' => $page->id])->instance();
-
-    expect($editor->previewPath(null, 'about'))->toBe('/about')
-        ->and($editor->previewPath($parent->id, 'plumbing'))->toBe('/services/plumbing')
-        ->and($editor->previewPath((string) $parent->id, 'plumbing'))->toBe('/services/plumbing')
-        ->and($editor->previewPath(null, null))->toBe('/')
-        ->and($editor->previewPath(-1, 'x'))->toBe('/x');
+    expect(PageIdentityFields::previewPath(null, 'about'))->toBe('/about')
+        ->and(PageIdentityFields::previewPath($parent->id, 'plumbing'))->toBe('/services/plumbing')
+        ->and(PageIdentityFields::previewPath((string) $parent->id, 'plumbing'))->toBe('/services/plumbing')
+        ->and(PageIdentityFields::previewPath(null, null))->toBe('/')
+        ->and(PageIdentityFields::previewPath(-1, 'x'))->toBe('/x');
 });
 
 it('edits the site header from the canvas and persists it only when changed', function (): void {
@@ -823,8 +821,13 @@ it('applies a custom token combination from the editor modal, preset detached', 
 it('hides the Design action until a business profile exists', function (): void {
     $page = editorPage([]);
 
-    Livewire::test(PageEditor::class, ['record' => $page->id])
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id])
         ->assertActionHidden('design');
+
+    // The modal's own reads fail loud rather than null-dereference, in case a
+    // future caller reaches them around the visibility guard.
+    expect(fn (): Business => $component->instance()->businessOrFail())
+        ->toThrow(ModelNotFoundException::class);
 });
 
 it('deselects on demand, keeping the selection when the draft is invalid', function (): void {

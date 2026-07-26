@@ -6,6 +6,7 @@ namespace App\Providers;
 
 use App\Design\ThemeVariables;
 use App\Filament\Fabricator\BindResolver;
+use App\Filament\Tenant\Resources\PageResource\Pages\PageEditor;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
@@ -18,7 +19,9 @@ use Filament\Support\Facades\FilamentView;
 use Filament\Tables\Columns\Column;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Filament\View\PanelsRenderHook;
 use Illuminate\Foundation\Vite;
+use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\ServiceProvider;
 use ReflectionClass;
@@ -73,6 +76,18 @@ final class FilamentServiceProvider extends ServiceProvider
                 .ThemeVariables::style($business)->toHtml(),
             );
         });
+
+        // The page editor's Alpine component ships as a real module so the
+        // eslint/tsc gates cover it. Scoped to the editor page and emitted
+        // BEFORE Filament's own scripts, so its `alpine:init` listener is in
+        // place by the time Alpine boots.
+        FilamentView::registerRenderHook(
+            PanelsRenderHook::SCRIPTS_BEFORE,
+            fn (): HtmlString => new HtmlString(
+                Blade::render("@vite('resources/js/page-editor/editor.ts')"),
+            ),
+            scopes: PageEditor::class,
+        );
 
         Repeater::configureUsing(function (Repeater $repeater): void {
             $repeater->deleteAction(

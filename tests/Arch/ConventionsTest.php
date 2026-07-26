@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Design\Contrast;
 use App\Design\DesignTokens;
 use App\Design\ThemeVariables;
+use App\Design\TokenOptions;
 use App\Filament\Fabricator\BlockRegistry;
 use App\Filament\Fabricator\PageBlocks\Block;
 
@@ -51,6 +52,7 @@ arch('the design module and block registry classes are final')
         Contrast::class,
         DesignTokens::class,
         ThemeVariables::class,
+        TokenOptions::class,
     ])
     ->toBeFinal();
 
@@ -70,4 +72,18 @@ test('page block views never use unescaped output', function (): void {
                 ->not->toContain('{!!');
         }
     }
+});
+
+test('the editor canvas glue is loaded by the preview document only', function (): void {
+    // The canvas script/stylesheet turn a rendered page into an editing
+    // surface. They are bundled assets now (so eslint + tsc cover them),
+    // which means no request test can see them under `withoutVite()` — this
+    // guards the wiring instead: the preview partial pulls them in, and the
+    // live-site layout never mentions them.
+    $views = dirname(__DIR__, 2).'/resources/views';
+
+    expect(file_get_contents($views.'/filament/tenant/pages/partials/page-editor-canvas.blade.php'))
+        ->toContain('resources/js/page-editor/canvas.ts')
+        ->toContain('resources/css/page-editor-canvas.css')
+        ->and(file_get_contents($views.'/components/filament-fabricator/layouts/main.blade.php'))->not->toContain('page-editor');
 });

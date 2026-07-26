@@ -1,7 +1,7 @@
 # 带外租户写入地基（Tenant Write Context）— 技术方案
 
-> 状态：**设计定稿，待实现**。这是 REVIEW.md「🔴 最大风险：带外写入丢失 RLS 上下文」和「§4 Move 1 Action mutation 层」的前置地基。任何 AI / 队列 / MCP / webhook / cron 写租户数据之前必须先落地本方案。
-> 关联：[REVIEW.md](../REVIEW.md) · [.claude/docs/tenancy.md](../.claude/docs/tenancy.md) · [reviews-module.md](./reviews-module.md)（第一个消费者）
+> 状态：**已实现**（`App\Actions\RunInTenant` + `App\Jobs\TenantAware` + `App\Concerns\RequiresTenantContext`，测试见 `tests/Feature/Tenancy/TenantWriteContextTest.php`）。本文件保留为方案说明与设计理由；实现细节以代码与 `.claude/docs/tenancy.md` 为准。任何 AI / 队列 / MCP / webhook / cron 写租户数据都必须走这条通道。
+> 关联：[2026-07-17 评审快照](./archive/2026-07-17-review.md) · [.claude/docs/tenancy.md](../.claude/docs/tenancy.md) · [reviews-module.md](./reviews-module.md)（第一个消费者）
 
 ## 1. 问题（基于真实代码，不是假设）
 

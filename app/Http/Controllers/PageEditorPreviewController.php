@@ -7,7 +7,8 @@ namespace App\Http\Controllers;
 use App\Actions\Pages\CachePageEditorPreview;
 use App\Design\DesignTokens;
 use App\Design\ThemeVariables;
-use App\Models\Business;
+use App\Enums\ChromeSlot;
+use App\Filament\Fabricator\BindResolver;
 use App\Models\Page;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
@@ -80,14 +81,10 @@ final class PageEditorPreviewController extends Controller
      */
     private function blockFragment(string $blockKey, array $blocks, array $keys, ?array $chrome): View
     {
-        $slot = match ($blockKey) {
-            'chrome:header' => 'header',
-            'chrome:footer' => 'footer',
-            default => null,
-        };
+        $slot = ChromeSlot::fromEditorKey($blockKey);
 
-        if ($slot !== null) {
-            $entries = $chrome[$slot] ?? null;
+        if ($slot instanceof ChromeSlot) {
+            $entries = $chrome[$slot->value] ?? null;
 
             abort_unless(is_array($entries) && $entries !== [], 404);
 
@@ -119,7 +116,9 @@ final class PageEditorPreviewController extends Controller
             return null;
         }
 
-        $business = Business::query()->first();
+        // Same request-scoped resolver the rest of the render uses, so the
+        // canvas costs no extra business query.
+        $business = resolve(BindResolver::class)->business();
 
         if ($business === null) {
             return null;

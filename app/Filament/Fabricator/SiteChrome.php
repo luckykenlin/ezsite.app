@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Fabricator;
 
+use App\Enums\ChromeSlot;
 use App\Models\Business;
 use App\Models\SiteSetting;
 
@@ -34,7 +35,7 @@ final class SiteChrome
      */
     public function headerBlocks(): array
     {
-        return $this->blocks('header');
+        return $this->blocks(ChromeSlot::Header);
     }
 
     /**
@@ -42,16 +43,16 @@ final class SiteChrome
      */
     public function footerBlocks(): array
     {
-        return $this->blocks('footer');
+        return $this->blocks(ChromeSlot::Footer);
     }
 
     /**
      * @return array<int, mixed>
      */
-    private function blocks(string $slot): array
+    private function blocks(ChromeSlot $slot): array
     {
         $settings = $this->settings();
-        $stored = $slot === 'header' ? $settings?->header : $settings?->footer;
+        $stored = $slot === ChromeSlot::Header ? $settings?->header : $settings?->footer;
 
         if ($stored !== null && $stored !== []) {
             return array_values($stored);
@@ -61,7 +62,7 @@ final class SiteChrome
             return [];
         }
 
-        return [['type' => $slot, 'data' => []]];
+        return [['type' => $slot->value, 'data' => []]];
     }
 
     private function settings(): ?SiteSetting

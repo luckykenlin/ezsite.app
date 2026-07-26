@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Tenant\Resources;
 
 use App\Actions\Pages\DuplicatePage;
+use App\Actions\Pages\PublishPage;
 use App\Enums\PageStatus;
 use App\Filament\Tenant\Resources\PageResource\Pages\CreatePage;
 use App\Filament\Tenant\Resources\PageResource\Pages\PageEditor;
@@ -41,7 +42,7 @@ final class PageResource extends FabricatorPageResource
                     ->icon(Heroicon::OutlinedGlobeAlt)
                     ->requiresConfirmation()
                     ->visible(fn (Page $record): bool => $record->isDraft())
-                    ->action(fn (Page $record) => $record->update(['status' => PageStatus::Published])),
+                    ->action(fn (Page $record) => resolve(PublishPage::class)->handle($record)),
                 Action::make('duplicate')
                     ->icon(Heroicon::OutlinedSquare2Stack)
                     ->action(function (Page $record, Component $livewire): void {
