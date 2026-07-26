@@ -52,6 +52,20 @@ test('creating a tenant with a name that slugs to an existing subdomain appends 
     ]);
 });
 
+// `tenants.email` is NOT NULL and unique, so both rules have to be enforced in
+// the form — otherwise the insert fails with a 500 rather than a field error.
+test('creating a tenant requires an email address that is not already taken', function (): void {
+    Tenant::factory()->create(['email' => 'owner@acme.test']);
+
+    Livewire::test(ListTenants::class)
+        ->callAction(CreateAction::class, ['name' => 'Acme Inc'])
+        ->assertHasFormErrors(['email' => 'required']);
+
+    Livewire::test(ListTenants::class)
+        ->callAction(CreateAction::class, ['name' => 'Acme Inc', 'email' => 'owner@acme.test'])
+        ->assertHasFormErrors(['email' => 'unique']);
+});
+
 // The subdomain-vs-custom-domain distinction belongs to Domain::getUrl() and is
 // covered by Unit/Models/DomainTest; here we only assert the column delegates to it.
 test('domain column links to the tenant resolved url', function (): void {
