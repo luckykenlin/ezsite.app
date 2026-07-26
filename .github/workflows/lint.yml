@@ -72,3 +72,9 @@ jobs:
 
       - name: Check Types
         run: composer test:types
+
+      # The test suite stubs Vite out (tests/Pest.php), so nothing else in CI
+      # would catch a broken front-end build. Keep this last: it's the slowest
+      # step and the cheap lint/type failures should surface first.
+      - name: Build Assets
+        run: npm run build

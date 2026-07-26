@@ -48,6 +48,12 @@ pest()->extend(TestCase::class)
         Process::preventStrayProcesses();
         Sleep::fake();
 
+        // Filament's layout resolves its theme through Vite, so every panel page
+        // render needs public/build/manifest.json — a file that's gitignored and
+        // never built in CI. Swapping in Laravel's Vite stub keeps the suite
+        // independent of a compiled front-end bundle.
+        $this->withoutVite();
+
         $this->freezeTime();
 
         $baseDatabase = 'ezsite_testing';
