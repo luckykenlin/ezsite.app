@@ -15,9 +15,27 @@ use Filament\Support\Icons\Heroicon;
  */
 final class Gallery extends Block
 {
+    /**
+     * A self-contained gray SVG so sample galleries render without any
+     * external request or media library — the label tells users to swap it.
+     */
+    private const string PLACEHOLDER_IMAGE = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='800' height='600'><rect width='800' height='600' fill='%23e5e7eb'/><text x='400' y='310' fill='%239ca3af' font-family='sans-serif' font-size='32' text-anchor='middle'>Replace this image</text></svg>";
+
     protected static string $name = 'gallery';
 
     protected static ?Heroicon $icon = Heroicon::OutlinedPhoto;
+
+    /**
+     * @var array<string, mixed>
+     */
+    protected static array $sample = [
+        'heading' => 'Our work',
+        'images' => [
+            ['url' => self::PLACEHOLDER_IMAGE, 'alt' => 'Placeholder image'],
+            ['url' => self::PLACEHOLDER_IMAGE, 'alt' => 'Placeholder image'],
+            ['url' => self::PLACEHOLDER_IMAGE, 'alt' => 'Placeholder image'],
+        ],
+    ];
 
     /**
      * @var array<string, string>

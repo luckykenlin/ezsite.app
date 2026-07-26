@@ -16,8 +16,12 @@
     placeholder itself surfaces the problem on every canvas refresh. With
     `editorKeys` null (every live-site render), output is unchanged.
 --}}
-@aware(['page'])
-@props(['blocks' => [], 'editorKeys' => null])
+{{-- page defaults to null so the loop also renders standalone (the editor's
+     single-block patch fragments have no layout ancestor to inherit from).
+     `insertable` (editor mode, page blocks only) adds hover "+" dividers
+     between blocks that arm the editor's insertion point. --}}
+@aware(['page' => null])
+@props(['blocks' => [], 'editorKeys' => null, 'insertable' => false])
 
 @php
     // Preload related data per type, guarded so a malformed/unknown entry can't
@@ -41,6 +45,10 @@
 @endphp
 
 @foreach ($blocks as $blockIndex => $block)
+    @if ($insertable && is_array($editorKeys))
+        <button type="button" data-editor-insert="{{ $blockIndex }}" title="Insert a block here"><span>＋ Add block</span></button>
+    @endif
+
     @php
         $editorKey = is_array($editorKeys) ? ($editorKeys[$blockIndex] ?? null) : null;
 
@@ -81,7 +89,7 @@
 
         @if ($bindAttributes !== null)
             @if ($editorKey !== null)
-                <div data-block-key="{{ $editorKey }}">
+                <div data-block-key="{{ $editorKey }}" data-block-type="{{ $block['type'] }}">
                     <x-dynamic-component
                         :component="$component"
                         :attributes="new \Illuminate\View\ComponentAttributeBag($blockClass::mutateData($blockData) + $bindAttributes)"
@@ -96,6 +104,7 @@
         @elseif ($editorKey !== null)
             <div
                 data-block-key="{{ $editorKey }}"
+                data-block-type="{{ $block['type'] }}"
                 style="margin: 0.75rem; padding: 2.5rem 1.5rem; border: 2px dashed #f59e0b; border-radius: 0.5rem; background: #fffbeb; color: #92400e; font-family: ui-sans-serif, system-ui, sans-serif; text-align: center;"
             >
                 This "{{ $block['type'] }}" block needs business details that aren't set up yet — it is hidden on the live site.
@@ -104,9 +113,14 @@
     @elseif ($editorKey !== null)
         <div
             data-block-key="{{ $editorKey }}"
+            data-block-type="{{ is_array($block) && filled($block['type'] ?? null) ? $block['type'] : 'broken' }}"
             style="margin: 0.75rem; padding: 2.5rem 1.5rem; border: 2px dashed #f59e0b; border-radius: 0.5rem; background: #fffbeb; color: #92400e; font-family: ui-sans-serif, system-ui, sans-serif; text-align: center;"
         >
             This block can't be rendered ({{ is_array($block) ? ($block['type'] ?? 'missing type') : 'malformed entry' }}) — it is hidden on the live site.
         </div>
     @endif
 @endforeach
+
+@if ($insertable && is_array($editorKeys))
+    <button type="button" data-editor-insert="{{ count($blocks) }}" title="Insert a block here"><span>＋ Add block</span></button>
+@endif

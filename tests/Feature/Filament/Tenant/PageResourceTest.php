@@ -32,6 +32,19 @@ test('the publish action is hidden on already-published pages', function (): voi
         ->assertActionHidden(TestAction::make('publish')->table($published));
 });
 
+test('the duplicate row action copies the page and opens its editor', function (): void {
+    $page = Page::factory()->create(['tenant_id' => $this->tenant->id, 'title' => 'Services', 'slug' => 'services']);
+
+    Livewire::test(ListPages::class)
+        ->call('loadTable')
+        ->callAction(TestAction::make('duplicate')->table($page));
+
+    $copy = Page::query()->where('slug', 'services-copy')->firstOrFail();
+
+    expect($copy->title)->toBe('Services (copy)')
+        ->and($copy->status)->toBe(PageStatus::Draft);
+});
+
 test('can create a page scoped to the current tenant', function (): void {
     Livewire::test(CreatePage::class)
         ->fillForm([

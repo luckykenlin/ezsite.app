@@ -88,6 +88,19 @@
             border: 0;
         }
 
+        /* 50% overview: double the logical viewport, scale it down — the
+           whole page at a glance, blocks still clickable. Pure CSS, no
+           round trip, no reload. */
+        .pe-canvas-frame[data-mode='overview'] {
+            width: 200%;
+            max-width: none;
+            height: 200%;
+            transform: scale(0.5);
+            transform-origin: top left;
+            flex-shrink: 0;
+            margin-right: -100%;
+        }
+
         .pe-progress {
             position: absolute;
             top: 0;
@@ -134,6 +147,52 @@
 
         .dark .pe-empty-card {
             background: rgb(24, 24, 27);
+        }
+
+        .pe-pages {
+            display: flex;
+            flex-direction: column;
+            gap: 0.125rem;
+        }
+
+        .pe-page-row {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            border-radius: 0.5rem;
+            padding: 0.3125rem 0.5rem;
+            font-size: 0.875rem;
+        }
+
+        .pe-page-row:hover {
+            background: rgba(0, 0, 0, 0.04);
+        }
+
+        .dark .pe-page-row:hover {
+            background: rgba(255, 255, 255, 0.06);
+        }
+
+        .pe-page-row[data-selected] {
+            background: rgba(99, 102, 241, 0.12);
+            font-weight: 600;
+        }
+
+        .pe-page-dot {
+            width: 0.5rem;
+            height: 0.5rem;
+            border-radius: 9999px;
+            background: rgba(245, 158, 11, 0.9);
+            flex-shrink: 0;
+        }
+
+        .pe-page-dot[data-live] {
+            background: rgba(34, 197, 94, 0.9);
+        }
+
+        .pe-page-title {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
         .pe-heading {
@@ -246,6 +305,23 @@
             background: rgba(255, 255, 255, 0.1);
         }
 
+        .pe-chrome-row {
+            opacity: 0.85;
+        }
+
+        .pe-heading-toggle {
+            display: flex;
+            align-items: center;
+            gap: 0.375rem;
+            width: 100%;
+            text-align: start;
+            cursor: pointer;
+        }
+
+        [x-cloak] {
+            display: none !important;
+        }
+
         .pe-insert {
             display: flex;
             align-items: center;
@@ -314,7 +390,8 @@
         x-data="{
             device: 'desktop',
             reloading: false,
-            deviceWidths: { desktop: '100%', tablet: '768px', mobile: '390px' },
+            deviceWidths: { desktop: '100%', tablet: '768px', mobile: '390px', overview: '100%' },
+            libraryTypes: @js(array_keys($this->blockLibrary())),
             reload(url) {
                 const iframe = this.$refs.canvas;
                 let scrollY = 0;
@@ -350,6 +427,44 @@
                 if (name === 'save') this.$wire.save();
                 if (name === 'undo') this.$wire.undo();
                 if (name === 'redo') this.$wire.redo();
+                if (name === 'deselect') this.$wire.deselectBlock();
+                if (name === 'remove-selected') this.removeSelected();
+                if (name === 'move-selected-up') this.moveSelected(-1);
+                if (name === 'move-selected-down') this.moveSelected(1);
+            },
+            selectedPageBlockKey() {
+                const key = this.$wire.selectedBlockKey;
+
+                return key && ! key.startsWith('chrome:') ? key : null;
+            },
+            removeSelected() {
+                const key = this.selectedPageBlockKey();
+
+                if (key && confirm('{{ __('Remove this block?') }}')) {
+                    this.$wire.removeBlock(key);
+                }
+            },
+            moveSelected(offset) {
+                const key = this.selectedPageBlockKey();
+
+                if (key) {
+                    this.$wire.moveBlock(key, offset);
+                }
+            },
+            inField(target) {
+                return target instanceof Element
+                    && target.closest('input, textarea, select, [contenteditable]') !== null;
+            },
+            modalOpen() {
+                return (this.$wire.mountedActions ?? []).length > 0;
+            },
+            onLibraryDragStart(event, type) {
+                event.dataTransfer.setData('application/x-ezsite-block', type);
+                event.dataTransfer.effectAllowed = 'copy';
+                this.postToCanvas({ type: 'library-drag', active: true });
+            },
+            onLibraryDragEnd() {
+                this.postToCanvas({ type: 'library-drag', active: false });
             },
             onMessage(event) {
                 if (event.origin !== window.location.origin || event.data?.ns !== 'ezsite-editor') {
@@ -376,20 +491,86 @@
                     }
                 }
 
+                if (message.type === 'reorder' && Array.isArray(message.keys)) {
+                    this.$wire.reorderBlocks(message.keys);
+                }
+
+                if (message.type === 'insert-at' && Number.isInteger(message.position)) {
+                    this.$wire.queueInsertAt(message.position).then(() => {
+                        this.postToCanvas({ type: 'insert-armed', position: this.$wire.pendingInsertPosition });
+                    });
+                }
+
+                if (
+                    message.type === 'library-drop'
+                    && Number.isInteger(message.position)
+                    && this.libraryTypes.includes(message.blockType)
+                ) {
+                    this.$wire.addBlockAt(message.blockType, message.position);
+                }
+
+                if (message.type === 'deselect') {
+                    this.$wire.deselectBlock();
+                }
+
+                if (message.type === 'inline-edit-request' && message.key === this.$wire.selectedBlockKey) {
+                    // Grant only when the double-clicked text exactly matches
+                    // one of the selected block's string draft fields — that
+                    // field becomes the contenteditable target.
+                    const draft = this.$wire.data?.block ?? {};
+                    const text = (message.text ?? '').trim();
+                    const match = text === '' ? null : Object.entries(draft)
+                        .find(([, value]) => typeof value === 'string' && value.trim() === text);
+
+                    if (match) {
+                        this.postToCanvas({ type: 'inline-edit-grant', field: match[0] });
+                    }
+                }
+
+                if (
+                    message.type === 'inline-input'
+                    && message.key === this.$wire.selectedBlockKey
+                    && typeof message.field === 'string'
+                    && /^[a-z0-9_]+$/.test(message.field)
+                ) {
+                    this.$wire.set('data.block.' + message.field, message.value);
+                }
+
+                if (message.type === 'inline-commit') {
+                    // Sync the right pane (skipRender left it stale while typing).
+                    this.$wire.$refresh();
+                }
+
                 if (message.type === 'shortcut') {
                     this.runShortcut(message.name);
                 }
-
-                if (message.type === 'chrome-clicked' && window.FilamentNotification) {
-                    new window.FilamentNotification()
-                        .title('{{ __('The site header & footer are edited in Site Chrome settings') }}')
-                        .warning()
-                        .send();
-                }
             },
             onKeydown(event) {
+                // Never hijack keys while typing or while a modal is open.
+                if (this.modalOpen() || this.inField(event.target)) {
+                    return;
+                }
+
+                if (event.key === 'Escape') {
+                    this.runShortcut('deselect');
+
+                    return;
+                }
+
+                if (event.key === 'Delete' || event.key === 'Backspace') {
+                    event.preventDefault();
+                    this.runShortcut('remove-selected');
+
+                    return;
+                }
+
                 if (! (event.metaKey || event.ctrlKey)) {
                     return;
+                }
+
+                if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+                    event.preventDefault();
+                    this.runShortcut(event.key === 'ArrowUp' ? 'move-selected-up' : 'move-selected-down');
                 }
 
                 if (event.key === 's') {
@@ -413,8 +594,23 @@
                     event.preventDefault();
                 }
             },
+            patch(url, fallbackUrl, key) {
+                fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                    .then((response) => {
+                        if (! response.ok) {
+                            throw new Error(response.status);
+                        }
+
+                        return response.text();
+                    })
+                    .then((html) => this.postToCanvas({ type: 'patch', key, html }))
+                    .catch(() => this.reload(fallbackUrl));
+            },
             init() {
                 this.$wire.on('page-editor:refresh-canvas', ({ url }) => this.reload(url));
+                this.$wire.on('page-editor:patch-canvas', ({ url, fallbackUrl, key }) => {
+                    this.patch(url, fallbackUrl, key);
+                });
                 this.$wire.on('page-editor:select-canvas-block', ({ key, scroll }) => {
                     this.postToCanvas({ type: 'select', key, scroll });
                 });
@@ -425,14 +621,56 @@
         x-on:beforeunload.window="onBeforeUnload($event)"
         x-on:livewire:navigate.document="onNavigate($event)"
     >
-        {{-- Left pane: page structure + block library --}}
+        {{-- Left pane: page switcher + page structure + block library --}}
         <div class="pe-pane">
             <div>
-                <p class="pe-heading">{{ __('Page structure') }}</p>
+                <p class="pe-heading">{{ __('Pages') }}</p>
+
+                <div class="pe-pages" style="margin-top: 0.5rem;">
+                    @foreach ($this->siblingPages() as $sibling)
+                        <a
+                            wire:key="page-{{ $sibling['id'] }}"
+                            href="{{ $sibling['url'] }}"
+                            class="pe-page-row"
+                            @if ($sibling['current']) data-selected @endif
+                        >
+                            <span class="pe-page-dot" @if (! $sibling['isDraft']) data-live @endif title="{{ $sibling['isDraft'] ? __('Draft') : __('Published') }}"></span>
+                            <span class="pe-page-title">{{ $sibling['title'] }}</span>
+                        </a>
+                    @endforeach
+
+                    {{ $this->newPageAction }}
+                </div>
+            </div>
+
+            {{-- Collapsed by default: selection, reorder, insert, and the
+                 structural verbs all live on the canvas now; the list stays
+                 available as an overview for those who want it. --}}
+            <div x-data="{ structureOpen: $persist(false).as('pe-structure-open') }">
+                <button type="button" class="pe-heading pe-heading-toggle" x-on:click="structureOpen = ! structureOpen">
+                    {{ __('Page structure') }}
+                    <span x-text="structureOpen ? '▾' : '▸'"></span>
+                </button>
+
+                <div x-show="structureOpen" x-cloak>
+                <button
+                    type="button"
+                    class="pe-structure-row pe-chrome-row"
+                    style="margin-top: 0.5rem; width: 100%;"
+                    @if ($this->selectedBlockKey === \App\Filament\Tenant\Resources\PageResource\Pages\PageEditor::CHROME_HEADER_KEY) data-selected @endif
+                    wire:click="selectBlock('chrome:header')"
+                >
+                    <x-filament::icon icon="heroicon-o-bars-3" class="pe-row-icon" />
+                    <span class="pe-row-main">
+                        <span class="pe-row-title">
+                            <span>{{ __('Header') }}</span>
+                            <span class="pe-row-variant">{{ __('site-wide') }}</span>
+                        </span>
+                    </span>
+                </button>
 
                 <div
                     class="pe-structure"
-                    style="margin-top: 0.5rem;"
                     x-sortable
                     x-on:end.stop="$wire.reorderBlocks($event.target.sortable.toArray())"
                 >
@@ -487,6 +725,23 @@
                         <p class="pe-empty">{{ __('No blocks yet — add one below.') }}</p>
                     @endforelse
                 </div>
+
+                <button
+                    type="button"
+                    class="pe-structure-row pe-chrome-row"
+                    style="width: 100%;"
+                    @if ($this->selectedBlockKey === \App\Filament\Tenant\Resources\PageResource\Pages\PageEditor::CHROME_FOOTER_KEY) data-selected @endif
+                    wire:click="selectBlock('chrome:footer')"
+                >
+                    <x-filament::icon icon="heroicon-o-bars-3-bottom-left" class="pe-row-icon" />
+                    <span class="pe-row-main">
+                        <span class="pe-row-title">
+                            <span>{{ __('Footer') }}</span>
+                            <span class="pe-row-variant">{{ __('site-wide') }}</span>
+                        </span>
+                    </span>
+                </button>
+                </div>
             </div>
 
             <div>
@@ -505,6 +760,10 @@
                             :icon="$entry['icon'] === null ? null : 'heroicon-' . $entry['icon']"
                             wire:loading.attr="disabled"
                             :wire:click="'addBlock(\'' . $type . '\')'"
+                            draggable="true"
+                            x-on:dragstart="onLibraryDragStart($event, '{{ $type }}')"
+                            x-on:dragend="onLibraryDragEnd()"
+                            title="{{ __('Click to add, or drag onto the page') }}"
                         >
                             {{ $entry['label'] }}
                         </x-filament::button>
@@ -516,7 +775,7 @@
         {{-- Center pane: the canvas --}}
         <div class="pe-canvas">
             <div class="pe-canvas-toolbar">
-                @foreach (['desktop' => 'Desktop', 'tablet' => 'Tablet', 'mobile' => 'Mobile'] as $device => $label)
+                @foreach (['desktop' => 'Desktop', 'tablet' => 'Tablet', 'mobile' => 'Mobile', 'overview' => '50%'] as $device => $label)
                     <button
                         type="button"
                         class="pe-device-button"
@@ -526,10 +785,15 @@
                 @endforeach
             </div>
 
-            <div class="pe-canvas-body">
+            <div class="pe-canvas-body" x-on:click.self="$wire.deselectBlock()">
                 <div class="pe-progress" x-show="reloading" x-cloak></div>
 
-                <div class="pe-canvas-frame" x-bind:style="{ maxWidth: deviceWidths[device] }" wire:ignore>
+                <div
+                    class="pe-canvas-frame"
+                    x-bind:data-mode="device"
+                    x-bind:style="device === 'overview' ? false : { maxWidth: deviceWidths[device] }"
+                    wire:ignore
+                >
                     <iframe x-ref="canvas" src="{{ $this->previewUrl() }}" title="{{ __('Page preview') }}"></iframe>
                 </div>
 

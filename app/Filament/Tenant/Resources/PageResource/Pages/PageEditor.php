@@ -4,20 +4,27 @@ declare(strict_types=1);
 
 namespace App\Filament\Tenant\Resources\PageResource\Pages;
 
+use App\Actions\ApplyStylePreset;
 use App\Actions\Pages\AddPageBlock;
 use App\Actions\Pages\CachePageEditorPreview;
+use App\Actions\Pages\DuplicatePage;
 use App\Actions\Pages\DuplicatePageBlock;
 use App\Actions\Pages\MovePageBlock;
 use App\Actions\Pages\RemovePageBlock;
 use App\Actions\Pages\ReorderPageBlocks;
+use App\Actions\SaveSiteChrome;
+use App\Actions\UpdateDesignTokens;
+use App\Design\StylePreset;
 use App\Enums\BindType;
 use App\Enums\PageStatus;
 use App\Filament\Fabricator\BlockRegistry;
 use App\Filament\Fabricator\PageBlocks\Block;
 use App\Filament\Tenant\Pages\BusinessProfile;
+use App\Filament\Tenant\Pages\Design;
 use App\Filament\Tenant\Resources\PageResource;
 use App\Models\Business;
 use App\Models\Page as PageModel;
+use App\Models\SiteSetting;
 use Closure;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
@@ -27,9 +34,11 @@ use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Resources\Pages\Page;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Unique;
 use Illuminate\Validation\ValidationException;
@@ -59,6 +68,15 @@ use Z3d0X\FilamentFabricator\Facades\FilamentFabricator;
 final class PageEditor extends Page
 {
     use InteractsWithRecord;
+
+    /**
+     * Pseudo selection keys for the site-wide chrome slots — selectable and
+     * editable in the same right pane as page blocks, but backed by
+     * SiteSetting instead of the page's blocks list.
+     */
+    public const string CHROME_HEADER_KEY = 'chrome:header';
+
+    public const string CHROME_FOOTER_KEY = 'chrome:footer';
 
     private const int HISTORY_LIMIT = 50;
 
@@ -101,6 +119,34 @@ final class PageEditor extends Page
      */
     public ?int $pendingInsertPosition = null;
 
+    /**
+     * The site-wide header/footer DRAFT entries, hydrated from the effective
+     * chrome (saved settings, or the default when a Business exists). Edited
+     * through the same commit pipeline as page blocks; persisted via
+     * SaveSiteChrome only when actually changed. Excluded from the undo
+     * stack (structure-level history covers page blocks only).
+     *
+     * @var array<string, array{type: string, data: array<string, mixed>}|null>
+     */
+    public array $chrome = ['header' => null, 'footer' => null];
+
+    public bool $chromeDirty = false;
+
+    /**
+     * Unsaved design-token values previewed on the canvas only (set while
+     * the Design modal is open; cleared on apply or close). Never persisted
+     * by Save — "Apply to site" in the modal is the only write path.
+     *
+     * @var array<string, string|null>|null
+     */
+    public ?array $designDraft = null;
+
+    /**
+     * The "sample content is editable" hint fires once per editing session,
+     * on the first added block.
+     */
+    public bool $sampleHintShown = false;
+
     protected static string $resource = PageResource::class;
 
     protected string $view = 'filament.tenant.pages.page-editor';
@@ -115,6 +161,10 @@ final class PageEditor extends Page
 
         $this->previewToken = Str::random(40);
         $this->blocks = $this->hydratedBlocks();
+        $this->chrome = [
+            'header' => $this->hydratedChromeSlot('header'),
+            'footer' => $this->hydratedChromeSlot('footer'),
+        ];
 
         $first = $this->blocks[0]['key'] ?? null;
 
@@ -221,25 +271,117 @@ final class PageEditor extends Page
         return BusinessProfile::getUrl();
     }
 
+    /**
+     * Every page of the tenant (RLS scopes the query), for the left pane's
+     * page switcher. Plain editor links — the SPA navigate guard covers
+     * unsaved changes.
+     *
+     * @return array<int, array{id: int, title: string, isDraft: bool, url: string, current: bool}>
+     */
+    public function siblingPages(): array
+    {
+        return PageModel::query()
+            ->orderBy('title')
+            ->get()
+            ->map(fn (PageModel $page): array => [
+                'id' => (int) $page->id,
+                'title' => $page->title,
+                'isDraft' => $page->isDraft(),
+                'url' => PageResource::getUrl('edit', ['record' => $page]),
+                'current' => $page->id === $this->pageRecord()->id,
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * The final public path a slug + parent combination resolves to — shown
+     * live under the slug fields so nested URLs are visible before saving.
+     */
+    public function previewPath(mixed $parentId, mixed $slug): string
+    {
+        $prefix = '';
+
+        if (is_numeric($parentId)) {
+            $parent = PageModel::query()->find((int) $parentId);
+
+            if ($parent !== null) {
+                $prefix = mb_rtrim($parent->getUrl(), '/');
+            }
+        }
+
+        $slug = is_string($slug) && mb_trim($slug) !== '' ? mb_trim($slug) : '/';
+
+        return ($prefix.Str::start($slug, '/')) ?: '/';
+    }
+
+    /**
+     * The left pane's "New page" modal: title auto-fills the slug, the page
+     * is created as a draft, and the editor navigates straight to it.
+     */
+    public function newPageAction(): Action
+    {
+        return Action::make('newPage')
+            ->label('New page')
+            ->icon(Heroicon::OutlinedPlus)
+            ->color('gray')
+            ->schema([
+                TextInput::make('title')
+                    ->required()
+                    ->live(onBlur: true)
+                    ->afterStateUpdated(function (Set $set, ?string $state): void {
+                        $set('slug', Str::slug($state ?? ''));
+                    }),
+                $this->slugField()
+                    ->helperText(fn (Get $get): string => 'URL: '.$this->previewPath($get('parent_id'), $get('slug'))),
+                Select::make('parent_id')
+                    ->label('Parent page')
+                    ->options(fn (): array => $this->pageOptions())
+                    ->live()
+                    ->placeholder('None'),
+            ])
+            ->action(function (array $data): void {
+                $page = PageModel::query()->create([
+                    'tenant_id' => tenant('id'),
+                    'title' => $data['title'],
+                    'slug' => $data['slug'],
+                    'layout' => $this->pageRecord()->layout,
+                    'parent_id' => $data['parent_id'] ?? null,
+                    'blocks' => [],
+                    'status' => PageStatus::Draft,
+                ]);
+
+                $this->redirect(PageResource::getUrl('edit', ['record' => $page]), navigate: true);
+            });
+    }
+
     public function selectBlock(string $key): void
     {
         if ($key === $this->selectedBlockKey) {
             return;
         }
 
-        $before = $this->blocks;
+        $before = [$this->blocks, $this->chrome];
 
         if (! $this->commitSelectedBlock()) {
             return;
         }
 
         $this->selectedBlockKey = $key;
+
+        // Selecting an empty chrome slot starts a fresh draft entry.
+        $slot = $this->chromeSlot($key);
+
+        if ($slot !== null) {
+            $this->chrome[$slot] ??= $this->defaultChromeEntry($slot);
+        }
+
         $this->fillBlockForm();
 
         // Selecting a block only reloads the canvas when committing the
         // previous draft actually changed something — clicking around an
         // unedited page must not flicker.
-        if ($before !== $this->blocks) {
+        if ($before !== [$this->blocks, $this->chrome]) {
             $this->pushPreview();
         }
 
@@ -248,6 +390,15 @@ final class PageEditor extends Page
 
     public function addBlock(string $type): void
     {
+        $this->addBlockAt($type, $this->pendingInsertPosition);
+    }
+
+    /**
+     * Insert a block at an explicit position — the drop target for dragging
+     * a library entry straight onto the canvas (null appends).
+     */
+    public function addBlockAt(string $type, ?int $position): void
+    {
         if (! $this->commitSelectedBlock()) {
             return;
         }
@@ -255,13 +406,50 @@ final class PageEditor extends Page
         $this->snapshot();
 
         ['blocks' => $this->blocks, 'key' => $key] = resolve(AddPageBlock::class)
-            ->handle($this->blocks, $type, $this->pendingInsertPosition);
+            ->handle($this->blocks, $type, $position);
 
         $this->pendingInsertPosition = null;
         $this->selectedBlockKey = $key;
         $this->fillBlockForm();
         $this->markDirty();
         $this->dispatch('page-editor:select-canvas-block', key: $key, scroll: true);
+
+        if (! $this->sampleHintShown) {
+            $this->sampleHintShown = true;
+
+            Notification::make()
+                ->title('Sample content added')
+                ->body('Double-click any text on the canvas to edit it, or use the panel on the right.')
+                ->info()
+                ->send();
+        }
+    }
+
+    /**
+     * Clear the selection (Esc / clicking blank canvas). Commits the current
+     * draft first; an invalid draft keeps the selection so the errors stay
+     * visible.
+     */
+    public function deselectBlock(): void
+    {
+        if ($this->selectedBlockKey === null) {
+            return;
+        }
+
+        $before = [$this->blocks, $this->chrome];
+
+        if (! $this->commitSelectedBlock()) {
+            return;
+        }
+
+        $this->selectedBlockKey = null;
+        $this->fillBlockForm();
+
+        if ($before !== [$this->blocks, $this->chrome]) {
+            $this->pushPreview();
+        }
+
+        $this->dispatch('page-editor:select-canvas-block', key: null, scroll: false);
     }
 
     /**
@@ -276,7 +464,7 @@ final class PageEditor extends Page
 
     public function duplicateBlock(string $key): void
     {
-        if (! $this->commitSelectedBlock()) {
+        if ($this->chromeSlot($key) !== null || ! $this->commitSelectedBlock()) {
             return;
         }
 
@@ -292,6 +480,10 @@ final class PageEditor extends Page
 
     public function removeBlock(string $key): void
     {
+        if ($this->chromeSlot($key) !== null) {
+            return;
+        }
+
         $removingSelected = $key === $this->selectedBlockKey;
 
         if (! $removingSelected && ! $this->commitSelectedBlock()) {
@@ -315,7 +507,7 @@ final class PageEditor extends Page
 
     public function moveBlock(string $key, int $offset): void
     {
-        if (! $this->commitSelectedBlock()) {
+        if ($this->chromeSlot($key) !== null || ! $this->commitSelectedBlock()) {
             return;
         }
 
@@ -397,10 +589,20 @@ final class PageEditor extends Page
             return;
         }
 
-        Notification::make()
+        $notification = Notification::make()
             ->title('Page saved')
-            ->success()
-            ->send();
+            ->success();
+
+        if (! $this->pageRecord()->isDraft()) {
+            $notification->actions([
+                Action::make('viewLive')
+                    ->label('View live')
+                    ->button()
+                    ->url($this->pageRecord()->getUrl(), shouldOpenInNewTab: true),
+            ]);
+        }
+
+        $notification->send();
     }
 
     /**
@@ -419,10 +621,20 @@ final class PageEditor extends Page
 
         $page->update(['status' => $publishing ? PageStatus::Published : PageStatus::Draft]);
 
-        Notification::make()
+        $notification = Notification::make()
             ->title($publishing ? 'Page published' : 'Page unpublished')
-            ->success()
-            ->send();
+            ->success();
+
+        if ($publishing) {
+            $notification->actions([
+                Action::make('viewLive')
+                    ->label('View live')
+                    ->button()
+                    ->url($page->getUrl(), shouldOpenInNewTab: true),
+            ]);
+        }
+
+        $notification->send();
     }
 
     public function updated(string $property): void
@@ -431,8 +643,18 @@ final class PageEditor extends Page
             return;
         }
 
+        $becameDirty = ! $this->isDirty;
         $this->isDirty = true;
-        $this->pushPreview();
+        $this->pushPreview(patch: true);
+
+        // Typing must not re-render the whole editor component — the canvas
+        // patches itself from the fragment route. The one exception is the
+        // first edit, which flips the Save button to its dirty state. Known
+        // trade-off: the structure row snippet only refreshes on the next
+        // full render (commit/selection), not per keystroke.
+        if (! $becameDirty) {
+            $this->skipRender();
+        }
     }
 
     public function previewUrl(): string
@@ -461,9 +683,72 @@ final class PageEditor extends Page
      */
     public function selectedBlock(): ?array
     {
+        $slot = $this->chromeSlot($this->selectedBlockKey);
+
+        if ($slot !== null) {
+            $entry = $this->chrome[$slot] ?? ['type' => $slot, 'data' => []];
+
+            return ['key' => (string) $this->selectedBlockKey, 'type' => $entry['type'], 'data' => $entry['data']];
+        }
+
         $index = $this->blockIndexOrNull($this->selectedBlockKey);
 
         return $index === null ? null : $this->blocks[$index];
+    }
+
+    /**
+     * The chrome slot ('header' / 'footer') a pseudo selection key refers
+     * to, or null for regular page-block keys.
+     */
+    public function chromeSlot(?string $key): ?string
+    {
+        return match ($key) {
+            self::CHROME_HEADER_KEY => 'header',
+            self::CHROME_FOOTER_KEY => 'footer',
+            default => null,
+        };
+    }
+
+    /**
+     * Stage a design-token draft for the canvas preview (called by the
+     * Design modal's live fields). Nothing persists — the canvas simply
+     * re-renders with the draft theme layered over the saved one.
+     *
+     * @param  array<string, mixed>  $draft
+     */
+    public function previewDesign(array $draft): void
+    {
+        $this->designDraft = [
+            'preset' => is_string($draft['preset'] ?? null) ? $draft['preset'] : null,
+            'palette' => is_string($draft['palette'] ?? null) ? $draft['palette'] : null,
+            'font_pair' => is_string($draft['font_pair'] ?? null) ? $draft['font_pair'] : null,
+            'radius' => is_string($draft['radius'] ?? null) ? $draft['radius'] : null,
+            'density' => is_string($draft['density'] ?? null) ? $draft['density'] : null,
+        ];
+
+        $this->pushPreview();
+    }
+
+    public function clearDesignDraft(): void
+    {
+        if ($this->designDraft === null) {
+            return;
+        }
+
+        $this->designDraft = null;
+        $this->pushPreview();
+    }
+
+    /**
+     * Closing any modal without applying discards the design draft — only
+     * the Design modal ever sets it, and its "Apply to site" path clears it
+     * before unmount.
+     */
+    public function unmountAction(bool|string|null $cancelParentActions = null): void
+    {
+        parent::unmountAction($cancelParentActions);
+
+        $this->clearDesignDraft();
     }
 
     /**
@@ -498,6 +783,19 @@ final class PageEditor extends Page
                 ->visible(fn (): bool => ! $this->pageRecord()->isDraft()),
 
             $this->pageSettingsAction(),
+
+            $this->designAction(),
+
+            Action::make('duplicatePage')
+                ->label('Duplicate page')
+                ->color('gray')
+                ->requiresConfirmation()
+                ->modalDescription('Duplicates the last saved version as a new draft page.')
+                ->action(function (): void {
+                    $copy = resolve(DuplicatePage::class)->handle($this->pageRecord());
+
+                    $this->redirect(PageResource::getUrl('edit', ['record' => $copy]), navigate: true);
+                }),
 
             Action::make('publish')
                 ->label(fn (): string => $this->pageRecord()->isDraft() ? 'Publish' : 'Unpublish')
@@ -534,8 +832,12 @@ final class PageEditor extends Page
     }
 
     /**
-     * Recursively drops null values while preserving list shapes (repeater
-     * items keep their order and stay JSON arrays).
+     * Recursively drops null values AND arrays that end up empty (an
+     * untouched repeater, an unset bind), while preserving list shapes
+     * (repeater items keep their order and stay JSON arrays). For the block
+     * views a missing key and an empty value render identically, so this
+     * keeps the persisted shape minimal and makes an unedited commit compare
+     * identical to its stored form.
      *
      * @param  array<array-key, mixed>  $values
      * @return array<array-key, mixed>
@@ -545,11 +847,19 @@ final class PageEditor extends Page
         $result = [];
 
         foreach ($values as $key => $value) {
+            if (is_array($value)) {
+                $value = self::withoutNulls($value);
+            }
+
             if ($value === null) {
                 continue;
             }
 
-            $result[$key] = is_array($value) ? self::withoutNulls($value) : $value;
+            if ($value === []) {
+                continue;
+            }
+
+            $result[$key] = $value;
         }
 
         return array_is_list($values) ? array_values($result) : $result;
@@ -594,23 +904,8 @@ final class PageEditor extends Page
             ->schema([
                 TextInput::make('title')
                     ->required(),
-                TextInput::make('slug')
-                    ->required()
-                    ->rule(fn (): Closure => function (string $attribute, mixed $value, Closure $fail): void {
-                        if ($value !== '/' && is_string($value) && (str_starts_with($value, '/') || str_ends_with($value, '/'))) {
-                            $fail('The slug cannot start or end with a slash.');
-                        }
-                    })
-                    ->unique(
-                        table: PageModel::class,
-                        column: 'slug',
-                        ignorable: fn (): PageModel => $this->pageRecord(),
-                        modifyRuleUsing: function (Unique $rule, Get $get): Unique {
-                            $parent = $get('parent_id');
-
-                            return $rule->where('parent_id', is_numeric($parent) ? (int) $parent : null);
-                        },
-                    ),
+                $this->slugField(ignoreCurrent: true)
+                    ->helperText(fn (Get $get): string => 'URL: '.$this->previewPath($get('parent_id'), $get('slug'))),
                 Select::make('layout')
                     ->options(fn (): array => array_map(
                         static fn (mixed $label): string => is_string($label) ? $label : '',
@@ -619,11 +914,8 @@ final class PageEditor extends Page
                     ->required(),
                 Select::make('parent_id')
                     ->label('Parent page')
-                    ->options(fn (): array => PageModel::query()
-                        ->whereKeyNot($this->pageRecord()->id)
-                        ->pluck('title', 'id')
-                        ->map(static fn (mixed $title): string => is_string($title) ? $title : '')
-                        ->all())
+                    ->options(fn (): array => $this->pageOptions(excludeCurrent: true))
+                    ->live()
                     ->placeholder('None'),
             ])
             ->action(function (array $data): void {
@@ -637,6 +929,165 @@ final class PageEditor extends Page
                     ->success()
                     ->send();
             });
+    }
+
+    /**
+     * The in-editor Design modal: token changes re-theme the CANVAS only
+     * (via {@see previewDesign()}); "Apply to site" persists — a preset
+     * whose bundle still matches saves as that preset, anything else saves
+     * as a custom combination (mirrors the Design page's save semantics).
+     */
+    private function designAction(): Action
+    {
+        $options = Design::tokenOptions();
+
+        $preview = function (Get $get): void {
+            $this->previewDesign([
+                'preset' => $get('preset'),
+                'palette' => $get('palette'),
+                'font_pair' => $get('font_pair'),
+                'radius' => $get('radius'),
+                'density' => $get('density'),
+            ]);
+        };
+
+        return Action::make('design')
+            ->label('Design')
+            ->color('gray')
+            ->icon(Heroicon::OutlinedSwatch)
+            ->visible(fn (): bool => $this->hasBusinessProfile())
+            ->modalSubmitActionLabel('Apply to site')
+            ->fillForm(function (): array {
+                $tokens = Business::query()->firstOrFail()->design_tokens;
+
+                return [
+                    'preset' => $tokens->preset?->value,
+                    'palette' => $tokens->palette->value,
+                    'font_pair' => $tokens->fontPair->value,
+                    'radius' => $tokens->radius->value,
+                    'density' => $tokens->density->value,
+                ];
+            })
+            ->schema([
+                Select::make('preset')
+                    ->label('Style preset')
+                    ->options($options['preset'])
+                    ->live()
+                    ->placeholder('Custom')
+                    ->afterStateUpdated(function (Set $set, Get $get, mixed $state) use ($preview): void {
+                        $preset = is_string($state) ? StylePreset::tryFrom($state) : null;
+
+                        if ($preset !== null) {
+                            $tokens = $preset->tokens();
+
+                            $set('palette', $tokens->palette->value);
+                            $set('font_pair', $tokens->fontPair->value);
+                            $set('radius', $tokens->radius->value);
+                            $set('density', $tokens->density->value);
+                        }
+
+                        $preview($get);
+                    }),
+                Select::make('palette')
+                    ->options($options['palette'])
+                    ->selectablePlaceholder(false)
+                    ->live()
+                    ->afterStateUpdated(fn (Get $get) => $preview($get)),
+                Select::make('font_pair')
+                    ->label('Fonts')
+                    ->options($options['font_pair'])
+                    ->selectablePlaceholder(false)
+                    ->live()
+                    ->afterStateUpdated(fn (Get $get) => $preview($get)),
+                Select::make('radius')
+                    ->label('Corner radius')
+                    ->options($options['radius'])
+                    ->selectablePlaceholder(false)
+                    ->live()
+                    ->afterStateUpdated(fn (Get $get) => $preview($get)),
+                Select::make('density')
+                    ->label('Spacing density')
+                    ->options($options['density'])
+                    ->selectablePlaceholder(false)
+                    ->live()
+                    ->afterStateUpdated(fn (Get $get) => $preview($get)),
+            ])
+            ->action(function (array $data): void {
+                $data = self::stringKeyed($data);
+                $business = Business::query()->firstOrFail();
+                $preset = is_string($data['preset'] ?? null) ? StylePreset::tryFrom($data['preset']) : null;
+
+                if ($preset !== null && $this->matchesPreset($preset, $data)) {
+                    resolve(ApplyStylePreset::class)->handle($business, $preset);
+                } else {
+                    resolve(UpdateDesignTokens::class)->handle($business, array_filter([
+                        'palette' => is_string($data['palette'] ?? null) ? $data['palette'] : null,
+                        'font_pair' => is_string($data['font_pair'] ?? null) ? $data['font_pair'] : null,
+                        'radius' => is_string($data['radius'] ?? null) ? $data['radius'] : null,
+                        'density' => is_string($data['density'] ?? null) ? $data['density'] : null,
+                    ], fn (?string $value): bool => $value !== null));
+                }
+
+                $this->designDraft = null;
+                $this->pushPreview();
+
+                Notification::make()
+                    ->title('Design applied to the whole site')
+                    ->success()
+                    ->send();
+            });
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function matchesPreset(StylePreset $preset, array $data): bool
+    {
+        $tokens = $preset->tokens();
+
+        return ($data['palette'] ?? null) === $tokens->palette->value
+            && ($data['font_pair'] ?? null) === $tokens->fontPair->value
+            && ($data['radius'] ?? null) === $tokens->radius->value
+            && ($data['density'] ?? null) === $tokens->density->value;
+    }
+
+    /**
+     * The shared slug field: no leading/trailing slash (except the root
+     * slug "/") and unique within the chosen parent.
+     */
+    private function slugField(bool $ignoreCurrent = false): TextInput
+    {
+        return TextInput::make('slug')
+            ->required()
+            ->live(onBlur: true)
+            ->rule(fn (): Closure => function (string $attribute, mixed $value, Closure $fail): void {
+                if ($value !== '/' && is_string($value) && (str_starts_with($value, '/') || str_ends_with($value, '/'))) {
+                    $fail('The slug cannot start or end with a slash.');
+                }
+            })
+            ->unique(
+                table: PageModel::class,
+                column: 'slug',
+                ignorable: $ignoreCurrent ? $this->pageRecord(...) : null,
+                modifyRuleUsing: function (Unique $rule, Get $get): Unique {
+                    $parent = $get('parent_id');
+
+                    return $rule->where('parent_id', is_numeric($parent) ? (int) $parent : null);
+                },
+            );
+    }
+
+    /**
+     * @return array<int|string, string>
+     */
+    private function pageOptions(bool $excludeCurrent = false): array
+    {
+        return PageModel::query()
+            ->when($excludeCurrent, fn (Builder $query): Builder => $query->whereKeyNot($this->pageRecord()->id))
+            ->orderBy('title')
+            ->pluck('title', 'id')
+            ->map(static fn (mixed $title): string => is_string($title) ? $title : '')
+            ->all();
     }
 
     /**
@@ -714,9 +1165,10 @@ final class PageEditor extends Page
      */
     private function commitSelectedBlock(): bool
     {
+        $slot = $this->chromeSlot($this->selectedBlockKey);
         $index = $this->blockIndexOrNull($this->selectedBlockKey);
 
-        if ($index === null || ! $this->selectedBlockSection() instanceof Section) {
+        if (($slot === null && $index === null) || ! $this->selectedBlockSection() instanceof Section) {
             return true;
         }
 
@@ -736,7 +1188,20 @@ final class PageEditor extends Page
         // (an untouched field never appears in the JSON), and committing an
         // unedited block compares identical to its stored form — which is
         // what lets selectBlock() skip the canvas reload.
-        $this->blocks[$index]['data'] = is_array($committed) ? self::stringKeyed(self::withoutNulls($committed)) : [];
+        $committed = is_array($committed) ? self::stringKeyed(self::withoutNulls($committed)) : [];
+
+        if ($slot !== null) {
+            $entry = $this->chrome[$slot] ?? ['type' => $slot, 'data' => []];
+
+            if ($entry['data'] !== $committed) {
+                $this->chrome[$slot] = ['type' => $entry['type'], 'data' => $committed];
+                $this->chromeDirty = true;
+            }
+
+            return true;
+        }
+
+        $this->blocks[(int) $index]['data'] = $committed;
 
         return true;
     }
@@ -758,6 +1223,17 @@ final class PageEditor extends Page
                 $this->blocks,
             ),
         ]);
+
+        // The chrome draft persists only when it was actually edited — an
+        // untouched default header never materializes into site settings.
+        if ($this->chromeDirty) {
+            resolve(SaveSiteChrome::class)->handle(
+                $this->chrome['header'] === null ? null : [$this->chrome['header']],
+                $this->chrome['footer'] === null ? null : [$this->chrome['footer']],
+            );
+
+            $this->chromeDirty = false;
+        }
 
         $this->isDirty = false;
 
@@ -800,12 +1276,17 @@ final class PageEditor extends Page
 
     /**
      * Re-publish the draft (with the selected block's uncommitted raw state
-     * substituted in) under the session token and tell the canvas to reload.
+     * substituted in) under the session token and tell the canvas to update.
+     * With `patch` (field edits), only the selected block's HTML is swapped
+     * in the iframe (falling back to a full reload on fetch failure);
+     * structural or theme changes always reload the whole document.
      */
-    private function pushPreview(): void
+    private function pushPreview(bool $patch = false): void
     {
         $blocks = $this->blocks;
+        $chrome = $this->chrome;
         $index = $this->blockIndexOrNull($this->selectedBlockKey);
+        $slot = $this->chromeSlot($this->selectedBlockKey);
         $draft = $this->data['block'] ?? null;
 
         if ($index !== null && is_array($draft)) {
@@ -816,10 +1297,82 @@ final class PageEditor extends Page
             ];
         }
 
-        resolve(CachePageEditorPreview::class)->handle($this->pageRecord(), $blocks, $this->previewToken);
+        if ($slot !== null && is_array($draft)) {
+            $chrome[$slot] = [
+                'type' => $chrome[$slot]['type'] ?? $slot,
+                'data' => self::stringKeyed($draft),
+            ];
+        }
+
+        // Untouched null slots render their effective default on the canvas
+        // (mirroring SiteChrome's live-site fallback) without ever becoming
+        // part of the draft.
+        if ($this->hasBusinessProfile()) {
+            $chrome['header'] ??= ['type' => 'header', 'data' => []];
+            $chrome['footer'] ??= ['type' => 'footer', 'data' => []];
+        }
+
+        resolve(CachePageEditorPreview::class)->handle($this->pageRecord(), $blocks, $this->previewToken, $chrome, $this->designDraft);
 
         $this->previewVersion++;
+
+        if ($patch && $this->selectedBlockKey !== null) {
+            $this->dispatch(
+                'page-editor:patch-canvas',
+                url: $this->previewUrl().'&block='.urlencode($this->selectedBlockKey),
+                fallbackUrl: $this->previewUrl(),
+                key: $this->selectedBlockKey,
+            );
+
+            return;
+        }
+
         $this->dispatch('page-editor:refresh-canvas', url: $this->previewUrl());
+    }
+
+    /**
+     * The STORED chrome entry for a slot, or null when the tenant relies on
+     * the default chrome — a null slot stays null on save, so merely opening
+     * the editor never materializes the default into site settings. The
+     * canvas preview computes the effective default at push time instead.
+     *
+     * @return array{type: string, data: array<string, mixed>}|null
+     */
+    private function hydratedChromeSlot(string $slot): ?array
+    {
+        $settings = SiteSetting::query()->first();
+        $stored = $slot === 'header' ? $settings?->header : $settings?->footer;
+        $entry = is_array($stored) ? ($stored[0] ?? null) : null;
+
+        if (! is_array($entry)) {
+            return null;
+        }
+
+        $type = $entry['type'] ?? null;
+        $data = $entry['data'] ?? null;
+
+        return [
+            'type' => is_string($type) ? $type : $slot,
+            'data' => is_array($data) ? self::stringKeyed($data) : [],
+        ];
+    }
+
+    /**
+     * A fresh draft entry for an empty chrome slot, pre-filled with the
+     * block's default variant so an inspect-without-editing visit commits
+     * identical and never flags the chrome dirty.
+     *
+     * @return array{type: string, data: array<string, mixed>}
+     */
+    private function defaultChromeEntry(string $slot): array
+    {
+        $class = FilamentFabricator::getPageBlockFromName($slot);
+        $variant = is_string($class) && is_subclass_of($class, Block::class) ? $class::defaultVariant() : null;
+
+        return [
+            'type' => $slot,
+            'data' => $variant === null ? [] : [Block::VARIANT_KEY => $variant],
+        ];
     }
 
     private function pageRecord(): PageModel

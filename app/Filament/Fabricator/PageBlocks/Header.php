@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Fabricator\PageBlocks;
 
 use App\Enums\BindType;
+use App\Filament\Fabricator\Fields\LinkInput;
 use Filament\Forms\Components\Field;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\TextInput;
@@ -20,6 +21,17 @@ final class Header extends Block
     protected static string $name = 'header';
 
     protected static ?Heroicon $icon = Heroicon::OutlinedBars3;
+
+    /**
+     * @var array<string, mixed>
+     */
+    protected static array $sample = [
+        'nav_links' => [
+            ['label' => 'Home', 'url' => '/'],
+        ],
+        'cta_label' => 'Contact us',
+        'cta_url' => '/contact',
+    ];
 
     /**
      * @var array<string, string>
@@ -42,14 +54,12 @@ final class Header extends Block
                     TextInput::make('label')
                         ->required()
                         ->maxLength(60),
-                    TextInput::make('url')
-                        ->required()
-                        ->maxLength(2048),
+                    LinkInput::make('url')
+                        ->required(),
                 ]),
             TextInput::make('cta_label')
                 ->maxLength(60),
-            TextInput::make('cta_url')
-                ->maxLength(2048),
+            LinkInput::make('cta_url'),
         ];
     }
 }

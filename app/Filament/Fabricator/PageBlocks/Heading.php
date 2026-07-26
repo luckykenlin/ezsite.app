@@ -25,6 +25,14 @@ final class Heading extends Block
     protected static ?Heroicon $icon = Heroicon::OutlinedH1;
 
     /**
+     * @var array<string, mixed>
+     */
+    protected static array $sample = [
+        'content' => 'Your section heading',
+        'level' => 'h2',
+    ];
+
+    /**
      * @return array<int, Field>
      */
     protected static function fields(): array

@@ -38,10 +38,19 @@ final readonly class AddPageBlock
 
         $key = (string) Str::uuid();
 
+        // A fresh block lands with its sample content (see Block::$sample):
+        // it renders presentable immediately and passes its own validation —
+        // an empty required field would otherwise block every next action.
+        $data = $class::sample();
+
+        if ($class::variants() !== []) {
+            $data = [Block::VARIANT_KEY => $class::defaultVariant()] + $data;
+        }
+
         $block = [
             'key' => $key,
             'type' => $type,
-            'data' => $class::variants() === [] ? [] : [Block::VARIANT_KEY => $class::defaultVariant()],
+            'data' => $data,
         ];
 
         $position = min(max($position ?? count($blocks), 0), count($blocks));

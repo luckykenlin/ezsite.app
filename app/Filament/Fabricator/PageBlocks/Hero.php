@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Fabricator\PageBlocks;
 
+use App\Filament\Fabricator\Fields\LinkInput;
 use Filament\Forms\Components\Field;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -20,6 +21,17 @@ final class Hero extends Block
     protected static string $name = 'hero';
 
     protected static ?Heroicon $icon = Heroicon::OutlinedSparkles;
+
+    /**
+     * @var array<string, mixed>
+     */
+    protected static array $sample = [
+        'eyebrow' => 'Welcome',
+        'heading' => 'Your headline goes here',
+        'subheading' => 'Use this space to introduce your business in one or two friendly sentences.',
+        'cta_label' => 'Get in touch',
+        'cta_url' => '/contact',
+    ];
 
     /**
      * @var array<string, string>
@@ -46,10 +58,7 @@ final class Hero extends Block
                 ->maxLength(500),
             TextInput::make('cta_label')
                 ->maxLength(60),
-            // No ->url(): internal links are relative paths ("/contact") or
-            // anchors ("#contact"), which the url rule rejects.
-            TextInput::make('cta_url')
-                ->maxLength(2048),
+            LinkInput::make('cta_url'),
             TextInput::make('image_url')
                 ->maxLength(2048),
         ];

@@ -21,6 +21,19 @@ final class Features extends Block
     protected static ?Heroicon $icon = Heroicon::OutlinedSquares2x2;
 
     /**
+     * @var array<string, mixed>
+     */
+    protected static array $sample = [
+        'heading' => 'Why choose us',
+        'intro' => 'Three reasons customers love working with us — replace them with your own.',
+        'features' => [
+            ['icon' => '⭐', 'title' => 'Reliable service', 'description' => 'Replace this with a benefit your customers care about.'],
+            ['icon' => '⚡', 'title' => 'Fast turnaround', 'description' => 'Replace this with a benefit your customers care about.'],
+            ['icon' => '💬', 'title' => 'Friendly support', 'description' => 'Replace this with a benefit your customers care about.'],
+        ],
+    ];
+
+    /**
      * @var array<string, string>
      */
     protected static array $variants = [

@@ -5,10 +5,14 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Actions\Pages\CachePageEditorPreview;
+use App\Design\DesignTokens;
+use App\Design\ThemeVariables;
+use App\Models\Business;
 use App\Models\Page;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\HtmlString;
 use Z3d0X\FilamentFabricator\Facades\FilamentFabricator;
 
 /**
@@ -48,10 +52,79 @@ final class PageEditorPreviewController extends Controller
             'blocks' => array_values($blocks),
         ]);
 
+        $chrome = $payload['chrome'] ?? null;
+
+        $blockKey = $request->query('block');
+
+        if (is_string($blockKey) && $blockKey !== '') {
+            return $this->blockFragment($blockKey, array_values($blocks), array_values($keys), is_array($chrome) ? $chrome : null);
+        }
+
         return view('filament.tenant.pages.page-editor-preview', [
             'component' => $layout::getComponent(),
             'page' => $page,
             'editorKeys' => array_values($keys),
+            'editorChrome' => is_array($chrome) ? $chrome : null,
+            'themeDraft' => $this->themeDraftStyle($payload['design_tokens'] ?? null),
         ]);
+    }
+
+    /**
+     * A single wrapped block's HTML — the editor's debounced field edits
+     * fetch this and patch it into the canvas instead of reloading the whole
+     * document.
+     *
+     * @param  list<mixed>  $blocks
+     * @param  list<mixed>  $keys
+     * @param  array<array-key, mixed>|null  $chrome
+     */
+    private function blockFragment(string $blockKey, array $blocks, array $keys, ?array $chrome): View
+    {
+        $slot = match ($blockKey) {
+            'chrome:header' => 'header',
+            'chrome:footer' => 'footer',
+            default => null,
+        };
+
+        if ($slot !== null) {
+            $entries = $chrome[$slot] ?? null;
+
+            abort_unless(is_array($entries) && $entries !== [], 404);
+
+            return view('filament.tenant.pages.page-editor-preview-block', [
+                'blocks' => array_values($entries),
+                'editorKeys' => [$blockKey],
+            ]);
+        }
+
+        $index = array_search($blockKey, $keys, true);
+
+        abort_if($index === false || ! array_key_exists($index, $blocks), 404);
+
+        return view('filament.tenant.pages.page-editor-preview-block', [
+            'blocks' => [$blocks[$index]],
+            'editorKeys' => [$blockKey],
+        ]);
+    }
+
+    /**
+     * A `<style>` override compiled from the editor's unsaved design-token
+     * draft. Emitted AFTER the saved theme's HEAD_END style so it wins; all
+     * values come from enum constants / validated hexes (see ThemeVariables),
+     * so the raw echo is safe.
+     */
+    private function themeDraftStyle(mixed $tokens): ?HtmlString
+    {
+        if (! is_array($tokens)) {
+            return null;
+        }
+
+        $business = Business::query()->first();
+
+        if ($business === null) {
+            return null;
+        }
+
+        return ThemeVariables::styleFor(DesignTokens::fromArray($tokens), $business, 'data-editor-theme-draft');
     }
 }

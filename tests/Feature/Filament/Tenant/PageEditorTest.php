@@ -3,10 +3,14 @@
 declare(strict_types=1);
 
 use App\Actions\Pages\CachePageEditorPreview;
+use App\Design\StylePreset;
 use App\Enums\PageStatus;
+use App\Filament\Fabricator\BlockRegistry;
 use App\Filament\Tenant\Resources\PageResource\Pages\PageEditor;
+use App\Models\Business;
 use App\Models\Location;
 use App\Models\Page;
+use App\Models\SiteSetting;
 use App\Models\Tenant;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\Cache;
@@ -73,7 +77,9 @@ it('refreshes the canvas draft as a field is edited, without touching the databa
 
     $component = Livewire::test(PageEditor::class, ['record' => $page->id])
         ->set('data.block.heading', 'Live draft')
-        ->assertDispatched('page-editor:refresh-canvas');
+        // Field edits patch the single block instead of reloading the document.
+        ->assertDispatched('page-editor:patch-canvas')
+        ->assertNotDispatched('page-editor:refresh-canvas');
 
     expect($component->get('isDirty'))->toBeTrue()
         ->and(cachedPreview($component)['blocks'][0]['data']['heading'])->toBe('Live draft')
@@ -556,6 +562,316 @@ it('links Visit page through the full parent chain', function (): void {
     // A naive '/'.$slug used to produce /plumbing here — a 404 on the live site.
     Livewire::test(PageEditor::class, ['record' => $parent->id])
         ->assertActionHasUrl('visit', '/services');
+});
+
+it('lists sibling pages in the switcher with the current one marked', function (): void {
+    $page = editorPage([]);
+    Page::query()->create([
+        'tenant_id' => tenant('id'), 'title' => 'About', 'slug' => 'about', 'layout' => 'main',
+        'blocks' => [], 'status' => PageStatus::Draft,
+    ]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->assertSee('About');
+
+    $siblings = $component->instance()->siblingPages();
+
+    expect($siblings)->toHaveCount(2)
+        ->and(collect($siblings)->firstWhere('title', 'Home')['current'])->toBeTrue()
+        ->and(collect($siblings)->firstWhere('title', 'About')['current'])->toBeFalse()
+        ->and(collect($siblings)->firstWhere('title', 'About')['isDraft'])->toBeTrue();
+});
+
+it('creates a draft page from the New page modal and opens its editor', function (): void {
+    $page = editorPage([]);
+
+    Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->callAction('newPage', [
+            'title' => 'Services',
+            'slug' => 'services',
+            'parent_id' => null,
+        ])
+        ->assertHasNoFormErrors();
+
+    $created = Page::query()->where('slug', 'services')->firstOrFail();
+
+    expect($created->status)->toBe(PageStatus::Draft)
+        ->and($created->blocks)->toBeEmpty()
+        ->and($created->title)->toBe('Services');
+});
+
+it('duplicates the whole page from the header action', function (): void {
+    $page = editorPage([
+        ['type' => 'heading', 'data' => ['content' => 'Hi', 'level' => 'h2']],
+    ]);
+
+    Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->callAction('duplicatePage');
+
+    $copy = Page::query()->where('slug', 'home-copy')->firstOrFail();
+
+    expect($copy->status)->toBe(PageStatus::Draft)
+        ->and($copy->blocks)->toBe([['type' => 'heading', 'data' => ['content' => 'Hi', 'level' => 'h2']]]);
+});
+
+it('previews the final path for slug and parent combinations', function (): void {
+    $parent = Page::query()->create([
+        'tenant_id' => tenant('id'), 'title' => 'Services', 'slug' => 'services', 'layout' => 'main', 'blocks' => [],
+    ]);
+    $page = editorPage([]);
+
+    $editor = Livewire::test(PageEditor::class, ['record' => $page->id])->instance();
+
+    expect($editor->previewPath(null, 'about'))->toBe('/about')
+        ->and($editor->previewPath($parent->id, 'plumbing'))->toBe('/services/plumbing')
+        ->and($editor->previewPath((string) $parent->id, 'plumbing'))->toBe('/services/plumbing')
+        ->and($editor->previewPath(null, null))->toBe('/')
+        ->and($editor->previewPath(-1, 'x'))->toBe('/x');
+});
+
+it('edits the site header from the canvas and persists it only when changed', function (): void {
+    $this->createTenantBusiness($this->tenant, ['name' => 'Corner Cafe']);
+    $page = editorPage([
+        ['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']],
+    ]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
+
+    // Saving without touching the chrome never materializes site settings.
+    $component->call('save');
+
+    expect(SiteSetting::query()->count())->toBe(0);
+
+    $component->call('selectBlock', 'chrome:header');
+
+    expect($component->get('selectedBlockKey'))->toBe('chrome:header')
+        ->and($component->get('data')['block']['variant'])->toBe('simple');
+
+    $component->set('data.block.cta_label', 'Call now');
+
+    // The canvas draft carries the chrome edit before anything persists.
+    expect(cachedPreview($component)['chrome']['header'][0]['data']['cta_label'])->toBe('Call now');
+
+    $component->call('save')->assertNotified();
+
+    $settings = SiteSetting::query()->sole();
+
+    expect($settings->header[0]['type'])->toBe('header')
+        ->and($settings->header[0]['data']['cta_label'])->toBe('Call now')
+        ->and($settings->footer)->toBeNull()
+        ->and($component->get('chromeDirty'))->toBeFalse();
+});
+
+it('hydrates the chrome draft from saved site settings', function (): void {
+    SiteSetting::factory()->withHeader()->create(['tenant_id' => tenant('id')]);
+    $page = editorPage([]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
+
+    $header = $component->get('chrome')['header'];
+
+    expect($header['type'])->toBe('header')
+        ->and($header['data'])->toBeArray();
+});
+
+it('skips re-rendering the editor on subsequent keystrokes', function (): void {
+    $page = editorPage([
+        ['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']],
+    ]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->set('data.block.heading', 'First edit')
+        // Already dirty: this one takes the skipRender fast path.
+        ->set('data.block.heading', 'Second edit')
+        ->assertDispatched('page-editor:patch-canvas');
+
+    expect(cachedPreview($component)['blocks'][0]['data']['heading'])->toBe('Second edit');
+});
+
+it('starts a fresh footer draft when selecting an empty chrome slot', function (): void {
+    $page = editorPage([]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->call('selectBlock', 'chrome:footer');
+
+    expect($component->get('chrome')['footer'])->toBe(['type' => 'footer', 'data' => ['variant' => 'columns']])
+        ->and($component->get('data')['block']['variant'])->toBe('columns');
+
+    // Inspecting without editing never flags the chrome dirty.
+    $component->call('selectBlock', 'chrome:header');
+    expect($component->get('chromeDirty'))->toBeFalse();
+});
+
+it('ignores structural verbs on the chrome pseudo blocks', function (): void {
+    $page = editorPage([
+        ['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']],
+    ]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
+
+    $component->call('removeBlock', 'chrome:header');
+    $component->call('moveBlock', 'chrome:header', 1);
+    $component->call('duplicateBlock', 'chrome:header');
+
+    expect($component->get('blocks'))->toHaveCount(1)
+        ->and($component->get('history'))->toBeEmpty();
+});
+
+it('previews design-token drafts on the canvas only, and discards them on close', function (): void {
+    $this->createTenantBusiness($this->tenant, ['name' => 'Corner Cafe']);
+    $page = editorPage([]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->mountAction('design')
+        ->fillForm(['palette' => 'ocean']);
+
+    expect($component->get('designDraft')['palette'])->toBe('ocean')
+        ->and(cachedPreview($component)['design_tokens']['palette'])->toBe('ocean')
+        // Nothing persisted.
+        ->and(Business::query()->sole()->design_tokens->palette->value)->not->toBe('ocean');
+
+    // Closing the modal without applying discards the canvas draft.
+    $component->unmountAction();
+
+    expect($component->get('designDraft'))->toBeNull()
+        ->and(cachedPreview($component)['design_tokens'])->toBeNull();
+});
+
+it('applies a design preset to the whole site from the editor modal', function (): void {
+    $this->createTenantBusiness($this->tenant, ['name' => 'Corner Cafe']);
+    $page = editorPage([]);
+
+    $tokens = StylePreset::BoldEditorial->tokens();
+
+    Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->callAction('design', [
+            'preset' => 'bold-editorial',
+            'palette' => $tokens->palette->value,
+            'font_pair' => $tokens->fontPair->value,
+            'radius' => $tokens->radius->value,
+            'density' => $tokens->density->value,
+        ])
+        ->assertNotified();
+
+    $saved = Business::query()->sole()->design_tokens;
+
+    expect($saved->preset)->toBe(StylePreset::BoldEditorial)
+        ->and($saved->palette)->toBe($tokens->palette);
+});
+
+it('applies a custom token combination from the editor modal, preset detached', function (): void {
+    $this->createTenantBusiness($this->tenant, ['name' => 'Corner Cafe']);
+    $page = editorPage([]);
+
+    Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->callAction('design', [
+            'preset' => 'bold-editorial',
+            'palette' => 'ocean',
+            'font_pair' => StylePreset::BoldEditorial->tokens()->fontPair->value,
+            'radius' => StylePreset::BoldEditorial->tokens()->radius->value,
+            'density' => StylePreset::BoldEditorial->tokens()->density->value,
+        ]);
+
+    $saved = Business::query()->sole()->design_tokens;
+
+    expect($saved->preset)->toBeNull()
+        ->and($saved->palette->value)->toBe('ocean');
+});
+
+it('hides the Design action until a business profile exists', function (): void {
+    $page = editorPage([]);
+
+    Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->assertActionHidden('design');
+});
+
+it('deselects on demand, keeping the selection when the draft is invalid', function (): void {
+    $page = editorPage([
+        ['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']],
+    ]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
+    $key = $component->get('selectedBlockKey');
+
+    // A no-op when nothing changes; clears the selection and tells the canvas.
+    $component->call('deselectBlock')
+        ->assertDispatched('page-editor:select-canvas-block', key: null)
+        ->assertNotDispatched('page-editor:refresh-canvas');
+    expect($component->get('selectedBlockKey'))->toBeNull();
+
+    // Deselecting with no selection is harmless.
+    $component->call('deselectBlock');
+
+    // An invalid draft blocks the deselect so the errors stay visible.
+    $component->call('selectBlock', $key)
+        ->set('data.block.variant')
+        ->call('deselectBlock')
+        ->assertNotified();
+    expect($component->get('selectedBlockKey'))->toBe($key);
+});
+
+it('deselecting commits pending edits and reloads the canvas once', function (): void {
+    $page = editorPage([
+        ['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']],
+    ]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->set('data.block.heading', 'Edited')
+        ->call('deselectBlock')
+        ->assertDispatched('page-editor:refresh-canvas');
+
+    expect($component->get('selectedBlockKey'))->toBeNull()
+        ->and($component->get('blocks')[0]['data']['heading'])->toBe('Edited');
+});
+
+it('inserts a library block at the dropped position', function (): void {
+    $page = editorPage([
+        ['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']],
+        ['type' => 'heading', 'data' => ['content' => 'About us', 'level' => 'h2']],
+    ]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->call('addBlockAt', 'cta', 1);
+
+    expect(array_column($component->get('blocks'), 'type'))->toBe(['hero', 'cta', 'heading'])
+        ->and($component->get('selectedBlockKey'))->toBe($component->get('blocks')[1]['key'])
+        ->and($component->get('isDirty'))->toBeTrue();
+});
+
+it('drops every library block in valid: sample content passes its own validation', function (): void {
+    $this->createTenantBusiness($this->tenant, ['name' => 'Corner Cafe']);
+    $page = editorPage([]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
+    $types = array_keys(BlockRegistry::vocabulary());
+
+    // Each addBlock commits (= validates) the previously added block; an
+    // invalid sample would notify a warning and stop the list growing.
+    foreach ($types as $type) {
+        $component->call('addBlock', $type);
+    }
+
+    $component->call('save');
+
+    expect(array_column($component->get('blocks'), 'type'))->toBe($types)
+        ->and(Page::query()->findOrFail($page->id)->blocks)->toHaveSameSize($types);
+});
+
+it('hints once per session that sample content is editable', function (): void {
+    $page = editorPage([]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
+
+    expect($component->get('sampleHintShown'))->toBeFalse();
+
+    $component->call('addBlock', 'cta')
+        ->assertNotified('Sample content added');
+
+    expect($component->get('sampleHintShown'))->toBeTrue();
+
+    // Later adds stay quiet.
+    $component->call('addBlock', 'heading');
+    expect($component->get('sampleHintShown'))->toBeTrue();
 });
 
 it('cannot open a page belonging to another tenant', function (): void {

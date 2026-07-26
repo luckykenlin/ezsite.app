@@ -12,11 +12,11 @@ use App\Models\Tenant;
  * the real tenant layout chain, with the editor-only selection markup that
  * must never leak into live-site renders.
  */
-function cachePreviewFor(Tenant $tenant, Page $page, array $blocks, string $token): void
+function cachePreviewFor(Tenant $tenant, Page $page, array $blocks, string $token, ?array $chrome = null): void
 {
     resolve(RunInTenant::class)->handle(
         $tenant,
-        fn () => resolve(CachePageEditorPreview::class)->handle($page, $blocks, $token),
+        fn () => resolve(CachePageEditorPreview::class)->handle($page, $blocks, $token, $chrome),
     );
 }
 
@@ -39,9 +39,36 @@ it('renders the cached draft state with block wrappers and the selection script'
 
     // The draft renders through the real layout chain — same base layout as the live site.
     $response->assertSee('filament-fabricator-body', false);
+
+    // Between-blocks "+" dividers wrap the page blocks (positions 0..count),
+    // but never the chrome or the patch fragments.
+    $response->assertSee('data-editor-insert="0"', false)
+        ->assertSee('data-editor-insert="1"', false);
+
+    $this->get(sprintf('http://acme.%s/_editor/preview?token=valid-token&block=k1', $this->centralDomain()))
+        ->assertDontSee('data-editor-insert');
 });
 
-it('renders the site chrome dimmed inside the editor-chrome wrapper', function (): void {
+it('renders the chrome draft selectable under its pseudo keys', function (): void {
+    $tenant = Tenant::factory()->withDomain('acme')->create();
+    $this->createTenantBusiness($tenant, ['name' => 'Corner Cafe']);
+    $page = $this->createTenantPage($tenant, []);
+
+    cachePreviewFor($tenant, $page, [], 'valid-token', [
+        'header' => ['type' => 'header', 'data' => ['variant' => 'simple']],
+        'footer' => null,
+    ]);
+
+    $this->get(sprintf('http://acme.%s/_editor/preview?token=valid-token', $this->centralDomain()))
+        ->assertOk()
+        ->assertSee('data-block-key="chrome:header"', false)
+        ->assertSee('Corner Cafe')
+        // The empty footer slot renders a clickable add strip.
+        ->assertSee('data-block-key="chrome:footer"', false)
+        ->assertSee('Click to add a site footer');
+});
+
+it('renders the live chrome untouched when the payload carries no chrome draft', function (): void {
     $tenant = Tenant::factory()->withDomain('acme')->create();
     $this->createTenantBusiness($tenant, ['name' => 'Corner Cafe']);
     $page = $this->createTenantPage($tenant, []);
@@ -50,8 +77,8 @@ it('renders the site chrome dimmed inside the editor-chrome wrapper', function (
 
     $this->get(sprintf('http://acme.%s/_editor/preview?token=valid-token', $this->centralDomain()))
         ->assertOk()
-        ->assertSee('data-editor-chrome', false)
-        ->assertSee('Corner Cafe');
+        ->assertSee('Corner Cafe')
+        ->assertDontSee('chrome:header');
 });
 
 it('404s on a missing or unknown token', function (?string $query): void {
@@ -96,6 +123,87 @@ it('renders a selectable placeholder for a block the live site would skip', func
     ],
 ]);
 
+it('layers a design-token draft style over the saved theme', function (): void {
+    $tenant = Tenant::factory()->withDomain('acme')->create();
+    $this->createTenantBusiness($tenant, ['name' => 'Corner Cafe']);
+    $page = $this->createTenantPage($tenant, []);
+
+    resolve(RunInTenant::class)->handle(
+        $tenant,
+        fn () => resolve(CachePageEditorPreview::class)->handle($page, [], 'valid-token', null, ['palette' => 'ocean']),
+    );
+
+    $this->get(sprintf('http://acme.%s/_editor/preview?token=valid-token', $this->centralDomain()))
+        ->assertOk()
+        ->assertSee('data-editor-theme-draft', false)
+        ->assertSee('--color-primary', false);
+});
+
+it('skips the design draft when no business exists to theme', function (): void {
+    $tenant = Tenant::factory()->withDomain('acme')->create();
+    $page = $this->createTenantPage($tenant, []);
+
+    resolve(RunInTenant::class)->handle(
+        $tenant,
+        fn () => resolve(CachePageEditorPreview::class)->handle($page, [], 'valid-token', null, ['palette' => 'ocean']),
+    );
+
+    $this->get(sprintf('http://acme.%s/_editor/preview?token=valid-token', $this->centralDomain()))
+        ->assertOk()
+        ->assertDontSee('data-editor-theme-draft');
+});
+
+it('serves a single wrapped block as a patch fragment', function (): void {
+    $tenant = Tenant::factory()->withDomain('acme')->create();
+    $page = $this->createTenantPage($tenant, []);
+
+    cachePreviewFor($tenant, $page, [
+        ['key' => 'k1', 'type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Patch me']],
+        ['key' => 'k2', 'type' => 'heading', 'data' => ['content' => 'Other block', 'level' => 'h2']],
+    ], 'valid-token');
+
+    $this->get(sprintf('http://acme.%s/_editor/preview?token=valid-token&block=k1', $this->centralDomain()))
+        ->assertOk()
+        ->assertSee('Patch me')
+        ->assertSee('data-block-key="k1"', false)
+        // A fragment, not a document — and only the requested block.
+        ->assertDontSee('<html', false)
+        ->assertDontSee('Other block');
+});
+
+it('serves a chrome slot as a patch fragment', function (): void {
+    $tenant = Tenant::factory()->withDomain('acme')->create();
+    $this->createTenantBusiness($tenant, ['name' => 'Corner Cafe']);
+    $page = $this->createTenantPage($tenant, []);
+
+    cachePreviewFor($tenant, $page, [], 'valid-token', [
+        'header' => ['type' => 'header', 'data' => ['variant' => 'simple']],
+        'footer' => null,
+    ]);
+
+    $this->get(sprintf('http://acme.%s/_editor/preview?token=valid-token&block=chrome:header', $this->centralDomain()))
+        ->assertOk()
+        ->assertSee('data-block-key="chrome:header"', false)
+        ->assertSee('Corner Cafe')
+        ->assertDontSee('<html', false);
+
+    // An empty chrome slot has nothing to patch.
+    $this->get(sprintf('http://acme.%s/_editor/preview?token=valid-token&block=chrome:footer', $this->centralDomain()))
+        ->assertNotFound();
+});
+
+it('404s a patch request for an unknown block key', function (): void {
+    $tenant = Tenant::factory()->withDomain('acme')->create();
+    $page = $this->createTenantPage($tenant, []);
+
+    cachePreviewFor($tenant, $page, [
+        ['key' => 'k1', 'type' => 'heading', 'data' => ['content' => 'Hi', 'level' => 'h2']],
+    ], 'valid-token');
+
+    $this->get(sprintf('http://acme.%s/_editor/preview?token=valid-token&block=ghost', $this->centralDomain()))
+        ->assertNotFound();
+});
+
 it('does not resolve tokens across tenants', function (): void {
     $acme = Tenant::factory()->withDomain('acme')->create();
     Tenant::factory()->withDomain('beta')->create();
@@ -117,5 +225,6 @@ it('leaks no editor markup into live-site renders', function (): void {
         ->assertOk()
         ->assertSee('Welcome friends')
         ->assertDontSee('data-block-key')
+        ->assertDontSee('data-editor-insert')
         ->assertDontSee('ezsite-editor');
 });

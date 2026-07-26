@@ -48,6 +48,36 @@ final class Design extends Page
         return Business::query()->exists();
     }
 
+    /**
+     * The enumerated select/radio options for every design token — shared
+     * with the page editor's Design modal so both surfaces stay in sync.
+     *
+     * @return array<string, array<string, string>>
+     */
+    public static function tokenOptions(): array
+    {
+        return [
+            'preset' => collect(StylePreset::cases())->mapWithKeys(
+                fn (StylePreset $preset): array => [$preset->value => $preset->label()],
+            )->all(),
+            'preset_descriptions' => collect(StylePreset::cases())->mapWithKeys(
+                fn (StylePreset $preset): array => [$preset->value => $preset->description()],
+            )->all(),
+            'palette' => collect(ColorPalette::cases())->mapWithKeys(
+                fn (ColorPalette $palette): array => [$palette->value => str($palette->value)->headline()->toString()],
+            )->all(),
+            'font_pair' => collect(FontPair::cases())->mapWithKeys(
+                fn (FontPair $pair): array => [$pair->value => $pair->headingFamily().' + '.$pair->bodyFamily()],
+            )->all(),
+            'radius' => collect(RadiusScale::cases())->mapWithKeys(
+                fn (RadiusScale $radius): array => [$radius->value => str($radius->value)->headline()->toString()],
+            )->all(),
+            'density' => collect(SpacingDensity::cases())->mapWithKeys(
+                fn (SpacingDensity $density): array => [$density->value => str($density->value)->headline()->toString()],
+            )->all(),
+        ];
+    }
+
     public function mount(): void
     {
         $business = Business::query()->firstOrFail();
@@ -75,12 +105,8 @@ final class Design extends Page
                     ->schema([
                         Radio::make('preset')
                             ->hiddenLabel()
-                            ->options(collect(StylePreset::cases())->mapWithKeys(
-                                fn (StylePreset $preset): array => [$preset->value => $preset->label()],
-                            )->all())
-                            ->descriptions(collect(StylePreset::cases())->mapWithKeys(
-                                fn (StylePreset $preset): array => [$preset->value => $preset->description()],
-                            )->all())
+                            ->options(self::tokenOptions()['preset'])
+                            ->descriptions(self::tokenOptions()['preset_descriptions'])
                             ->live()
                             // Selecting a preset only previews it into the
                             // fine-tune fields — nothing persists (and the
@@ -107,31 +133,23 @@ final class Design extends Page
                     ->schema([
                         Grid::make(2)->schema([
                             Select::make('palette')
-                                ->options(collect(ColorPalette::cases())->mapWithKeys(
-                                    fn (ColorPalette $palette): array => [$palette->value => str($palette->value)->headline()->toString()],
-                                )->all())
+                                ->options(self::tokenOptions()['palette'])
                                 ->selectablePlaceholder(false)
                                 ->live()
                                 ->columnSpan(1),
                             Select::make('font_pair')
                                 ->label('Fonts')
-                                ->options(collect(FontPair::cases())->mapWithKeys(
-                                    fn (FontPair $pair): array => [$pair->value => $pair->headingFamily().' + '.$pair->bodyFamily()],
-                                )->all())
+                                ->options(self::tokenOptions()['font_pair'])
                                 ->selectablePlaceholder(false)
                                 ->columnSpan(1),
                             Select::make('radius')
                                 ->label('Corner radius')
-                                ->options(collect(RadiusScale::cases())->mapWithKeys(
-                                    fn (RadiusScale $radius): array => [$radius->value => str($radius->value)->headline()->toString()],
-                                )->all())
+                                ->options(self::tokenOptions()['radius'])
                                 ->selectablePlaceholder(false)
                                 ->columnSpan(1),
                             Select::make('density')
                                 ->label('Spacing density')
-                                ->options(collect(SpacingDensity::cases())->mapWithKeys(
-                                    fn (SpacingDensity $density): array => [$density->value => str($density->value)->headline()->toString()],
-                                )->all())
+                                ->options(self::tokenOptions()['density'])
                                 ->selectablePlaceholder(false)
                                 ->columnSpan(1),
                         ]),

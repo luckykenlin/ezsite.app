@@ -21,6 +21,20 @@ final class Testimonials extends Block
     protected static ?Heroicon $icon = Heroicon::OutlinedChatBubbleLeftRight;
 
     /**
+     * @var array<string, mixed>
+     */
+    protected static array $sample = [
+        'heading' => 'What our customers say',
+        'testimonials' => [
+            [
+                'quote' => 'Replace this with a real quote from a happy customer — social proof sells better than anything you write yourself.',
+                'author' => 'A Happy Customer',
+                'role' => 'Local business owner',
+            ],
+        ],
+    ];
+
+    /**
      * @var array<string, string>
      */
     protected static array $variants = [

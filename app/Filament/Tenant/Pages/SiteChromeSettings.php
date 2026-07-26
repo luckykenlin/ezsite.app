@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Tenant\Pages;
 
+use App\Actions\SaveSiteChrome;
 use App\Filament\Fabricator\PageBlocks\Footer;
 use App\Filament\Fabricator\PageBlocks\Header;
 use App\Models\SiteSetting;
@@ -77,12 +78,9 @@ final class SiteChromeSettings extends Page
         $header = $data['header'] ?? null;
         $footer = $data['footer'] ?? null;
 
-        SiteSetting::query()->updateOrCreate(
-            ['tenant_id' => tenant('id')],
-            [
-                'header' => is_array($header) && $header !== [] ? array_values($header) : null,
-                'footer' => is_array($footer) && $footer !== [] ? array_values($footer) : null,
-            ],
+        resolve(SaveSiteChrome::class)->handle(
+            is_array($header) ? $header : null,
+            is_array($footer) ? $footer : null,
         );
 
         Notification::make()

@@ -6,6 +6,7 @@ use App\Filament\Fabricator\BlockRegistry;
 use App\Models\Business;
 use App\Models\Location;
 use App\Models\Tenant;
+use Z3d0X\FilamentFabricator\Facades\FilamentFabricator;
 
 it('enumerates every block contract in the vocabulary', function (): void {
     $vocabulary = BlockRegistry::vocabulary();
@@ -23,6 +24,16 @@ it('enumerates every block contract in the vocabulary', function (): void {
         ->and($vocabulary['heading']['variants'])->toBeEmpty()
         // Every block declares an editor icon.
         ->and(array_filter($vocabulary, fn (array $contract): bool => $contract['icon'] === null))->toBeEmpty()
+        // Every block ships sample content, and its keys stay within the
+        // block's declared fields (a typo here would silently drop content).
+        ->and(array_filter($vocabulary, function (array $contract): bool {
+            $class = FilamentFabricator::getPageBlockFromName($contract['type']);
+            if ($class::sample() === []) {
+                return true;
+            }
+
+            return array_diff(array_keys($class::sample()), $contract['fields']) !== [];
+        }))->toBeEmpty()
         ->and($vocabulary['contact']['bind'])->toBe('location')
         ->and($vocabulary['header']['bind'])->toBe('business')
         ->and($vocabulary['footer']['bind'])->toBe('location')

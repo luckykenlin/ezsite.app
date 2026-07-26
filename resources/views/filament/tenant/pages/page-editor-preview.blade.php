@@ -8,4 +8,9 @@
     @include('filament.tenant.pages.partials.page-editor-canvas')
 @endpush
 
-<x-dynamic-component :component="$component" :page="$page" :editor-keys="$editorKeys" />
+{{-- Unsaved design-token draft: a body-level override outranks the saved
+     theme emitted at HEAD_END. HtmlString — compiled from enums, never raw
+     user input. --}}
+{{ $themeDraft }}
+
+<x-dynamic-component :component="$component" :page="$page" :editor-keys="$editorKeys" :editor-chrome="$editorChrome" />

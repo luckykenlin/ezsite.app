@@ -29,8 +29,10 @@ final readonly class CachePageEditorPreview
 
     /**
      * @param  list<array{key: string, type: string, data: array<string, mixed>}>  $blocks
+     * @param  array<string, array{type: string, data: array<string, mixed>}|null>|null  $chrome  header/footer draft entries; null = render live chrome
+     * @param  array<string, string|null>|null  $designTokens  token-value draft overriding the saved theme; null = saved theme
      */
-    public function handle(Page $page, array $blocks, string $token): void
+    public function handle(Page $page, array $blocks, string $token, ?array $chrome = null, ?array $designTokens = null): void
     {
         Cache::put(self::key($token), [
             'page' => [
@@ -43,6 +45,12 @@ final readonly class CachePageEditorPreview
                 $blocks,
             ),
             'keys' => array_column($blocks, 'key'),
+            // Stored render-ready: each slot is a (possibly empty) entry list.
+            'chrome' => $chrome === null ? null : [
+                'header' => isset($chrome['header']) ? [$chrome['header']] : [],
+                'footer' => isset($chrome['footer']) ? [$chrome['footer']] : [],
+            ],
+            'design_tokens' => $designTokens,
         ], now()->addHours(2));
     }
 }

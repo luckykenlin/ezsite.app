@@ -51,7 +51,17 @@
 | 变体/绑定 Select 去 500ms 防抖 | `variantField()`/`bindField()` 显式 `->live()`,字段级设置覆盖 Section 继承的 debounce——变体切换是视觉反差最大的高频操作,白等半秒最伤手感。落地前先用一个块实测覆盖行为成立 | `app/Filament/Fabricator/PageBlocks/Block.php`、`BlockTest.php` | S | 无 |
 | 绑定块 Business 指引 | `bindType === Business` 时右栏 Section 顶部提示"品牌名/logo/联系方式来自 Business profile"+ 新标签页链接(避开 dirty guard);Business 缺失时升级为警示 callout,与画布 amber 占位对齐(现在两栏互相矛盾) | `PageEditor.php`、`PageEditorTest.php` | S | 迭代 3 chrome 伪块自动继承 |
 
-## 迭代 3 「编辑器即工作台」(约 6–8 天,三条线各自独立可发布)
+## ✅ 迭代 3 「编辑器即工作台」【2026-07-25 已全部完成】
+
+> 实现备注:(1) chrome 草稿只水合"已存储"的 SiteSetting 槽位(null 保持 null),画布
+> 预览在 push 时才计算有效默认——只打开编辑器绝不物化默认 chrome;空槽初始化带默认
+> variant,"只看不改"不会置 dirty。(2) commit 的 `withoutNulls` 同时剔除递归后为空的
+> 数组(空 repeater / 未设 bind),视图语义等价。(3) 单块补丁:预览路由 `?block=<key>`
+> 返回片段(page-blocks 的 `@aware(['page' => null])` 让它可独立渲染);字段编辑走
+> `page-editor:patch-canvas`(fetch + outerHTML 替换,失败降级整页),二次击键起
+> `skipRender()`——已知取舍:左栏摘要只在 commit/选中时刷新。(4) Design 草稿经
+> `ThemeVariables::styleFor()` 编译为 body 级覆盖 style,弹窗关闭(unmountAction)自动
+> 丢弃。(5) 内链仍存纯字符串,`page:{id}` 引用方案继续推迟。
 
 ### 线 A · 多页面
 
@@ -77,11 +87,31 @@
 | 单块 HTML 补丁替代整页 reload | 预览路由接受 `?block=<key>` 返回单块片段(喂单元素数组给现有 page-blocks 组件,转义管线不变);字段编辑改 dispatch patch 事件,父窗口 fetch 后 postMessage 进 iframe 做 `[data-block-key]` outerHTML 替换并保留选中态;结构变更仍整页,fetch 失败降级整页。打字反馈从"整文档重载+闪烁"变为局部换块 | `PageEditorPreviewController.php`、`PageEditor.php`、`page-editor.blade.php`、`partials/page-editor-canvas.blade.php`、两个测试文件 | M | 建立在迭代 1 幂等化之上 |
 | 字段编辑 skipRender() | `data.block.*` 更新时 `skipRender()`(仅 isDirty false→true 那次放行,Save 徽章需要);打字时响应体从整页 HTML 缩到 snapshot。**注意**:迭代 2 行摘要的"跟打字实时更新"依赖每 tick 重渲染——落地时摘要改为提交时更新并加注释钉住前提 | `PageEditor.php`、`PageEditorTest.php` | S | 与上一项同 PR 顺手做 |
 
+## ✅ 迭代 4 「画布即操作面」【2026-07-25 已完成】
+
+| 改进 | 说明 |
+|---|---|
+| 画布内拖拽排序 | 悬浮工具栏新增 ⠿ 把手,HTML5 DnD 实时移位,松手比对顺序变化后一次 `reorderBlocks`;chrome 不可拖。**拖拽模式**:dragstart 后整页块折叠为 4.5rem 紧凑卡片(`data-block-type` 标签覆盖,dragstart 内改布局会中断原生拖拽,故 setTimeout 0 延迟进入),解决整屏高块拖不动的问题;iframe 内原生自动滚动不可靠,dragover 近边缘手动 scrollBy 助滚;drop 后还原并居中落点块 |
+| 画布块间 "+" 线 | `page-blocks` 编辑模式(`insertable` prop,仅页面块)注入 `data-editor-insert` 悬停分隔线,点击 `queueInsertAt` 并回发 armed 高亮;patch 片段与 live 站不含(有泄漏断言) |
+| 画布内联文本编辑 | 见上表 ✅ 行 |
+| 结构列表默认折叠 | 左栏 Page structure 改为可折叠(`$persist` 记忆,默认收起)——画布已覆盖选中/排序/插入/增删,列表退为概览 |
+
+## ✅ 迭代 5 「Wix 手感」【2026-07-26 已完成】
+
+| 改进 | 说明 |
+|---|---|
+| 库拖入画布 | 库按钮 `draggable`(同源 iframe 的 DnD 事件跨框架连通);拖起即画布折叠+插入线常亮(`data-editor-insert-mode`,与 reorder 的 drag-mode 共用折叠 CSS),rAF 节流计算最近插入线并 armed 高亮,drop 读 `application/x-ezsite-block` MIME → 父窗口校验 type ∈ 块库白名单 → `addBlockAt(type, position)`(自 `addBlock` 重构抽出,drop 直插)。点击加块老路径原样保留 |
+| 画布键盘操作 | Esc 取消选中(新 `deselectBlock()`:commit 守卫,无效草稿保持选中)、Delete/Backspace 删除(确认)、Cmd/Ctrl+↑↓ 移动;**输入框聚焦或有 mounted action 弹窗时一律不劫持**;父窗口与 iframe 双侧生效(iframe 走 shortcut 转发) |
+| 保存/发布 toast 带 View live | `Notification->actions()`(统一 `Filament\Actions\Action`),已发布页保存和发布成功都附新标签页直达按钮 |
+| 50% 概览档 | 设备切换组第四档:frame 200% 尺寸 + scale(0.5),纯 CSS 零往返,块仍可点选 |
+| 空白点击取消选中 | 画布空白区(canvas 内)与设备框外灰区(父窗口 `.pe-canvas-body` click.self)都清除选中,canvas 侧先行本地清除做即时反馈 |
+| 块示例内容(2026-07-26 补) | `Block::$sample` 每块声明可通过自身校验的示例文案(文案自我说明"Your headline goes here";gallery 用自包含 SVG data-URI 占位图),`AddPageBlock` 落块即填——修复"拖入即 required 报错";首次加块弹一次性提示"双击画布文字即可修改";守卫测试:sample 键 ⊆ contract fields、9 块连加连存全过校验 |
+
 ## NOT NOW(明确推迟,及理由)
 
 | 提案 | 推迟理由 |
 |---|---|
-| 画布内联文本编辑(contenteditable) | 全表唯一 L 级、唯一有真实安全评审面的项;强依赖"编辑期间不整页 reload"——等迭代 3 单块补丁落地后成本减半再评估 |
+| ✅ 画布内联文本编辑【2026-07-25 已完成】 | 双击选中块文本 → 父窗口按草稿字段值**精确匹配**授权(只有与某字符串字段完全一致的文本可编辑,含 chrome)→ `contenteditable="plaintext-only"`(旧浏览器回退 + paste 剥离)→ 防抖 400ms 走 `$wire.set` + 单块补丁;Enter/blur 提交(`$refresh` 同步右栏),Esc 还原;编辑中抑制该块 patch。零服务端新代码 |
 | Livewire snapshot 瘦身(非选中块移出 wire 状态) | 草稿唯一权威移入 cache 意味着缓存驱逐=丢稿,还改变 `applyBlocks` 语义;等幂等化+补丁落地后实测体积再决定 |
 | Section 预设(预填块组合) | 文案编写与预设腐烂的维护成本前置;AI 初稿已覆盖该场景;等 phase-2 AI few-shot 设计时一起做,复用一份数据 |
 | 块库分组 + BlockCategory/description | 9 个块不需要分组;图标先行;description 对 AI 词汇表有复利,待真正需要时随 contract 一起加 |

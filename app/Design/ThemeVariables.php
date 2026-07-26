@@ -14,6 +14,10 @@ use Illuminate\Support\HtmlString;
  * which keys happen to be stored. Every value comes from an enum constant
  * or a regex-validated hex; nothing user-controlled reaches the style tag
  * unescaped.
+ *
+ * {@see variablesFor()} compiles an ARBITRARY token set (the business only
+ * supplies brand colors) — the plumbing that lets the page editor preview
+ * unsaved design drafts without persisting them.
  */
 final class ThemeVariables
 {
@@ -22,8 +26,14 @@ final class ThemeVariables
      */
     public static function variables(Business $business): array
     {
-        $tokens = $business->design_tokens;
+        return self::variablesFor($business->design_tokens, $business);
+    }
 
+    /**
+     * @return array<string, string>
+     */
+    public static function variablesFor(DesignTokens $tokens, Business $business): array
+    {
         return [
             ...$tokens->palette->colors($business),
             ...$tokens->radius->variables(),
@@ -35,14 +45,19 @@ final class ThemeVariables
 
     public static function style(Business $business): HtmlString
     {
+        return self::styleFor($business->design_tokens, $business);
+    }
+
+    public static function styleFor(DesignTokens $tokens, Business $business, string $attribute = 'data-site-theme'): HtmlString
+    {
         $declarations = [];
 
-        foreach (self::variables($business) as $name => $value) {
+        foreach (self::variablesFor($tokens, $business) as $name => $value) {
             $declarations[] = $name.': '.$value.';';
         }
 
         return new HtmlString(
-            '<style data-site-theme>:root{'.implode(' ', $declarations).'}</style>',
+            '<style '.$attribute.'>:root{'.implode(' ', $declarations).'}</style>',
         );
     }
 }

@@ -63,6 +63,17 @@ abstract class Block extends PageBlock
     protected static ?Heroicon $icon = null;
 
     /**
+     * Ready-to-render sample content for a freshly added block: it must
+     * satisfy the block's own validation (required fields, repeater item
+     * rules), and the copy should read as an obvious, friendly placeholder
+     * ("Your headline goes here") — the text itself tells the user to
+     * replace it.
+     *
+     * @var array<string, mixed>
+     */
+    protected static array $sample = [];
+
+    /**
      * The subclass's content fields (everything except the variant selector).
      *
      * @return array<int, Field>
@@ -85,6 +96,14 @@ abstract class Block extends PageBlock
     final public static function icon(): ?Heroicon
     {
         return static::$icon;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    final public static function sample(): array
+    {
+        return static::$sample;
     }
 
     /**

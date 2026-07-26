@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Tenant\Resources;
 
+use App\Actions\Pages\DuplicatePage;
 use App\Enums\PageStatus;
 use App\Filament\Tenant\Resources\PageResource\Pages\CreatePage;
 use App\Filament\Tenant\Resources\PageResource\Pages\PageEditor;
@@ -12,6 +13,7 @@ use Filament\Actions\Action;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Livewire\Component;
 use Z3d0X\FilamentFabricator\Resources\PageResource as FabricatorPageResource;
 
 final class PageResource extends FabricatorPageResource
@@ -40,6 +42,13 @@ final class PageResource extends FabricatorPageResource
                     ->requiresConfirmation()
                     ->visible(fn (Page $record): bool => $record->isDraft())
                     ->action(fn (Page $record) => $record->update(['status' => PageStatus::Published])),
+                Action::make('duplicate')
+                    ->icon(Heroicon::OutlinedSquare2Stack)
+                    ->action(function (Page $record, Component $livewire): void {
+                        $livewire->redirect(self::getUrl('edit', [
+                            'record' => resolve(DuplicatePage::class)->handle($record),
+                        ]), navigate: true);
+                    }),
             ]);
     }
 }

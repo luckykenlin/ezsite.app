@@ -24,6 +24,16 @@ final class Footer extends Block
     protected static ?Heroicon $icon = Heroicon::OutlinedBars3BottomLeft;
 
     /**
+     * @var array<string, mixed>
+     */
+    protected static array $sample = [
+        'nav_links' => [
+            ['label' => 'Home', 'url' => '/'],
+        ],
+        'note' => 'Replace this with your own footer note.',
+    ];
+
+    /**
      * @var array<string, string>
      */
     protected static array $variants = [

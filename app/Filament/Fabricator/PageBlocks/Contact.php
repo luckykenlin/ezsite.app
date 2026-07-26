@@ -23,6 +23,14 @@ final class Contact extends Block
     protected static ?Heroicon $icon = Heroicon::OutlinedMapPin;
 
     /**
+     * @var array<string, mixed>
+     */
+    protected static array $sample = [
+        'heading' => 'Get in touch',
+        'intro' => "Questions? We'd love to hear from you.",
+    ];
+
+    /**
      * @var array<string, string>
      */
     protected static array $variants = [

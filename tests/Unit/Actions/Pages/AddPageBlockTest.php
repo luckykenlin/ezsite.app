@@ -3,21 +3,22 @@
 declare(strict_types=1);
 
 use App\Actions\Pages\AddPageBlock;
+use App\Filament\Fabricator\PageBlocks\Heading;
 use App\Filament\Fabricator\PageBlocks\Hero;
 
-it('appends a block with its default variant pre-filled', function (): void {
+it('appends a block with its default variant and sample content pre-filled', function (): void {
     $result = resolve(AddPageBlock::class)->handle([], 'hero');
 
     expect($result['blocks'])->toHaveCount(1)
         ->and($result['blocks'][0]['key'])->toBe($result['key'])
         ->and($result['blocks'][0]['type'])->toBe('hero')
-        ->and($result['blocks'][0]['data'])->toBe(['variant' => Hero::defaultVariant()]);
+        ->and($result['blocks'][0]['data'])->toBe(['variant' => Hero::defaultVariant()] + Hero::sample());
 });
 
-it('appends a variant-less block with empty data', function (): void {
+it('appends a variant-less block with its sample content', function (): void {
     $result = resolve(AddPageBlock::class)->handle([], 'heading');
 
-    expect($result['blocks'][0]['data'])->toBeEmpty();
+    expect($result['blocks'][0]['data'])->toBe(Heading::sample());
 });
 
 it('inserts at an explicit position and clamps out-of-range positions', function (int $position, int $expectedIndex): void {
