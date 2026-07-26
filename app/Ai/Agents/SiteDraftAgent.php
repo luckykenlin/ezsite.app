@@ -46,17 +46,12 @@ final class SiteDraftAgent implements Agent, HasStructuredOutput
         .'never invent facts, addresses, prices or reviews that are not in the '
         .'profile. Write ALL user-visible copy in the requested language.';
 
-    /**
-     * Get the instructions that the agent should follow.
-     */
     public function instructions(): string
     {
         return self::INSTRUCTIONS;
     }
 
     /**
-     * Get the schema of the agent's structured output.
-     *
      * @return array<string, mixed>
      */
     public function schema(JsonSchema $schema): array

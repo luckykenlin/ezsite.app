@@ -17,8 +17,6 @@ final class BusinessFactory extends Factory
     protected $model = Business::class;
 
     /**
-     * Define the model's default state.
-     *
      * @return array<string, mixed>
      */
     public function definition(): array

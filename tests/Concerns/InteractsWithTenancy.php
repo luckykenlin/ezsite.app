@@ -14,8 +14,8 @@ use Closure;
 use Filament\Facades\Filament;
 
 /**
- * Shared helpers for the tenancy test suite (tests/Tenancy/*), which runs
- * against a real Postgres database with RLS enabled.
+ * Shared tenancy helpers, mixed into the whole suite by tests/Pest.php, which
+ * runs against a real Postgres database with RLS enabled.
  */
 trait InteractsWithTenancy
 {

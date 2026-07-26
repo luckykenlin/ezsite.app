@@ -16,8 +16,6 @@ final class SiteSettingFactory extends Factory
     protected $model = SiteSetting::class;
 
     /**
-     * Define the model's default state.
-     *
      * @return array<string, mixed>
      */
     public function definition(): array
