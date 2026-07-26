@@ -39,6 +39,7 @@ final class TenantPanelProvider extends PanelProvider
             ->colors([
                 'primary' => Color::Emerald,
             ])
+            ->sidebarCollapsibleOnDesktop()
             ->discoverResources(in: app_path('Filament/Tenant/Resources'), for: 'App\Filament\Tenant\Resources')
             ->discoverPages(in: app_path('Filament/Tenant/Pages'), for: 'App\Filament\Tenant\Pages')
             ->discoverClusters(in: app_path('Filament/Tenant/Clusters'), for: 'App\Filament\Tenant\Clusters')

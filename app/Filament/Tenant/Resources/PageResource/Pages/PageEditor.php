@@ -281,7 +281,9 @@ final class PageEditor extends Page
             Action::make('visit')
                 ->label('Visit page')
                 ->color('gray')
-                ->url(fn (): string => '/'.mb_ltrim($this->pageRecord()->slug === '/' ? '' : $this->pageRecord()->slug, '/'))
+                // Fabricator resolves the full parent-chain path (a naive
+                // '/'.$slug 404s for child pages) and caches it per page.
+                ->url(fn (): string => $this->pageRecord()->getUrl())
                 ->openUrlInNewTab()
                 ->visible(fn (): bool => ! $this->pageRecord()->isDraft()),
 

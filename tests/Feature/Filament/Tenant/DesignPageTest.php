@@ -23,12 +23,20 @@ test('the page is inaccessible until a business profile exists', function (): vo
     expect(Design::canAccess())->toBeTrue();
 });
 
-test('choosing a preset applies its token bundle immediately', function (): void {
-    Business::factory()->create(['tenant_id' => $this->tenant->id]);
+test('choosing a preset only previews it into the fine-tune fields until saved', function (): void {
+    Business::factory()->themed(StylePreset::WarmCraft)->create(['tenant_id' => $this->tenant->id]);
 
-    Livewire::test(Design::class)
+    $component = Livewire::test(Design::class)
         ->fillForm(['preset' => 'bold-editorial'])
-        ->assertNotified();
+        ->assertSchemaStateSet([
+            'palette' => 'plum',
+            'font_pair' => StylePreset::BoldEditorial->tokens()->fontPair->value,
+        ]);
+
+    // Nothing persisted yet — a stray click no longer restyles the live site.
+    expect(Business::query()->sole()->design_tokens->preset)->toBe(StylePreset::WarmCraft);
+
+    $component->call('save')->assertNotified();
 
     $tokens = Business::query()->sole()->design_tokens;
 
@@ -36,7 +44,23 @@ test('choosing a preset applies its token bundle immediately', function (): void
         ->and($tokens->palette)->toBe(ColorPalette::Plum);
 });
 
-test('clearing the preset selection applies nothing', function (): void {
+test('fine-tuning after choosing a preset saves a custom combination, preset detached', function (): void {
+    Business::factory()->themed(StylePreset::WarmCraft)->create(['tenant_id' => $this->tenant->id]);
+
+    Livewire::test(Design::class)
+        ->fillForm(['preset' => 'bold-editorial'])
+        ->fillForm(['palette' => 'ocean'])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    $tokens = Business::query()->sole()->design_tokens;
+
+    expect($tokens->preset)->toBeNull()
+        ->and($tokens->palette)->toBe(ColorPalette::Ocean)
+        ->and($tokens->fontPair)->toBe(StylePreset::BoldEditorial->tokens()->fontPair);
+});
+
+test('clearing the preset selection changes nothing', function (): void {
     Business::factory()->themed(StylePreset::WarmCraft)->create(['tenant_id' => $this->tenant->id]);
 
     Livewire::test(Design::class)

@@ -322,6 +322,31 @@ it('ignores updates outside the block draft state', function (): void {
         ->assertNotDispatched('page-editor:refresh-canvas');
 });
 
+it('links Visit page through the full parent chain', function (): void {
+    $parent = Page::query()->create([
+        'tenant_id' => tenant('id'),
+        'title' => 'Services',
+        'slug' => 'services',
+        'layout' => 'main',
+        'blocks' => [],
+    ]);
+    $child = Page::query()->create([
+        'tenant_id' => tenant('id'),
+        'title' => 'Plumbing',
+        'slug' => 'plumbing',
+        'layout' => 'main',
+        'parent_id' => $parent->id,
+        'blocks' => [],
+    ]);
+
+    Livewire::test(PageEditor::class, ['record' => $child->id])
+        ->assertActionHasUrl('visit', '/services/plumbing');
+
+    // A naive '/'.$slug used to produce /plumbing here — a 404 on the live site.
+    Livewire::test(PageEditor::class, ['record' => $parent->id])
+        ->assertActionHasUrl('visit', '/services');
+});
+
 it('cannot open a page belonging to another tenant', function (): void {
     $other = Tenant::factory()->create();
     $foreign = $this->runInTenant($other, fn (): Page => Page::query()->create([
