@@ -8,10 +8,10 @@ use App\Jobs\GenerateSiteDraftJob;
 use App\Models\Business;
 use App\Models\Tenant;
 use App\Models\User;
+use Awcodes\Curator\Components\Forms\CuratorPicker;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Forms\Components\ColorPicker;
-use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -85,11 +85,9 @@ final class BusinessProfile extends Page
                             Textarea::make('description')
                                 ->rows(4)
                                 ->columnSpanFull(),
-                            FileUpload::make('logo_path')
+                            CuratorPicker::make('logo_media_id')
                                 ->label('Logo')
-                                ->image()
-                                ->directory('logos')
-                                ->visibility('public')
+                                ->buttonLabel('Choose logo')
                                 ->columnSpanFull(),
                         ]),
                     ]),

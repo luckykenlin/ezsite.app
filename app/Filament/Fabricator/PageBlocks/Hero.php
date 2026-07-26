@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Fabricator\PageBlocks;
 
+use App\Filament\Fabricator\Fields\ImageInput;
 use App\Filament\Fabricator\Fields\LinkInput;
 use Filament\Forms\Components\Field;
 use Filament\Forms\Components\Textarea;
@@ -59,7 +60,10 @@ final class Hero extends Block
             TextInput::make('cta_label')
                 ->maxLength(60),
             LinkInput::make('cta_url'),
+            ImageInput::make('image_id'),
             TextInput::make('image_url')
+                ->label('External image URL')
+                ->helperText('Optional — used when no library image is chosen.')
                 ->maxLength(2048),
         ];
     }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use Awcodes\Curator\Http\Controllers\MediaController;
 use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Database\Events\MigrationsEnded;
 use Illuminate\Support\Facades\Artisan;
@@ -55,8 +56,11 @@ use Stancl\Tenancy\Events\TenantSaved;
 use Stancl\Tenancy\Events\TenantUpdated;
 use Stancl\Tenancy\Events\UpdatingDomain;
 use Stancl\Tenancy\Events\UpdatingTenant;
+use Stancl\Tenancy\Jobs\CreateStorageSymlinks;
 use Stancl\Tenancy\Jobs\DeleteDomains;
+use Stancl\Tenancy\Jobs\RemoveStorageSymlinks;
 use Stancl\Tenancy\Listeners\BootstrapTenancy;
+use Stancl\Tenancy\Listeners\CreateTenantStorage;
 use Stancl\Tenancy\Listeners\RevertToCentralContext;
 use Stancl\Tenancy\Middleware\InitializeTenancyByDomainOrSubdomain;
 use Stancl\Tenancy\Middleware\PreventAccessFromUnwantedDomains;
@@ -101,9 +105,20 @@ final class TenancyServiceProvider extends ServiceProvider
         return [
             // Tenant events
             CreatingTenant::class => [],
-            // No database provisioning jobs here: this app uses single-database tenancy via Postgres RLS,
-            // so tenants don't get their own database.
-            TenantCreated::class => [],
+            // No database provisioning jobs here — this app uses
+            // single-database tenancy via Postgres RLS. But the tenant DOES
+            // get its own filesystem: FilesystemTenancyBootstrapper points
+            // the public disk at storage/{suffix}{tenant}/app/public, which
+            // is only servable once public/public-{tenant} links to it.
+            // Creating both here means uploads work in a fresh local
+            // environment with no manual `tenants:link` step.
+            TenantCreated::class => [
+                CreateTenantStorage::class,
+
+                JobPipeline::make([
+                    CreateStorageSymlinks::class,
+                ])->send(fn (TenantCreated $event): Tenant => $event->tenant)->shouldBeQueued(false),
+            ],
             SavingTenant::class => [],
             TenantSaved::class => [],
             UpdatingTenant::class => [],
@@ -111,8 +126,11 @@ final class TenancyServiceProvider extends ServiceProvider
             DeletingTenant::class => [
                 JobPipeline::make([
                     DeleteDomains::class,
-                    // Jobs\DeleteTenantStorage::class,
-                    // Jobs\RemoveStorageSymlinks::class,
+                    // Drops the dangling public/public-{tenant} link. The
+                    // tenant's FILES are deliberately left on disk
+                    // (Jobs\DeleteTenantStorage) — destroying uploaded media
+                    // is a product decision, not a side effect of deletion.
+                    RemoveStorageSymlinks::class,
                 ])->send(fn (DeletingTenant $event): Tenant => $event->tenant)->shouldBeQueued(false),
             ],
             TenantDeleted::class => [
@@ -202,6 +220,7 @@ final class TenancyServiceProvider extends ServiceProvider
 
         $this->makeTenancyMiddlewareHighestPriority();
         $this->overrideUrlInTenantContext();
+        $this->tenantizeCuratorRoute();
 
         // // Include soft deleted resources in synced resource queries.
         // ResourceSyncing\Listeners\UpdateOrCreateSyncedResource::$scopeGetModelQuery = function (Builder $query) {
@@ -231,6 +250,27 @@ final class TenancyServiceProvider extends ServiceProvider
      *
      * @see \Stancl\Tenancy\Bootstrappers\RootUrlBootstrapper
      */
+    /**
+     * Curator registers its Glide media route with NO middleware. On this
+     * RLS setup that is doubly wrong: the metadata lookup would run on the
+     * unscoped central connection (cross-tenant media exposure), and the
+     * tenant-suffixed public disk root would not resolve, so the file could
+     * not be read at all. Package routes register before app providers boot,
+     * so the route is patched in place here instead of re-registered.
+     * Deliberately no 'web' group: images need no session/cookies.
+     */
+    private function tenantizeCuratorRoute(): void
+    {
+        foreach (RouteFacade::getRoutes()->getRoutes() as $route) {
+            if (mb_ltrim($route->getActionName(), '\\') === MediaController::class.'@show') {
+                $route->middleware([
+                    InitializeTenancyByDomainOrSubdomain::class,
+                    PreventAccessFromUnwantedDomains::class,
+                ]);
+            }
+        }
+    }
+
     private function overrideUrlInTenantContext(): void
     {
         // \Stancl\Tenancy\Bootstrappers\RootUrlBootstrapper::$rootUrlOverride = function (Tenant $tenant, string $originalRootUrl) {

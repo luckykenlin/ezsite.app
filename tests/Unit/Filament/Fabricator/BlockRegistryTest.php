@@ -19,7 +19,7 @@ it('enumerates every block contract in the vocabulary', function (): void {
             'variants' => ['centered-minimal', 'left-text-right-image', 'full-bleed-overlay'],
             'bind' => null,
             'icon' => 'o-sparkles',
-            'fields' => ['eyebrow', 'heading', 'subheading', 'cta_label', 'cta_url', 'image_url'],
+            'fields' => ['eyebrow', 'heading', 'subheading', 'cta_label', 'cta_url', 'image_id', 'image_url'],
         ])
         ->and($vocabulary['heading']['variants'])->toBeEmpty()
         // Every block declares an editor icon.

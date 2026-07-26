@@ -11,8 +11,8 @@
 <header class="border-b border-base-300 bg-base-100 text-base-content">
     <div class="mx-auto flex max-w-7xl flex-col items-center gap-4 px-6 py-6">
         <a href="/" class="flex items-center gap-3">
-            @if ($business->logo_path)
-                <img src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($business->logo_path) }}" alt="{{ $business->name }}" class="h-10 w-auto" />
+            @if ($business->logoUrl())
+                <img src="{{ $business->logoUrl() }}" alt="{{ $business->name }}" class="h-10 w-auto" />
             @endif
             <span class="text-xl font-bold">{{ $business->name }}</span>
         </a>

@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\ParallelTesting;
@@ -12,6 +13,7 @@ use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Sleep;
 use Illuminate\Support\Str;
+use Stancl\Tenancy\Events\TenantCreated;
 use Tests\Concerns\InteractsWithTenancy;
 use Tests\TestCase;
 
@@ -23,9 +25,23 @@ use Tests\TestCase;
  * they read/write freely; tenancy tests call tenancy()->initialize() to switch
  * to the restricted RLS role and observe isolation.
  */
+/**
+ * Tenant keys created by the current test, collected so afterEach can remove
+ * exactly this test's public symlinks (see the cleanup below).
+ *
+ * @var list<string>
+ */
+$createdTenantKeys = [];
+
 pest()->extend(TestCase::class)
     ->use(InteractsWithTenancy::class)
-    ->beforeEach(function (): void {
+    ->beforeEach(function () use (&$createdTenantKeys): void {
+        $createdTenantKeys = [];
+
+        Event::listen(TenantCreated::class, function (TenantCreated $event) use (&$createdTenantKeys): void {
+            $createdTenantKeys[] = (string) $event->tenant->getTenantKey();
+        });
+
         Str::createRandomStringsNormally();
         Str::createUuidsNormally();
         Http::preventStrayRequests();
@@ -80,7 +96,7 @@ pest()->extend(TestCase::class)
             '--force' => true,
         ]);
     })
-    ->afterEach(function (): void {
+    ->afterEach(function () use (&$createdTenantKeys): void {
         // End tenancy so a test that leaves it initialized can't leak the RLS
         // session context into the next test. Idempotent when already ended.
         tenancy()->end();
@@ -103,5 +119,15 @@ pest()->extend(TestCase::class)
         foreach (File::glob(storage_path(config('tenancy.filesystem.suffix_base').'*')) as $tenantStoragePath) {
             rescue(fn () => File::deleteDirectory($tenantStoragePath), report: false);
         }
+
+        // TenantCreated also links public/public-{tenant} at each tenant's
+        // storage dir (so uploads are servable). Those links are now dangling;
+        // remove the ones for tenants this test created. Tenant keys are uuids,
+        // so a parallel runner's links can never be caught by this filter.
+        foreach ($createdTenantKeys as $tenantKey) {
+            rescue(fn () => File::delete(public_path('public-'.$tenantKey)), report: false);
+        }
+
+        $createdTenantKeys = [];
     })
     ->in('Feature', 'Unit');

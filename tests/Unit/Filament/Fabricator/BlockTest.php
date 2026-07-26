@@ -83,7 +83,7 @@ it("auto-injects a required variant selector ahead of a variant block's content 
         ->and($variantSelect->getDefaultState())->toBe('centered-minimal')
         ->and($variantSelect->isRequired())->toBeTrue()
         ->and(array_map(fn (Field $field): string => $field->getName(), array_slice($components, 1)))
-        ->toBe(['eyebrow', 'heading', 'subheading', 'cta_label', 'cta_url', 'image_url']);
+        ->toBe(['eyebrow', 'heading', 'subheading', 'cta_label', 'cta_url', 'image_id', 'image_url']);
 });
 
 it('composes a no-variant block from its content fields only, without a variant selector', function (): void {

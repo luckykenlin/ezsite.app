@@ -53,6 +53,7 @@ export default defineConfig({
                 'resources/css/app.css',
                 'resources/css/site.css',
                 'resources/js/app.ts',
+                'resources/css/filament/tenant/theme.css',
             ],
             refresh: true,
             fonts: [

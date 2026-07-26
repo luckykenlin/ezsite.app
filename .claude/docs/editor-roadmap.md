@@ -107,6 +107,25 @@
 | 空白点击取消选中 | 画布空白区(canvas 内)与设备框外灰区(父窗口 `.pe-canvas-body` click.self)都清除选中,canvas 侧先行本地清除做即时反馈 |
 | 块示例内容(2026-07-26 补) | `Block::$sample` 每块声明可通过自身校验的示例文案(文案自我说明"Your headline goes here";gallery 用自包含 SVG data-URI 占位图),`AddPageBlock` 落块即填——修复"拖入即 required 报错";首次加块弹一次性提示"双击画布文字即可修改";守卫测试:sample 键 ⊆ contract fields、9 块连加连存全过校验 |
 
+## ✅ 迭代 6 「租户媒体库」【2026-07-26 已完成,awcodes/filament-curator v5】
+
+| 组件 | 实现 |
+|---|---|
+| RLS 适配 | 自写 `create_curator_table` 迁移:`tenant_id` string NOT NULL + FK tenants + index(stock stub 是 nullable bigint 无 FK,且 tenants PK 是 varchar uuid);策略自动生成,`RlsPolicyTest` 全绿 |
+| `App\Models\Media` | 继承 curator Media,`RequiresTenantContext` + creating 时 `getAttribute` 方式 stamp tenant_id(vendor @property 把 tenant_id 钉成 non-null string,直接比较会被 phpstan 判 always-false);自有 MediaFactory |
+| Glide 路由租户化 | curator 路由零中间件 = 跨租户元数据暴露 + 租户磁盘读不到;`TenancyServiceProvider::tenantizeCuratorRoute()` boot 后原地补 `InitializeTenancyByDomainOrSubdomain` + `PreventAccessFromUnwantedDomains`(注意 `getActionName()` 带前导反斜杠);故意不加 web 组(图片无需 session)。需 `CURATOR_GLIDE_TOKEN` env(phpunit 已配) |
+| 渲染层 | `MediaResolver`(scoped,批量,`normalizeId` 能从 CuratorPicker 的 uuid-keyed 原始表单态挖 id——选中块实时预览依赖此);`BlockRegistry::MEDIA_KEYS` 约定翻译 `image_id→image_url`/`media_id→url`/`avatar_media_id→avatar_url`,注入视图 props,**9 个块视图零改动**;悬空 id 走既有空图防御;整页 1 次 media 查询(测试钉住) |
+| 字段 | `ImageInput` 工厂(CuratorPicker 单选);Hero/Gallery/Testimonials 换 picker + 保留可选 URL 外链口(gallery 的 data-URI 示例占位图依赖它);businesses.logo_media_id + `Business::logoUrl()`(media 优先→logo_path 回退→null),header 视图改用 accessor |
+| 面板 | `CuratorPlugin`(Media 导航页)+ `make:filament-theme tenant` 新建面板主题接入 curator CSS(`npm run build` 已跑);测试经验:picker 的 `afterStateUpdated` 期望 media-item 数组形状,测试用 `->set(路径, [$media->toArray()])` 模拟弹窗选图,fillForm(int) 会炸 |
+
+**上传链路(参照 ~/Projects/ezsite 旧项目的解法,3 处配置缺一不可,`TenantStorageTest` 全部钉住)**:
+
+1. `config/livewire.php`(本次发布):`temporary_file_upload.disk = 'public'` + middleware 加 `universal` 与 `InitializeTenancyByDomainOrSubdomain`。**上传端点是独立 HTTP 请求**,不加中间件就跑在中央上下文——临时文件写进中央 storage 根,而组件(租户上下文)去租户根找,上传静默失败。
+2. `curator.default_disk` 回退值改为 `'public'`(不再跟随 `FILESYSTEM_DISK`,本项目该值是 `local` 私有盘、无可访问 URL);`.env`/`.env.example` 同时显式写了 `CURATOR_DEFAULT_DISK=public`。
+3. `TenantCreated` 管线加 `CreateTenantStorage` + `CreateStorageSymlinks`(旧项目同款):新租户自动获得 storage 目录与 `public/public-{tenant}` 链接,**本地开发无需手动 `tenants:link`**;`DeletingTenant` 加 `RemoveStorageSymlinks`(故意不加 `DeleteTenantStorage`——删文件是产品决策)。测试侧 `tests/Pest.php` 用 `TenantCreated` 事件收集本测试创建的租户 key,afterEach 精确删除其符号链接(uuid 唯一,并行安全)。
+
+仍未做:上传降采样(curator 不自动压,后续 Observer 兜底)。
+
 ## NOT NOW(明确推迟,及理由)
 
 | 提案 | 推迟理由 |

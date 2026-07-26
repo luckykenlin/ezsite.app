@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Fabricator\PageBlocks;
 
+use App\Filament\Fabricator\Fields\ImageInput;
 use Filament\Forms\Components\Field;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\TextInput;
@@ -55,8 +56,9 @@ final class Gallery extends Block
                 ->maxLength(200),
             Repeater::make('images')
                 ->schema([
+                    ImageInput::make('media_id'),
                     TextInput::make('url')
-                        ->required()
+                        ->label('External image URL')
                         ->maxLength(2048),
                     TextInput::make('alt')
                         ->maxLength(200),

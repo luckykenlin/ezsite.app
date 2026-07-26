@@ -27,6 +27,20 @@ use Z3d0X\FilamentFabricator\Facades\FilamentFabricator;
 final class BlockRegistry
 {
     /**
+     * The media-reference key conventions: a block schema stores the picker
+     * id under the left key, and the render layer injects the resolved
+     * public URL under the right key — the SAME prop the views always read,
+     * so no view knows media ids exist. A resolved id wins over any stored
+     * URL string; a dangling id injects nothing and the stored string (or
+     * the view's own empty-image guard) takes over.
+     */
+    private const array MEDIA_KEYS = [
+        'image_id' => 'image_url',
+        'media_id' => 'url',
+        'avatar_media_id' => 'avatar_url',
+    ];
+
+    /**
      * Every registered block's machine-readable contract, keyed by type.
      *
      * @return array<string, array{type: string, variants: list<string>, bind: string|null, icon: string|null, fields: list<string>}>
@@ -105,6 +119,75 @@ final class BlockRegistry
     }
 
     /**
+     * Every media id a stored block references (top level + repeater items),
+     * for batch preloading.
+     *
+     * @param  array<int, mixed>  $blocks
+     * @return list<mixed>
+     */
+    public static function mediaIds(array $blocks): array
+    {
+        $ids = [];
+
+        foreach ($blocks as $block) {
+            $data = is_array($block) && is_array($block['data'] ?? null) ? $block['data'] : [];
+
+            foreach (array_keys(self::MEDIA_KEYS) as $idKey) {
+                $ids[] = $data[$idKey] ?? null;
+            }
+
+            foreach ($data as $value) {
+                if (! is_array($value)) {
+                    continue;
+                }
+
+                if (! array_is_list($value)) {
+                    continue;
+                }
+
+                foreach ($value as $item) {
+                    if (is_array($item)) {
+                        foreach (array_keys(self::MEDIA_KEYS) as $idKey) {
+                            $ids[] = $item[$idKey] ?? null;
+                        }
+                    }
+                }
+            }
+        }
+
+        return array_values(array_filter($ids, static fn (mixed $id): bool => $id !== null));
+    }
+
+    /**
+     * Translate media-reference keys into the URL props the views consume
+     * (see MEDIA_KEYS), one repeater level deep.
+     *
+     * @param  array<array-key, mixed>  $data
+     * @return array<array-key, mixed>
+     */
+    public static function resolveMediaUrls(array $data): array
+    {
+        $data = self::injectMediaUrls($data);
+
+        foreach ($data as $key => $value) {
+            if (! is_array($value)) {
+                continue;
+            }
+
+            if (! array_is_list($value)) {
+                continue;
+            }
+
+            $data[$key] = array_map(
+                static fn (mixed $item): mixed => is_array($item) ? self::injectMediaUrls($item) : $item,
+                $value,
+            );
+        }
+
+        return $data;
+    }
+
+    /**
      * The bound model attributes a block's view should receive: `[]` when the
      * block declares no bind, the `business` (and, for Location binds, the
      * `location`) props when resolution succeeds, or null when the bind cannot
@@ -145,6 +228,23 @@ final class BlockRegistry
         return $location === null
             ? null
             : ['business' => $business, 'location' => $location];
+    }
+
+    /**
+     * @param  array<array-key, mixed>  $data
+     * @return array<array-key, mixed>
+     */
+    private static function injectMediaUrls(array $data): array
+    {
+        foreach (self::MEDIA_KEYS as $idKey => $urlKey) {
+            $url = resolve(MediaResolver::class)->url($data[$idKey] ?? null);
+
+            if ($url !== null) {
+                $data[$urlKey] = $url;
+            }
+        }
+
+        return $data;
     }
 
     /**

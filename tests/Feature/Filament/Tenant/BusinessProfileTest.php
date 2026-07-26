@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Filament\Tenant\Pages\BusinessProfile;
 use App\Jobs\GenerateSiteDraftJob;
 use App\Models\Business;
+use App\Models\Media;
 use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
 
@@ -90,6 +91,23 @@ test('the generate action queues the draft job for the current tenant', function
         GenerateSiteDraftJob::class,
         fn (GenerateSiteDraftJob $job): bool => $job->tenantId === $this->tenant->id,
     );
+});
+
+test('the logo can be picked from the media library', function (): void {
+    Business::factory()->create(['tenant_id' => $this->tenant->id, 'name' => 'Corner Cafe']);
+    $media = Media::factory()->create(['tenant_id' => $this->tenant->id]);
+
+    // Emulate the picker modal's client-side update: it writes the selected
+    // media as item arrays into the field state (plain ints only occur when
+    // hydrating from storage).
+    Livewire::test(BusinessProfile::class)
+        ->set('data.logo_media_id', [Media::query()->findOrFail($media->id)->toArray()])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    $saved = Business::query()->sole();
+
+    expect((int) $saved->logo_media_id)->toBe($media->id);
 });
 
 test('name is required', function (): void {

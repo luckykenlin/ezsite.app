@@ -12,8 +12,8 @@
     <div class="navbar mx-auto max-w-7xl px-6">
         <div class="navbar-start">
             <a href="/" class="flex items-center gap-3">
-                @if ($business->logo_path)
-                    <img src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($business->logo_path) }}" alt="{{ $business->name }}" class="h-8 w-auto" />
+                @if ($business->logoUrl())
+                    <img src="{{ $business->logoUrl() }}" alt="{{ $business->name }}" class="h-8 w-auto" />
                 @endif
                 <span class="text-lg font-bold">{{ $business->name }}</span>
             </a>

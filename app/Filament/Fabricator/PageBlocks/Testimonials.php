@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Fabricator\PageBlocks;
 
+use App\Filament\Fabricator\Fields\ImageInput;
 use Filament\Forms\Components\Field;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Textarea;
@@ -61,7 +62,11 @@ final class Testimonials extends Block
                         ->maxLength(120),
                     TextInput::make('role')
                         ->maxLength(120),
+                    ImageInput::make('avatar_media_id')
+                        ->label('Avatar'),
+
                     TextInput::make('avatar_url')
+                        ->label('External avatar URL')
                         ->maxLength(2048),
                 ]),
         ];

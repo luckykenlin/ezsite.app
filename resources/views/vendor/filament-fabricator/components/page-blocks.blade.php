@@ -42,6 +42,11 @@
             $groupClass::preloadRelatedData($page, $group);
         }
     }
+
+    // Batch-load every media reference in this block set (one query per
+    // render; the request-scoped resolver dedupes across chrome + page).
+    resolve(\App\Filament\Fabricator\MediaResolver::class)
+        ->preload(\App\Filament\Fabricator\BlockRegistry::mediaIds(is_array($blocks) ? $blocks : []));
 @endphp
 
 @foreach ($blocks as $blockIndex => $block)
@@ -75,7 +80,9 @@
     @if ($component !== null)
         @php
             $blockClass = \Z3d0X\FilamentFabricator\Facades\FilamentFabricator::getPageBlockFromName($block['type']);
-            $blockData = \App\Filament\Fabricator\BlockRegistry::normalizeData($block);
+            $blockData = \App\Filament\Fabricator\BlockRegistry::resolveMediaUrls(
+                \App\Filament\Fabricator\BlockRegistry::normalizeData($block),
+            );
             $bindAttributes = \App\Filament\Fabricator\BlockRegistry::bindAttributes($block);
 
             if ($bindAttributes === null && $editorKey === null) {

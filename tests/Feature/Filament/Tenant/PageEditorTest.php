@@ -9,6 +9,7 @@ use App\Filament\Fabricator\BlockRegistry;
 use App\Filament\Tenant\Resources\PageResource\Pages\PageEditor;
 use App\Models\Business;
 use App\Models\Location;
+use App\Models\Media;
 use App\Models\Page;
 use App\Models\SiteSetting;
 use App\Models\Tenant;
@@ -872,6 +873,26 @@ it('hints once per session that sample content is editable', function (): void {
     // Later adds stay quiet.
     $component->call('addBlock', 'heading');
     expect($component->get('sampleHintShown'))->toBeTrue();
+});
+
+it('round-trips a media reference: picker array while editing, plain id once saved', function (): void {
+    $media = Media::factory()->create(['tenant_id' => tenant('id')]);
+    $page = editorPage([
+        ['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome', 'image_id' => $media->id]],
+    ]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
+
+    // Hydration turns the stored id into the picker's internal array state;
+    // the live-preview payload carries it raw, and the resolver digs the id
+    // out of it (covered by MediaResolverTest).
+    expect($component->get('data')['block']['image_id'])->not->toBeNull();
+
+    $component->call('save')->assertNotified();
+
+    $saved = Page::query()->findOrFail($page->id)->blocks[0]['data'];
+
+    expect((int) (is_array($saved['image_id']) ? 0 : $saved['image_id']))->toBe($media->id);
 });
 
 it('cannot open a page belonging to another tenant', function (): void {

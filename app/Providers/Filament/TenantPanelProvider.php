@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Providers\Filament;
 
 use App\Models\Tenant;
+use Awcodes\Curator\CuratorPlugin;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -34,6 +35,7 @@ final class TenantPanelProvider extends PanelProvider
         return $panel
             ->id('tenant')
             ->path('admin')
+            ->viteTheme('resources/css/filament/tenant/theme.css')
             ->login()
             ->profile()
             ->colors([
@@ -51,8 +53,12 @@ final class TenantPanelProvider extends PanelProvider
                 AccountWidget::class,
                 FilamentInfoWidget::class,
             ])
+            ->viteTheme('resources/css/filament/tenant/theme.css')
             ->plugins([
                 FilamentFabricatorPlugin::make(),
+                CuratorPlugin::make()
+                    ->label('Media')
+                    ->navigationIcon(Heroicon::OutlinedPhoto),
             ])
             ->navigationItems([
                 NavigationItem::make('Visit site')

@@ -6,6 +6,7 @@ use App\Design\ColorPalette;
 use App\Design\StylePreset;
 use App\Models\Business;
 use App\Models\Location;
+use App\Models\Media;
 use App\Models\Tenant;
 use Illuminate\Database\QueryException;
 
@@ -111,7 +112,34 @@ test('to array', function (): void {
             'created_at',
             'updated_at',
             'deleted_at',
+            'logo_media_id',
         ]);
+});
+
+test('logoUrl prefers the media-library pick and falls back to the legacy upload', function (): void {
+    $tenant = Tenant::factory()->create();
+
+    [$mediaUrl, $legacyUrl, $none] = $this->runInTenant($tenant, function () use ($tenant): array {
+        $media = Media::factory()->create(['tenant_id' => $tenant->id, 'path' => 'media/logo.png']);
+
+        $business = Business::factory()->create([
+            'tenant_id' => $tenant->id,
+            'logo_media_id' => $media->id,
+            'logo_path' => 'logos/legacy.png',
+        ]);
+        $mediaUrl = $business->logoUrl();
+
+        $business->update(['logo_media_id' => null]);
+        $legacyUrl = $business->logoUrl();
+
+        $business->update(['logo_path' => null]);
+
+        return [$mediaUrl, $legacyUrl, $business->logoUrl()];
+    });
+
+    expect($mediaUrl)->toContain('media/logo.png')
+        ->and($legacyUrl)->toContain('logos/legacy.png')
+        ->and($none)->toBeNull();
 });
 
 test('design tokens are cast to the value object', function (): void {

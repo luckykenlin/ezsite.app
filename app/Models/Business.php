@@ -7,12 +7,14 @@ namespace App\Models;
 use App\Casts\DesignTokens as DesignTokensCast;
 use App\Concerns\RequiresTenantContext;
 use App\Design\DesignTokens;
+use App\Filament\Fabricator\MediaResolver;
 use Database\Factories\BusinessFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Storage;
 use NunoMaduro\LaravelSluggable\Attributes\Sluggable;
 
 /**
@@ -61,6 +63,24 @@ final class Business extends Model
     public function locations(): HasMany
     {
         return $this->hasMany(Location::class);
+    }
+
+    /**
+     * The logo's public URL: the media-library pick wins, the legacy
+     * logo_path upload is the fallback, null renders no logo at all (the
+     * header views guard on it).
+     */
+    public function logoUrl(): ?string
+    {
+        $mediaUrl = resolve(MediaResolver::class)->url($this->logo_media_id);
+
+        if ($mediaUrl !== null) {
+            return $mediaUrl;
+        }
+
+        return $this->logo_path === null
+            ? null
+            : Storage::disk('public')->url($this->logo_path);
     }
 
     /**
