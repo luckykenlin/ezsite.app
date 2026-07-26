@@ -135,7 +135,10 @@ final readonly class SiteDraftPrompt implements Stringable
             .'Use testimonials only if the profile provides real quotes — never fabricate them. '
             .'If the profile is sparse, STILL compose the full page: write neutral, '
             .'category-appropriate copy that makes no specific factual claims. '
-            .'Never return an empty blocks list.';
+            .'Never return an empty blocks list. '
+            .'Also write meta_description: one plain sentence (max 160 characters, no '
+            .'marketing punctuation runs) naming the business, what it does and its city '
+            .'— this is the summary Google shows under the search result.';
     }
 
     private function languageSection(): string

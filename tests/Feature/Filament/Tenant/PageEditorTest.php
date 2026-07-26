@@ -276,6 +276,47 @@ it('persists page settings from the modal', function (): void {
         ->and($saved->slug)->toBe('about');
 });
 
+it('opens the search and sharing settings with the page as-is', function (): void {
+    $page = editorPage([]);
+
+    Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->mountAction('pageSettings')
+        ->assertSchemaStateSet([
+            'seo_title' => null,
+            'seo_description' => null,
+            // CuratorPicker hydrates an unset pick as an empty selection.
+            'seo_image_media_id' => [],
+            'is_indexable' => true,
+        ]);
+
+    expect(Page::query()->findOrFail($page->id)->is_indexable)->toBeTrue();
+});
+
+it('persists the search and sharing settings from the modal', function (): void {
+    $page = editorPage([]);
+    $media = Media::factory()->create(['tenant_id' => $this->tenant->id]);
+
+    Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->mountAction('pageSettings')
+        ->fillForm([
+            'seo_title' => 'Best nails in Austin',
+            'seo_description' => 'Walk-in manicures, seven days a week.',
+            'is_indexable' => false,
+        ])
+        // The picker's own state shape — what its modal hands back on pick.
+        ->set('mountedActions.0.data.seo_image_media_id', [Media::query()->findOrFail($media->id)->toArray()])
+        ->callMountedAction()
+        ->assertHasNoFormErrors()
+        ->assertNotified();
+
+    $saved = Page::query()->findOrFail($page->id);
+
+    expect($saved->seo_title)->toBe('Best nails in Austin')
+        ->and($saved->seo_description)->toBe('Walk-in manicures, seven days a week.')
+        ->and($saved->seo_image_media_id)->toBe($media->id)
+        ->and($saved->is_indexable)->toBeFalse();
+});
+
 it('rejects a slug that starts or ends with a slash', function (): void {
     $page = editorPage([]);
 

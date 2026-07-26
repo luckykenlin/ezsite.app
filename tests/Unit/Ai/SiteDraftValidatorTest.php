@@ -48,6 +48,24 @@ it('falls back to the first preset when the stored key is unknown', function ():
         ->once();
 });
 
+it('de-tags and truncates the meta description', function (): void {
+    $draft = validAiDraft();
+    $draft['pages'][0]['meta_description'] = '  <b>Fresh sourdough</b> baked daily in Austin. '.str_repeat('More words. ', 30);
+
+    $description = new SiteDraftValidator()->handle($draft, 'Fallback')['metaDescription'];
+
+    expect($description)->toStartWith('Fresh sourdough baked daily in Austin.')
+        ->and(mb_strlen((string) $description))->toBe(160);
+});
+
+it('accepts a draft with no meta description at all', function (): void {
+    $draft = validAiDraft();
+    $draft['pages'][0]['meta_description'] = '   ';
+
+    expect(new SiteDraftValidator()->handle($draft, 'Fallback')['metaDescription'])->toBeNull()
+        ->and(new SiteDraftValidator()->handle(validAiDraft(), 'Fallback')['metaDescription'])->toBeNull();
+});
+
 it('falls back to the business name when the title is blank', function (): void {
     $draft = validAiDraft();
     $draft['pages'][0]['title'] = '  ';

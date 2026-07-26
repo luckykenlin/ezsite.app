@@ -18,6 +18,7 @@ use App\Design\StylePreset;
 use App\Enums\BindType;
 use App\Enums\PageStatus;
 use App\Filament\Fabricator\BlockRegistry;
+use App\Filament\Fabricator\Fields\ImageInput;
 use App\Filament\Fabricator\PageBlocks\Block;
 use App\Filament\Tenant\Pages\BusinessProfile;
 use App\Filament\Tenant\Pages\Design;
@@ -28,7 +29,9 @@ use App\Models\SiteSetting;
 use Closure;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Resources\Pages\Page;
@@ -900,6 +903,10 @@ final class PageEditor extends Page
                 'slug' => $this->pageRecord()->slug,
                 'layout' => $this->pageRecord()->layout,
                 'parent_id' => $this->pageRecord()->parent_id,
+                'seo_title' => $this->pageRecord()->seo_title,
+                'seo_description' => $this->pageRecord()->seo_description,
+                'seo_image_media_id' => $this->pageRecord()->seo_image_media_id,
+                'is_indexable' => $this->pageRecord()->is_indexable,
             ])
             ->schema([
                 TextInput::make('title')
@@ -917,6 +924,7 @@ final class PageEditor extends Page
                     ->options(fn (): array => $this->pageOptions(excludeCurrent: true))
                     ->live()
                     ->placeholder('None'),
+                $this->seoSection(),
             ])
             ->action(function (array $data): void {
                 $this->pageRecord()->update(self::stringKeyed($data));
@@ -929,6 +937,37 @@ final class PageEditor extends Page
                     ->success()
                     ->send();
             });
+    }
+
+    /**
+     * How the page shows up in search results and link previews. Every field
+     * is optional: left empty, {@see \App\Actions\BuildPageSeoData} derives the
+     * value from the page title and the Business profile, so the placeholders
+     * show what visitors get today.
+     */
+    private function seoSection(): Section
+    {
+        return Section::make('Search & sharing')
+            ->description('How this page looks on Google and when its link is shared.')
+            ->collapsed()
+            ->schema([
+                TextInput::make('seo_title')
+                    ->label('Search title')
+                    ->placeholder(fn (): string => $this->pageRecord()->title)
+                    ->helperText('Your business name is appended automatically.'),
+                Textarea::make('seo_description')
+                    ->label('Search description')
+                    ->rows(2)
+                    ->maxLength(320)
+                    ->placeholder(fn (): ?string => Business::query()->first()?->tagline)
+                    ->helperText('Around 155 characters show up in Google.'),
+                ImageInput::make('seo_image_media_id')
+                    ->label('Share image')
+                    ->helperText('Shown when the link is posted on social media. Defaults to your logo.'),
+                Toggle::make('is_indexable')
+                    ->label('Allow search engines to index this page')
+                    ->helperText('Turn off for thank-you or campaign-only pages.'),
+            ]);
     }
 
     /**

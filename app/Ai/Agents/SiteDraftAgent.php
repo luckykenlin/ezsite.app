@@ -76,6 +76,11 @@ final class SiteDraftAgent implements Agent, HasStructuredOutput
                 ->items($schema->object([
                     'title' => $schema->string()->min(1)->max(120)->required(),
                     'slug' => $schema->string()->enum(['/'])->required(),
+                    'meta_description' => $schema->string()
+                        ->min(1)
+                        ->max(160)
+                        ->description('One plain sentence for the Google result: what the business does, for whom, where.')
+                        ->required(),
                     'blocks' => $schema->array()
                         ->min(3)
                         ->max(10)

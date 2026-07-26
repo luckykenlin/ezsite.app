@@ -39,6 +39,17 @@ test('allows the same slug under different parents within a tenant', function ()
     expect($child->exists)->toBeTrue();
 });
 
+test('a new page is indexable and carries no seo overrides', function (): void {
+    $tenant = Tenant::factory()->create();
+    $page = $this->runInTenant($tenant, fn (): Page => Page::factory()->create(['tenant_id' => $tenant->id]));
+    $page = Page::query()->findOrFail($page->getKey());
+
+    expect($page->is_indexable)->toBeTrue()
+        ->and($page->seo_title)->toBeNull()
+        ->and($page->seo_description)->toBeNull()
+        ->and($page->seo_image_media_id)->toBeNull();
+});
+
 test('to array', function (): void {
     $tenant = Tenant::factory()->create();
     $page = $this->runInTenant($tenant, fn (): Page => Page::factory()->create(['tenant_id' => $tenant->id]));
@@ -56,6 +67,10 @@ test('to array', function (): void {
             'parent_id',
             'created_at',
             'updated_at',
+            'seo_title',
+            'seo_description',
+            'seo_image_media_id',
+            'is_indexable',
         ]);
 });
 

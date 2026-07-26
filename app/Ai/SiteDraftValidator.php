@@ -23,8 +23,14 @@ final readonly class SiteDraftValidator
     private const int MIN_BLOCKS = 3;
 
     /**
+     * Google truncates search snippets around 160 characters; the column
+     * itself is unbounded text.
+     */
+    private const int MAX_META_DESCRIPTION = 160;
+
+    /**
      * @param  array<array-key, mixed>  $draft  the agent's decoded structured output
-     * @return array{preset: StylePreset, title: string, blocks: list<array{type: string, data: array<string, mixed>}>}
+     * @return array{preset: StylePreset, title: string, metaDescription: string|null, blocks: list<array{type: string, data: array<string, mixed>}>}
      */
     public function handle(array $draft, string $fallbackTitle): array
     {
@@ -45,7 +51,30 @@ final readonly class SiteDraftValidator
             ));
         }
 
-        return ['preset' => $preset, 'title' => $title, 'blocks' => $blocks];
+        return [
+            'preset' => $preset,
+            'title' => $title,
+            'metaDescription' => $this->metaDescription($page),
+            'blocks' => $blocks,
+        ];
+    }
+
+    /**
+     * The search-result summary. Optional on the way in: a provider that
+     * drops it (prompt-enforced structured output does) still yields a usable
+     * draft — the page then falls back to the business tagline at render time.
+     *
+     * @param  array<array-key, mixed>  $page
+     */
+    private function metaDescription(array $page): ?string
+    {
+        if (! is_string($page['meta_description'] ?? null)) {
+            return null;
+        }
+
+        $description = mb_trim(strip_tags($page['meta_description']));
+
+        return $description === '' ? null : mb_substr($description, 0, self::MAX_META_DESCRIPTION);
     }
 
     /**

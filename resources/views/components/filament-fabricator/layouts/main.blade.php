@@ -8,7 +8,13 @@
     dashed strip). Live-site renders pass neither and are unchanged.
 --}}
 @props(['page', 'editorKeys' => null, 'editorChrome' => null])
-<x-filament-fabricator::layouts.base :page="$page" :title="$page->title">
+@php
+    // Public renders get the full SEO head (title, description, canonical,
+    // OpenGraph/Twitter, LocalBusiness JSON-LD); the editor's canvas preview
+    // deliberately gets none — see the base layout's note.
+    $seoData = is_array($editorKeys) ? null : resolve(\App\Actions\BuildPageSeoData::class)->handle($page);
+@endphp
+<x-filament-fabricator::layouts.base :page="$page" :title="$page->title" :seo-data="$seoData">
     @if (is_array($editorChrome))
         @if (($editorChrome['header'] ?? []) !== [])
             <x-filament-fabricator::page-blocks :blocks="$editorChrome['header']" :editor-keys="['chrome:header']" />

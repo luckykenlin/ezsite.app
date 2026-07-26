@@ -65,11 +65,14 @@ it('renders the explicitly bound location instead of the primary', function (): 
             'is_primary' => false, 'address_line1' => 'Secondary Blvd 2',
         ]),
     ]);
+    // A sub-page, not the home page: the home page's LocalBusiness JSON-LD
+    // legitimately carries the PRIMARY location's address (it describes the
+    // business, not this block), which would defeat the assertion below.
     $this->createTenantPage($tenant, [
         ['type' => 'contact', 'data' => ['variant' => 'split', 'bind' => ['location_id' => $secondary->id]]],
-    ]);
+    ], 'visit');
 
-    $this->get(sprintf('http://acme.%s/', $this->centralDomain()))
+    $this->get(sprintf('http://acme.%s/visit', $this->centralDomain()))
         ->assertOk()
         ->assertSee('Secondary Blvd 2')
         ->assertDontSee('Primary Ave 1');

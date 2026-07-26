@@ -86,6 +86,32 @@ it('overwrites an existing draft in place on regeneration', function (): void {
         ->and(Page::query()->sole()->title)->toBe('Second take');
 });
 
+it('stores the ai-written meta description on the draft page', function (): void {
+    SiteDraftAgent::fake([
+        fakeDraftResponse(['pages' => [['meta_description' => 'Fresh sourdough baked daily in Austin.']]]),
+    ]);
+
+    $tenant = Tenant::factory()->create();
+    $this->createTenantBusiness($tenant, [], 1);
+
+    expect(generateFor($tenant)->seo_description)->toBe('Fresh sourdough baked daily in Austin.');
+});
+
+it('keeps an operator-written description when the model omits one', function (): void {
+    SiteDraftAgent::fake([
+        fakeDraftResponse(['pages' => [['meta_description' => 'Written by the model.']]]),
+        fakeDraftResponse(),
+    ]);
+
+    $tenant = Tenant::factory()->create();
+    $this->createTenantBusiness($tenant, [], 1);
+
+    generateFor($tenant);
+    $regenerated = generateFor($tenant);
+
+    expect($regenerated->seo_description)->toBe('Written by the model.');
+});
+
 it('refuses to touch a published home page', function (): void {
     SiteDraftAgent::fake([fakeDraftResponse()]);
 

@@ -45,6 +45,12 @@ it('renders the cached draft state with block wrappers and the selection script'
     $response->assertSee('data-editor-insert="0"', false)
         ->assertSee('data-editor-insert="1"', false);
 
+    // Search/social tags belong to the live site only: a canvas preview of an
+    // unpublished draft must never advertise a canonical URL or share card.
+    $response->assertDontSee('rel="canonical"', false)
+        ->assertDontSee('og:title', false)
+        ->assertDontSee('application/ld+json', false);
+
     $this->get(sprintf('http://acme.%s/_editor/preview?token=valid-token&block=k1', $this->centralDomain()))
         ->assertDontSee('data-editor-insert');
 });

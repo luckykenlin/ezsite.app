@@ -61,11 +61,16 @@ final readonly class GenerateSiteDraft
         return DB::transaction(function () use ($business, $existing, $draft, $blocks): Page {
             $this->applyStylePreset->handle($business, $draft['preset']);
 
+            // A regenerated draft replaces the copy, but never wipes a
+            // description the operator wrote when the model omitted one.
+            $seo = $draft['metaDescription'] === null ? [] : ['seo_description' => $draft['metaDescription']];
+
             if ($existing !== null) {
                 $existing->update([
                     'title' => $draft['title'],
                     'blocks' => $blocks,
                     'status' => PageStatus::Draft,
+                    ...$seo,
                 ]);
 
                 return $existing;
@@ -78,12 +83,13 @@ final readonly class GenerateSiteDraft
                 'layout' => 'main',
                 'blocks' => $blocks,
                 'status' => PageStatus::Draft,
+                ...$seo,
             ]);
         });
     }
 
     /**
-     * @return array{preset: StylePreset, title: string, blocks: list<array{type: string, data: array<string, mixed>}>}
+     * @return array{preset: StylePreset, title: string, metaDescription: string|null, blocks: list<array{type: string, data: array<string, mixed>}>}
      */
     private function requestDraft(Business $business): array
     {

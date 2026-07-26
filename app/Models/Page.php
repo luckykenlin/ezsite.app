@@ -15,6 +15,10 @@ use Z3d0X\FilamentFabricator\Models\Page as FabricatorPage;
 /**
  * @property string $tenant_id
  * @property PageStatus $status
+ * @property string|null $seo_title
+ * @property string|null $seo_description
+ * @property int|null $seo_image_media_id
+ * @property bool $is_indexable
  *
  * @method static PageFactory factory($count = null, $state = [])
  */
@@ -46,6 +50,7 @@ final class Page extends FabricatorPage
         return [
             ...parent::casts(),
             'status' => PageStatus::class,
+            'is_indexable' => 'boolean',
         ];
     }
 }
