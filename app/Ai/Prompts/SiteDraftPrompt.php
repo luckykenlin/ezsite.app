@@ -21,7 +21,7 @@ final readonly class SiteDraftPrompt implements Stringable
 {
     /**
      * @param  Collection<int, Location>  $locations
-     * @param  array<string, array{type: string, variants: list<string>, bind: string|null, fields: list<string>}>  $vocabulary
+     * @param  array<string, array{type: string, variants: list<string>, bind: string|null, icon: string|null, fields: list<string>}>  $vocabulary
      */
     public function __construct(
         private Business $business,

@@ -15,7 +15,11 @@
 
 ---
 
-## 迭代 1 「立竿见影」(约 1.5–2 天,纯打磨,不动 schema / 状态模型)
+## ✅ 迭代 1 「立竿见影」【2026-07-25 已全部完成】
+
+> 实现偏差说明:"pushPreview 幂等化"未用 md5 哈希,而是 commit 时递归剥离 null 值使
+> 未编辑块与存储态可比,`selectBlock()` 仅在 commit 前后 `$blocks` 有实际差异时才
+> push——效果相同且更简单。落库 JSON 从此不再携带 null 字段(形状更小)。
 
 | 改进 | 说明 | 文件 | 工作量 | 依赖 |
 |---|---|---|---|---|
@@ -28,7 +32,10 @@
 | 删除块加 `wire:confirm` | ✕ 与 ↑↓ 紧贴且一击即删、自动换选中——先加一行 Livewire 原生确认;迭代 2 撤销栈落地后可换成删除 toast + Undo | `page-editor.blade.php` | S | 无 |
 | ✅ 风格预设不再"点击即上线"【2026-07-25 已完成】 | Design 页 preset Radio 的 `afterStateUpdated` 从立即 `ApplyStylePreset` 写库改为仅 `$set` 四个 fine-tune 字段;`save()` 里若四字段仍与预设完全一致则 `ApplyStylePreset`(保留预设标记),否则 `UpdateDesignTokens`(脱离预设) | `app/Filament/Tenant/Pages/Design.php`、`DesignPageTest.php` | S | 无;是迭代 3 Design 弹窗的前置(弹窗内绝不能点击即写库) |
 
-## 迭代 2 「结构升级」(约 3–4 天,左栏视觉 + 画布交互,可触碰 Block contract)
+## ✅ 迭代 2 「结构升级」【2026-07-25 已全部完成】
+
+> 全部 11 项已落地。补充:header actions 的回调必须用闭包(`->action(fn () => ...)`),
+> 字符串写法只是原始 wire:click,过不了 confirmation 弹窗和 `callAction` 测试。
 
 | 改进 | 说明 | 文件 | 工作量 | 依赖 |
 |---|---|---|---|---|

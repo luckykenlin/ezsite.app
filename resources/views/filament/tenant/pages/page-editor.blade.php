@@ -4,13 +4,14 @@
         stylesheet (Filament CSS variables for theming) so it needs no
         Tailwind rebuild; interactive controls reuse core Filament components.
         The Alpine root owns the iframe lifecycle: canvas reloads (with scroll
-        preserved), the postMessage bridge to the preview document, and the
-        unsaved-changes guards.
+        preserved and a progress bar), the postMessage bridge to the preview
+        document (select / hover / floating-toolbar actions / forwarded
+        shortcuts), the device-width preview, and the unsaved-changes guards.
     --}}
     <style>
         .pe-layout {
             display: grid;
-            grid-template-columns: 17rem minmax(0, 1fr) 26rem;
+            grid-template-columns: 19rem minmax(0, 1fr) 26rem;
             gap: 1rem;
             height: calc(100vh - 11rem);
             min-height: 24rem;
@@ -34,16 +35,105 @@
 
         .pe-canvas {
             display: flex;
+            flex-direction: column;
             overflow: hidden;
             border-radius: 0.75rem;
             box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
-            background: #fff;
         }
 
-        .pe-canvas iframe {
+        .pe-canvas-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.25rem;
+            padding: 0.375rem;
+        }
+
+        .pe-device-button {
+            border-radius: 0.375rem;
+            padding: 0.25rem 0.75rem;
+            font-size: 0.75rem;
+            opacity: 0.6;
+        }
+
+        .pe-device-button[data-active] {
+            opacity: 1;
+            background: rgba(99, 102, 241, 0.12);
+        }
+
+        .pe-canvas-body {
+            position: relative;
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            overflow: hidden;
+            background: rgba(0, 0, 0, 0.04);
+        }
+
+        .dark .pe-canvas-body {
+            background: rgba(0, 0, 0, 0.3);
+        }
+
+        .pe-canvas-frame {
+            width: 100%;
+            height: 100%;
+            margin: 0 auto;
+            background: #fff;
+            transition: max-width 0.2s ease;
+        }
+
+        .pe-canvas-frame iframe {
             width: 100%;
             height: 100%;
             border: 0;
+        }
+
+        .pe-progress {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            overflow: hidden;
+            z-index: 10;
+        }
+
+        .pe-progress::after {
+            content: '';
+            display: block;
+            height: 100%;
+            width: 40%;
+            background: #6366f1;
+            animation: pe-progress-slide 1s ease-in-out infinite;
+        }
+
+        @keyframes pe-progress-slide {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(350%); }
+        }
+
+        .pe-empty-overlay {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 5;
+            pointer-events: none;
+        }
+
+        .pe-empty-card {
+            pointer-events: auto;
+            text-align: center;
+            background: var(--fi-color-white, #fff);
+            border-radius: 0.75rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+            padding: 2rem 2.5rem;
+            max-width: 24rem;
+        }
+
+        .dark .pe-empty-card {
+            background: rgb(24, 24, 27);
         }
 
         .pe-heading {
@@ -57,15 +147,14 @@
         .pe-structure {
             display: flex;
             flex-direction: column;
-            gap: 0.25rem;
         }
 
         .pe-structure-row {
             display: flex;
-            align-items: center;
-            gap: 0.25rem;
+            align-items: flex-start;
+            gap: 0.375rem;
             border-radius: 0.5rem;
-            padding: 0.375rem 0.5rem;
+            padding: 0.375rem 0.375rem;
             font-size: 0.875rem;
         }
 
@@ -81,13 +170,64 @@
             background: rgba(99, 102, 241, 0.12);
         }
 
-        .pe-structure-label {
+        .pe-row-handle {
+            cursor: grab;
+            opacity: 0.35;
+            padding-top: 0.125rem;
+            font-size: 0.75rem;
+            letter-spacing: -0.1em;
+            user-select: none;
+        }
+
+        .pe-row-icon {
+            width: 1.1rem;
+            height: 1.1rem;
+            margin-top: 0.125rem;
+            opacity: 0.7;
+            flex-shrink: 0;
+        }
+
+        .pe-row-main {
             flex: 1;
+            min-width: 0;
             cursor: pointer;
             text-align: start;
+        }
+
+        .pe-row-title {
+            display: flex;
+            align-items: center;
+            gap: 0.375rem;
+            min-width: 0;
+        }
+
+        .pe-row-variant {
+            flex-shrink: 0;
+            font-size: 0.625rem;
+            border-radius: 9999px;
+            padding: 0.0625rem 0.4375rem;
+            background: rgba(99, 102, 241, 0.12);
+            color: #6366f1;
+            white-space: nowrap;
+        }
+
+        .pe-row-snippet {
+            font-size: 0.75rem;
+            opacity: 0.55;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
+        }
+
+        .pe-row-actions {
+            display: flex;
+            gap: 0.125rem;
+            opacity: 0;
+        }
+
+        .pe-structure-row:hover .pe-row-actions,
+        .pe-structure-row[data-selected] .pe-row-actions {
+            opacity: 1;
         }
 
         .pe-icon-button {
@@ -106,10 +246,61 @@
             background: rgba(255, 255, 255, 0.1);
         }
 
+        .pe-insert {
+            display: flex;
+            align-items: center;
+            height: 0.875rem;
+            margin: -0.0625rem 0;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        .pe-structure:hover .pe-insert,
+        .pe-insert[data-armed] {
+            opacity: 1;
+        }
+
+        .pe-insert::before,
+        .pe-insert::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: rgba(99, 102, 241, 0.4);
+        }
+
+        .pe-insert span {
+            font-size: 0.625rem;
+            line-height: 1;
+            padding: 0 0.375rem;
+            color: #6366f1;
+        }
+
+        .pe-insert[data-armed]::before,
+        .pe-insert[data-armed]::after {
+            background: #6366f1;
+            height: 2px;
+        }
+
         .pe-library {
             display: flex;
             flex-wrap: wrap;
             gap: 0.5rem;
+        }
+
+        .pe-hint {
+            border-radius: 0.5rem;
+            padding: 0.625rem 0.75rem;
+            font-size: 0.8125rem;
+            background: rgba(99, 102, 241, 0.08);
+        }
+
+        .pe-hint[data-warning] {
+            background: rgba(245, 158, 11, 0.12);
+        }
+
+        .pe-hint a {
+            text-decoration: underline;
+            font-weight: 500;
         }
 
         .pe-empty {
@@ -121,6 +312,9 @@
     <div
         class="pe-layout"
         x-data="{
+            device: 'desktop',
+            reloading: false,
+            deviceWidths: { desktop: '100%', tablet: '768px', mobile: '390px' },
             reload(url) {
                 const iframe = this.$refs.canvas;
                 let scrollY = 0;
@@ -129,7 +323,11 @@
                     scrollY = iframe.contentWindow.scrollY;
                 } catch (e) {}
 
+                this.reloading = true;
+
                 iframe.onload = () => {
+                    this.reloading = false;
+
                     try {
                         iframe.contentWindow.scrollTo(0, scrollY);
                     } catch (e) {}
@@ -145,24 +343,63 @@
                     );
                 } catch (e) {}
             },
+            hoverBlock(key) {
+                this.postToCanvas({ type: 'hover', key });
+            },
+            runShortcut(name) {
+                if (name === 'save') this.$wire.save();
+                if (name === 'undo') this.$wire.undo();
+                if (name === 'redo') this.$wire.redo();
+            },
             onMessage(event) {
                 if (event.origin !== window.location.origin || event.data?.ns !== 'ezsite-editor') {
                     return;
                 }
 
-                if (event.data.type === 'ready') {
+                const message = event.data;
+
+                if (message.type === 'ready') {
+                    this.reloading = false;
                     this.postToCanvas({ type: 'select', key: this.$wire.selectedBlockKey, scroll: false });
                 }
 
-                if (event.data.type === 'block-clicked') {
-                    this.$wire.selectBlock(event.data.key);
+                if (message.type === 'block-clicked') {
+                    this.$wire.selectBlock(message.key);
                 }
 
-                if (event.data.type === 'chrome-clicked' && window.FilamentNotification) {
+                if (message.type === 'action') {
+                    if (message.action === 'move-up') this.$wire.moveBlock(message.key, -1);
+                    if (message.action === 'move-down') this.$wire.moveBlock(message.key, 1);
+                    if (message.action === 'duplicate') this.$wire.duplicateBlock(message.key);
+                    if (message.action === 'remove' && confirm('{{ __('Remove this block?') }}')) {
+                        this.$wire.removeBlock(message.key);
+                    }
+                }
+
+                if (message.type === 'shortcut') {
+                    this.runShortcut(message.name);
+                }
+
+                if (message.type === 'chrome-clicked' && window.FilamentNotification) {
                     new window.FilamentNotification()
                         .title('{{ __('The site header & footer are edited in Site Chrome settings') }}')
                         .warning()
                         .send();
+                }
+            },
+            onKeydown(event) {
+                if (! (event.metaKey || event.ctrlKey)) {
+                    return;
+                }
+
+                if (event.key === 's') {
+                    event.preventDefault();
+                    this.runShortcut('save');
+                }
+
+                if (event.key === 'z') {
+                    event.preventDefault();
+                    this.runShortcut(event.shiftKey ? 'redo' : 'undo');
                 }
             },
             onBeforeUnload(event) {
@@ -184,6 +421,7 @@
             },
         }"
         x-on:message.window="onMessage($event)"
+        x-on:keydown.window="onKeydown($event)"
         x-on:beforeunload.window="onBeforeUnload($event)"
         x-on:livewire:navigate.document="onNavigate($event)"
     >
@@ -192,24 +430,58 @@
             <div>
                 <p class="pe-heading">{{ __('Page structure') }}</p>
 
-                <div class="pe-structure" style="margin-top: 0.5rem;">
-                    @forelse ($this->blocks as $block)
+                <div
+                    class="pe-structure"
+                    style="margin-top: 0.5rem;"
+                    x-sortable
+                    x-on:end.stop="$wire.reorderBlocks($event.target.sortable.toArray())"
+                >
+                    @forelse ($this->structureRows() as $index => $row)
+                        <button
+                            type="button"
+                            wire:key="insert-{{ $index }}-{{ $row['key'] }}"
+                            class="pe-insert"
+                            title="{{ __('Insert a block here') }}"
+                            @if ($this->pendingInsertPosition === $index) data-armed @endif
+                            wire:click="queueInsertAt({{ $index }})"
+                        ><span>＋</span></button>
+
                         <div
-                            wire:key="structure-{{ $block['key'] }}"
+                            wire:key="structure-{{ $row['key'] }}"
+                            x-sortable-item="{{ $row['key'] }}"
                             class="pe-structure-row"
-                            @if ($block['key'] === $this->selectedBlockKey) data-selected @endif
+                            @if ($row['key'] === $this->selectedBlockKey) data-selected @endif
+                            x-on:mouseenter="hoverBlock('{{ $row['key'] }}')"
+                            x-on:mouseleave="hoverBlock(null)"
                         >
+                            <span class="pe-row-handle" x-sortable-handle>⋮⋮</span>
+
+                            @if ($row['icon'] !== null)
+                                <x-filament::icon icon="heroicon-{{ $row['icon'] }}" class="pe-row-icon" />
+                            @endif
+
                             <button
                                 type="button"
-                                class="pe-structure-label"
-                                wire:click="selectBlock('{{ $block['key'] }}')"
+                                class="pe-row-main"
+                                wire:click="selectBlock('{{ $row['key'] }}')"
                             >
-                                {{ filled($block['type']) ? \Illuminate\Support\Str::headline($block['type']) : __('Broken block') }}
+                                <span class="pe-row-title">
+                                    <span>{{ $row['label'] }}</span>
+                                    @if ($row['variant'] !== null)
+                                        <span class="pe-row-variant">{{ $row['variant'] }}</span>
+                                    @endif
+                                </span>
+                                @if ($row['snippet'] !== null)
+                                    <span class="pe-row-snippet" style="display: block;">{{ $row['snippet'] }}</span>
+                                @endif
                             </button>
 
-                            <button type="button" class="pe-icon-button" title="{{ __('Move up') }}" wire:click="moveBlock('{{ $block['key'] }}', -1)">↑</button>
-                            <button type="button" class="pe-icon-button" title="{{ __('Move down') }}" wire:click="moveBlock('{{ $block['key'] }}', 1)">↓</button>
-                            <button type="button" class="pe-icon-button" title="{{ __('Remove') }}" wire:click="removeBlock('{{ $block['key'] }}')">✕</button>
+                            <span class="pe-row-actions">
+                                <button type="button" class="pe-icon-button" title="{{ __('Move up') }}" wire:loading.attr="disabled" wire:click="moveBlock('{{ $row['key'] }}', -1)">↑</button>
+                                <button type="button" class="pe-icon-button" title="{{ __('Move down') }}" wire:loading.attr="disabled" wire:click="moveBlock('{{ $row['key'] }}', 1)">↓</button>
+                                <button type="button" class="pe-icon-button" title="{{ __('Duplicate') }}" wire:loading.attr="disabled" wire:click="duplicateBlock('{{ $row['key'] }}')">⧉</button>
+                                <button type="button" class="pe-icon-button" title="{{ __('Remove') }}" wire:loading.attr="disabled" wire:confirm="{{ __('Remove this block?') }}" wire:click="removeBlock('{{ $row['key'] }}')">✕</button>
+                            </span>
                         </div>
                     @empty
                         <p class="pe-empty">{{ __('No blocks yet — add one below.') }}</p>
@@ -218,16 +490,23 @@
             </div>
 
             <div>
-                <p class="pe-heading">{{ __('Add a block') }}</p>
+                <p class="pe-heading">
+                    {{ __('Add a block') }}
+                    @if ($this->pendingInsertPosition !== null)
+                        <span style="text-transform: none; letter-spacing: 0; color: #6366f1;">{{ __('— into the marked spot') }}</span>
+                    @endif
+                </p>
 
                 <div class="pe-library" style="margin-top: 0.5rem;">
-                    @foreach ($this->blockLibrary() as $type => $label)
+                    @foreach ($this->blockLibrary() as $type => $entry)
                         <x-filament::button
                             color="gray"
                             size="xs"
+                            :icon="$entry['icon'] === null ? null : 'heroicon-' . $entry['icon']"
+                            wire:loading.attr="disabled"
                             :wire:click="'addBlock(\'' . $type . '\')'"
                         >
-                            {{ $label }}
+                            {{ $entry['label'] }}
                         </x-filament::button>
                     @endforeach
                 </div>
@@ -235,17 +514,70 @@
         </div>
 
         {{-- Center pane: the canvas --}}
-        <div class="pe-canvas" wire:ignore style="background: #fff;">
-            <iframe x-ref="canvas" src="{{ $this->previewUrl() }}" title="{{ __('Page preview') }}"></iframe>
+        <div class="pe-canvas">
+            <div class="pe-canvas-toolbar">
+                @foreach (['desktop' => 'Desktop', 'tablet' => 'Tablet', 'mobile' => 'Mobile'] as $device => $label)
+                    <button
+                        type="button"
+                        class="pe-device-button"
+                        x-bind:data-active="device === '{{ $device }}' || undefined"
+                        x-on:click="device = '{{ $device }}'"
+                    >{{ __($label) }}</button>
+                @endforeach
+            </div>
+
+            <div class="pe-canvas-body">
+                <div class="pe-progress" x-show="reloading" x-cloak></div>
+
+                <div class="pe-canvas-frame" x-bind:style="{ maxWidth: deviceWidths[device] }" wire:ignore>
+                    <iframe x-ref="canvas" src="{{ $this->previewUrl() }}" title="{{ __('Page preview') }}"></iframe>
+                </div>
+
+                @if ($this->blocks === [])
+                    <div class="pe-empty-overlay">
+                        <div class="pe-empty-card">
+                            <p style="font-weight: 600; margin-bottom: 0.25rem;">{{ __('This page is empty') }}</p>
+                            <p class="pe-empty" style="margin-bottom: 1rem;">{{ __('Start with one of the most common blocks, or pick any from the left.') }}</p>
+                            <div style="display: flex; gap: 0.5rem; justify-content: center;">
+                                @foreach (['hero' => 'Hero', 'features' => 'Features', 'cta' => 'Call to action'] as $type => $label)
+                                    <x-filament::button
+                                        color="primary"
+                                        size="sm"
+                                        wire:loading.attr="disabled"
+                                        :wire:click="'addBlock(\'' . $type . '\')'"
+                                    >
+                                        {{ __($label) }}
+                                    </x-filament::button>
+                                @endforeach
+                            </div>
+                        </div>
+                    </div>
+                @endif
+            </div>
         </div>
 
         {{-- Right pane: the selected block's fields --}}
         <div class="pe-pane">
             @if ($this->selectedBlock() === null)
-                <p class="pe-empty">{{ __('Click a block on the canvas to edit it.') }}</p>
+                <p class="pe-empty">
+                    {{ $this->blocks === []
+                        ? __('This page has no blocks yet — add one from the left pane.')
+                        : __('Click a block on the canvas or in the structure list to edit it.') }}
+                </p>
             @elseif (! $this->hasEditableSelection())
                 <p class="pe-empty">{{ __("This block can't be edited — its type is no longer available. You can remove it from the page structure.") }}</p>
             @else
+                @if ($this->selectedBlockBindType() !== null)
+                    <div class="pe-hint" @if (! $this->hasBusinessProfile()) data-warning @endif>
+                        @if ($this->hasBusinessProfile())
+                            {{ __('Brand name, logo and contact details in this block come from your business profile.') }}
+                        @else
+                            {{ __("This block needs business details that aren't set up yet — it shows a placeholder until then.") }}
+                        @endif
+                        <a href="{{ $this->businessProfileUrl() }}" target="_blank" rel="noopener">{{ __('Edit business profile') }}</a>
+                    </div>
+                @endif
+
                 <div wire:key="block-form-{{ $this->selectedBlockKey }}">
                     {{ $this->blockForm }}
                 </div>

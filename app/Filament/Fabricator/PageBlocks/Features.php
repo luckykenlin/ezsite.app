@@ -8,6 +8,7 @@ use Filament\Forms\Components\Field;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Support\Icons\Heroicon;
 
 /**
  * Feature/benefit list. Content-only: every item is narrative copy, so the
@@ -16,6 +17,8 @@ use Filament\Forms\Components\TextInput;
 final class Features extends Block
 {
     protected static string $name = 'features';
+
+    protected static ?Heroicon $icon = Heroicon::OutlinedSquares2x2;
 
     /**
      * @var array<string, string>

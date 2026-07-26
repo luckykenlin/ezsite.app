@@ -7,6 +7,7 @@ namespace App\Filament\Fabricator\PageBlocks;
 use Filament\Forms\Components\Field;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use Filament\Support\Icons\Heroicon;
 
 /**
  * The canonical *no-variant* block: a section heading. Extends {@see Block} like
@@ -20,6 +21,8 @@ use Filament\Forms\Components\TextInput;
 final class Heading extends Block
 {
     protected static string $name = 'heading';
+
+    protected static ?Heroicon $icon = Heroicon::OutlinedH1;
 
     /**
      * @return array<int, Field>

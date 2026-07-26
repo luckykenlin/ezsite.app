@@ -17,9 +17,12 @@ it('enumerates every block contract in the vocabulary', function (): void {
             'type' => 'hero',
             'variants' => ['centered-minimal', 'left-text-right-image', 'full-bleed-overlay'],
             'bind' => null,
+            'icon' => 'o-sparkles',
             'fields' => ['eyebrow', 'heading', 'subheading', 'cta_label', 'cta_url', 'image_url'],
         ])
         ->and($vocabulary['heading']['variants'])->toBeEmpty()
+        // Every block declares an editor icon.
+        ->and(array_filter($vocabulary, fn (array $contract): bool => $contract['icon'] === null))->toBeEmpty()
         ->and($vocabulary['contact']['bind'])->toBe('location')
         ->and($vocabulary['header']['bind'])->toBe('business')
         ->and($vocabulary['footer']['bind'])->toBe('location')

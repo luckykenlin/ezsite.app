@@ -7,6 +7,7 @@ namespace App\Filament\Fabricator\PageBlocks;
 use Filament\Forms\Components\Field;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Support\Icons\Heroicon;
 
 /**
  * The reference multi-variant block, carrying genuinely different layout variants
@@ -17,6 +18,8 @@ use Filament\Forms\Components\TextInput;
 final class Hero extends Block
 {
     protected static string $name = 'hero';
+
+    protected static ?Heroicon $icon = Heroicon::OutlinedSparkles;
 
     /**
      * @var array<string, string>

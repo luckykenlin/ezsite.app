@@ -9,6 +9,7 @@ use Filament\Forms\Components\Field;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Support\Icons\Heroicon;
 
 /**
  * Site footer. Location-bound (which also injects the business, see
@@ -19,6 +20,8 @@ use Filament\Forms\Components\TextInput;
 final class Footer extends Block
 {
     protected static string $name = 'footer';
+
+    protected static ?Heroicon $icon = Heroicon::OutlinedBars3BottomLeft;
 
     /**
      * @var array<string, string>

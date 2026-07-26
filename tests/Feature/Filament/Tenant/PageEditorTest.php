@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Actions\Pages\CachePageEditorPreview;
+use App\Enums\PageStatus;
 use App\Filament\Tenant\Resources\PageResource\Pages\PageEditor;
 use App\Models\Location;
 use App\Models\Page;
@@ -306,9 +307,12 @@ it('blocks every structural mutation and save while the selected draft is invali
     $component->call('addBlock', 'cta')->assertNotified();
     $component->call('moveBlock', $second, -1)->assertNotified();
     $component->call('removeBlock', $second)->assertNotified();
+    $component->call('duplicateBlock', $second)->assertNotified();
+    $component->call('reorderBlocks', [$second, $first])->assertNotified();
     $component->call('save')->assertNotified();
 
     expect(array_column($component->get('blocks'), 'key'))->toBe([$first, $second])
+        ->and($component->get('history'))->toBeEmpty()
         ->and(Page::query()->findOrFail($page->id)->blocks[0]['data']['heading'])->toBe('Welcome');
 });
 
@@ -320,6 +324,213 @@ it('ignores updates outside the block draft state', function (): void {
     Livewire::test(PageEditor::class, ['record' => $page->id])
         ->set('isDirty', false)
         ->assertNotDispatched('page-editor:refresh-canvas');
+});
+
+it('duplicates a block and selects the fresh copy', function (): void {
+    $page = editorPage([
+        ['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']],
+        ['type' => 'heading', 'data' => ['content' => 'About us', 'level' => 'h2']],
+    ]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
+    [$first, $second] = array_column($component->get('blocks'), 'key');
+
+    $component->call('duplicateBlock', $first)
+        ->assertDispatched('page-editor:select-canvas-block');
+
+    $blocks = $component->get('blocks');
+
+    expect(array_column($blocks, 'type'))->toBe(['hero', 'hero', 'heading'])
+        ->and($blocks[1]['data']['heading'])->toBe('Welcome')
+        ->and($blocks[1]['key'])->not->toBe($first)
+        ->and($component->get('selectedBlockKey'))->toBe($blocks[1]['key'])
+        ->and($component->get('isDirty'))->toBeTrue();
+});
+
+it('applies a drag-and-drop reorder in one call', function (): void {
+    $page = editorPage([
+        ['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']],
+        ['type' => 'heading', 'data' => ['content' => 'About us', 'level' => 'h2']],
+        ['type' => 'cta', 'data' => ['variant' => 'banner', 'heading' => 'Book now']],
+    ]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
+    $keys = array_column($component->get('blocks'), 'key');
+
+    $component->call('reorderBlocks', [$keys[2], $keys[0], $keys[1]]);
+
+    expect(array_column($component->get('blocks'), 'key'))->toBe([$keys[2], $keys[0], $keys[1]])
+        ->and($component->get('isDirty'))->toBeTrue();
+});
+
+it('arms and disarms the between-rows insertion point', function (): void {
+    $page = editorPage([
+        ['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']],
+        ['type' => 'heading', 'data' => ['content' => 'About us', 'level' => 'h2']],
+    ]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
+
+    // Clicking the same divider again disarms it.
+    $component->call('queueInsertAt', 1);
+
+    expect($component->get('pendingInsertPosition'))->toBe(1);
+    $component->call('queueInsertAt', 1);
+    expect($component->get('pendingInsertPosition'))->toBeNull();
+
+    $component->call('queueInsertAt', 1)->call('addBlock', 'cta');
+
+    expect(array_column($component->get('blocks'), 'type'))->toBe(['hero', 'cta', 'heading'])
+        ->and($component->get('pendingInsertPosition'))->toBeNull();
+});
+
+it('undoes and redoes structural mutations', function (): void {
+    $page = editorPage([
+        ['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']],
+    ]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
+
+    // Undo/redo with empty stacks is a harmless no-op.
+    $component->call('undo')->call('redo');
+    expect($component->get('blocks'))->toHaveCount(1);
+
+    $component->call('addBlock', 'cta');
+    $added = $component->get('selectedBlockKey');
+
+    $component->call('undo')->assertDispatched('page-editor:select-canvas-block');
+    expect(array_column($component->get('blocks'), 'type'))->toBe(['hero'])
+        ->and($component->get('future'))->toHaveCount(1);
+
+    $component->call('redo');
+    expect(array_column($component->get('blocks'), 'type'))->toBe(['hero', 'cta'])
+        ->and($component->get('selectedBlockKey'))->toBe($added);
+
+    // A new mutation forks history: the redo stack is invalidated.
+    $component->call('undo')->call('addBlock', 'features');
+    expect($component->get('future'))->toBeEmpty();
+});
+
+it('caps the undo history', function (): void {
+    $page = editorPage([]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
+
+    foreach (range(1, 51) as $i) {
+        $component->call('applyBlocks', [
+            ['key' => 'k'.$i, 'type' => 'heading', 'data' => ['content' => 'v'.$i, 'level' => 'h2']],
+        ]);
+    }
+
+    expect($component->get('history'))->toHaveCount(50);
+});
+
+it('publishes and unpublishes from inside the editor, saving the draft first', function (): void {
+    $page = editorPage([
+        ['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']],
+    ]);
+    $page->update(['status' => PageStatus::Draft]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->set('data.block.heading', 'Publish me')
+        ->callAction('publish')
+        ->assertNotified();
+
+    $saved = Page::query()->findOrFail($page->id);
+
+    expect($saved->isDraft())->toBeFalse()
+        ->and($saved->blocks[0]['data']['heading'])->toBe('Publish me')
+        ->and($component->get('isDirty'))->toBeFalse();
+
+    // The same action unpublishes once the page is live (confirmation modal
+    // wording flips accordingly).
+    $component->callAction('publish');
+
+    expect(Page::query()->findOrFail($page->id)->isDraft())->toBeTrue();
+});
+
+it('does not publish while the draft is invalid', function (): void {
+    $page = editorPage([
+        ['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']],
+    ]);
+    $page->update(['status' => PageStatus::Draft]);
+
+    Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->set('data.block.variant')
+        ->call('togglePublish')
+        ->assertNotified();
+
+    expect(Page::query()->findOrFail($page->id)->isDraft())->toBeTrue();
+});
+
+it('does not reload the canvas when selecting without pending edits', function (): void {
+    $page = editorPage([
+        ['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']],
+        ['type' => 'heading', 'data' => ['content' => 'About us', 'level' => 'h2']],
+    ]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
+    [$first, $second] = array_column($component->get('blocks'), 'key');
+
+    $component->call('selectBlock', $second)
+        ->assertNotDispatched('page-editor:refresh-canvas');
+
+    // With a real edit pending, switching selection commits it and reloads.
+    $component->set('data.block.content', 'Edited')
+        ->call('selectBlock', $first)
+        ->assertDispatched('page-editor:refresh-canvas');
+});
+
+it('describes each block in the structure rows: icon, snippet, and variant badge', function (): void {
+    $page = editorPage([
+        ['type' => 'hero', 'data' => ['variant' => 'full-bleed-overlay', 'heading' => 'A very long heading that should be truncated for the sidebar']],
+        ['type' => 'heading', 'data' => ['content' => 'About us', 'level' => 'h2']],
+        ['type' => 'carousel', 'data' => []],
+    ]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
+
+    [$hero, $heading, $unknown] = $component->instance()->structureRows();
+
+    expect($hero['icon'])->toBe('o-sparkles')
+        ->and($hero['variant'])->toBe('Full-bleed image with overlay')
+        ->and($hero['snippet'])->toBe('A very long heading that should be trunc...')
+        ->and($heading['icon'])->toBe('o-h1')
+        ->and($heading['variant'])->toBeNull()
+        ->and($heading['snippet'])->toBe('About us')
+        ->and($unknown['icon'])->toBeNull()
+        ->and($unknown['snippet'])->toBeNull();
+
+    // The selected row follows the uncommitted draft.
+    $component->set('data.block.heading', 'Fresh draft');
+    expect($component->instance()->structureRows()[0]['snippet'])->toBe('Fresh draft');
+});
+
+it('hints that bound blocks read from the business profile', function (): void {
+    $page = editorPage([
+        ['type' => 'header', 'data' => ['variant' => 'simple']],
+    ]);
+
+    // No business yet: the hint escalates to a warning.
+    Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->assertSee("needs business details that aren't set up yet")
+        ->assertSee('Edit business profile');
+
+    $this->createTenantBusiness($this->tenant, ['name' => 'Corner Cafe']);
+
+    Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->assertSee('come from your business profile');
+});
+
+it('guides an empty page towards its first block', function (): void {
+    $page = editorPage([]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->assertSee('This page is empty')
+        ->assertSee('This page has no blocks yet');
+
+    // No selection also means no bind hint.
+    expect($component->instance()->selectedBlockBindType())->toBeNull();
 });
 
 it('links Visit page through the full parent chain', function (): void {

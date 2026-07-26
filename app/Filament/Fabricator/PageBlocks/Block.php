@@ -9,6 +9,7 @@ use App\Models\Location;
 use Filament\Forms\Components\Builder\Block as BuilderBlock;
 use Filament\Forms\Components\Field;
 use Filament\Forms\Components\Select;
+use Filament\Support\Icons\Heroicon;
 use Z3d0X\FilamentFabricator\PageBlocks\PageBlock;
 
 /**
@@ -55,6 +56,13 @@ abstract class Block extends PageBlock
     protected static ?BindType $bindType = null;
 
     /**
+     * The icon representing this block type in the editor's structure list
+     * and block library. Part of {@see contract()} so the AI vocabulary
+     * carries it too.
+     */
+    protected static ?Heroicon $icon = null;
+
+    /**
      * The subclass's content fields (everything except the variant selector).
      *
      * @return array<int, Field>
@@ -74,6 +82,11 @@ abstract class Block extends PageBlock
         return static::$bindType;
     }
 
+    final public static function icon(): ?Heroicon
+    {
+        return static::$icon;
+    }
+
     /**
      * The first declared variant, used as the render/default fallback.
      */
@@ -86,7 +99,7 @@ abstract class Block extends PageBlock
      * Machine-readable description of this block type for the AI vocabulary and
      * for the "tenants select, never author" enforcement boundary.
      *
-     * @return array{type: string, variants: list<string>, bind: string|null, fields: list<string>}
+     * @return array{type: string, variants: list<string>, bind: string|null, icon: string|null, fields: list<string>}
      */
     final public static function contract(): array
     {
@@ -94,6 +107,7 @@ abstract class Block extends PageBlock
             'type' => static::getName(),
             'variants' => array_keys(static::$variants),
             'bind' => static::$bindType?->value,
+            'icon' => static::$icon?->value,
             'fields' => array_values(array_map(
                 static fn (Field $field): string => $field->getName(),
                 static::fields(),
@@ -123,7 +137,10 @@ abstract class Block extends PageBlock
 
     /**
      * The auto-injected variant selector. Its name is {@see VARIANT_KEY}, so its
-     * value dehydrates into `data.variant`.
+     * value dehydrates into `data.variant`. Explicitly live WITHOUT a debounce:
+     * switching layout is the highest-visual-impact edit in the page editor,
+     * and this field-level setting overrides the debounced binding the editor's
+     * wrapping section would otherwise cascade down.
      */
     protected static function variantField(): Select
     {
@@ -132,6 +149,7 @@ abstract class Block extends PageBlock
             ->options(static::$variants)
             ->default(self::defaultVariant())
             ->selectablePlaceholder(false)
+            ->live()
             ->required();
     }
 
@@ -151,6 +169,7 @@ abstract class Block extends PageBlock
                 ->orderBy('id')
                 ->pluck('label', 'id')
                 ->all())
+            ->live()
             ->placeholder('Primary location');
     }
 }

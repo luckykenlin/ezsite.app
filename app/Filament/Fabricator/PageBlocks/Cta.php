@@ -7,6 +7,7 @@ namespace App\Filament\Fabricator\PageBlocks;
 use Filament\Forms\Components\Field;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Support\Icons\Heroicon;
 
 /**
  * Conversion call-to-action. Content-only: pure narrative copy plus links,
@@ -15,6 +16,8 @@ use Filament\Forms\Components\TextInput;
 final class Cta extends Block
 {
     protected static string $name = 'cta';
+
+    protected static ?Heroicon $icon = Heroicon::OutlinedMegaphone;
 
     /**
      * @var array<string, string>

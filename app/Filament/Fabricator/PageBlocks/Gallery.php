@@ -7,6 +7,7 @@ namespace App\Filament\Fabricator\PageBlocks;
 use Filament\Forms\Components\Field;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\TextInput;
+use Filament\Support\Icons\Heroicon;
 
 /**
  * Image gallery. Content-only: images are site-specific creative assets, so
@@ -15,6 +16,8 @@ use Filament\Forms\Components\TextInput;
 final class Gallery extends Block
 {
     protected static string $name = 'gallery';
+
+    protected static ?Heroicon $icon = Heroicon::OutlinedPhoto;
 
     /**
      * @var array<string, string>

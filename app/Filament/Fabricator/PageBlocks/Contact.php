@@ -8,6 +8,7 @@ use App\Enums\BindType;
 use Filament\Forms\Components\Field;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Support\Icons\Heroicon;
 
 /**
  * Contact section. The first bind-consuming block: NAP, hours, and the
@@ -18,6 +19,8 @@ use Filament\Forms\Components\TextInput;
 final class Contact extends Block
 {
     protected static string $name = 'contact';
+
+    protected static ?Heroicon $icon = Heroicon::OutlinedMapPin;
 
     /**
      * @var array<string, string>

@@ -29,7 +29,7 @@ final class BlockRegistry
     /**
      * Every registered block's machine-readable contract, keyed by type.
      *
-     * @return array<string, array{type: string, variants: list<string>, bind: string|null, fields: list<string>}>
+     * @return array<string, array{type: string, variants: list<string>, bind: string|null, icon: string|null, fields: list<string>}>
      */
     public static function vocabulary(): array
     {

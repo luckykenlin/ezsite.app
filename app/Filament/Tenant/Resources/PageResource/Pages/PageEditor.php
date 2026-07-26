@@ -6,11 +6,17 @@ namespace App\Filament\Tenant\Resources\PageResource\Pages;
 
 use App\Actions\Pages\AddPageBlock;
 use App\Actions\Pages\CachePageEditorPreview;
+use App\Actions\Pages\DuplicatePageBlock;
 use App\Actions\Pages\MovePageBlock;
 use App\Actions\Pages\RemovePageBlock;
+use App\Actions\Pages\ReorderPageBlocks;
+use App\Enums\BindType;
+use App\Enums\PageStatus;
 use App\Filament\Fabricator\BlockRegistry;
 use App\Filament\Fabricator\PageBlocks\Block;
+use App\Filament\Tenant\Pages\BusinessProfile;
 use App\Filament\Tenant\Resources\PageResource;
+use App\Models\Business;
 use App\Models\Page as PageModel;
 use Closure;
 use Filament\Actions\Action;
@@ -23,6 +29,7 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\Width;
+use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Unique;
 use Illuminate\Validation\ValidationException;
@@ -53,6 +60,8 @@ final class PageEditor extends Page
 {
     use InteractsWithRecord;
 
+    private const int HISTORY_LIMIT = 50;
+
     /**
      * @var list<array{key: string, type: string, data: array<string, mixed>}>
      */
@@ -70,6 +79,27 @@ final class PageEditor extends Page
     public int $previewVersion = 0;
 
     public bool $isDirty = false;
+
+    /**
+     * Structure-level undo stack: snapshots taken before every structural
+     * mutation (add/remove/move/reorder/duplicate/apply). Field edits are not
+     * snapshotted individually — they ride along inside the next snapshot
+     * once committed.
+     *
+     * @var list<array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, selectedBlockKey: string|null}>
+     */
+    public array $history = [];
+
+    /**
+     * @var list<array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, selectedBlockKey: string|null}>
+     */
+    public array $future = [];
+
+    /**
+     * Where the next added block should land (set by the structure list's
+     * between-rows "+" buttons); null appends to the end.
+     */
+    public ?int $pendingInsertPosition = null;
 
     protected static string $resource = PageResource::class;
 
@@ -116,16 +146,79 @@ final class PageEditor extends Page
     }
 
     /**
-     * The block library for the left pane: type => human label.
+     * The block library for the left pane: type => label + icon, straight
+     * from the registry contracts.
      *
-     * @return array<string, string>
+     * @return array<string, array{label: string, icon: string|null}>
      */
     public function blockLibrary(): array
     {
         return array_map(
-            static fn (array $contract): string => Str::headline($contract['type']),
+            static fn (array $contract): array => [
+                'label' => Str::headline($contract['type']),
+                'icon' => $contract['icon'],
+            ],
             BlockRegistry::vocabulary(),
         );
+    }
+
+    /**
+     * The structure list's display rows: icon + label + a content snippet
+     * (so two blocks of the same type stay distinguishable) + the variant's
+     * human label as a badge. The selected row reads the live draft, so its
+     * snippet follows uncommitted edits.
+     *
+     * @return list<array{key: string, type: string, label: string, snippet: string|null, variant: string|null, icon: string|null}>
+     */
+    public function structureRows(): array
+    {
+        return array_map(function (array $block): array {
+            $class = FilamentFabricator::getPageBlockFromName($block['type']);
+            $isBlock = is_string($class) && is_subclass_of($class, Block::class);
+
+            $draft = $this->data['block'] ?? null;
+            $data = $block['key'] === $this->selectedBlockKey && is_array($draft)
+                ? self::stringKeyed($draft)
+                : $block['data'];
+
+            $variantKey = $data[Block::VARIANT_KEY] ?? null;
+
+            return [
+                'key' => $block['key'],
+                'type' => $block['type'],
+                'label' => filled($block['type']) ? Str::headline($block['type']) : 'Broken block',
+                'snippet' => $this->snippetFrom($data),
+                'variant' => $isBlock && is_string($variantKey) ? ($class::variants()[$variantKey] ?? null) : null,
+                'icon' => $isBlock ? $class::icon()?->value : null,
+            ];
+        }, $this->blocks);
+    }
+
+    /**
+     * The selected block's bind target, if any — drives the right pane's
+     * "this data comes from your Business profile" hint.
+     */
+    public function selectedBlockBindType(): ?BindType
+    {
+        $selected = $this->selectedBlock();
+
+        if ($selected === null) {
+            return null;
+        }
+
+        $class = FilamentFabricator::getPageBlockFromName($selected['type']);
+
+        return is_string($class) && is_subclass_of($class, Block::class) ? $class::bindType() : null;
+    }
+
+    public function hasBusinessProfile(): bool
+    {
+        return Business::query()->exists();
+    }
+
+    public function businessProfileUrl(): string
+    {
+        return BusinessProfile::getUrl();
     }
 
     public function selectBlock(string $key): void
@@ -134,13 +227,22 @@ final class PageEditor extends Page
             return;
         }
 
+        $before = $this->blocks;
+
         if (! $this->commitSelectedBlock()) {
             return;
         }
 
         $this->selectedBlockKey = $key;
         $this->fillBlockForm();
-        $this->pushPreview();
+
+        // Selecting a block only reloads the canvas when committing the
+        // previous draft actually changed something — clicking around an
+        // unedited page must not flicker.
+        if ($before !== $this->blocks) {
+            $this->pushPreview();
+        }
+
         $this->dispatch('page-editor:select-canvas-block', key: $key, scroll: true);
     }
 
@@ -150,12 +252,42 @@ final class PageEditor extends Page
             return;
         }
 
-        ['blocks' => $this->blocks, 'key' => $key] = resolve(AddPageBlock::class)->handle($this->blocks, $type);
+        $this->snapshot();
 
+        ['blocks' => $this->blocks, 'key' => $key] = resolve(AddPageBlock::class)
+            ->handle($this->blocks, $type, $this->pendingInsertPosition);
+
+        $this->pendingInsertPosition = null;
         $this->selectedBlockKey = $key;
         $this->fillBlockForm();
         $this->markDirty();
         $this->dispatch('page-editor:select-canvas-block', key: $key, scroll: true);
+    }
+
+    /**
+     * Arm the structure list's between-rows insertion point: the next block
+     * added from the library lands there. Clicking the same divider again
+     * disarms it.
+     */
+    public function queueInsertAt(int $position): void
+    {
+        $this->pendingInsertPosition = $this->pendingInsertPosition === $position ? null : $position;
+    }
+
+    public function duplicateBlock(string $key): void
+    {
+        if (! $this->commitSelectedBlock()) {
+            return;
+        }
+
+        $this->snapshot();
+
+        ['blocks' => $this->blocks, 'key' => $copy] = resolve(DuplicatePageBlock::class)->handle($this->blocks, $key);
+
+        $this->selectedBlockKey = $copy;
+        $this->fillBlockForm();
+        $this->markDirty();
+        $this->dispatch('page-editor:select-canvas-block', key: $copy, scroll: true);
     }
 
     public function removeBlock(string $key): void
@@ -165,6 +297,8 @@ final class PageEditor extends Page
         if (! $removingSelected && ! $this->commitSelectedBlock()) {
             return;
         }
+
+        $this->snapshot();
 
         $index = $this->blockIndex($key);
         $this->blocks = resolve(RemovePageBlock::class)->handle($this->blocks, $key);
@@ -185,9 +319,54 @@ final class PageEditor extends Page
             return;
         }
 
+        $this->snapshot();
+
         $this->blocks = resolve(MovePageBlock::class)->handle($this->blocks, $key, $offset);
 
         $this->markDirty();
+    }
+
+    /**
+     * Apply a drag-and-drop reorder in one round trip (payload = the sortable
+     * list's key order).
+     *
+     * @param  list<string>  $orderedKeys
+     */
+    public function reorderBlocks(array $orderedKeys): void
+    {
+        if (! $this->commitSelectedBlock()) {
+            return;
+        }
+
+        $this->snapshot();
+
+        $this->blocks = resolve(ReorderPageBlocks::class)->handle($this->blocks, $orderedKeys);
+
+        $this->markDirty();
+    }
+
+    public function undo(): void
+    {
+        $entry = array_pop($this->history);
+
+        if ($entry === null) {
+            return;
+        }
+
+        $this->future[] = ['blocks' => $this->blocks, 'selectedBlockKey' => $this->selectedBlockKey];
+        $this->restoreSnapshot($entry);
+    }
+
+    public function redo(): void
+    {
+        $entry = array_pop($this->future);
+
+        if ($entry === null) {
+            return;
+        }
+
+        $this->history[] = ['blocks' => $this->blocks, 'selectedBlockKey' => $this->selectedBlockKey];
+        $this->restoreSnapshot($entry);
     }
 
     /**
@@ -199,6 +378,8 @@ final class PageEditor extends Page
      */
     public function applyBlocks(array $blocks): void
     {
+        $this->snapshot();
+
         $this->blocks = array_values($blocks);
 
         if ($this->blockIndexOrNull($this->selectedBlockKey) === null) {
@@ -212,21 +393,34 @@ final class PageEditor extends Page
 
     public function save(): void
     {
-        if (! $this->commitSelectedBlock()) {
+        if (! $this->persistBlocks()) {
             return;
         }
 
-        $this->pageRecord()->update([
-            'blocks' => array_map(
-                static fn (array $block): array => ['type' => $block['type'], 'data' => $block['data']],
-                $this->blocks,
-            ),
-        ]);
-
-        $this->isDirty = false;
-
         Notification::make()
             ->title('Page saved')
+            ->success()
+            ->send();
+    }
+
+    /**
+     * Publish or unpublish from inside the editor, saving the current draft
+     * first — "publish what you see". Aborts (errors visible) when the draft
+     * fails validation.
+     */
+    public function togglePublish(): void
+    {
+        if (! $this->persistBlocks()) {
+            return;
+        }
+
+        $page = $this->pageRecord();
+        $publishing = $page->isDraft();
+
+        $page->update(['status' => $publishing ? PageStatus::Published : PageStatus::Draft]);
+
+        Notification::make()
+            ->title($publishing ? 'Page published' : 'Page unpublished')
             ->success()
             ->send();
     }
@@ -278,6 +472,22 @@ final class PageEditor extends Page
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('undo')
+                ->label('Undo')
+                ->icon(Heroicon::OutlinedArrowUturnLeft)
+                ->iconButton()
+                ->color('gray')
+                ->disabled(fn (): bool => $this->history === [])
+                ->action(fn () => $this->undo()),
+
+            Action::make('redo')
+                ->label('Redo')
+                ->icon(Heroicon::OutlinedArrowUturnRight)
+                ->iconButton()
+                ->color('gray')
+                ->disabled(fn (): bool => $this->future === [])
+                ->action(fn () => $this->redo()),
+
             Action::make('visit')
                 ->label('Visit page')
                 ->color('gray')
@@ -289,10 +499,19 @@ final class PageEditor extends Page
 
             $this->pageSettingsAction(),
 
+            Action::make('publish')
+                ->label(fn (): string => $this->pageRecord()->isDraft() ? 'Publish' : 'Unpublish')
+                ->color(fn (): string => $this->pageRecord()->isDraft() ? 'success' : 'gray')
+                ->requiresConfirmation()
+                ->modalDescription(fn (): string => $this->pageRecord()->isDraft()
+                    ? 'The current draft is saved and the page goes live.'
+                    : 'The page returns to draft and disappears from the live site.')
+                ->action(fn () => $this->togglePublish()),
+
             Action::make('save')
-                ->label('Save')
-                ->badge(fn (): ?string => $this->isDirty ? '●' : null)
-                ->action('save'),
+                ->label(fn (): string => $this->isDirty ? 'Save changes' : 'Saved')
+                ->disabled(fn (): bool => ! $this->isDirty)
+                ->action(fn () => $this->save()),
         ];
     }
 
@@ -312,6 +531,47 @@ final class PageEditor extends Page
         }
 
         return $result;
+    }
+
+    /**
+     * Recursively drops null values while preserving list shapes (repeater
+     * items keep their order and stay JSON arrays).
+     *
+     * @param  array<array-key, mixed>  $values
+     * @return array<array-key, mixed>
+     */
+    private static function withoutNulls(array $values): array
+    {
+        $result = [];
+
+        foreach ($values as $key => $value) {
+            if ($value === null) {
+                continue;
+            }
+
+            $result[$key] = is_array($value) ? self::withoutNulls($value) : $value;
+        }
+
+        return array_is_list($values) ? array_values($result) : $result;
+    }
+
+    /**
+     * The first non-empty prose field, trimmed to a structure-row snippet.
+     * Field order follows how prominently each reads on the canvas.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private function snippetFrom(array $data): ?string
+    {
+        foreach (['heading', 'content', 'title', 'intro', 'body', 'note', 'cta_label'] as $field) {
+            $value = $data[$field] ?? null;
+
+            if (is_string($value) && mb_trim($value) !== '') {
+                return Str::limit(mb_trim($value), 40);
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -472,9 +732,64 @@ final class PageEditor extends Page
         }
 
         $committed = $state['block'] ?? [];
-        $this->blocks[$index]['data'] = is_array($committed) ? self::stringKeyed($committed) : [];
+        // Null-valued fields are dropped: the persisted shape stays minimal
+        // (an untouched field never appears in the JSON), and committing an
+        // unedited block compares identical to its stored form — which is
+        // what lets selectBlock() skip the canvas reload.
+        $this->blocks[$index]['data'] = is_array($committed) ? self::stringKeyed(self::withoutNulls($committed)) : [];
 
         return true;
+    }
+
+    /**
+     * Validate-commit the draft and write the key-stripped blocks to the
+     * page. Shared by Save and Publish; false (errors left visible) when the
+     * draft is invalid.
+     */
+    private function persistBlocks(): bool
+    {
+        if (! $this->commitSelectedBlock()) {
+            return false;
+        }
+
+        $this->pageRecord()->update([
+            'blocks' => array_map(
+                static fn (array $block): array => ['type' => $block['type'], 'data' => $block['data']],
+                $this->blocks,
+            ),
+        ]);
+
+        $this->isDirty = false;
+
+        return true;
+    }
+
+    /**
+     * Record the pre-mutation state on the undo stack (and invalidate the
+     * redo stack — a new edit forks history). Callers snapshot AFTER a
+     * successful commit, so field edits ride inside the snapshot.
+     */
+    private function snapshot(): void
+    {
+        $this->history[] = ['blocks' => $this->blocks, 'selectedBlockKey' => $this->selectedBlockKey];
+
+        if (count($this->history) > self::HISTORY_LIMIT) {
+            array_shift($this->history);
+        }
+
+        $this->future = [];
+    }
+
+    /**
+     * @param  array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, selectedBlockKey: string|null}  $entry
+     */
+    private function restoreSnapshot(array $entry): void
+    {
+        $this->blocks = $entry['blocks'];
+        $this->selectedBlockKey = $entry['selectedBlockKey'];
+        $this->fillBlockForm();
+        $this->markDirty();
+        $this->dispatch('page-editor:select-canvas-block', key: $this->selectedBlockKey, scroll: false);
     }
 
     private function markDirty(): void

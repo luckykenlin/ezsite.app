@@ -50,6 +50,14 @@ it('auto-injects a location picker between the variant selector and content fiel
         ->and(array_values($bindSelect->getOptions()))->toBe(['Main spot'])
         ->and(array_map(fn (Field $field): string => $field->getName(), array_slice($components, 2)))
         ->toBe(['heading', 'intro']);
+
+    // Both auto-injected selects are explicitly live WITHOUT a debounce, so
+    // they override the page editor's debounced section binding — switching
+    // layout/location refreshes the canvas immediately.
+    expect($components[0]->isLive())->toBeTrue()
+        ->and($components[0]->isLiveDebounced())->toBeFalse()
+        ->and($bindSelect->isLive())->toBeTrue()
+        ->and($bindSelect->isLiveDebounced())->toBeFalse();
 });
 
 it('does not inject a location picker on Business-bound blocks', function (): void {

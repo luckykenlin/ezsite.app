@@ -8,6 +8,7 @@ use Filament\Forms\Components\Field;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Support\Icons\Heroicon;
 
 /**
  * Social-proof quotes. Content-only: quotes are curated copy, so the block
@@ -16,6 +17,8 @@ use Filament\Forms\Components\TextInput;
 final class Testimonials extends Block
 {
     protected static string $name = 'testimonials';
+
+    protected static ?Heroicon $icon = Heroicon::OutlinedChatBubbleLeftRight;
 
     /**
      * @var array<string, string>

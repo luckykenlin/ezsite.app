@@ -8,6 +8,7 @@ use App\Enums\BindType;
 use Filament\Forms\Components\Field;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\TextInput;
+use Filament\Support\Icons\Heroicon;
 
 /**
  * Site header/nav. Business-bound: brand name and logo render from the
@@ -17,6 +18,8 @@ use Filament\Forms\Components\TextInput;
 final class Header extends Block
 {
     protected static string $name = 'header';
+
+    protected static ?Heroicon $icon = Heroicon::OutlinedBars3;
 
     /**
      * @var array<string, string>
