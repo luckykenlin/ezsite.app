@@ -12,9 +12,10 @@ namespace App\Enums;
  * content model (docs/business-data-model.md). Narrative copy stays in the
  * block's own `data`; factual data is resolved from the bound record.
  *
- * The contract, registry, and renderer treat `bind` as a first-class capability,
- * but live bind *resolution* (loading the referenced record) is intentionally not
- * implemented yet — it belongs with the first bind-consuming block (Contact/Footer).
+ * The contract, registry, and renderer treat `bind` as a first-class capability;
+ * live resolution happens at render time through
+ * {@see \App\Filament\Fabricator\BindResolver} and
+ * {@see \App\Filament\Fabricator\BlockRegistry::bindAttributes()}.
  */
 enum BindType: string
 {
