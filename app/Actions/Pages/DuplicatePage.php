@@ -18,37 +18,20 @@ use App\Models\Page;
  */
 final readonly class DuplicatePage
 {
+    public function __construct(private UniquePageSlug $slugs) {}
+
     public function handle(Page $page): Page
     {
+        $base = ($page->slug === '/' ? 'home' : $page->slug).'-copy';
+
         return Page::query()->create([
             'tenant_id' => $page->tenant_id,
             'title' => $page->title.' (copy)',
-            'slug' => $this->uniqueSlug($page),
+            'slug' => $this->slugs->handle($base, $page->tenant_id, $page->parent_id),
             'layout' => $page->layout,
             'parent_id' => $page->parent_id,
             'blocks' => $page->blocks ?? [],
             'status' => PageStatus::Draft,
         ]);
-    }
-
-    private function uniqueSlug(Page $page): string
-    {
-        $base = ($page->slug === '/' ? 'home' : $page->slug).'-copy';
-        $slug = $base;
-
-        for ($suffix = 2; $this->slugTaken($page, $slug); $suffix++) {
-            $slug = sprintf('%s-%d', $base, $suffix);
-        }
-
-        return $slug;
-    }
-
-    private function slugTaken(Page $page, string $slug): bool
-    {
-        return Page::query()
-            ->where('tenant_id', $page->tenant_id)
-            ->where('parent_id', $page->parent_id)
-            ->where('slug', $slug)
-            ->exists();
     }
 }

@@ -87,3 +87,20 @@ test('the editor canvas glue is loaded by the preview document only', function (
         ->toContain('resources/css/page-editor-canvas.css')
         ->and(file_get_contents($views.'/components/filament-fabricator/layouts/main.blade.php'))->not->toContain('page-editor');
 });
+
+test('the builder Alpine modules are loaded panel-wide, never scoped to their page', function (): void {
+    // Same blind spot as above, different failure. Both modules register their
+    // component on `alpine:init`, which fires once — on the first full page
+    // load. The panel navigates with wire:navigate, which swaps the body and
+    // calls Alpine.initTree() WITHOUT firing that event again, so a module
+    // scoped to one page arrives too late to ever register and every x-data on
+    // it dies with "… is not defined". Nothing at runtime can catch that here:
+    // withoutVite() hides the script tag, and there is no JS test runner.
+    $provider = file_get_contents(dirname(__DIR__, 2).'/app/Providers/FilamentServiceProvider.php');
+
+    expect($provider)
+        ->toContain('resources/js/page-editor/editor.ts')
+        ->toContain('resources/js/page-canvas/canvas.ts')
+        ->not->toContain('scopes: PageEditor')
+        ->not->toContain('scopes: PageCanvas');
+});

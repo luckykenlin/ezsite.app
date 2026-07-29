@@ -56,6 +56,7 @@ export default defineConfig({
                 'resources/js/app.ts',
                 'resources/js/page-editor/canvas.ts',
                 'resources/js/page-editor/editor.ts',
+                'resources/js/page-canvas/canvas.ts',
                 'resources/css/filament/tenant/theme.css',
             ],
             refresh: true,

@@ -81,7 +81,6 @@ interface PageEditorComponent extends AlpineInjected {
     scrollChatToEnd(): void;
     reload(url: string): void;
     postToCanvas(payload: EditorMessage): void;
-    hoverBlock(key: string | null): void;
     runShortcut(name: ShortcutName): void;
     selectedPageBlockKey(): string | null;
     removeSelected(): void;
@@ -191,10 +190,6 @@ export function pageEditor(
             } catch {
                 // The iframe may not be ready yet; the next push retries.
             }
-        },
-
-        hoverBlock(this: PageEditorComponent, key: string | null): void {
-            this.postToCanvas({ type: 'hover', key });
         },
 
         runShortcut(this: PageEditorComponent, name: ShortcutName): void {

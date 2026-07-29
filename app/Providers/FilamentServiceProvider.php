@@ -6,7 +6,6 @@ namespace App\Providers;
 
 use App\Design\ThemeVariables;
 use App\Filament\Fabricator\BindResolver;
-use App\Filament\Tenant\Resources\PageResource\Pages\PageEditor;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
@@ -77,16 +76,23 @@ final class FilamentServiceProvider extends ServiceProvider
             );
         });
 
-        // The page editor's Alpine component ships as a real module so the
-        // eslint/tsc gates cover it. Scoped to the editor page and emitted
-        // BEFORE Filament's own scripts, so its `alpine:init` listener is in
-        // place by the time Alpine boots.
+        // The builder's Alpine components ship as real modules so the
+        // eslint/tsc gates cover them, emitted BEFORE Filament's own scripts
+        // so their `alpine:init` listeners are in place by the time Alpine
+        // boots.
+        //
+        // Deliberately NOT scoped to the builder pages. `alpine:init` fires
+        // once, on the first full page load; the panel navigates with
+        // wire:navigate, which swaps the body and calls Alpine.initTree()
+        // without firing that event again. A page-scoped module therefore
+        // arrives too late to ever register, and every x-data on it dies with
+        // "pageCanvas is not defined". Loading them panel-wide costs a couple
+        // of gzipped kilobytes and makes the entry path irrelevant.
         FilamentView::registerRenderHook(
             PanelsRenderHook::SCRIPTS_BEFORE,
-            fn (): HtmlString => new HtmlString(
-                Blade::render("@vite('resources/js/page-editor/editor.ts')"),
-            ),
-            scopes: PageEditor::class,
+            fn (): HtmlString => new HtmlString(Blade::render(<<<'BLADE'
+                @vite(['resources/js/page-editor/editor.ts', 'resources/js/page-canvas/canvas.ts'])
+            BLADE)),
         );
 
         Repeater::configureUsing(function (Repeater $repeater): void {

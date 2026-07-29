@@ -30,7 +30,7 @@ final class TenantsTable
                     ->label('Domain')
                     ->placeholder('No domain')
                     ->state(fn (Tenant $record): ?string => $record->domain?->getUrl())
-                    ->url(fn (Tenant $record): ?string => $record->domain?->getUrl())
+                    ->url(fn (Tenant $record): string => $record->domain?->getUrl().'admin')
                     ->openUrlInNewTab(),
                 TextColumn::make('created_at')
                     ->dateTime()

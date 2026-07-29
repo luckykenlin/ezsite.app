@@ -225,38 +225,6 @@ final class PageEditor extends Page
     }
 
     /**
-     * The structure list's display rows: icon + label + a content snippet
-     * (so two blocks of the same type stay distinguishable) + the variant's
-     * human label as a badge. The selected row reads the live draft, so its
-     * snippet follows uncommitted edits.
-     *
-     * @return list<array{key: string, type: string, label: string, snippet: string|null, variant: string|null, icon: string|null}>
-     */
-    public function structureRows(): array
-    {
-        return array_map(function (array $block): array {
-            $class = FilamentFabricator::getPageBlockFromName($block['type']);
-            $isBlock = is_string($class) && is_subclass_of($class, Block::class);
-
-            $draft = $this->data['block'] ?? null;
-            $data = $block['key'] === $this->selectedBlockKey && is_array($draft)
-                ? self::stringKeyed($draft)
-                : $block['data'];
-
-            $variantKey = $data[Block::VARIANT_KEY] ?? null;
-
-            return [
-                'key' => $block['key'],
-                'type' => $block['type'],
-                'label' => filled($block['type']) ? Str::headline($block['type']) : 'Broken block',
-                'snippet' => $this->snippetFrom($data),
-                'variant' => $isBlock && is_string($variantKey) ? ($class::variants()[$variantKey] ?? null) : null,
-                'icon' => $isBlock ? $class::icon()?->value : null,
-            ];
-        }, $this->blocks);
-    }
-
-    /**
      * The selected block's bind target, if any — drives the right pane's
      * "this data comes from your Business profile" hint.
      */
@@ -935,25 +903,6 @@ final class PageEditor extends Page
         }
 
         return array_is_list($values) ? array_values($result) : $result;
-    }
-
-    /**
-     * The first non-empty prose field, trimmed to a structure-row snippet.
-     * Field order follows how prominently each reads on the canvas.
-     *
-     * @param  array<string, mixed>  $data
-     */
-    private function snippetFrom(array $data): ?string
-    {
-        foreach (['heading', 'content', 'title', 'intro', 'body', 'note', 'cta_label'] as $field) {
-            $value = $data[$field] ?? null;
-
-            if (is_string($value) && mb_trim($value) !== '') {
-                return Str::limit(mb_trim($value), 40);
-            }
-        }
-
-        return null;
     }
 
     /**

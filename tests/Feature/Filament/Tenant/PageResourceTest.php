@@ -2,47 +2,22 @@
 
 declare(strict_types=1);
 
-use App\Enums\PageStatus;
+use App\Filament\Tenant\Resources\PageResource;
 use App\Filament\Tenant\Resources\PageResource\Pages\CreatePage;
+use App\Filament\Tenant\Resources\PageResource\Pages\PageCanvas;
+use App\Filament\Tenant\Resources\PageResource\Pages\PageEditor;
 use App\Models\Page;
-use Filament\Actions\Testing\TestAction;
 use Livewire\Livewire;
-use Z3d0X\FilamentFabricator\Resources\PageResource\Pages\ListPages;
 
 beforeEach(function (): void {
     $this->tenant = $this->actingAsTenantPanelMember();
 });
 
-test('the pages list shows a status badge and can publish a draft', function (): void {
-    $draft = Page::factory()->draft()->create(['tenant_id' => $this->tenant->id]);
-
-    Livewire::test(ListPages::class)
-        ->call('loadTable')
-        ->assertSee('draft')
-        ->callAction(TestAction::make('publish')->table($draft));
-
-    expect(Page::query()->findOrFail($draft->getKey())->status)->toBe(PageStatus::Published);
-});
-
-test('the publish action is hidden on already-published pages', function (): void {
-    $published = Page::factory()->create(['tenant_id' => $this->tenant->id]);
-
-    Livewire::test(ListPages::class)
-        ->call('loadTable')
-        ->assertActionHidden(TestAction::make('publish')->table($published));
-});
-
-test('the duplicate row action copies the page and opens its editor', function (): void {
-    $page = Page::factory()->create(['tenant_id' => $this->tenant->id, 'title' => 'Services', 'slug' => 'services']);
-
-    Livewire::test(ListPages::class)
-        ->call('loadTable')
-        ->callAction(TestAction::make('duplicate')->table($page));
-
-    $copy = Page::query()->where('slug', 'services-copy')->firstOrFail();
-
-    expect($copy->title)->toBe('Services (copy)')
-        ->and($copy->status)->toBe(PageStatus::Draft);
+test('the site canvas is the way in and the visual editor is the way to edit', function (): void {
+    // The status badge and the publish/duplicate verbs Fabricator's table used
+    // to carry now live on the canvas card menus — see PageCanvasTest.
+    expect(PageResource::getPages()['index']->getPage())->toBe(PageCanvas::class)
+        ->and(PageResource::getPages()['edit']->getPage())->toBe(PageEditor::class);
 });
 
 test('can create a page scoped to the current tenant', function (): void {

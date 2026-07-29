@@ -532,29 +532,19 @@ it('does not reload the canvas when selecting without pending edits', function (
         ->assertDispatched('page-editor:refresh-canvas');
 });
 
-it('describes each block in the structure rows: icon, snippet, and variant badge', function (): void {
-    $page = editorPage([
-        ['type' => 'hero', 'data' => ['variant' => 'full-bleed-overlay', 'heading' => 'A very long heading that should be truncated for the sidebar']],
-        ['type' => 'heading', 'data' => ['content' => 'About us', 'level' => 'h2']],
-        ['type' => 'carousel', 'data' => []],
-    ]);
+it('offers every registered block type in the library, with its icon', function (): void {
+    // What the structure list used to assert about icons and labels now only
+    // matters here: the library is the last place the editor renders a block
+    // type without the canvas rendering the block itself.
+    $page = editorPage([]);
 
-    $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
+    $library = Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->instance()
+        ->blockLibrary();
 
-    [$hero, $heading, $unknown] = $component->instance()->structureRows();
-
-    expect($hero['icon'])->toBe('o-sparkles')
-        ->and($hero['variant'])->toBe('Full-bleed image with overlay')
-        ->and($hero['snippet'])->toBe('A very long heading that should be trunc...')
-        ->and($heading['icon'])->toBe('o-h1')
-        ->and($heading['variant'])->toBeNull()
-        ->and($heading['snippet'])->toBe('About us')
-        ->and($unknown['icon'])->toBeNull()
-        ->and($unknown['snippet'])->toBeNull();
-
-    // The selected row follows the uncommitted draft.
-    $component->set('data.block.heading', 'Fresh draft');
-    expect($component->instance()->structureRows()[0]['snippet'])->toBe('Fresh draft');
+    expect($library)->toHaveKeys(['hero', 'heading'])
+        ->and($library['hero'])->toBe(['label' => 'Hero', 'icon' => 'o-sparkles'])
+        ->and($library['heading'])->toBe(['label' => 'Heading', 'icon' => 'o-h1']);
 });
 
 it('hints that bound blocks read from the business profile', function (): void {

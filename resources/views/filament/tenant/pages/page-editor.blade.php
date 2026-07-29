@@ -1,4 +1,3 @@
-@use('App\Enums\ChromeSlot')
 <x-filament-panels::page>
     {{--
         Three-pane visual editor. The pane skeleton is styled with a scoped
@@ -203,158 +202,8 @@
             opacity: 0.6;
         }
 
-        .pe-structure {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .pe-structure-row {
-            display: flex;
-            align-items: flex-start;
-            gap: 0.375rem;
-            border-radius: 0.5rem;
-            padding: 0.375rem 0.375rem;
-            font-size: 0.875rem;
-        }
-
-        .pe-structure-row:hover {
-            background: rgba(0, 0, 0, 0.04);
-        }
-
-        .dark .pe-structure-row:hover {
-            background: rgba(255, 255, 255, 0.06);
-        }
-
-        .pe-structure-row[data-selected] {
-            background: rgba(99, 102, 241, 0.12);
-        }
-
-        .pe-row-handle {
-            cursor: grab;
-            opacity: 0.35;
-            padding-top: 0.125rem;
-            font-size: 0.75rem;
-            letter-spacing: -0.1em;
-            user-select: none;
-        }
-
-        .pe-row-icon {
-            width: 1.1rem;
-            height: 1.1rem;
-            margin-top: 0.125rem;
-            opacity: 0.7;
-            flex-shrink: 0;
-        }
-
-        .pe-row-main {
-            flex: 1;
-            min-width: 0;
-            cursor: pointer;
-            text-align: start;
-        }
-
-        .pe-row-title {
-            display: flex;
-            align-items: center;
-            gap: 0.375rem;
-            min-width: 0;
-        }
-
-        .pe-row-variant {
-            flex-shrink: 0;
-            font-size: 0.625rem;
-            border-radius: 9999px;
-            padding: 0.0625rem 0.4375rem;
-            background: rgba(99, 102, 241, 0.12);
-            color: #6366f1;
-            white-space: nowrap;
-        }
-
-        .pe-row-snippet {
-            font-size: 0.75rem;
-            opacity: 0.55;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-
-        .pe-row-actions {
-            display: flex;
-            gap: 0.125rem;
-            opacity: 0;
-        }
-
-        .pe-structure-row:hover .pe-row-actions,
-        .pe-structure-row[data-selected] .pe-row-actions {
-            opacity: 1;
-        }
-
-        .pe-icon-button {
-            border-radius: 0.375rem;
-            padding: 0.125rem 0.375rem;
-            font-size: 0.75rem;
-            opacity: 0.6;
-        }
-
-        .pe-icon-button:hover {
-            opacity: 1;
-            background: rgba(0, 0, 0, 0.08);
-        }
-
-        .dark .pe-icon-button:hover {
-            background: rgba(255, 255, 255, 0.1);
-        }
-
-        .pe-chrome-row {
-            opacity: 0.85;
-        }
-
-        .pe-heading-toggle {
-            display: flex;
-            align-items: center;
-            gap: 0.375rem;
-            width: 100%;
-            text-align: start;
-            cursor: pointer;
-        }
-
         [x-cloak] {
             display: none !important;
-        }
-
-        .pe-insert {
-            display: flex;
-            align-items: center;
-            height: 0.875rem;
-            margin: -0.0625rem 0;
-            opacity: 0;
-            cursor: pointer;
-        }
-
-        .pe-structure:hover .pe-insert,
-        .pe-insert[data-armed] {
-            opacity: 1;
-        }
-
-        .pe-insert::before,
-        .pe-insert::after {
-            content: '';
-            flex: 1;
-            height: 1px;
-            background: rgba(99, 102, 241, 0.4);
-        }
-
-        .pe-insert span {
-            font-size: 0.625rem;
-            line-height: 1;
-            padding: 0 0.375rem;
-            color: #6366f1;
-        }
-
-        .pe-insert[data-armed]::before,
-        .pe-insert[data-armed]::after {
-            background: #6366f1;
-            height: 2px;
         }
 
         .pe-library {
@@ -387,7 +236,7 @@
         /* The AI chat, docked at the bottom of the left pane. Sticky rather
            than scrolling away with the block library: the composer is the one
            control an operator returns to constantly, and it stays reachable
-           while they scroll the page structure above it. */
+           while they scroll the panes above it. */
         .pe-chat {
             position: sticky;
             bottom: -1rem;
@@ -412,7 +261,9 @@
             flex-direction: column;
             gap: 0.5rem;
             overflow-y: auto;
-            max-height: 14rem;
+            /* Roughly doubled now that the structure list has gone: the chat
+               is the only thing left competing for the rail's height. */
+            max-height: 26rem;
         }
 
         .pe-chat-message {
@@ -544,7 +395,7 @@
         x-on:beforeunload.window="onBeforeUnload($event)"
         x-on:livewire:navigate.document="onNavigate($event)"
     >
-        {{-- Left pane: page switcher + page structure + block library --}}
+        {{-- Left pane: page switcher + block library + AI chat --}}
         <div class="pe-pane">
             <div>
                 <p class="pe-heading">{{ __('Pages') }}</p>
@@ -566,106 +417,10 @@
                 </div>
             </div>
 
-            {{-- Collapsed by default: selection, reorder, insert, and the
-                 structural verbs all live on the canvas now; the list stays
-                 available as an overview for those who want it. --}}
-            <div x-data="{ structureOpen: $persist(false).as('pe-structure-open') }">
-                <button type="button" class="pe-heading pe-heading-toggle" x-on:click="structureOpen = ! structureOpen">
-                    {{ __('Page structure') }}
-                    <span x-text="structureOpen ? '▾' : '▸'"></span>
-                </button>
-
-                <div x-show="structureOpen" x-cloak>
-                <button
-                    type="button"
-                    class="pe-structure-row pe-chrome-row"
-                    style="margin-top: 0.5rem; width: 100%;"
-                    @if ($this->selectedBlockKey === ChromeSlot::Header->editorKey()) data-selected @endif
-                    wire:click="selectBlock('{{ ChromeSlot::Header->editorKey() }}')"
-                >
-                    <x-filament::icon icon="heroicon-o-bars-3" class="pe-row-icon" />
-                    <span class="pe-row-main">
-                        <span class="pe-row-title">
-                            <span>{{ __('Header') }}</span>
-                            <span class="pe-row-variant">{{ __('site-wide') }}</span>
-                        </span>
-                    </span>
-                </button>
-
-                <div
-                    class="pe-structure"
-                    x-sortable
-                    x-on:end.stop="$wire.reorderBlocks($event.target.sortable.toArray())"
-                >
-                    @forelse ($this->structureRows() as $index => $row)
-                        <button
-                            type="button"
-                            wire:key="insert-{{ $index }}-{{ $row['key'] }}"
-                            class="pe-insert"
-                            title="{{ __('Insert a block here') }}"
-                            @if ($this->pendingInsertPosition === $index) data-armed @endif
-                            wire:click="queueInsertAt({{ $index }})"
-                        ><span>＋</span></button>
-
-                        <div
-                            wire:key="structure-{{ $row['key'] }}"
-                            x-sortable-item="{{ $row['key'] }}"
-                            class="pe-structure-row"
-                            @if ($row['key'] === $this->selectedBlockKey) data-selected @endif
-                            x-on:mouseenter="hoverBlock('{{ $row['key'] }}')"
-                            x-on:mouseleave="hoverBlock(null)"
-                        >
-                            <span class="pe-row-handle" x-sortable-handle>⋮⋮</span>
-
-                            @if ($row['icon'] !== null)
-                                <x-filament::icon icon="heroicon-{{ $row['icon'] }}" class="pe-row-icon" />
-                            @endif
-
-                            <button
-                                type="button"
-                                class="pe-row-main"
-                                wire:click="selectBlock('{{ $row['key'] }}')"
-                            >
-                                <span class="pe-row-title">
-                                    <span>{{ $row['label'] }}</span>
-                                    @if ($row['variant'] !== null)
-                                        <span class="pe-row-variant">{{ $row['variant'] }}</span>
-                                    @endif
-                                </span>
-                                @if ($row['snippet'] !== null)
-                                    <span class="pe-row-snippet" style="display: block;">{{ $row['snippet'] }}</span>
-                                @endif
-                            </button>
-
-                            <span class="pe-row-actions">
-                                <button type="button" class="pe-icon-button" title="{{ __('Move up') }}" wire:loading.attr="disabled" wire:click="moveBlock('{{ $row['key'] }}', -1)">↑</button>
-                                <button type="button" class="pe-icon-button" title="{{ __('Move down') }}" wire:loading.attr="disabled" wire:click="moveBlock('{{ $row['key'] }}', 1)">↓</button>
-                                <button type="button" class="pe-icon-button" title="{{ __('Duplicate') }}" wire:loading.attr="disabled" wire:click="duplicateBlock('{{ $row['key'] }}')">⧉</button>
-                                <button type="button" class="pe-icon-button" title="{{ __('Remove') }}" wire:loading.attr="disabled" wire:confirm="{{ __('Remove this block?') }}" wire:click="removeBlock('{{ $row['key'] }}')">✕</button>
-                            </span>
-                        </div>
-                    @empty
-                        <p class="pe-empty">{{ __('No blocks yet — add one below.') }}</p>
-                    @endforelse
-                </div>
-
-                <button
-                    type="button"
-                    class="pe-structure-row pe-chrome-row"
-                    style="width: 100%;"
-                    @if ($this->selectedBlockKey === ChromeSlot::Footer->editorKey()) data-selected @endif
-                    wire:click="selectBlock('{{ ChromeSlot::Footer->editorKey() }}')"
-                >
-                    <x-filament::icon icon="heroicon-o-bars-3-bottom-left" class="pe-row-icon" />
-                    <span class="pe-row-main">
-                        <span class="pe-row-title">
-                            <span>{{ __('Footer') }}</span>
-                            <span class="pe-row-variant">{{ __('site-wide') }}</span>
-                        </span>
-                    </span>
-                </button>
-                </div>
-            </div>
+            {{-- No structure list: selection, reorder, insert and every
+                 structural verb live on the canvas, and so does site chrome —
+                 an empty header/footer slot renders there as a clickable
+                 placeholder (see components/editor-chrome-slot.blade.php). --}}
 
             <div>
                 <p class="pe-heading">
@@ -812,10 +567,10 @@
                 <p class="pe-empty">
                     {{ $this->blocks === []
                         ? __('This page has no blocks yet — add one from the left pane.')
-                        : __('Click a block on the canvas or in the structure list to edit it.') }}
+                        : __('Click a block on the canvas to edit it.') }}
                 </p>
             @elseif (! $this->hasEditableSelection())
-                <p class="pe-empty">{{ __("This block can't be edited — its type is no longer available. You can remove it from the page structure.") }}</p>
+                <p class="pe-empty">{{ __("This block can't be edited — its type is no longer available. Use its toolbar on the canvas to remove it.") }}</p>
             @else
                 @if ($this->selectedBlockBindType() !== null)
                     <div class="pe-hint" @if (! $this->hasBusinessProfile()) data-warning @endif>

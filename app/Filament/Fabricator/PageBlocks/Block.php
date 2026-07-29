@@ -56,9 +56,9 @@ abstract class Block extends PageBlock
     protected static ?BindType $bindType = null;
 
     /**
-     * The icon representing this block type in the editor's structure list
-     * and block library. Part of {@see contract()} so the AI vocabulary
-     * carries it too.
+     * The icon representing this block type in the editor's block library and
+     * on the site canvas's page cards. Read through {@see contract()}, so the
+     * AI vocabulary carries it too.
      */
     protected static ?Heroicon $icon = null;
 
@@ -91,11 +91,6 @@ abstract class Block extends PageBlock
     final public static function bindType(): ?BindType
     {
         return static::$bindType;
-    }
-
-    final public static function icon(): ?Heroicon
-    {
-        return static::$icon;
     }
 
     /**

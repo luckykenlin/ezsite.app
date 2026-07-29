@@ -50,7 +50,6 @@ export type CanvasMessage =
 /** Editor → canvas. */
 export type EditorMessage =
     | { type: 'select'; key: string | null; scroll: boolean }
-    | { type: 'hover'; key: string | null }
     | { type: 'patch'; key: string; html: string }
     | { type: 'insert-armed'; position: number | null }
     | { type: 'library-drag'; active: boolean }

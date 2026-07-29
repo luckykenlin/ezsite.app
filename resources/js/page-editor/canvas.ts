@@ -541,10 +541,6 @@ window.addEventListener('message', (event: MessageEvent) => {
         }
     }
 
-    if (message.type === 'hover') {
-        mark('data-editor-hover', message.key);
-    }
-
     if (message.type === 'insert-armed') {
         armInsertLine(message.position ?? null);
     }
