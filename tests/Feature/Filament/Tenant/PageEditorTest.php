@@ -7,6 +7,7 @@ use App\Ai\Agents\PageEditorAgent;
 use App\Design\StylePreset;
 use App\Enums\PageStatus;
 use App\Filament\Fabricator\BlockRegistry;
+use App\Filament\Tenant\Resources\PageResource;
 use App\Filament\Tenant\Resources\PageResource\Actions\PageIdentityFields;
 use App\Filament\Tenant\Resources\PageResource\Pages\PageEditor;
 use App\Models\Business;
@@ -414,25 +415,42 @@ it('applies a drag-and-drop reorder in one call', function (): void {
         ->and($component->get('isDirty'))->toBeTrue();
 });
 
-it('arms and disarms the between-rows insertion point', function (): void {
+it('opens the block library with the clicked insertion point armed', function (): void {
     $page = editorPage([
         ['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']],
         ['type' => 'heading', 'data' => ['content' => 'About us', 'level' => 'h2']],
     ]);
 
-    $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
-
-    // Clicking the same divider again disarms it.
-    $component->call('queueInsertAt', 1);
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->call('openBlockLibrary', 1)
+        ->assertDispatched('open-modal', id: PageEditor::BLOCK_LIBRARY_MODAL);
 
     expect($component->get('pendingInsertPosition'))->toBe(1);
-    $component->call('queueInsertAt', 1);
-    expect($component->get('pendingInsertPosition'))->toBeNull();
 
-    $component->call('queueInsertAt', 1)->call('addBlock', 'cta');
+    $component->call('addBlock', 'cta')
+        ->assertDispatched('close-modal', id: PageEditor::BLOCK_LIBRARY_MODAL);
 
     expect(array_column($component->get('blocks'), 'type'))->toBe(['hero', 'cta', 'heading'])
         ->and($component->get('pendingInsertPosition'))->toBeNull();
+});
+
+it('clears a stale insertion point when the library is opened from the chat', function (): void {
+    // The composer's "+" passes no position. Without the clear, a block picked
+    // there would land wherever the operator armed the canvas minutes earlier.
+    $page = editorPage([
+        ['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']],
+        ['type' => 'heading', 'data' => ['content' => 'About us', 'level' => 'h2']],
+    ]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->call('openBlockLibrary', 1)
+        ->call('openBlockLibrary');
+
+    expect($component->get('pendingInsertPosition'))->toBeNull();
+
+    $component->call('addBlock', 'cta');
+
+    expect(array_column($component->get('blocks'), 'type'))->toBe(['hero', 'heading', 'cta']);
 });
 
 it('undoes and redoes structural mutations', function (): void {
@@ -566,9 +584,10 @@ it('hints that bound blocks read from the business profile', function (): void {
 it('guides an empty page towards its first block', function (): void {
     $page = editorPage([]);
 
+    // The canvas overlay is the whole empty state now — there is no idle pane
+    // left to explain itself, because no selection simply means no drawer.
     $component = Livewire::test(PageEditor::class, ['record' => $page->id])
-        ->assertSee('This page is empty')
-        ->assertSee('This page has no blocks yet');
+        ->assertSee('This page is empty');
 
     // No selection also means no bind hint.
     expect($component->instance()->selectedBlockBindType())->toBeNull();
@@ -599,40 +618,11 @@ it('links Visit page through the full parent chain', function (): void {
         ->assertActionHasUrl('visit', '/services');
 });
 
-it('lists sibling pages in the switcher with the current one marked', function (): void {
-    $page = editorPage([]);
-    Page::query()->create([
-        'tenant_id' => tenant('id'), 'title' => 'About', 'slug' => 'about', 'layout' => 'main',
-        'blocks' => [], 'status' => PageStatus::Draft,
-    ]);
-
-    $component = Livewire::test(PageEditor::class, ['record' => $page->id])
-        ->assertSee('About');
-
-    $siblings = $component->instance()->siblingPages();
-
-    expect($siblings)->toHaveCount(2)
-        ->and(collect($siblings)->firstWhere('title', 'Home')['current'])->toBeTrue()
-        ->and(collect($siblings)->firstWhere('title', 'About')['current'])->toBeFalse()
-        ->and(collect($siblings)->firstWhere('title', 'About')['isDraft'])->toBeTrue();
-});
-
-it('creates a draft page from the New page modal and opens its editor', function (): void {
+it('leads back to the site canvas, which owns the page list now', function (): void {
     $page = editorPage([]);
 
     Livewire::test(PageEditor::class, ['record' => $page->id])
-        ->callAction('newPage', [
-            'title' => 'Services',
-            'slug' => 'services',
-            'parent_id' => null,
-        ])
-        ->assertHasNoFormErrors();
-
-    $created = Page::query()->where('slug', 'services')->firstOrFail();
-
-    expect($created->status)->toBe(PageStatus::Draft)
-        ->and($created->blocks)->toBeEmpty()
-        ->and($created->title)->toBe('Services');
+        ->assertActionHasUrl('backToCanvas', PageResource::getUrl('index'));
 });
 
 it('duplicates the whole page from the header action', function (): void {
@@ -861,7 +851,7 @@ it('deselecting commits pending edits and reloads the canvas once', function ():
         ->and($component->get('blocks')[0]['data']['heading'])->toBe('Edited');
 });
 
-it('inserts a library block at the dropped position', function (): void {
+it('inserts a library block at an explicit position', function (): void {
     $page = editorPage([
         ['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']],
         ['type' => 'heading', 'data' => ['content' => 'About us', 'level' => 'h2']],
@@ -873,6 +863,68 @@ it('inserts a library block at the dropped position', function (): void {
     expect(array_column($component->get('blocks'), 'type'))->toBe(['hero', 'cta', 'heading'])
         ->and($component->get('selectedBlockKey'))->toBe($component->get('blocks')[1]['key'])
         ->and($component->get('isDirty'))->toBeTrue();
+});
+
+/*
+ * The drawer's lifecycle. It is open exactly when something is selected, and
+ * the ONLY thing that closes it is the server — the close button calls
+ * deselectBlock() rather than dispatching close-modal, so a draft that fails
+ * validation keeps its errors on screen instead of the panel vanishing.
+ */
+
+it('opens the settings drawer on selection and keeps it open across a swap', function (): void {
+    $page = editorPage([
+        ['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']],
+        ['type' => 'heading', 'data' => ['content' => 'About us', 'level' => 'h2']],
+    ]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
+    [$first, $second] = array_column($component->get('blocks'), 'key');
+
+    // Mount selects the first block but leaves the drawer shut, so clicking
+    // that same block still has to open it.
+    $component->call('selectBlock', $first)
+        ->assertDispatched('open-modal', id: PageEditor::BLOCK_SETTINGS_MODAL);
+
+    // Switching blocks swaps the contents; it must not close and reopen.
+    $component->call('selectBlock', $second)
+        ->assertDispatched('open-modal', id: PageEditor::BLOCK_SETTINGS_MODAL)
+        ->assertNotDispatched('close-modal');
+});
+
+it('closes the drawer when the selection goes away, but never on an invalid draft', function (): void {
+    $page = editorPage([
+        ['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']],
+    ]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
+
+    // An invalid draft aborts the deselect — the drawer has to stay put.
+    $component->set('data.block.variant')
+        ->call('deselectBlock')
+        ->assertNotDispatched('close-modal');
+
+    $component->set('data.block.variant', 'centered-minimal')
+        ->call('deselectBlock')
+        ->assertDispatched('close-modal', id: PageEditor::BLOCK_SETTINGS_MODAL);
+});
+
+it('moves the drawer to the neighbour when the selected block is removed, and shuts it on the last one', function (): void {
+    $page = editorPage([
+        ['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']],
+        ['type' => 'heading', 'data' => ['content' => 'About us', 'level' => 'h2']],
+    ]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
+    $first = $component->get('blocks')[0]['key'];
+
+    $component->call('removeBlock', $first)
+        ->assertDispatched('open-modal', id: PageEditor::BLOCK_SETTINGS_MODAL);
+
+    $component->call('removeBlock', $component->get('blocks')[0]['key'])
+        ->assertDispatched('close-modal', id: PageEditor::BLOCK_SETTINGS_MODAL);
+
+    expect($component->get('blocks'))->toBeEmpty();
 });
 
 it('drops every library block in valid: sample content passes its own validation', function (): void {

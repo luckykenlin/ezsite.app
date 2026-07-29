@@ -2,9 +2,9 @@
  * The page editor's canvas glue, loaded INTO the preview document (never the
  * live tenant site). It turns a normally-rendered page into an editing
  * surface: click to select, a floating toolbar per block, drag to reorder,
- * drop a library block between blocks, and double-click to edit text in
- * place. Every decision is reported to the parent editor over postMessage —
- * this script owns no state that outlives a canvas reload.
+ * click an insertion line to open the block library, and double-click to edit
+ * text in place. Every decision is reported to the parent editor over
+ * postMessage — this script owns no state that outlives a canvas reload.
  *
  * Moved here from an inline <script> so it is covered by the repo's eslint +
  * tsc gates; the behaviour is unchanged.
@@ -45,9 +45,6 @@ let dragStartOrder = '';
 let pendingEdit: PendingEdit | null = null;
 let editing: ActiveEdit | null = null;
 let inputTimer: ReturnType<typeof setTimeout> | undefined;
-let libraryDrag = false;
-let libraryPosition: number | null = null;
-let libraryHoverFrame: number | null = null;
 
 const armInsertLine = (position: number | null): void => {
     document
@@ -128,8 +125,8 @@ const select = (key: string | null): HTMLElement | null => {
 
     const el = mark('data-editor-selected', key);
 
-    // Chrome pseudo-blocks are edited in the right pane only — the
-    // structural toolbar verbs don't apply to them.
+    // Chrome pseudo-blocks are edited in the drawer only — the structural
+    // toolbar verbs don't apply to them.
     if (el && !isChromeKey(key)) {
         el.appendChild(toolbar());
     }
@@ -300,50 +297,6 @@ document.addEventListener('dragstart', (event) => {
 });
 
 document.addEventListener('dragover', (event) => {
-    // A library block dragged in from the parent: allow the drop and
-    // keep the nearest insertion line armed (rAF-throttled — the
-    // collapsed layout is static, so this is cheap).
-    if (libraryDrag) {
-        event.preventDefault();
-
-        if (event.dataTransfer) {
-            event.dataTransfer.dropEffect = 'copy';
-        }
-
-        if (libraryHoverFrame === null) {
-            const y = event.clientY;
-
-            libraryHoverFrame = requestAnimationFrame(() => {
-                libraryHoverFrame = null;
-
-                let nearest: HTMLElement | null = null;
-                let nearestDistance = Infinity;
-
-                document
-                    .querySelectorAll<HTMLElement>('[data-editor-insert]')
-                    .forEach((line) => {
-                        const rect = line.getBoundingClientRect();
-                        const distance = Math.abs(
-                            y - (rect.top + rect.height / 2),
-                        );
-
-                        if (distance < nearestDistance) {
-                            nearestDistance = distance;
-                            nearest = line;
-                        }
-                    });
-
-                libraryPosition =
-                    nearest === null
-                        ? null
-                        : Number((nearest as HTMLElement).dataset.editorInsert);
-                armInsertLine(libraryPosition);
-            });
-        }
-
-        return;
-    }
-
     if (!dragging) {
         return;
     }
@@ -391,27 +344,6 @@ document.addEventListener('dragend', () => {
     if (keys.join('|') !== dragStartOrder) {
         post({ type: 'reorder', keys });
     }
-});
-
-document.addEventListener('drop', (event) => {
-    if (!libraryDrag) {
-        return;
-    }
-
-    event.preventDefault();
-
-    const blockType =
-        event.dataTransfer?.getData('application/x-ezsite-block') ?? '';
-
-    if (blockType !== '' && libraryPosition !== null) {
-        post({ type: 'library-drop', blockType, position: libraryPosition });
-    }
-
-    // The parent's dragend also clears the mode; do it eagerly for
-    // instant feedback (the insert reloads the canvas anyway).
-    libraryDrag = false;
-    document.documentElement.removeAttribute('data-editor-insert-mode');
-    armInsertLine(null);
 });
 
 // Forward the editor shortcuts so they work while the canvas has focus.
@@ -543,19 +475,6 @@ window.addEventListener('message', (event: MessageEvent) => {
 
     if (message.type === 'insert-armed') {
         armInsertLine(message.position ?? null);
-    }
-
-    if (message.type === 'library-drag') {
-        libraryDrag = message.active === true;
-        libraryPosition = null;
-        document.documentElement.toggleAttribute(
-            'data-editor-insert-mode',
-            libraryDrag,
-        );
-
-        if (!libraryDrag) {
-            armInsertLine(null);
-        }
     }
 
     if (message.type === 'inline-edit-grant') {

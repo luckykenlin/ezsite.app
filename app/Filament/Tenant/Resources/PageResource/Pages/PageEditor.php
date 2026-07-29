@@ -21,7 +21,6 @@ use App\Filament\Fabricator\PageBlocks\Block;
 use App\Filament\Tenant\Pages\BusinessProfile;
 use App\Filament\Tenant\Resources\PageResource;
 use App\Filament\Tenant\Resources\PageResource\Actions\DesignAction;
-use App\Filament\Tenant\Resources\PageResource\Actions\NewPageAction;
 use App\Filament\Tenant\Resources\PageResource\Actions\PageSettingsAction;
 use App\Models\Business;
 use App\Models\Page as PageModel;
@@ -41,12 +40,19 @@ use Illuminate\Validation\ValidationException;
 use Z3d0X\FilamentFabricator\Facades\FilamentFabricator;
 
 /**
- * The visual page editor: a three-pane canvas replacing the stock form-only
- * EditPage. Left pane lists the page structure (select / move / remove) and
- * the block library ({@see BlockRegistry::vocabulary()}); the center iframe
- * renders the DRAFT state through the real tenant layout chain (see
- * {@see CachePageEditorPreview}); the right pane hosts the selected block's
- * own Filament schema.
+ * The visual page editor, replacing the stock form-only EditPage: a left rail
+ * holding only the AI chat, and an iframe canvas rendering the DRAFT state
+ * through the real tenant layout chain (see {@see CachePageEditorPreview}).
+ * Selecting a block opens its Filament schema in a click-through slide-over
+ * drawer; the block library ({@see BlockRegistry::vocabulary()}) lives in a
+ * modal, opened either by the chat composer's "+" or by a canvas insert line.
+ *
+ * Both are hand-rolled `<x-filament::modal>`s, NOT `Action->slideOver()`.
+ * Action modals are destroyed on unmount and keep their state at
+ * `mountedActions.0.data`, whereas everything below — and the canvas's inline
+ * editing in `editor.ts` — is wired to `statePath('data')` → `data.block.*`.
+ * A `<x-filament::modal>` renders its slot unconditionally and toggles with
+ * `x-show`, so the form merely moves in the DOM and keeps its state.
  *
  * State model: `$blocks` holds every block in persisted shape plus a
  * transient uuid `key` (stripped on save). The selected block's live edits
@@ -72,6 +78,15 @@ final class PageEditor extends Page
      * turn runs. Mirrored by the blade's `wire:stream` attribute.
      */
     public const string CHAT_STREAM = 'chatReply';
+
+    /**
+     * The block settings drawer and the block library, as `<x-filament::modal>`
+     * ids. Constants rather than literals because the blade and this class both
+     * name them, and a typo would silently produce a modal nothing can open.
+     */
+    public const string BLOCK_SETTINGS_MODAL = 'page-editor-block-settings';
+
+    public const string BLOCK_LIBRARY_MODAL = 'page-editor-block-library';
 
     private const int HISTORY_LIMIT = 50;
 
@@ -109,8 +124,9 @@ final class PageEditor extends Page
     public array $future = [];
 
     /**
-     * Where the next added block should land (set by the structure list's
-     * between-rows "+" buttons); null appends to the end.
+     * Where the next added block should land, armed by a canvas insert line;
+     * null appends to the end. The library's buttons are rendered once and
+     * cannot carry a per-open position, so it is held here instead.
      */
     public ?int $pendingInsertPosition = null;
 
@@ -251,41 +267,14 @@ final class PageEditor extends Page
         return BusinessProfile::getUrl();
     }
 
-    /**
-     * Every page of the tenant (RLS scopes the query), for the left pane's
-     * page switcher. Plain editor links — the SPA navigate guard covers
-     * unsaved changes.
-     *
-     * @return array<int, array{id: int, title: string, isDraft: bool, url: string, current: bool}>
-     */
-    public function siblingPages(): array
-    {
-        return PageModel::query()
-            ->orderBy('title')
-            ->get()
-            ->map(fn (PageModel $page): array => [
-                'id' => (int) $page->id,
-                'title' => $page->title,
-                'isDraft' => $page->isDraft(),
-                'url' => PageResource::getUrl('edit', ['record' => $page]),
-                'current' => $page->id === $this->pageRecord()->id,
-            ])
-            ->values()
-            ->all();
-    }
-
-    /**
-     * Rendered directly by the blade (`$this->newPageAction`), which is why
-     * this one action keeps a method on the component.
-     */
-    public function newPageAction(): Action
-    {
-        return NewPageAction::make($this);
-    }
-
     public function selectBlock(string $key): void
     {
         if ($key === $this->selectedBlockKey) {
+            // Re-clicking the current selection still has to open the drawer:
+            // mount() selects the first block but deliberately leaves the
+            // drawer shut, so without this that block would never open.
+            $this->syncBlockDrawer();
+
             return;
         }
 
@@ -314,6 +303,7 @@ final class PageEditor extends Page
         }
 
         $this->dispatch('page-editor:select-canvas-block', key: $key, scroll: true);
+        $this->syncBlockDrawer();
     }
 
     public function addBlock(string $type): void
@@ -341,13 +331,15 @@ final class PageEditor extends Page
         $this->fillBlockForm();
         $this->markDirty();
         $this->dispatch('page-editor:select-canvas-block', key: $key, scroll: true);
+        $this->dispatch('close-modal', id: self::BLOCK_LIBRARY_MODAL);
+        $this->syncBlockDrawer();
 
         if (! $this->sampleHintShown) {
             $this->sampleHintShown = true;
 
             Notification::make()
                 ->title('Sample content added')
-                ->body('Double-click any text on the canvas to edit it, or use the panel on the right.')
+                ->body('Double-click any text on the canvas to edit it, or open its settings from the drawer.')
                 ->info()
                 ->send();
         }
@@ -378,16 +370,22 @@ final class PageEditor extends Page
         }
 
         $this->dispatch('page-editor:select-canvas-block', key: null, scroll: false);
+        $this->syncBlockDrawer();
     }
 
     /**
-     * Arm the structure list's between-rows insertion point: the next block
-     * added from the library lands there. Clicking the same divider again
-     * disarms it.
+     * Open the block library.
+     *
+     * A position arms the insertion point, so a block picked from the modal
+     * lands where the canvas "+" was clicked. No position CLEARS any armed one
+     * — the chat composer's "+" must append, not drop the block somewhere the
+     * operator armed minutes ago and forgot about.
      */
-    public function queueInsertAt(int $position): void
+    public function openBlockLibrary(?int $position = null): void
     {
-        $this->pendingInsertPosition = $this->pendingInsertPosition === $position ? null : $position;
+        $this->pendingInsertPosition = $position;
+
+        $this->dispatch('open-modal', id: self::BLOCK_LIBRARY_MODAL);
     }
 
     public function duplicateBlock(string $key): void
@@ -430,6 +428,9 @@ final class PageEditor extends Page
             $this->selectedBlockKey = $neighbor;
             $this->fillBlockForm();
             $this->dispatch('page-editor:select-canvas-block', key: $neighbor, scroll: false);
+            // A neighbour keeps the drawer open on it; removing the last block
+            // leaves nothing selected and closes it.
+            $this->syncBlockDrawer();
         }
 
         $this->markDirty();
@@ -508,9 +509,10 @@ final class PageEditor extends Page
             $this->selectedBlockKey = null;
         }
 
-        // The applied draft is authoritative — refill the right pane from it.
+        // The applied draft is authoritative — refill the drawer from it.
         $this->fillBlockForm();
         $this->markDirty();
+        $this->syncBlockDrawer();
     }
 
     /**
@@ -797,6 +799,15 @@ final class PageEditor extends Page
     protected function getHeaderActions(): array
     {
         return [
+            // Replaces the deleted left-rail page switcher. Unsaved changes
+            // are already guarded: onNavigate() for a wire:navigate link,
+            // onBeforeUnload() otherwise.
+            Action::make('backToCanvas')
+                ->label('All pages')
+                ->icon(Heroicon::OutlinedArrowLeft)
+                ->color('gray')
+                ->url(fn (): string => PageResource::getUrl('index')),
+
             Action::make('undo')
                 ->label('Undo')
                 ->icon(Heroicon::OutlinedArrowUturnLeft)
@@ -906,6 +917,20 @@ final class PageEditor extends Page
     }
 
     /**
+     * The drawer is open exactly when something is selected.
+     *
+     * Called after the selection settles, never before: a verb that aborts on
+     * an invalid draft must leave the drawer open with its errors showing.
+     */
+    private function syncBlockDrawer(): void
+    {
+        $this->dispatch(
+            $this->selectedBlockKey === null ? 'close-modal' : 'open-modal',
+            id: self::BLOCK_SETTINGS_MODAL,
+        );
+    }
+
+    /**
      * The stored blocks with a transient uuid key each. Structurally broken
      * entries (non-array, missing type) are normalized to an empty-typed
      * block: they render as a placeholder on the canvas and stay deletable,
@@ -956,7 +981,9 @@ final class PageEditor extends Page
         // resolve (the Section re-parents the fields when it renders).
         $blockSchema = $class::getBlockSchema()->container(Schema::make($this));
 
-        return Section::make(Str::headline($selected['type']))
+        // Headingless: the drawer's own header already names the block type,
+        // and a Section title would repeat it directly underneath.
+        return Section::make()
             ->schema($blockSchema->getChildComponents())
             ->statePath('block')
             ->live(debounce: 500);
@@ -1094,6 +1121,7 @@ final class PageEditor extends Page
         $this->fillBlockForm();
         $this->markDirty();
         $this->dispatch('page-editor:select-canvas-block', key: $this->selectedBlockKey, scroll: false);
+        $this->syncBlockDrawer();
     }
 
     private function markDirty(): void

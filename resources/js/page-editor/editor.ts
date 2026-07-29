@@ -24,8 +24,11 @@ import {
 } from './protocol';
 
 interface PageEditorConfig {
-    /** Block types the library offers — a drop of anything else is ignored. */
-    libraryTypes: string[];
+    /** Modal ids, interpolated from the PageEditor constants by the blade. */
+    modals: {
+        drawer: string;
+        library: string;
+    };
     labels: {
         confirmRemove: string;
         confirmLeave: string;
@@ -49,8 +52,7 @@ interface EditorWire {
     moveBlock(key: string, offset: number): void;
     duplicateBlock(key: string): void;
     reorderBlocks(keys: string[]): void;
-    addBlockAt(type: string, position: number): void;
-    queueInsertAt(position: number): Promise<unknown>;
+    openBlockLibrary(position: number | null): void;
     sendChatMessage(): Promise<unknown>;
     set(name: string, value: unknown): void;
     on(event: string, handler: (payload: never) => void): void;
@@ -86,9 +88,13 @@ interface PageEditorComponent extends AlpineInjected {
     removeSelected(): void;
     moveSelected(offset: number): void;
     inField(target: EventTarget | null): boolean;
+    /** Whether the block library is over the canvas, swallowing key verbs. */
+    libraryOpen: boolean;
+    /** Whether the settings drawer is out, so the canvas can make room. */
+    drawerOpen: boolean;
     modalOpen(): boolean;
-    onLibraryDragStart(event: DragEvent, type: string): void;
-    onLibraryDragEnd(): void;
+    onModalOpened(event: CustomEvent): void;
+    onModalClosed(event: CustomEvent): void;
     onMessage(event: MessageEvent): void;
     onKeydown(event: KeyboardEvent): void;
     onBeforeUnload(event: BeforeUnloadEvent): void;
@@ -105,6 +111,12 @@ declare global {
     }
 }
 
+function modalId(event: CustomEvent): string | null {
+    const id: unknown = (event.detail as { id?: unknown } | null)?.id;
+
+    return typeof id === 'string' ? id : null;
+}
+
 export function pageEditor(
     config: PageEditorConfig,
 ): Omit<PageEditorComponent, keyof AlpineInjected> {
@@ -119,6 +131,8 @@ export function pageEditor(
         },
         chatSending: false,
         chatPending: '',
+        libraryOpen: false,
+        drawerOpen: false,
 
         /**
          * Send the box's contents. The message is echoed locally first so it
@@ -233,26 +247,38 @@ export function pageEditor(
             );
         },
 
+        /**
+         * Whether a modal is swallowing the canvas keyboard verbs.
+         *
+         * The block library counts: it sits over the canvas, so Delete would
+         * remove the block behind it. The settings drawer deliberately does
+         * NOT — it is click-through, and Save and Undo have to keep working
+         * while you edit. Neither is a mounted action, hence the explicit flag.
+         */
         modalOpen(this: PageEditorComponent): boolean {
-            return (this.$wire.mountedActions ?? []).length > 0;
+            return (
+                (this.$wire.mountedActions ?? []).length > 0 || this.libraryOpen
+            );
         },
 
-        onLibraryDragStart(
-            this: PageEditorComponent,
-            event: DragEvent,
-            type: string,
-        ): void {
-            event.dataTransfer?.setData('application/x-ezsite-block', type);
+        onModalOpened(this: PageEditorComponent, event: CustomEvent): void {
+            const id = modalId(event);
 
-            if (event.dataTransfer) {
-                event.dataTransfer.effectAllowed = 'copy';
+            if (id === config.modals.library) this.libraryOpen = true;
+            if (id === config.modals.drawer) this.drawerOpen = true;
+        },
+
+        onModalClosed(this: PageEditorComponent, event: CustomEvent): void {
+            const id = modalId(event);
+
+            if (id === config.modals.library) {
+                this.libraryOpen = false;
+                // Dismissing the library without picking anything would
+                // otherwise leave the armed insert line lit with nothing coming.
+                this.postToCanvas({ type: 'insert-armed', position: null });
             }
 
-            this.postToCanvas({ type: 'library-drag', active: true });
-        },
-
-        onLibraryDragEnd(this: PageEditorComponent): void {
-            this.postToCanvas({ type: 'library-drag', active: false });
+            if (id === config.modals.drawer) this.drawerOpen = false;
         },
 
         onMessage(this: PageEditorComponent, event: MessageEvent): void {
@@ -298,20 +324,13 @@ export function pageEditor(
                 message.type === 'insert-at' &&
                 Number.isInteger(message.position)
             ) {
-                void this.$wire.queueInsertAt(message.position).then(() => {
-                    this.postToCanvas({
-                        type: 'insert-armed',
-                        position: this.$wire.pendingInsertPosition,
-                    });
+                // The modal is the confirmation now, so there is no toggle-off
+                // and nothing to read back — arm the line optimistically.
+                this.$wire.openBlockLibrary(message.position);
+                this.postToCanvas({
+                    type: 'insert-armed',
+                    position: message.position,
                 });
-            }
-
-            if (
-                message.type === 'library-drop' &&
-                Number.isInteger(message.position) &&
-                config.libraryTypes.includes(message.blockType)
-            ) {
-                this.$wire.addBlockAt(message.blockType, message.position);
             }
 
             if (message.type === 'deselect') {

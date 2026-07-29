@@ -30,12 +30,10 @@
     opacity: 0.5;
 }
 
-/* Drag mode (reorder) and insert mode (dragging a library block in):
-   full-height sections are impossible to aim at, so every block
-   collapses into a labeled compact card for the duration of the drag —
-   the page becomes a short, scannable list. */
-html[data-editor-drag-mode] [data-block-key],
-html[data-editor-insert-mode] [data-block-key] {
+/* Drag mode (reorder): full-height sections are impossible to aim at, so
+   every block collapses into a labeled compact card for the duration of the
+   drag — the page becomes a short, scannable list. */
+html[data-editor-drag-mode] [data-block-key] {
     max-height: 4.5rem;
     min-height: 4.5rem;
     overflow: hidden;
@@ -43,8 +41,7 @@ html[data-editor-insert-mode] [data-block-key] {
     outline-offset: -1px;
 }
 
-html[data-editor-drag-mode] [data-block-key]::after,
-html[data-editor-insert-mode] [data-block-key]::after {
+html[data-editor-drag-mode] [data-block-key]::after {
     content: attr(data-block-type);
     position: absolute;
     inset: 0;
@@ -63,19 +60,8 @@ html[data-editor-insert-mode] [data-block-key]::after {
 }
 
 html[data-editor-drag-mode] [data-editor-insert],
-html[data-editor-drag-mode] [data-editor-toolbar] button,
-html[data-editor-insert-mode] [data-editor-toolbar] {
+html[data-editor-drag-mode] [data-editor-toolbar] button {
     display: none;
-}
-
-/* While a library block hovers over the canvas, every insertion line is
-   visible and the nearest one is armed. */
-html[data-editor-insert-mode] [data-editor-insert] {
-    opacity: 0.5;
-}
-
-html[data-editor-insert-mode] [data-editor-insert][data-armed] {
-    opacity: 1;
 }
 
 [data-editor-toolbar] {

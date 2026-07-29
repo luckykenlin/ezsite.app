@@ -41,7 +41,6 @@ export type CanvasMessage =
     | { type: 'action'; action: BlockAction; key: string }
     | { type: 'reorder'; keys: string[] }
     | { type: 'insert-at'; position: number }
-    | { type: 'library-drop'; blockType: string; position: number }
     | { type: 'inline-edit-request'; key: string; text: string }
     | { type: 'inline-input'; key: string; field: string; value: string }
     | { type: 'inline-commit' }
@@ -52,7 +51,6 @@ export type EditorMessage =
     | { type: 'select'; key: string | null; scroll: boolean }
     | { type: 'patch'; key: string; html: string }
     | { type: 'insert-armed'; position: number | null }
-    | { type: 'library-drag'; active: boolean }
     | { type: 'inline-edit-grant'; field: string };
 
 /**

@@ -10,7 +10,7 @@
     <style>
         .pe-layout {
             display: grid;
-            grid-template-columns: 19rem minmax(0, 1fr) 26rem;
+            grid-template-columns: 20rem minmax(0, 1fr);
             gap: 1rem;
             height: calc(100vh - 11rem);
             min-height: 24rem;
@@ -38,6 +38,25 @@
             overflow: hidden;
             border-radius: 0.75rem;
             box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
+            transition: margin-inline-end 0.2s ease;
+        }
+
+        /* The drawer's panel is opaque (only its backdrop is click-through), so
+           the block you just selected would often be the one hidden underneath
+           it. The whole canvas card narrows instead of the preview frame moving
+           — narrowing the card keeps its border visible at the new edge, and
+           lets the device toolbar and the frame's own `margin: 0 auto` re-centre
+           themselves in what is left. Shifting the frame alone would fight that
+           auto margin and jam the preview against the drawer. */
+        .pe-canvas[data-drawer] {
+            margin-inline-end: 26rem;
+        }
+
+        /* The page header runs the full content width, so Publish and Save
+           would sit under the drawer. Reserve the same strip for them. */
+        .fi-page:has(.pe-canvas[data-drawer]) .fi-header {
+            padding-inline-end: 26rem;
+            transition: padding-inline-end 0.2s ease;
         }
 
         .pe-canvas-toolbar {
@@ -148,52 +167,6 @@
             background: rgb(24, 24, 27);
         }
 
-        .pe-pages {
-            display: flex;
-            flex-direction: column;
-            gap: 0.125rem;
-        }
-
-        .pe-page-row {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            border-radius: 0.5rem;
-            padding: 0.3125rem 0.5rem;
-            font-size: 0.875rem;
-        }
-
-        .pe-page-row:hover {
-            background: rgba(0, 0, 0, 0.04);
-        }
-
-        .dark .pe-page-row:hover {
-            background: rgba(255, 255, 255, 0.06);
-        }
-
-        .pe-page-row[data-selected] {
-            background: rgba(99, 102, 241, 0.12);
-            font-weight: 600;
-        }
-
-        .pe-page-dot {
-            width: 0.5rem;
-            height: 0.5rem;
-            border-radius: 9999px;
-            background: rgba(245, 158, 11, 0.9);
-            flex-shrink: 0;
-        }
-
-        .pe-page-dot[data-live] {
-            background: rgba(34, 197, 94, 0.9);
-        }
-
-        .pe-page-title {
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-
         .pe-heading {
             font-size: 0.75rem;
             font-weight: 600;
@@ -237,33 +210,24 @@
            than scrolling away with the block library: the composer is the one
            control an operator returns to constantly, and it stays reachable
            while they scroll the panes above it. */
+        /* The chat is the whole rail now, so it simply fills it — the sticky
+           footer and the capped log height existed to dock the composer under
+           a scrolling block library that no longer sits above it. */
         .pe-chat {
-            position: sticky;
-            bottom: -1rem;
-            margin-top: auto;
-            margin-bottom: -1rem;
-            padding-bottom: 1rem;
-            padding-top: 0.5rem;
             display: flex;
+            flex: 1;
+            min-height: 0;
             flex-direction: column;
             gap: 0.5rem;
-            background: var(--fi-color-white, #fff);
-        }
-
-        .dark .pe-chat {
-            /* The pane's translucent white over the panel background — a
-               transparent sticky footer would show the list scrolling under it. */
-            background: rgb(30, 30, 33);
         }
 
         .pe-chat-log {
             display: flex;
+            flex: 1;
+            min-height: 0;
             flex-direction: column;
             gap: 0.5rem;
             overflow-y: auto;
-            /* Roughly doubled now that the structure list has gone: the chat
-               is the only thing left competing for the rail's height. */
-            max-height: 26rem;
         }
 
         .pe-chat-message {
@@ -374,6 +338,45 @@
             opacity: 0.4;
         }
 
+        .pe-chat-composer-start {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            min-width: 0;
+        }
+
+        .pe-chat-add {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 1.75rem;
+            height: 1.75rem;
+            border-radius: 0.5rem;
+            opacity: 0.6;
+            flex-shrink: 0;
+        }
+
+        .pe-chat-add:hover {
+            opacity: 1;
+            background: rgba(0, 0, 0, 0.06);
+        }
+
+        .dark .pe-chat-add:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .pe-chat-add:disabled {
+            opacity: 0.3;
+        }
+
+        .pe-drawer-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            width: 100%;
+        }
+
         .pe-chat-send svg {
             width: 0.9rem;
             height: 0.9rem;
@@ -381,10 +384,16 @@
 
     </style>
 
+    {{-- The Alpine root is deliberately NOT the grid: a `<x-filament::modal>`
+         root is a plain static block (only its window is fixed), so a modal
+         placed inside .pe-layout becomes a grid item and opening the drawer
+         added a whole second row, halving the panes' height. --}}
     <div
-        class="pe-layout"
         x-data="pageEditor({
-            libraryTypes: @js(array_keys($this->blockLibrary())),
+            modals: @js([
+                'drawer' => \App\Filament\Tenant\Resources\PageResource\Pages\PageEditor::BLOCK_SETTINGS_MODAL,
+                'library' => \App\Filament\Tenant\Resources\PageResource\Pages\PageEditor::BLOCK_LIBRARY_MODAL,
+            ]),
             labels: @js([
                 'confirmRemove' => __('Remove this block?'),
                 'confirmLeave' => __('You have unsaved changes. Leave this page?'),
@@ -394,61 +403,19 @@
         x-on:keydown.window="onKeydown($event)"
         x-on:beforeunload.window="onBeforeUnload($event)"
         x-on:livewire:navigate.document="onNavigate($event)"
+        {{-- Tracks which of the two modals is out: the library must disable the
+             canvas keyboard verbs (Delete would hit the block behind it), and
+             the drawer makes the canvas shift over. --}}
+        x-on:open-modal.window="onModalOpened($event)"
+        x-on:modal-closed.window="onModalClosed($event)"
     >
-        {{-- Left pane: page switcher + block library + AI chat --}}
+        <div class="pe-layout">
+        {{-- Left rail: the AI assistant, and nothing else. Selection, reorder,
+             insert and every structural verb live on the canvas; site chrome
+             does too (an empty header/footer slot renders there as a clickable
+             placeholder, see components/editor-chrome-slot.blade.php); block
+             settings live in the drawer; the block library in a modal. --}}
         <div class="pe-pane">
-            <div>
-                <p class="pe-heading">{{ __('Pages') }}</p>
-
-                <div class="pe-pages" style="margin-top: 0.5rem;">
-                    @foreach ($this->siblingPages() as $sibling)
-                        <a
-                            wire:key="page-{{ $sibling['id'] }}"
-                            href="{{ $sibling['url'] }}"
-                            class="pe-page-row"
-                            @if ($sibling['current']) data-selected @endif
-                        >
-                            <span class="pe-page-dot" @if (! $sibling['isDraft']) data-live @endif title="{{ $sibling['isDraft'] ? __('Draft') : __('Published') }}"></span>
-                            <span class="pe-page-title">{{ $sibling['title'] }}</span>
-                        </a>
-                    @endforeach
-
-                    {{ $this->newPageAction }}
-                </div>
-            </div>
-
-            {{-- No structure list: selection, reorder, insert and every
-                 structural verb live on the canvas, and so does site chrome —
-                 an empty header/footer slot renders there as a clickable
-                 placeholder (see components/editor-chrome-slot.blade.php). --}}
-
-            <div>
-                <p class="pe-heading">
-                    {{ __('Add a block') }}
-                    @if ($this->pendingInsertPosition !== null)
-                        <span style="text-transform: none; letter-spacing: 0; color: #6366f1;">{{ __('— into the marked spot') }}</span>
-                    @endif
-                </p>
-
-                <div class="pe-library" style="margin-top: 0.5rem;">
-                    @foreach ($this->blockLibrary() as $type => $entry)
-                        <x-filament::button
-                            color="gray"
-                            size="xs"
-                            :icon="$entry['icon'] === null ? null : 'heroicon-' . $entry['icon']"
-                            wire:loading.attr="disabled"
-                            :wire:click="'addBlock(\'' . $type . '\')'"
-                            draggable="true"
-                            x-on:dragstart="onLibraryDragStart($event, '{{ $type }}')"
-                            x-on:dragend="onLibraryDragEnd()"
-                            title="{{ __('Click to add, or drag onto the page') }}"
-                        >
-                            {{ $entry['label'] }}
-                        </x-filament::button>
-                    @endforeach
-                </div>
-            </div>
-
             {{--
                 The AI assistant, docked at the bottom of this pane. Every
                 change it makes lands on the undo stack and stays unsaved until
@@ -497,7 +464,24 @@
                     ></textarea>
 
                     <div class="pe-chat-composer-actions">
-                        <span class="pe-chat-hint" x-text="chatSending ? '{{ __('Working…') }}' : '{{ __('Enter to send') }}'"></span>
+                        <div class="pe-chat-composer-start">
+                            {{-- No argument: openBlockLibrary(null) clears any
+                                 position armed earlier on the canvas, so a
+                                 block picked here appends instead of landing
+                                 somewhere the operator has forgotten about. --}}
+                            <button
+                                type="button"
+                                class="pe-chat-add"
+                                title="{{ __('Add blocks') }}"
+                                wire:click="openBlockLibrary"
+                                wire:loading.attr="disabled"
+                                x-bind:disabled="chatSending"
+                            >
+                                <x-filament::icon icon="heroicon-m-plus" />
+                            </button>
+
+                            <span class="pe-chat-hint" x-text="chatSending ? '{{ __('Working…') }}' : '{{ __('Enter to send') }}'"></span>
+                        </div>
 
                         <button
                             type="button"
@@ -514,7 +498,7 @@
         </div>
 
         {{-- Center pane: the canvas --}}
-        <div class="pe-canvas">
+        <div class="pe-canvas" x-bind:data-drawer="drawerOpen || undefined">
             <div class="pe-canvas-toolbar">
                 @foreach (['desktop' => 'Desktop', 'tablet' => 'Tablet', 'mobile' => 'Mobile', 'overview' => '50%'] as $device => $label)
                     <button
@@ -542,7 +526,7 @@
                     <div class="pe-empty-overlay">
                         <div class="pe-empty-card">
                             <p style="font-weight: 600; margin-bottom: 0.25rem;">{{ __('This page is empty') }}</p>
-                            <p class="pe-empty" style="margin-bottom: 1rem;">{{ __('Start with one of the most common blocks, or pick any from the left.') }}</p>
+                            <p class="pe-empty" style="margin-bottom: 1rem;">{{ __('Start with one of the most common blocks, or open the block library.') }}</p>
                             <div style="display: flex; gap: 0.5rem; justify-content: center;">
                                 @foreach (['hero' => 'Hero', 'features' => 'Features', 'cta' => 'Call to action'] as $type => $label)
                                     <x-filament::button
@@ -560,15 +544,63 @@
                 @endif
             </div>
         </div>
+        </div>{{-- /.pe-layout --}}
 
-        {{-- Right pane: the selected block's fields --}}
-        <div class="pe-pane">
+        {{--
+            The selected block's fields, as a click-through slide-over.
+
+            Hand-rolled rather than Action->slideOver(): an action modal is
+            destroyed on unmount and keeps its state at mountedActions.0.data,
+            while commitSelectedBlock(), updated(), pushPreview() and the
+            canvas's inline editing are all wired to data.block.*. This
+            component renders its slot unconditionally and toggles with x-show,
+            so the form keeps its state while hidden.
+
+            click-through drops the backdrop, the focus trap and the scroll
+            lock, so the canvas, the chat and the header actions stay live
+            behind it. Nothing closes it but the server: the close button calls
+            deselectBlock() instead of dispatching close-modal, so there is no
+            feedback loop AND an invalid draft leaves the drawer open with its
+            errors showing rather than vanishing.
+
+            Two placement rules, both learned the hard way. It must sit OUTSIDE
+            .pe-layout: the .fi-modal root is a plain static block (only its
+            window is fixed), so as a grid item it added a second row and
+            halved the panes' height the moment the drawer opened. And it must
+            stay outside any @if, or Alpine re-initialises it to isOpen: false
+            mid-edit. It also must never go inside .pe-canvas, whose overview
+            mode sets transform: scale(.5) and would capture the fixed window.
+        --}}
+        <x-filament::modal
+            :id="\App\Filament\Tenant\Resources\PageResource\Pages\PageEditor::BLOCK_SETTINGS_MODAL"
+            slide-over
+            :click-through="true"
+            :close-button="false"
+            :close-by-escaping="false"
+            sticky-header
+            width="md"
+        >
+            <x-slot name="header">
+                <div class="pe-drawer-head">
+                    <h2 class="fi-modal-heading">
+                        {{ $this->selectedBlock() === null
+                            ? __('Block settings')
+                            : \Illuminate\Support\Str::headline($this->selectedBlock()['type']) }}
+                    </h2>
+
+                    <x-filament::icon-button
+                        color="gray"
+                        icon="heroicon-o-x-mark"
+                        icon-size="lg"
+                        :label="__('Close')"
+                        wire:click="deselectBlock"
+                    />
+                </div>
+            </x-slot>
+
             @if ($this->selectedBlock() === null)
-                <p class="pe-empty">
-                    {{ $this->blocks === []
-                        ? __('This page has no blocks yet — add one from the left pane.')
-                        : __('Click a block on the canvas to edit it.') }}
-                </p>
+                {{-- Nothing selected means the drawer is closed, so this is
+                     never seen — but the element itself must stay mounted. --}}
             @elseif (! $this->hasEditableSelection())
                 <p class="pe-empty">{{ __("This block can't be edited — its type is no longer available. Use its toolbar on the canvas to remove it.") }}</p>
             @else
@@ -583,10 +615,38 @@
                     </div>
                 @endif
 
+                {{-- Load-bearing: the drawer stays mounted across selections,
+                     so without this key Livewire would morph block A's fields
+                     into block B's and carry Alpine widget state across. --}}
                 <div wire:key="block-form-{{ $this->selectedBlockKey }}">
                     {{ $this->blockForm }}
                 </div>
             @endif
-        </div>
+        </x-filament::modal>
+
+        {{-- The block library. Opened either by the chat composer's "+" (no
+             position — appends) or by a canvas insert line (inserts there). --}}
+        <x-filament::modal
+            :id="\App\Filament\Tenant\Resources\PageResource\Pages\PageEditor::BLOCK_LIBRARY_MODAL"
+            width="2xl"
+            :heading="__('Add a block')"
+            :description="$this->pendingInsertPosition === null
+                ? __('It is added at the end of the page.')
+                : __('It is inserted where you clicked on the page.')"
+        >
+            <div class="pe-library">
+                @foreach ($this->blockLibrary() as $type => $entry)
+                    <x-filament::button
+                        color="gray"
+                        size="sm"
+                        :icon="$entry['icon'] === null ? null : 'heroicon-' . $entry['icon']"
+                        wire:loading.attr="disabled"
+                        :wire:click="'addBlock(\'' . $type . '\')'"
+                    >
+                        {{ $entry['label'] }}
+                    </x-filament::button>
+                @endforeach
+            </div>
+        </x-filament::modal>
     </div>
 </x-filament-panels::page>
