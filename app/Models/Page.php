@@ -13,6 +13,7 @@ use Stringable;
 use Z3d0X\FilamentFabricator\Models\Page as FabricatorPage;
 
 /**
+ * @property int $id
  * @property string $tenant_id
  * @property PageStatus $status
  * @property string|null $seo_title

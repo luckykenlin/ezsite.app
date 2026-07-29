@@ -6,6 +6,7 @@ namespace App\Filament\Tenant\Resources\PageResource\Pages;
 
 use App\Actions\Pages\AddPageBlock;
 use App\Actions\Pages\CachePageEditorPreview;
+use App\Actions\Pages\ChatEditPage;
 use App\Actions\Pages\DuplicatePage;
 use App\Actions\Pages\DuplicatePageBlock;
 use App\Actions\Pages\MovePageBlock;
@@ -25,6 +26,7 @@ use App\Filament\Tenant\Resources\PageResource\Actions\PageSettingsAction;
 use App\Models\Business;
 use App\Models\Page as PageModel;
 use App\Models\SiteSetting;
+use App\Models\User;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
@@ -53,15 +55,23 @@ use Z3d0X\FilamentFabricator\Facades\FilamentFabricator;
  * validation + dehydration. The canvas preview substitutes the raw draft for
  * the selected block, so it refreshes as the user types without committing.
  *
- * Phase-2 note: mutations are delegated to the pure `App\Actions\Pages\*`
- * actions, and {@see applyBlocks()} is the single write entrypoint an AI
- * tool can round-trip through later.
+ * Mutations are delegated to the pure `App\Actions\Pages\*` actions, which is
+ * also what lets the AI chat ({@see sendChatMessage()}) share one
+ * implementation with the human verbs: its tools call the same actions and its
+ * result lands through {@see applyBlocks()}, so an assistant edit is undoable,
+ * previewed, and unsaved until the operator says so.
  *
  * @property-read Schema $blockForm
  */
 final class PageEditor extends Page
 {
     use InteractsWithRecord;
+
+    /**
+     * The `wire:stream` target the assistant's reply is typed into while the
+     * turn runs. Mirrored by the blade's `wire:stream` attribute.
+     */
+    public const string CHAT_STREAM = 'chatReply';
 
     private const int HISTORY_LIMIT = 50;
 
@@ -132,6 +142,17 @@ final class PageEditor extends Page
      */
     public bool $sampleHintShown = false;
 
+    /**
+     * This page's chat transcript, oldest first, as the panel renders it.
+     * Persisted per page (see {@see \App\Models\PageChatMessage}), so it
+     * survives a reload and a teammate opening the same page.
+     *
+     * @var list<array{role: string, content: string, changed: bool}>
+     */
+    public array $chatMessages = [];
+
+    public string $chatInput = '';
+
     protected static string $resource = PageResource::class;
 
     protected string $view = 'filament.tenant.pages.page-editor';
@@ -161,6 +182,8 @@ final class PageEditor extends Page
             $this->selectedBlockKey = $first;
             $this->fillBlockForm();
         }
+
+        $this->chatMessages = resolve(ChatEditPage::class)->transcript($this->pageRecord());
 
         $this->pushPreview();
     }
@@ -520,6 +543,58 @@ final class PageEditor extends Page
         // The applied draft is authoritative — refill the right pane from it.
         $this->fillBlockForm();
         $this->markDirty();
+    }
+
+    /**
+     * One turn of the AI chat. The assistant edits a copy of the draft through
+     * its tools; whatever comes back goes through {@see applyBlocks()}, so its
+     * changes are undoable, visible on the canvas immediately, and unsaved
+     * until the operator hits Save — the same contract as a hand edit.
+     *
+     * The reply is streamed into the panel as it arrives (Livewire's
+     * `wire:stream`), so a turn that rewrites several blocks shows progress
+     * instead of a spinner. The streamed text is transient — the final render
+     * reads the persisted transcript, which is also what a reload shows.
+     */
+    public function sendChatMessage(): void
+    {
+        $message = mb_trim($this->chatInput);
+
+        if ($message === '') {
+            return;
+        }
+
+        // Commit first: the operator may have typed into the right pane and
+        // then asked the assistant to work on that same block. An invalid draft
+        // aborts the turn with the field errors visible, and the message is
+        // left in the box so nothing is lost.
+        if (! $this->commitSelectedBlock()) {
+            return;
+        }
+
+        $this->chatInput = '';
+
+        $user = auth()->user();
+
+        $result = resolve(ChatEditPage::class)->handle(
+            $this->pageRecord(),
+            $this->blocks,
+            $message,
+            $user instanceof User ? $user : null,
+            function (string $delta): void {
+                $this->stream(content: $delta, name: self::CHAT_STREAM);
+            },
+        );
+
+        // An answer that changed nothing must not touch the undo stack or the
+        // dirty flag — asking "what does this block do?" is not an edit.
+        if ($result['blocks'] !== $this->blocks) {
+            $this->applyBlocks($result['blocks']);
+        }
+
+        $this->chatMessages = resolve(ChatEditPage::class)->transcript($this->pageRecord());
+
+        $this->dispatch('page-editor:chat-replied');
     }
 
     public function save(): void

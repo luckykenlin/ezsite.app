@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Actions\Pages\CachePageEditorPreview;
+use App\Ai\Agents\PageEditorAgent;
 use App\Design\StylePreset;
 use App\Enums\PageStatus;
 use App\Filament\Fabricator\BlockRegistry;
@@ -16,6 +17,7 @@ use App\Models\SiteSetting;
 use App\Models\Tenant;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\Cache;
+use Laravel\Ai\Responses\Data\ToolCall;
 use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 
@@ -951,3 +953,129 @@ it('cannot open a page belonging to another tenant', function (): void {
 
     Livewire::test(PageEditor::class, ['record' => $foreign->id]);
 })->throws(ModelNotFoundException::class);
+
+/*
+ * The AI chat. Its whole contract is that an assistant edit behaves exactly
+ * like a hand edit: it lands on the undo stack, repaints the canvas, and stays
+ * unsaved until the operator says so. The SDK's fake gateway runs the real
+ * tools, so these go through the actual AI → tool → blocks path.
+ */
+
+it('applies an assistant edit to the draft, undoably, without saving it', function (): void {
+    $page = editorPage([
+        ['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Old headline']],
+    ]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
+
+    // The model addresses blocks by the editor's transient keys, so the faked
+    // call has to use the real one this mount generated.
+    $key = $component->get('blocks')[0]['key'];
+
+    PageEditorAgent::fake([
+        new ToolCall('c1', 'UpdateBlockContent', ['key' => $key, 'content' => ['heading' => 'Fresh bread daily']]),
+        'Shortened the headline.',
+    ]);
+
+    $component->set('chatInput', 'Shorten the headline')->call('sendChatMessage');
+
+    expect($component->get('blocks')[0]['data']['heading'])->toBe('Fresh bread daily')
+        ->and($component->get('isDirty'))->toBeTrue()
+        ->and($component->get('chatInput'))->toBeEmpty()
+        // Not persisted: the operator reviews it on the canvas first.
+        ->and(Page::query()->findOrFail($page->id)->blocks[0]['data']['heading'])->toBe('Old headline');
+
+    $component->call('undo');
+
+    expect($component->get('blocks')[0]['data']['heading'])->toBe('Old headline');
+});
+
+it('shows both sides of the turn in the panel and marks the one that edited', function (): void {
+    PageEditorAgent::fake(['The hero block is the banner at the top.']);
+
+    $page = editorPage([['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']]]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->set('chatInput', 'What does the hero do?')
+        ->call('sendChatMessage');
+
+    expect($component->get('chatMessages'))->toBe([
+        ['role' => 'user', 'content' => 'What does the hero do?', 'changed' => false],
+        ['role' => 'assistant', 'content' => 'The hero block is the banner at the top.', 'changed' => false],
+    ])
+        // An answer that changed nothing must not flag the page dirty.
+        ->and($component->get('isDirty'))->toBeFalse();
+});
+
+it('resumes the page conversation on the next visit', function (): void {
+    PageEditorAgent::fake(['Done.']);
+
+    $page = editorPage([['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']]]);
+
+    Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->set('chatInput', 'Shorten it')
+        ->call('sendChatMessage');
+
+    $reopened = Livewire::test(PageEditor::class, ['record' => $page->id]);
+
+    expect(array_column($reopened->get('chatMessages'), 'content'))->toBe(['Shorten it', 'Done.']);
+});
+
+it('ignores an empty message without prompting the model', function (string $input): void {
+    PageEditorAgent::fake()->preventStrayPrompts();
+
+    $page = editorPage([['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']]]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->set('chatInput', $input)
+        ->call('sendChatMessage');
+
+    expect($component->get('chatMessages'))->toBeEmpty();
+
+    PageEditorAgent::assertNeverPrompted();
+})->with([
+    'empty' => [''],
+    'whitespace only' => ['   '],
+]);
+
+/*
+ * The operator may type into the right pane and then ask the assistant to work
+ * on that same block. Committing first means the assistant sees what they see;
+ * an invalid draft aborts the turn with the errors visible and the message
+ * still in the box, so nothing is lost.
+ */
+it('commits the open field edits before the assistant reads the page', function (): void {
+    $page = editorPage([['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']]]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
+
+    PageEditorAgent::fake(function (string $prompt): string {
+        expect($prompt)->toContain('Typed but not committed');
+
+        return 'Noted.';
+    });
+
+    $component
+        ->set('data.block.heading', 'Typed but not committed')
+        ->set('chatInput', 'Make it shorter')
+        ->call('sendChatMessage');
+
+    expect($component->get('blocks')[0]['data']['heading'])->toBe('Typed but not committed');
+});
+
+it('aborts the turn when the open block has validation errors', function (): void {
+    PageEditorAgent::fake()->preventStrayPrompts();
+
+    $page = editorPage([['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']]]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->set('data.block.variant') // required
+        ->set('chatInput', 'Shorten the headline')
+        ->call('sendChatMessage');
+
+    // The message survives so the operator can fix the field and resend.
+    expect($component->get('chatInput'))->toBe('Shorten the headline')
+        ->and($component->get('chatMessages'))->toBeEmpty();
+
+    PageEditorAgent::assertNeverPrompted();
+});

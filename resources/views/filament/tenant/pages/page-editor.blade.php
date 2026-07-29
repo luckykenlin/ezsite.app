@@ -383,6 +383,151 @@
             font-size: 0.875rem;
             opacity: 0.6;
         }
+
+        /* The AI chat, docked at the bottom of the left pane. Sticky rather
+           than scrolling away with the block library: the composer is the one
+           control an operator returns to constantly, and it stays reachable
+           while they scroll the page structure above it. */
+        .pe-chat {
+            position: sticky;
+            bottom: -1rem;
+            margin-top: auto;
+            margin-bottom: -1rem;
+            padding-bottom: 1rem;
+            padding-top: 0.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            background: var(--fi-color-white, #fff);
+        }
+
+        .dark .pe-chat {
+            /* The pane's translucent white over the panel background — a
+               transparent sticky footer would show the list scrolling under it. */
+            background: rgb(30, 30, 33);
+        }
+
+        .pe-chat-log {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            overflow-y: auto;
+            max-height: 14rem;
+        }
+
+        .pe-chat-message {
+            font-size: 0.8125rem;
+            line-height: 1.45;
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+        }
+
+        /* Claude-style asymmetry: the operator's turns are bubbles pushed to
+           the right, the assistant answers as plain flush text. */
+        .pe-chat-message[data-role='user'] {
+            align-self: flex-end;
+            max-width: 90%;
+            border-radius: 0.75rem;
+            padding: 0.375rem 0.625rem;
+            background: rgba(99, 102, 241, 0.12);
+        }
+
+        .pe-chat-message[data-role='assistant'] {
+            align-self: stretch;
+        }
+
+        .pe-chat-message[data-pending] {
+            opacity: 0.55;
+        }
+
+        .pe-chat-edited {
+            display: block;
+            margin-top: 0.1875rem;
+            font-size: 0.6875rem;
+            opacity: 0.6;
+        }
+
+        /* The cursor only shows while the reply is still arriving; it sits
+           inside the streamed target so it trails the last token. */
+        .pe-chat-cursor::after {
+            content: '▍';
+            animation: pe-chat-blink 1s step-end infinite;
+        }
+
+        @keyframes pe-chat-blink {
+            50% { opacity: 0; }
+        }
+
+        /* Composer: one rounded box that the textarea and the send button
+           share, so it reads as a single control. */
+        .pe-chat-composer {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            border-radius: 0.75rem;
+            border: 1px solid rgba(0, 0, 0, 0.15);
+            padding: 0.5rem;
+        }
+
+        .dark .pe-chat-composer {
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .pe-chat-composer:focus-within {
+            border-color: #6366f1;
+        }
+
+        .pe-chat-input {
+            resize: none;
+            border: 0;
+            background: transparent;
+            padding: 0;
+            font-size: 0.8125rem;
+            font-family: inherit;
+            line-height: 1.45;
+            color: inherit;
+            field-sizing: content;
+            max-height: 7rem;
+        }
+
+        .pe-chat-input:focus {
+            outline: 0;
+            box-shadow: none;
+        }
+
+        .pe-chat-composer-actions {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+        }
+
+        .pe-chat-hint {
+            font-size: 0.6875rem;
+            opacity: 0.5;
+        }
+
+        .pe-chat-send {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 1.75rem;
+            height: 1.75rem;
+            border-radius: 0.5rem;
+            background: #6366f1;
+            color: #fff;
+            flex-shrink: 0;
+        }
+
+        .pe-chat-send:disabled {
+            opacity: 0.4;
+        }
+
+        .pe-chat-send svg {
+            width: 0.9rem;
+            height: 0.9rem;
+        }
+
     </style>
 
     <div
@@ -546,6 +691,69 @@
                             {{ $entry['label'] }}
                         </x-filament::button>
                     @endforeach
+                </div>
+            </div>
+
+            {{--
+                The AI assistant, docked at the bottom of this pane. Every
+                change it makes lands on the undo stack and stays unsaved until
+                the operator hits Save, exactly like a hand edit. The reply is
+                typed in live through Livewire's wire:stream; the pending
+                bubble is Alpine-side so the operator's own message appears the
+                instant they hit send, not a provider round trip later.
+            --}}
+            <div class="pe-chat">
+                <p class="pe-heading">{{ __('Ask AI') }}</p>
+
+                <div class="pe-chat-log" x-ref="chatLog">
+                    @forelse ($this->chatMessages as $index => $message)
+                        <div
+                            wire:key="chat-{{ $index }}"
+                            class="pe-chat-message"
+                            data-role="{{ $message['role'] }}"
+                        >{{ $message['content'] }}@if ($message['changed'])<span class="pe-chat-edited">{{ __('Edited the page — review it and Save.') }}</span>@endif</div>
+                    @empty
+                        <p class="pe-empty" x-show="! chatSending">
+                            {{ __('Describe a change in your own words — "make the headline shorter", "add a call to action at the bottom".') }}
+                        </p>
+                    @endforelse
+
+                    {{-- The turn in flight: the operator's message, then the
+                         reply as it streams in. --}}
+                    <div class="pe-chat-message" data-role="user" data-pending x-show="chatSending" x-text="chatPending" x-cloak></div>
+
+                    <div
+                        class="pe-chat-message pe-chat-cursor"
+                        data-role="assistant"
+                        x-show="chatSending"
+                        x-cloak
+                        wire:stream="{{ \App\Filament\Tenant\Resources\PageResource\Pages\PageEditor::CHAT_STREAM }}"
+                    ></div>
+                </div>
+
+                <div class="pe-chat-composer">
+                    <textarea
+                        class="pe-chat-input"
+                        rows="1"
+                        wire:model="chatInput"
+                        placeholder="{{ __('Ask for a change…') }}"
+                        x-on:keydown.enter.prevent="sendChat()"
+                        x-bind:disabled="chatSending"
+                    ></textarea>
+
+                    <div class="pe-chat-composer-actions">
+                        <span class="pe-chat-hint" x-text="chatSending ? '{{ __('Working…') }}' : '{{ __('Enter to send') }}'"></span>
+
+                        <button
+                            type="button"
+                            class="pe-chat-send"
+                            title="{{ __('Send') }}"
+                            x-on:click="sendChat()"
+                            x-bind:disabled="chatSending"
+                        >
+                            <x-filament::icon icon="heroicon-m-arrow-up" />
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

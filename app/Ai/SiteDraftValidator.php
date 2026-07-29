@@ -7,16 +7,15 @@ namespace App\Ai;
 use App\Design\StylePreset;
 use App\Exceptions\SiteDraftInvalid;
 use App\Filament\Fabricator\BlockRegistry;
-use App\Filament\Fabricator\PageBlocks\Block;
 use Illuminate\Support\Facades\Log;
 
 /**
  * The server-side gate between the AI's structured output and persistence.
- * The JSON schema constrains shape loosely; this enforces the vocabulary:
- * unknown types and fields are dropped/stripped and logged (matching
- * BlockRegistry's defensive philosophy), reserved keys are server-owned,
- * strings are de-tagged, and a draft that survives with too little content
- * is rejected outright.
+ * The JSON schema constrains shape loosely; this enforces the page-level
+ * rules: a recognized preset, a usable title and meta description, and enough
+ * surviving blocks to be worth publishing. Per-block field whitelisting is
+ * {@see BlockDataSanitizer}'s job — the same rules the editor chat writes
+ * through.
  */
 final readonly class SiteDraftValidator
 {
@@ -27,6 +26,11 @@ final readonly class SiteDraftValidator
      * itself is unbounded text.
      */
     private const int MAX_META_DESCRIPTION = 160;
+
+    public function __construct(private BlockDataSanitizer $sanitizer)
+    {
+        //
+    }
 
     /**
      * @param  array<array-key, mixed>  $draft  the agent's decoded structured output
@@ -130,139 +134,15 @@ final readonly class SiteDraftValidator
                 continue;
             }
 
-            $data = $this->data(
-                is_array($block['data'] ?? null) ? $block['data'] : [],
-                $vocabulary[$type]['fields'],
+            $data = $this->sanitizer->handle(
                 $type,
+                is_array($block['data'] ?? null) ? $block['data'] : [],
             );
 
             $hasHero = $hasHero || $type === 'hero';
-            $sanitized[] = ['type' => $type, 'data' => $this->normalize($type, $data)];
+            $sanitized[] = ['type' => $type, 'data' => $data];
         }
 
         return $sanitized;
-    }
-
-    /**
-     * Per-type value normalization for fields with enumerated values the
-     * contract cannot express yet. Currently: heading levels — models often
-     * write "2" or 2 instead of "h2"; unmappable values are dropped so the
-     * view's default (h2) applies.
-     *
-     * @param  array<string, mixed>  $data
-     * @return array<string, mixed>
-     */
-    private function normalize(string $type, array $data): array
-    {
-        if ($type !== 'heading' || ! array_key_exists('level', $data)) {
-            return $data;
-        }
-
-        $raw = $data['level'];
-
-        if (! is_string($raw) && ! is_int($raw)) {
-            unset($data['level']);
-
-            return $data;
-        }
-
-        $level = mb_strtolower((string) $raw);
-        $level = preg_match('/^[1-6]$/', $level) === 1 ? 'h'.$level : $level;
-
-        if (in_array($level, ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'], true)) {
-            $data['level'] = $level;
-        } else {
-            unset($data['level']);
-        }
-
-        return $data;
-    }
-
-    /**
-     * Whitelists data keys against the block contract, strips the reserved
-     * (server-owned) keys, and sanitizes every leaf value.
-     *
-     * @param  array<array-key, mixed>  $data
-     * @param  list<string>  $fields
-     * @return array<string, mixed>
-     */
-    private function data(array $data, array $fields, string $type): array
-    {
-        $sanitized = [];
-
-        foreach ($data as $key => $value) {
-            if ($key === Block::VARIANT_KEY || $key === Block::BIND_KEY) {
-                continue; // server-owned, silently stripped
-            }
-
-            if (! is_string($key) || ! in_array($key, $fields, true)) {
-                Log::warning('site_draft.field_stripped', ['type' => $type, 'field' => $key]);
-
-                continue;
-            }
-
-            $value = $this->value($value);
-
-            if ($value !== null) {
-                $sanitized[$key] = $value;
-            }
-        }
-
-        return $sanitized;
-    }
-
-    /**
-     * Scalars are de-tagged; lists of flat objects (repeater items) are
-     * sanitized recursively one level down; anything else is dropped.
-     */
-    private function value(mixed $value): mixed
-    {
-        $scalar = $this->scalar($value);
-
-        if ($scalar !== null) {
-            return $scalar;
-        }
-
-        if (! is_array($value)) {
-            return null;
-        }
-
-        $items = [];
-
-        foreach ($value as $item) {
-            if (! is_array($item)) {
-                continue;
-            }
-
-            $fields = [];
-
-            foreach ($item as $field => $fieldValue) {
-                $clean = is_string($field) ? $this->scalar($fieldValue) : null;
-
-                if ($clean !== null) {
-                    $fields[$field] = $clean;
-                }
-            }
-
-            if ($fields !== []) {
-                $items[] = $fields;
-            }
-        }
-
-        return $items === [] ? null : $items;
-    }
-
-    /**
-     * One leaf value: strings are de-tagged, other scalars pass through, and
-     * anything else (arrays, objects, null) is "not a scalar" — the single
-     * rule both the top level and repeater items apply.
-     */
-    private function scalar(mixed $value): string|int|float|bool|null
-    {
-        if (is_string($value)) {
-            return strip_tags($value);
-        }
-
-        return is_int($value) || is_float($value) || is_bool($value) ? $value : null;
     }
 }

@@ -37,6 +37,7 @@ interface EditorWire {
     selectedBlockKey: string | null;
     pendingInsertPosition: number | null;
     isDirty: boolean;
+    chatInput: string;
     data?: { block?: Record<string, unknown> };
     mountedActions?: unknown[];
     save(): void;
@@ -50,6 +51,7 @@ interface EditorWire {
     reorderBlocks(keys: string[]): void;
     addBlockAt(type: string, position: number): void;
     queueInsertAt(position: number): Promise<unknown>;
+    sendChatMessage(): Promise<unknown>;
     set(name: string, value: unknown): void;
     on(event: string, handler: (payload: never) => void): void;
     $refresh(): void;
@@ -57,8 +59,9 @@ interface EditorWire {
 
 /** What Alpine injects into the component at runtime. */
 interface AlpineInjected {
-    $refs: { canvas: HTMLIFrameElement };
+    $refs: { canvas: HTMLIFrameElement; chatLog?: HTMLElement };
     $wire: EditorWire;
+    $nextTick(callback: () => void): void;
 }
 
 /**
@@ -71,6 +74,11 @@ interface PageEditorComponent extends AlpineInjected {
     device: string;
     reloading: boolean;
     deviceWidths: Record<string, string>;
+    chatSending: boolean;
+    /** The operator's message, echoed locally until the server render lands. */
+    chatPending: string;
+    sendChat(): void;
+    scrollChatToEnd(): void;
     reload(url: string): void;
     postToCanvas(payload: EditorMessage): void;
     hoverBlock(key: string | null): void;
@@ -109,6 +117,44 @@ export function pageEditor(
             tablet: '768px',
             mobile: '390px',
             overview: '100%',
+        },
+        chatSending: false,
+        chatPending: '',
+
+        /**
+         * Send the box's contents. The message is echoed locally first so it
+         * appears the instant the operator hits send — the server render only
+         * lands once the whole turn (a provider round trip, possibly several
+         * tool calls) is done.
+         *
+         * Guarded against the double submit a held Enter key would otherwise
+         * cause during that wait: the second turn would run against pre-edit
+         * blocks and quietly undo the first.
+         */
+        sendChat(this: PageEditorComponent): void {
+            const message = this.$wire.chatInput.trim();
+
+            if (this.chatSending || message === '') {
+                return;
+            }
+
+            this.chatSending = true;
+            this.chatPending = message;
+            this.$nextTick(() => this.scrollChatToEnd());
+
+            void this.$wire.sendChatMessage().finally(() => {
+                this.chatSending = false;
+                this.chatPending = '';
+                this.$nextTick(() => this.scrollChatToEnd());
+            });
+        },
+
+        scrollChatToEnd(this: PageEditorComponent): void {
+            const log = this.$refs.chatLog;
+
+            if (log) {
+                log.scrollTop = log.scrollHeight;
+            }
         },
 
         reload(this: PageEditorComponent, url: string): void {
@@ -424,6 +470,26 @@ export function pageEditor(
                     this.postToCanvas({ type: 'select', key, scroll });
                 },
             );
+            this.$wire.on('page-editor:chat-replied', () => {
+                this.$nextTick(() => this.scrollChatToEnd());
+            });
+
+            // Livewire writes streamed tokens straight into the DOM, with no
+            // event to hook — so watch the log and keep the newest text in
+            // view as the reply types itself out.
+            const log = this.$refs.chatLog;
+
+            if (log) {
+                new MutationObserver(() => {
+                    if (this.chatSending) {
+                        this.scrollChatToEnd();
+                    }
+                }).observe(log, {
+                    childList: true,
+                    subtree: true,
+                    characterData: true,
+                });
+            }
         },
     };
 }
