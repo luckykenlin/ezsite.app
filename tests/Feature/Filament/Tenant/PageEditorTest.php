@@ -5,9 +5,9 @@ declare(strict_types=1);
 use App\Actions\Pages\CachePageEditorPreview;
 use App\Ai\Agents\PageEditorAgent;
 use App\Design\StylePreset;
+use App\Enums\ChromeSlot;
 use App\Enums\PageStatus;
 use App\Filament\Fabricator\BlockRegistry;
-use App\Filament\Tenant\Resources\PageResource;
 use App\Filament\Tenant\Resources\PageResource\Actions\PageIdentityFields;
 use App\Filament\Tenant\Resources\PageResource\Pages\PageEditor;
 use App\Models\Business;
@@ -618,13 +618,6 @@ it('links Visit page through the full parent chain', function (): void {
         ->assertActionHasUrl('visit', '/services');
 });
 
-it('leads back to the site canvas, which owns the page list now', function (): void {
-    $page = editorPage([]);
-
-    Livewire::test(PageEditor::class, ['record' => $page->id])
-        ->assertActionHasUrl('backToCanvas', PageResource::getUrl('index'));
-});
-
 it('duplicates the whole page from the header action', function (): void {
     $page = editorPage([
         ['type' => 'heading', 'data' => ['content' => 'Hi', 'level' => 'h2']],
@@ -866,65 +859,41 @@ it('inserts a library block at an explicit position', function (): void {
 });
 
 /*
- * The drawer's lifecycle. It is open exactly when something is selected, and
- * the ONLY thing that closes it is the server — the close button calls
- * deselectBlock() rather than dispatching close-modal, so a draft that fails
- * validation keeps its errors on screen instead of the panel vanishing.
+ * The inspector is a column, not a drawer: it is always on screen, and what it
+ * shows follows the selection. There is nothing to open or close, which is the
+ * point — editing block content is the main activity here, so the panel that
+ * serves it never has to be summoned.
  */
 
-it('opens the settings drawer on selection and keeps it open across a swap', function (): void {
+it('shows the selected block in the inspector, and the page itself when nothing is selected', function (): void {
     $page = editorPage([
         ['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']],
         ['type' => 'heading', 'data' => ['content' => 'About us', 'level' => 'h2']],
     ]);
 
     $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
-    [$first, $second] = array_column($component->get('blocks'), 'key');
+    $second = $component->get('blocks')[1]['key'];
 
-    // Mount selects the first block but leaves the drawer shut, so clicking
-    // that same block still has to open it.
-    $component->call('selectBlock', $first)
-        ->assertDispatched('open-modal', id: PageEditor::BLOCK_SETTINGS_MODAL);
+    $component->call('selectBlock', $second)->assertSee('Heading');
 
-    // Switching blocks swaps the contents; it must not close and reopen.
-    $component->call('selectBlock', $second)
-        ->assertDispatched('open-modal', id: PageEditor::BLOCK_SETTINGS_MODAL)
-        ->assertNotDispatched('close-modal');
+    // Deselecting leaves the column in place showing the page, rather than
+    // taking the panel away.
+    $component->call('deselectBlock')
+        ->assertSee('Home')
+        ->assertSee('Click a block on the canvas to edit it.');
 });
 
-it('closes the drawer when the selection goes away, but never on an invalid draft', function (): void {
-    $page = editorPage([
-        ['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']],
-    ]);
+it('offers the site-wide chrome from the inspector, marked as such', function (): void {
+    // Header and footer render like any other block on the canvas, so the one
+    // thing that must be obvious — that editing them changes every page — is
+    // said here rather than discovered after the fact.
+    $page = editorPage([]);
 
-    $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
-
-    // An invalid draft aborts the deselect — the drawer has to stay put.
-    $component->set('data.block.variant')
-        ->call('deselectBlock')
-        ->assertNotDispatched('close-modal');
-
-    $component->set('data.block.variant', 'centered-minimal')
-        ->call('deselectBlock')
-        ->assertDispatched('close-modal', id: PageEditor::BLOCK_SETTINGS_MODAL);
-});
-
-it('moves the drawer to the neighbour when the selected block is removed, and shuts it on the last one', function (): void {
-    $page = editorPage([
-        ['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']],
-        ['type' => 'heading', 'data' => ['content' => 'About us', 'level' => 'h2']],
-    ]);
-
-    $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
-    $first = $component->get('blocks')[0]['key'];
-
-    $component->call('removeBlock', $first)
-        ->assertDispatched('open-modal', id: PageEditor::BLOCK_SETTINGS_MODAL);
-
-    $component->call('removeBlock', $component->get('blocks')[0]['key'])
-        ->assertDispatched('close-modal', id: PageEditor::BLOCK_SETTINGS_MODAL);
-
-    expect($component->get('blocks'))->toBeEmpty();
+    Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->assertSee('Site-wide')
+        ->assertSee('every page')
+        ->assertSeeHtml("selectBlock('".ChromeSlot::Header->editorKey()."')")
+        ->assertSeeHtml("selectBlock('".ChromeSlot::Footer->editorKey()."')");
 });
 
 it('drops every library block in valid: sample content passes its own validation', function (): void {
@@ -1110,14 +1079,32 @@ it('aborts the turn when the open block has validation errors', function (): voi
 
     $page = editorPage([['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']]]);
 
+    // Sent the way the composer sends it: the message travels as an argument
+    // because the box is emptied client-side the instant you hit send.
     $component = Livewire::test(PageEditor::class, ['record' => $page->id])
         ->set('data.block.variant') // required
-        ->set('chatInput', 'Shorten the headline')
-        ->call('sendChatMessage');
+        ->call('sendChatMessage', 'Shorten the headline');
 
-    // The message survives so the operator can fix the field and resend.
+    // The message is put BACK in the box so the operator can fix the field and
+    // resend, rather than losing what they typed.
     expect($component->get('chatInput'))->toBe('Shorten the headline')
         ->and($component->get('chatMessages'))->toBeEmpty();
 
     PageEditorAgent::assertNeverPrompted();
+});
+
+it('takes the message as an argument and leaves the box empty', function (): void {
+    // The composer clears itself on send rather than waiting for the turn to
+    // return, so what the operator typed cannot be read off the bound property
+    // by then — it arrives as an argument instead.
+    PageEditorAgent::fake(['Shortened it.']);
+
+    $page = editorPage([['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']]]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->call('sendChatMessage', 'Shorten the headline');
+
+    expect($component->get('chatInput'))->toBeEmpty()
+        ->and(array_column($component->get('chatMessages'), 'content'))
+        ->toBe(['Shorten the headline', 'Shortened it.']);
 });

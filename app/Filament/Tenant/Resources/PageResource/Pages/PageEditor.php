@@ -40,19 +40,18 @@ use Illuminate\Validation\ValidationException;
 use Z3d0X\FilamentFabricator\Facades\FilamentFabricator;
 
 /**
- * The visual page editor, replacing the stock form-only EditPage: a left rail
- * holding only the AI chat, and an iframe canvas rendering the DRAFT state
- * through the real tenant layout chain (see {@see CachePageEditorPreview}).
- * Selecting a block opens its Filament schema in a click-through slide-over
- * drawer; the block library ({@see BlockRegistry::vocabulary()}) lives in a
- * modal, opened either by the chat composer's "+" or by a canvas insert line.
+ * The visual page editor, replacing the stock form-only EditPage. Three
+ * columns: a collapsible AI chat rail, an iframe canvas rendering the DRAFT
+ * state through the real tenant layout chain (see
+ * {@see CachePageEditorPreview}), and a PERSISTENT inspector showing the
+ * selected block's Filament schema — or, with nothing selected, the page
+ * itself. The block library ({@see BlockRegistry::vocabulary()}) lives in a
+ * modal, opened by the chat composer's "+" or by a canvas insert line.
  *
- * Both are hand-rolled `<x-filament::modal>`s, NOT `Action->slideOver()`.
- * Action modals are destroyed on unmount and keep their state at
- * `mountedActions.0.data`, whereas everything below — and the canvas's inline
- * editing in `editor.ts` — is wired to `statePath('data')` → `data.block.*`.
- * A `<x-filament::modal>` renders its slot unconditionally and toggles with
- * `x-show`, so the form merely moves in the DOM and keeps its state.
+ * The inspector is a plain column, not a drawer. Editing block content is the
+ * main activity here, not an interruption, so the panel that serves it has to
+ * be where you left it — a drawer made every edit a four-step open/edit/close
+ * loop, and reflowed the canvas underneath on each one.
  *
  * State model: `$blocks` holds every block in persisted shape plus a
  * transient uuid `key` (stripped on save). The selected block's live edits
@@ -80,12 +79,10 @@ final class PageEditor extends Page
     public const string CHAT_STREAM = 'chatReply';
 
     /**
-     * The block settings drawer and the block library, as `<x-filament::modal>`
-     * ids. Constants rather than literals because the blade and this class both
-     * name them, and a typo would silently produce a modal nothing can open.
+     * The block library's `<x-filament::modal>` id. A constant rather than a
+     * literal because the blade and this class both name it, and a typo would
+     * silently produce a modal nothing can open.
      */
-    public const string BLOCK_SETTINGS_MODAL = 'page-editor-block-settings';
-
     public const string BLOCK_LIBRARY_MODAL = 'page-editor-block-library';
 
     private const int HISTORY_LIMIT = 50;
@@ -270,11 +267,6 @@ final class PageEditor extends Page
     public function selectBlock(string $key): void
     {
         if ($key === $this->selectedBlockKey) {
-            // Re-clicking the current selection still has to open the drawer:
-            // mount() selects the first block but deliberately leaves the
-            // drawer shut, so without this that block would never open.
-            $this->syncBlockDrawer();
-
             return;
         }
 
@@ -303,7 +295,6 @@ final class PageEditor extends Page
         }
 
         $this->dispatch('page-editor:select-canvas-block', key: $key, scroll: true);
-        $this->syncBlockDrawer();
     }
 
     public function addBlock(string $type): void
@@ -332,7 +323,6 @@ final class PageEditor extends Page
         $this->markDirty();
         $this->dispatch('page-editor:select-canvas-block', key: $key, scroll: true);
         $this->dispatch('close-modal', id: self::BLOCK_LIBRARY_MODAL);
-        $this->syncBlockDrawer();
 
         if (! $this->sampleHintShown) {
             $this->sampleHintShown = true;
@@ -370,7 +360,6 @@ final class PageEditor extends Page
         }
 
         $this->dispatch('page-editor:select-canvas-block', key: null, scroll: false);
-        $this->syncBlockDrawer();
     }
 
     /**
@@ -428,9 +417,6 @@ final class PageEditor extends Page
             $this->selectedBlockKey = $neighbor;
             $this->fillBlockForm();
             $this->dispatch('page-editor:select-canvas-block', key: $neighbor, scroll: false);
-            // A neighbour keeps the drawer open on it; removing the last block
-            // leaves nothing selected and closes it.
-            $this->syncBlockDrawer();
         }
 
         $this->markDirty();
@@ -509,10 +495,9 @@ final class PageEditor extends Page
             $this->selectedBlockKey = null;
         }
 
-        // The applied draft is authoritative — refill the drawer from it.
+        // The applied draft is authoritative — refill the inspector from it.
         $this->fillBlockForm();
         $this->markDirty();
-        $this->syncBlockDrawer();
     }
 
     /**
@@ -526,19 +511,28 @@ final class PageEditor extends Page
      * instead of a spinner. The streamed text is transient — the final render
      * reads the persisted transcript, which is also what a reload shows.
      */
-    public function sendChatMessage(): void
+    /**
+     * @param  string|null  $message  what the operator typed, passed explicitly so
+     *                                the composer can be emptied the instant they
+     *                                hit send rather than when the turn returns
+     *                                (an AI round trip later); falls back to the
+     *                                bound property for non-browser callers
+     */
+    public function sendChatMessage(?string $message = null): void
     {
-        $message = mb_trim($this->chatInput);
+        $message = mb_trim($message ?? $this->chatInput);
 
         if ($message === '') {
             return;
         }
 
-        // Commit first: the operator may have typed into the right pane and
-        // then asked the assistant to work on that same block. An invalid draft
+        // Commit first: the operator may have typed into the drawer and then
+        // asked the assistant to work on that same block. An invalid draft
         // aborts the turn with the field errors visible, and the message is
         // left in the box so nothing is lost.
         if (! $this->commitSelectedBlock()) {
+            $this->chatInput = $message;
+
             return;
         }
 
@@ -799,15 +793,6 @@ final class PageEditor extends Page
     protected function getHeaderActions(): array
     {
         return [
-            // Replaces the deleted left-rail page switcher. Unsaved changes
-            // are already guarded: onNavigate() for a wire:navigate link,
-            // onBeforeUnload() otherwise.
-            Action::make('backToCanvas')
-                ->label('All pages')
-                ->icon(Heroicon::OutlinedArrowLeft)
-                ->color('gray')
-                ->url(fn (): string => PageResource::getUrl('index')),
-
             Action::make('undo')
                 ->label('Undo')
                 ->icon(Heroicon::OutlinedArrowUturnLeft)
@@ -914,20 +899,6 @@ final class PageEditor extends Page
         }
 
         return array_is_list($values) ? array_values($result) : $result;
-    }
-
-    /**
-     * The drawer is open exactly when something is selected.
-     *
-     * Called after the selection settles, never before: a verb that aborts on
-     * an invalid draft must leave the drawer open with its errors showing.
-     */
-    private function syncBlockDrawer(): void
-    {
-        $this->dispatch(
-            $this->selectedBlockKey === null ? 'close-modal' : 'open-modal',
-            id: self::BLOCK_SETTINGS_MODAL,
-        );
     }
 
     /**
@@ -1121,7 +1092,6 @@ final class PageEditor extends Page
         $this->fillBlockForm();
         $this->markDirty();
         $this->dispatch('page-editor:select-canvas-block', key: $this->selectedBlockKey, scroll: false);
-        $this->syncBlockDrawer();
     }
 
     private function markDirty(): void

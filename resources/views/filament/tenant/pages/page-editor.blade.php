@@ -1,3 +1,4 @@
+@use('App\Enums\ChromeSlot')
 <x-filament-panels::page>
     {{--
         Three-pane visual editor. The pane skeleton is styled with a scoped
@@ -8,19 +9,33 @@
         device-width preview, and the unsaved-changes guards.
     --}}
     <style>
+        /* The height here is only a fallback for the moment before Alpine runs
+           — fitLayout() measures the real distance from the top of this grid to
+           the bottom of the window. A hardcoded offset cannot know whether the
+           page has breadcrumbs, a wrapping title or a second row of header
+           actions, and guessing it too small pushed the chat composer flush
+           against the window edge with the page's own bottom padding overrun. */
         .pe-layout {
             display: grid;
-            grid-template-columns: 20rem minmax(0, 1fr);
+            grid-template-columns: 24rem minmax(0, 1fr) 26rem;
             gap: 1rem;
-            height: calc(100vh - 11rem);
+            height: calc(100dvh - 14rem);
             min-height: 24rem;
         }
 
+        /* The chat is the occasional surface, so it is the one that folds
+           away; the inspector is used on every edit and never moves. */
+        .pe-layout[data-chat='closed'] {
+            grid-template-columns: minmax(0, 1fr) 26rem;
+        }
+
+        /* `overflow: hidden`, not `auto`: the rail holds a chat, and the thread
+           inside it is the only thing that may scroll. Letting the pane scroll
+           too would carry the composer up out of reach as the log grows. */
         .pe-pane {
             display: flex;
             flex-direction: column;
-            gap: 1rem;
-            overflow-y: auto;
+            overflow: hidden;
             border-radius: 0.75rem;
             background: var(--fi-color-white, #fff);
             box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
@@ -38,33 +53,40 @@
             overflow: hidden;
             border-radius: 0.75rem;
             box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
-            transition: margin-inline-end 0.2s ease;
-        }
-
-        /* The drawer's panel is opaque (only its backdrop is click-through), so
-           the block you just selected would often be the one hidden underneath
-           it. The whole canvas card narrows instead of the preview frame moving
-           — narrowing the card keeps its border visible at the new edge, and
-           lets the device toolbar and the frame's own `margin: 0 auto` re-centre
-           themselves in what is left. Shifting the frame alone would fight that
-           auto margin and jam the preview against the drawer. */
-        .pe-canvas[data-drawer] {
-            margin-inline-end: 26rem;
-        }
-
-        /* The page header runs the full content width, so Publish and Save
-           would sit under the drawer. Reserve the same strip for them. */
-        .fi-page:has(.pe-canvas[data-drawer]) .fi-header {
-            padding-inline-end: 26rem;
-            transition: padding-inline-end 0.2s ease;
         }
 
         .pe-canvas-toolbar {
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 0.25rem;
+            gap: 0.75rem;
             padding: 0.375rem;
+        }
+
+        .pe-toolbar-group {
+            display: flex;
+            align-items: center;
+            gap: 0.125rem;
+        }
+
+        .pe-toolbar-toggle {
+            display: flex;
+            align-items: center;
+            border-radius: 0.375rem;
+            padding: 0.25rem;
+            opacity: 0.45;
+            margin-inline-end: auto;
+        }
+
+        .pe-toolbar-toggle[data-active] {
+            opacity: 1;
+            background: rgba(99, 102, 241, 0.12);
+            color: #6366f1;
+        }
+
+        .pe-toolbar-icon {
+            width: 1rem;
+            height: 1rem;
         }
 
         .pe-device-button {
@@ -84,7 +106,7 @@
             flex: 1;
             display: flex;
             justify-content: center;
-            overflow: hidden;
+            overflow: hidden auto;
             background: rgba(0, 0, 0, 0.04);
         }
 
@@ -97,26 +119,16 @@
             height: 100%;
             margin: 0 auto;
             background: #fff;
-            transition: max-width 0.2s ease;
+            /* Scaling from the top means zooming out reveals more of the page
+               downwards, which is what you want it for. */
+            transform-origin: top center;
+            transition: max-width 0.2s ease, transform 0.15s ease;
         }
 
         .pe-canvas-frame iframe {
             width: 100%;
             height: 100%;
             border: 0;
-        }
-
-        /* 50% overview: double the logical viewport, scale it down — the
-           whole page at a glance, blocks still clickable. Pure CSS, no
-           round trip, no reload. */
-        .pe-canvas-frame[data-mode='overview'] {
-            width: 200%;
-            max-width: none;
-            height: 200%;
-            transform: scale(0.5);
-            transform-origin: top left;
-            flex-shrink: 0;
-            margin-right: -100%;
         }
 
         .pe-progress {
@@ -206,19 +218,36 @@
             opacity: 0.6;
         }
 
-        /* The AI chat, docked at the bottom of the left pane. Sticky rather
-           than scrolling away with the block library: the composer is the one
-           control an operator returns to constantly, and it stays reachable
-           while they scroll the panes above it. */
-        /* The chat is the whole rail now, so it simply fills it — the sticky
-           footer and the capped log height existed to dock the composer under
-           a scrolling block library that no longer sits above it. */
+        /* The chat is the whole rail: a thin header, a scrolling thread, and
+           a composer pinned under it. Only the thread scrolls — the pane
+           itself must not, or the composer drifts away as the log grows. */
         .pe-chat {
             display: flex;
             flex: 1;
             min-height: 0;
             flex-direction: column;
-            gap: 0.5rem;
+        }
+
+        .pe-chat-head {
+            display: flex;
+            align-items: center;
+            gap: 0.375rem;
+            padding-bottom: 0.625rem;
+            margin-bottom: 0.75rem;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+            font-size: 0.8125rem;
+            font-weight: 500;
+            opacity: 0.75;
+        }
+
+        .dark .pe-chat-head {
+            border-bottom-color: rgba(255, 255, 255, 0.08);
+        }
+
+        .pe-chat-head-icon {
+            width: 0.9rem;
+            height: 0.9rem;
+            color: #6366f1;
         }
 
         .pe-chat-log {
@@ -226,24 +255,26 @@
             flex: 1;
             min-height: 0;
             flex-direction: column;
-            gap: 0.5rem;
+            gap: 1rem;
             overflow-y: auto;
+            padding-bottom: 0.75rem;
         }
 
         .pe-chat-message {
-            font-size: 0.8125rem;
-            line-height: 1.45;
+            font-size: 0.875rem;
+            line-height: 1.6;
             white-space: pre-wrap;
             overflow-wrap: anywhere;
         }
 
         /* Claude-style asymmetry: the operator's turns are bubbles pushed to
-           the right, the assistant answers as plain flush text. */
+           the right with one squared corner where they "come from", the
+           assistant answers as plain flush prose. */
         .pe-chat-message[data-role='user'] {
             align-self: flex-end;
-            max-width: 90%;
-            border-radius: 0.75rem;
-            padding: 0.375rem 0.625rem;
+            max-width: 85%;
+            border-radius: 1rem 1rem 0.25rem 1rem;
+            padding: 0.5rem 0.75rem;
             background: rgba(99, 102, 241, 0.12);
         }
 
@@ -255,11 +286,88 @@
             opacity: 0.55;
         }
 
+        /* A chip, not a sentence: it marks which turns actually touched the
+           page, so an unsaved edit is never a surprise. */
         .pe-chat-edited {
-            display: block;
-            margin-top: 0.1875rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3125rem;
+            margin-top: 0.5rem;
+            border-radius: 9999px;
+            padding: 0.125rem 0.5rem 0.125rem 0.375rem;
             font-size: 0.6875rem;
+            background: rgba(245, 158, 11, 0.14);
+            color: #b45309;
+        }
+
+        .dark .pe-chat-edited {
+            color: #fcd34d;
+        }
+
+        .pe-chat-edited::before {
+            content: '';
+            width: 0.375rem;
+            height: 0.375rem;
+            border-radius: 9999px;
+            background: currentColor;
+        }
+
+        /* Centred in the thread, so a fresh conversation reads as an
+           invitation rather than as a paragraph stuck to the ceiling. */
+        .pe-chat-empty {
+            margin: auto 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            gap: 0.375rem;
+            padding: 0 0.25rem;
+        }
+
+        .pe-chat-empty-icon {
+            width: 1.75rem;
+            height: 1.75rem;
+            color: #6366f1;
+            opacity: 0.8;
+            margin-bottom: 0.125rem;
+        }
+
+        .pe-chat-empty-title {
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+
+        .pe-chat-empty-body {
+            font-size: 0.8125rem;
+            line-height: 1.5;
             opacity: 0.6;
+        }
+
+        .pe-chat-suggestions {
+            display: flex;
+            flex-direction: column;
+            gap: 0.375rem;
+            width: 100%;
+            margin-top: 0.75rem;
+        }
+
+        .pe-chat-suggestion {
+            border-radius: 0.625rem;
+            padding: 0.4375rem 0.625rem;
+            font-size: 0.8125rem;
+            text-align: start;
+            box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
+            opacity: 0.85;
+        }
+
+        .pe-chat-suggestion:hover {
+            opacity: 1;
+            background: rgba(99, 102, 241, 0.08);
+            box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.35);
+        }
+
+        .dark .pe-chat-suggestion {
+            box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12);
         }
 
         /* The cursor only shows while the reply is still arriving; it sits
@@ -279,9 +387,15 @@
             display: flex;
             flex-direction: column;
             gap: 0.25rem;
-            border-radius: 0.75rem;
-            border: 1px solid rgba(0, 0, 0, 0.15);
-            padding: 0.5rem;
+            border-radius: 1rem;
+            border: 1px solid rgba(0, 0, 0, 0.12);
+            padding: 0.625rem 0.75rem;
+            background: var(--fi-color-white, #fff);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+        }
+
+        .dark .pe-chat-composer {
+            background: rgba(255, 255, 255, 0.04);
         }
 
         .dark .pe-chat-composer {
@@ -290,6 +404,7 @@
 
         .pe-chat-composer:focus-within {
             border-color: #6366f1;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
         }
 
         .pe-chat-input {
@@ -297,12 +412,16 @@
             border: 0;
             background: transparent;
             padding: 0;
-            font-size: 0.8125rem;
+            font-size: 0.875rem;
             font-family: inherit;
-            line-height: 1.45;
+            line-height: 1.5;
             color: inherit;
+            /* Grows with what you type, between a comfortable three lines and
+               roughly ten — below that the box feels like an afterthought,
+               above it the transcript disappears. */
             field-sizing: content;
-            max-height: 7rem;
+            min-height: 4rem;
+            max-height: 14rem;
         }
 
         .pe-chat-input:focus {
@@ -317,18 +436,13 @@
             gap: 0.5rem;
         }
 
-        .pe-chat-hint {
-            font-size: 0.6875rem;
-            opacity: 0.5;
-        }
-
         .pe-chat-send {
             display: flex;
             align-items: center;
             justify-content: center;
-            width: 1.75rem;
-            height: 1.75rem;
-            border-radius: 0.5rem;
+            width: 1.875rem;
+            height: 1.875rem;
+            border-radius: 9999px;
             background: #6366f1;
             color: #fff;
             flex-shrink: 0;
@@ -338,20 +452,25 @@
             opacity: 0.4;
         }
 
-        .pe-chat-composer-start {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            min-width: 0;
+        /* Same footprint as send, so swapping one for the other while a turn
+           runs doesn't shift the row. Dark like ChatGPT's, to read as "halt"
+           rather than as another primary action. */
+        .pe-chat-stop {
+            background: #1f2937;
+        }
+
+        .dark .pe-chat-stop {
+            background: #e5e7eb;
+            color: #111827;
         }
 
         .pe-chat-add {
             display: flex;
             align-items: center;
             justify-content: center;
-            width: 1.75rem;
-            height: 1.75rem;
-            border-radius: 0.5rem;
+            width: 1.875rem;
+            height: 1.875rem;
+            border-radius: 9999px;
             opacity: 0.6;
             flex-shrink: 0;
         }
@@ -369,12 +488,84 @@
             opacity: 0.3;
         }
 
-        .pe-drawer-head {
+        .pe-inspector {
+            gap: 1rem;
+            overflow-y: auto;
+        }
+
+        .pe-inspector-head {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 0.75rem;
-            width: 100%;
+            gap: 0.5rem;
+        }
+
+        .pe-page-card {
+            border-radius: 0.5rem;
+            padding: 0.625rem 0.75rem;
+            background: rgba(0, 0, 0, 0.03);
+        }
+
+        .dark .pe-page-card {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .pe-page-title {
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+
+        .pe-page-path {
+            font-size: 0.75rem;
+            opacity: 0.55;
+            overflow-wrap: anywhere;
+        }
+
+        .pe-chrome-links {
+            display: flex;
+            flex-direction: column;
+            gap: 0.125rem;
+            margin-top: 0.5rem;
+        }
+
+        .pe-chrome-link {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            border-radius: 0.5rem;
+            padding: 0.375rem 0.5rem;
+            font-size: 0.875rem;
+            text-align: start;
+        }
+
+        .pe-chrome-link:hover {
+            background: rgba(0, 0, 0, 0.04);
+        }
+
+        .dark .pe-chrome-link:hover {
+            background: rgba(255, 255, 255, 0.06);
+        }
+
+        .pe-chrome-link-icon {
+            width: 1rem;
+            height: 1rem;
+            opacity: 0.6;
+            flex: none;
+        }
+
+        .pe-chrome-link-note,
+        .pe-badge {
+            margin-inline-start: auto;
+            border-radius: 9999px;
+            padding: 0.0625rem 0.4375rem;
+            font-size: 0.625rem;
+            background: rgba(99, 102, 241, 0.12);
+            color: #6366f1;
+            white-space: nowrap;
+        }
+
+        .pe-badge {
+            margin-inline-start: 0;
         }
 
         .pe-chat-send svg {
@@ -391,7 +582,6 @@
     <div
         x-data="pageEditor({
             modals: @js([
-                'drawer' => \App\Filament\Tenant\Resources\PageResource\Pages\PageEditor::BLOCK_SETTINGS_MODAL,
                 'library' => \App\Filament\Tenant\Resources\PageResource\Pages\PageEditor::BLOCK_LIBRARY_MODAL,
             ]),
             labels: @js([
@@ -408,14 +598,15 @@
              the drawer makes the canvas shift over. --}}
         x-on:open-modal.window="onModalOpened($event)"
         x-on:modal-closed.window="onModalClosed($event)"
+        x-on:resize.window="fitLayout()"
     >
-        <div class="pe-layout">
+        <div class="pe-layout" x-ref="layout" x-bind:data-chat="chatOpen ? 'open' : 'closed'">
         {{-- Left rail: the AI assistant, and nothing else. Selection, reorder,
              insert and every structural verb live on the canvas; site chrome
              does too (an empty header/footer slot renders there as a clickable
              placeholder, see components/editor-chrome-slot.blade.php); block
              settings live in the drawer; the block library in a modal. --}}
-        <div class="pe-pane">
+        <div class="pe-pane" x-show="chatOpen" x-cloak>
             {{--
                 The AI assistant, docked at the bottom of this pane. Every
                 change it makes lands on the undo stack and stays unsaved until
@@ -425,7 +616,10 @@
                 instant they hit send, not a provider round trip later.
             --}}
             <div class="pe-chat">
-                <p class="pe-heading">{{ __('Ask AI') }}</p>
+                <div class="pe-chat-head">
+                    <x-filament::icon icon="heroicon-m-sparkles" class="pe-chat-head-icon" />
+                    {{ __('Assistant') }}
+                </div>
 
                 <div class="pe-chat-log" x-ref="chatLog">
                     @forelse ($this->chatMessages as $index => $message)
@@ -433,11 +627,33 @@
                             wire:key="chat-{{ $index }}"
                             class="pe-chat-message"
                             data-role="{{ $message['role'] }}"
-                        >{{ $message['content'] }}@if ($message['changed'])<span class="pe-chat-edited">{{ __('Edited the page — review it and Save.') }}</span>@endif</div>
+                        >{{ $message['content'] }}@if ($message['changed'])<span class="pe-chat-edited">{{ __('Edited the page — review and Save') }}</span>@endif</div>
                     @empty
-                        <p class="pe-empty" x-show="! chatSending">
-                            {{ __('Describe a change in your own words — "make the headline shorter", "add a call to action at the bottom".') }}
-                        </p>
+                        {{-- Centred in the empty thread rather than pinned to
+                             the top, with the examples as buttons: the hardest
+                             part of a blank assistant is knowing what it will
+                             accept, and a chip you can click answers that
+                             faster than a sentence describing it. --}}
+                        <div class="pe-chat-empty" x-show="! chatSending">
+                            <x-filament::icon icon="heroicon-o-sparkles" class="pe-chat-empty-icon" />
+
+                            <p class="pe-chat-empty-title">{{ __('Describe a change') }}</p>
+                            <p class="pe-chat-empty-body">{{ __('Ask in your own words. Every edit lands on the undo stack and stays unsaved until you hit Save.') }}</p>
+
+                            <div class="pe-chat-suggestions">
+                                @foreach ([
+                                    __('Make the headline shorter'),
+                                    __('Add a call to action at the bottom'),
+                                    __('Improve the wording throughout'),
+                                ] as $suggestion)
+                                    <button
+                                        type="button"
+                                        class="pe-chat-suggestion"
+                                        x-on:click="useSuggestion(@js($suggestion))"
+                                    >{{ $suggestion }}</button>
+                                @endforeach
+                            </div>
+                        </div>
                     @endforelse
 
                     {{-- The turn in flight: the operator's message, then the
@@ -453,44 +669,54 @@
                     ></div>
                 </div>
 
+                {{-- The composer stays editable while a turn runs, the way
+                     ChatGPT and Claude do: you can line up the next message,
+                     and the send button becomes a stop button rather than
+                     going dead. --}}
                 <div class="pe-chat-composer">
                     <textarea
                         class="pe-chat-input"
-                        rows="1"
+                        rows="3"
+                        x-ref="chatInput"
                         wire:model="chatInput"
                         placeholder="{{ __('Ask for a change…') }}"
-                        x-on:keydown.enter.prevent="sendChat()"
-                        x-bind:disabled="chatSending"
+                        x-on:keydown.enter="onComposerEnter($event)"
                     ></textarea>
 
                     <div class="pe-chat-composer-actions">
-                        <div class="pe-chat-composer-start">
-                            {{-- No argument: openBlockLibrary(null) clears any
-                                 position armed earlier on the canvas, so a
-                                 block picked here appends instead of landing
-                                 somewhere the operator has forgotten about. --}}
-                            <button
-                                type="button"
-                                class="pe-chat-add"
-                                title="{{ __('Add blocks') }}"
-                                wire:click="openBlockLibrary"
-                                wire:loading.attr="disabled"
-                                x-bind:disabled="chatSending"
-                            >
-                                <x-filament::icon icon="heroicon-m-plus" />
-                            </button>
-
-                            <span class="pe-chat-hint" x-text="chatSending ? '{{ __('Working…') }}' : '{{ __('Enter to send') }}'"></span>
-                        </div>
+                        {{-- No argument: openBlockLibrary(null) clears any
+                             position armed earlier on the canvas, so a block
+                             picked here appends instead of landing somewhere
+                             the operator has forgotten about. --}}
+                        <button
+                            type="button"
+                            class="pe-chat-add"
+                            title="{{ __('Add blocks') }}"
+                            wire:click="openBlockLibrary"
+                            wire:loading.attr="disabled"
+                        >
+                            <x-filament::icon icon="heroicon-m-plus" />
+                        </button>
 
                         <button
                             type="button"
                             class="pe-chat-send"
                             title="{{ __('Send') }}"
+                            x-show="! chatSending"
                             x-on:click="sendChat()"
-                            x-bind:disabled="chatSending"
                         >
                             <x-filament::icon icon="heroicon-m-arrow-up" />
+                        </button>
+
+                        <button
+                            type="button"
+                            class="pe-chat-send pe-chat-stop"
+                            title="{{ __('Stop') }}"
+                            x-show="chatSending"
+                            x-cloak
+                            x-on:click="stopChat()"
+                        >
+                            <x-filament::icon icon="heroicon-m-stop" />
                         </button>
                     </div>
                 </div>
@@ -498,25 +724,59 @@
         </div>
 
         {{-- Center pane: the canvas --}}
-        <div class="pe-canvas" x-bind:data-drawer="drawerOpen || undefined">
+        <div class="pe-canvas">
+            {{-- Breakpoint and zoom are two different questions — "how wide is
+                 the viewport I'm previewing" and "how much of it can I see" —
+                 so they get two controls instead of one row that mixed
+                 Desktop/Tablet/Mobile with a stray 50%. --}}
             <div class="pe-canvas-toolbar">
-                @foreach (['desktop' => 'Desktop', 'tablet' => 'Tablet', 'mobile' => 'Mobile', 'overview' => '50%'] as $device => $label)
-                    <button
-                        type="button"
-                        class="pe-device-button"
-                        x-bind:data-active="device === '{{ $device }}' || undefined"
-                        x-on:click="device = '{{ $device }}'"
-                    >{{ __($label) }}</button>
-                @endforeach
+                <button
+                    type="button"
+                    class="pe-toolbar-toggle"
+                    x-bind:data-active="chatOpen || undefined"
+                    x-bind:title="chatOpen ? @js(__('Hide the assistant')) : @js(__('Show the assistant'))"
+                    x-on:click="toggleChat()"
+                >
+                    <x-filament::icon icon="heroicon-m-chat-bubble-left-right" class="pe-toolbar-icon" />
+                </button>
+
+                <div class="pe-toolbar-group">
+                    @foreach (['desktop' => 'Desktop', 'tablet' => 'Tablet', 'mobile' => 'Mobile'] as $device => $label)
+                        <button
+                            type="button"
+                            class="pe-device-button"
+                            x-bind:data-active="device === '{{ $device }}' || undefined"
+                            x-on:click="device = '{{ $device }}'"
+                        >{{ __($label) }}</button>
+                    @endforeach
+                </div>
+
+                <div class="pe-toolbar-group">
+                    @foreach ([0.5 => '50%', 0.75 => '75%', 1 => '100%'] as $level => $label)
+                        <button
+                            type="button"
+                            class="pe-device-button"
+                            x-bind:data-active="zoom === {{ $level }} || undefined"
+                            x-on:click="zoom = {{ $level }}"
+                        >{{ $label }}</button>
+                    @endforeach
+                </div>
             </div>
 
             <div class="pe-canvas-body" x-on:click.self="$wire.deselectBlock()">
                 <div class="pe-progress" x-show="reloading" x-cloak></div>
 
+                {{-- Zoom scales the frame without touching its width, so the
+                     page inside still lays out at the previewed breakpoint —
+                     scaling by changing the width would silently preview a
+                     different breakpoint than the one selected. --}}
                 <div
                     class="pe-canvas-frame"
-                    x-bind:data-mode="device"
-                    x-bind:style="device === 'overview' ? false : { maxWidth: deviceWidths[device] }"
+                    x-bind:style="{
+                        maxWidth: deviceWidths[device],
+                        transform: zoom === 1 ? null : `scale(${zoom})`,
+                        height: zoom === 1 ? null : `${100 / zoom}%`,
+                    }"
                     wire:ignore
                 >
                     <iframe x-ref="canvas" src="{{ $this->previewUrl() }}" title="{{ __('Page preview') }}"></iframe>
@@ -544,66 +804,60 @@
                 @endif
             </div>
         </div>
-        </div>{{-- /.pe-layout --}}
+        {{-- Inspector: a plain third column, not a drawer.
 
-        {{--
-            The selected block's fields, as a click-through slide-over.
+             Editing block content is the main activity in this editor, not an
+             interruption, so the panel that serves it stays where you left it.
+             As a drawer it made every edit an open/edit/close loop and reflowed
+             the canvas underneath on each one — which is also what broke
+             double-click-to-edit and pushed the device toolbar off centre.
 
-            Hand-rolled rather than Action->slideOver(): an action modal is
-            destroyed on unmount and keeps its state at mountedActions.0.data,
-            while commitSelectedBlock(), updated(), pushPreview() and the
-            canvas's inline editing are all wired to data.block.*. This
-            component renders its slot unconditionally and toggles with x-show,
-            so the form keeps its state while hidden.
-
-            click-through drops the backdrop, the focus trap and the scroll
-            lock, so the canvas, the chat and the header actions stay live
-            behind it. Nothing closes it but the server: the close button calls
-            deselectBlock() instead of dispatching close-modal, so there is no
-            feedback loop AND an invalid draft leaves the drawer open with its
-            errors showing rather than vanishing.
-
-            Two placement rules, both learned the hard way. It must sit OUTSIDE
-            .pe-layout: the .fi-modal root is a plain static block (only its
-            window is fixed), so as a grid item it added a second row and
-            halved the panes' height the moment the drawer opened. And it must
-            stay outside any @if, or Alpine re-initialises it to isOpen: false
-            mid-edit. It also must never go inside .pe-canvas, whose overview
-            mode sets transform: scale(.5) and would capture the fixed window.
-        --}}
-        <x-filament::modal
-            :id="\App\Filament\Tenant\Resources\PageResource\Pages\PageEditor::BLOCK_SETTINGS_MODAL"
-            slide-over
-            :click-through="true"
-            :close-button="false"
-            :close-by-escaping="false"
-            sticky-header
-            width="md"
-        >
-            <x-slot name="header">
-                <div class="pe-drawer-head">
-                    <h2 class="fi-modal-heading">
-                        {{ $this->selectedBlock() === null
-                            ? __('Block settings')
-                            : \Illuminate\Support\Str::headline($this->selectedBlock()['type']) }}
-                    </h2>
-
-                    <x-filament::icon-button
-                        color="gray"
-                        icon="heroicon-o-x-mark"
-                        icon-size="lg"
-                        :label="__('Close')"
-                        wire:click="deselectBlock"
-                    />
-                </div>
-            </x-slot>
-
+             With nothing selected it shows the page instead of sitting empty;
+             an inspector that disappears is the problem, an inspector with
+             nothing to say is just a missed opportunity. --}}
+        <div class="pe-pane pe-inspector">
             @if ($this->selectedBlock() === null)
-                {{-- Nothing selected means the drawer is closed, so this is
-                     never seen — but the element itself must stay mounted. --}}
+                <p class="pe-heading">{{ __('Page') }}</p>
+
+                <div class="pe-page-card">
+                    <p class="pe-page-title">{{ $this->pageRecord()->title }}</p>
+                    <p class="pe-page-path">{{ $this->pageRecord()->getUrl() }}</p>
+                </div>
+
+                <div>
+                    <p class="pe-heading">{{ __('Site-wide') }}</p>
+
+                    <div class="pe-chrome-links">
+                        @foreach ([ChromeSlot::Header, ChromeSlot::Footer] as $slot)
+                            <button
+                                type="button"
+                                class="pe-chrome-link"
+                                wire:click="selectBlock('{{ $slot->editorKey() }}')"
+                            >
+                                <x-filament::icon
+                                    :icon="$slot === ChromeSlot::Header ? 'heroicon-o-bars-3' : 'heroicon-o-bars-3-bottom-left'"
+                                    class="pe-chrome-link-icon"
+                                />
+                                {{ __(\Illuminate\Support\Str::headline($slot->value)) }}
+                                <span class="pe-chrome-link-note">{{ __('every page') }}</span>
+                            </button>
+                        @endforeach
+                    </div>
+                </div>
+
+                <p class="pe-empty">{{ __('Click a block on the canvas to edit it.') }}</p>
             @elseif (! $this->hasEditableSelection())
+                <p class="pe-heading">{{ __('Block') }}</p>
                 <p class="pe-empty">{{ __("This block can't be edited — its type is no longer available. Use its toolbar on the canvas to remove it.") }}</p>
             @else
+                <div class="pe-inspector-head">
+                    <p class="pe-heading">{{ \Illuminate\Support\Str::headline($this->selectedBlock()['type']) }}</p>
+
+                    @if ($this->chromeSlot($this->selectedBlockKey) !== null)
+                        <span class="pe-badge">{{ __('every page') }}</span>
+                    @endif
+                </div>
+
                 @if ($this->selectedBlockBindType() !== null)
                     <div class="pe-hint" @if (! $this->hasBusinessProfile()) data-warning @endif>
                         @if ($this->hasBusinessProfile())
@@ -615,14 +869,15 @@
                     </div>
                 @endif
 
-                {{-- Load-bearing: the drawer stays mounted across selections,
-                     so without this key Livewire would morph block A's fields
-                     into block B's and carry Alpine widget state across. --}}
+                {{-- Load-bearing: the panel stays mounted across selections, so
+                     without this key Livewire would morph block A's fields into
+                     block B's and carry Alpine widget state across. --}}
                 <div wire:key="block-form-{{ $this->selectedBlockKey }}">
                     {{ $this->blockForm }}
                 </div>
             @endif
-        </x-filament::modal>
+        </div>
+        </div>{{-- /.pe-layout --}}
 
         {{-- The block library. Opened either by the chat composer's "+" (no
              position — appends) or by a canvas insert line (inserts there). --}}

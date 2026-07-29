@@ -26,7 +26,6 @@ import {
 interface PageEditorConfig {
     /** Modal ids, interpolated from the PageEditor constants by the blade. */
     modals: {
-        drawer: string;
         library: string;
     };
     labels: {
@@ -46,22 +45,36 @@ interface EditorWire {
     save(): void;
     undo(): void;
     redo(): void;
-    selectBlock(key: string): void;
+    selectBlock(key: string): Promise<unknown>;
     deselectBlock(): void;
     removeBlock(key: string): void;
     moveBlock(key: string, offset: number): void;
     duplicateBlock(key: string): void;
     reorderBlocks(keys: string[]): void;
     openBlockLibrary(position: number | null): void;
-    sendChatMessage(): Promise<unknown>;
-    set(name: string, value: unknown): void;
+    sendChatMessage(message: string): Promise<unknown>;
+    $interceptMessage(
+        action: string,
+        callback: (context: {
+            cancel: () => void;
+            onFinish: (callback: () => void) => void;
+        }) => void,
+    ): void;
+    /** `live: false` writes the property without a round trip of its own. */
+    set(name: string, value: unknown, live?: boolean): void;
     on(event: string, handler: (payload: never) => void): void;
     $refresh(): void;
 }
 
 /** What Alpine injects into the component at runtime. */
 interface AlpineInjected {
-    $refs: { canvas: HTMLIFrameElement; chatLog?: HTMLElement };
+    $dispatch(event: string, detail?: Record<string, unknown>): void;
+    $refs: {
+        canvas: HTMLIFrameElement;
+        layout: HTMLElement;
+        chatInput: HTMLTextAreaElement;
+        chatLog?: HTMLElement;
+    };
     $wire: EditorWire;
     $nextTick(callback: () => void): void;
 }
@@ -74,12 +87,21 @@ interface AlpineInjected {
  */
 interface PageEditorComponent extends AlpineInjected {
     device: string;
-    reloading: boolean;
+    /** Breakpoint preview width. Zoom is a separate axis — see `zoom`. */
     deviceWidths: Record<string, string>;
+    /** Canvas scale, independent of the breakpoint being previewed. */
+    zoom: number;
+    chatOpen: boolean;
+    toggleChat(): void;
+    reloading: boolean;
     chatSending: boolean;
     /** The operator's message, echoed locally until the server render lands. */
     chatPending: string;
+    fitLayout(): void;
+    onComposerEnter(event: KeyboardEvent): void;
+    useSuggestion(text: string): void;
     sendChat(): void;
+    stopChat(): void;
     scrollChatToEnd(): void;
     reload(url: string): void;
     postToCanvas(payload: EditorMessage): void;
@@ -90,9 +112,8 @@ interface PageEditorComponent extends AlpineInjected {
     inField(target: EventTarget | null): boolean;
     /** Whether the block library is over the canvas, swallowing key verbs. */
     libraryOpen: boolean;
-    /** Whether the settings drawer is out, so the canvas can make room. */
-    drawerOpen: boolean;
     modalOpen(): boolean;
+    grantInlineEdit(text: string): void;
     onModalOpened(event: CustomEvent): void;
     onModalClosed(event: CustomEvent): void;
     onMessage(event: MessageEvent): void;
@@ -117,28 +138,114 @@ function modalId(event: CustomEvent): string | null {
     return typeof id === 'string' ? id : null;
 }
 
+const CHAT_OPEN_KEY = 'ezsite:page-editor:chat-open';
+
+function readChatOpen(): boolean {
+    try {
+        return window.localStorage.getItem(CHAT_OPEN_KEY) !== '0';
+    } catch {
+        return true;
+    }
+}
+
+/** Matches the page's own bottom padding, so the grid stops short of it. */
+const LAYOUT_BOTTOM_GAP = 32;
+const LAYOUT_MIN_HEIGHT = 384;
+
 export function pageEditor(
     config: PageEditorConfig,
 ): Omit<PageEditorComponent, keyof AlpineInjected> {
+    /** Aborts the chat turn in flight, set per message by the interceptor. */
+    let chatCancel: (() => void) | null = null;
+
     return {
         device: 'desktop',
+        zoom: 1,
+        chatOpen: readChatOpen(),
         reloading: false,
         deviceWidths: {
             desktop: '100%',
             tablet: '768px',
             mobile: '390px',
-            overview: '100%',
         },
         chatSending: false,
         chatPending: '',
         libraryOpen: false,
-        drawerOpen: false,
 
         /**
-         * Send the box's contents. The message is echoed locally first so it
-         * appears the instant the operator hits send — the server render only
-         * lands once the whole turn (a provider round trip, possibly several
-         * tool calls) is done.
+         * The chat is the surface you reach for occasionally, so it is the one
+         * that folds away — the inspector is used on every edit and stays.
+         */
+        toggleChat(this: PageEditorComponent): void {
+            this.chatOpen = !this.chatOpen;
+
+            try {
+                window.localStorage.setItem(
+                    CHAT_OPEN_KEY,
+                    this.chatOpen ? '1' : '0',
+                );
+            } catch {
+                // Storage blocked: the rail just won't remember its state.
+            }
+
+            // The canvas column changed width, so the iframe needs to relayout.
+            this.$nextTick(() => this.fitLayout());
+        },
+
+        /**
+         * Size the editor grid to the space actually left below it.
+         *
+         * A CSS `calc(100dvh - <offset>)` cannot know whether this page has
+         * breadcrumbs, a wrapped title or a second row of header actions, and
+         * an offset guessed too small runs the grid past the page's bottom
+         * padding — which is what jammed the chat composer against the window
+         * edge. Measuring the grid's own top removes the guess.
+         */
+        fitLayout(this: PageEditorComponent): void {
+            const top = this.$refs.layout.getBoundingClientRect().top;
+
+            this.$refs.layout.style.height = `${Math.max(
+                LAYOUT_MIN_HEIGHT,
+                window.innerHeight - top - LAYOUT_BOTTOM_GAP,
+            )}px`;
+        },
+
+        /**
+         * Enter sends, Shift+Enter makes a newline — the convention every chat
+         * composer shares.
+         *
+         * `isComposing` is not optional: while an IME candidate window is open
+         * (typing Chinese, Japanese, Korean) Enter CONFIRMS the candidate, and
+         * swallowing it here would make the composer unusable in those
+         * languages.
+         */
+        onComposerEnter(this: PageEditorComponent, event: KeyboardEvent): void {
+            if (event.shiftKey || event.isComposing) {
+                return;
+            }
+
+            event.preventDefault();
+            this.sendChat();
+        },
+
+        /**
+         * Load an example into the composer instead of sending it outright —
+         * the examples are starting points, and firing one off unedited is
+         * rarely what the operator meant by clicking it.
+         */
+        useSuggestion(this: PageEditorComponent, text: string): void {
+            this.$wire.set('chatInput', text, false);
+            this.$refs.chatInput.focus();
+        },
+
+        /**
+         * Send the box's contents.
+         *
+         * The message is passed as an argument rather than read off the bound
+         * property so the box can be emptied immediately — a turn is a provider
+         * round trip and several tool calls, and leaving the text sitting there
+         * until it returns reads as "my send didn't work". The message is
+         * echoed locally for the same reason.
          *
          * Guarded against the double submit a held Enter key would otherwise
          * cause during that wait: the second turn would run against pre-edit
@@ -153,13 +260,35 @@ export function pageEditor(
 
             this.chatSending = true;
             this.chatPending = message;
+            this.$wire.set('chatInput', '', false);
             this.$nextTick(() => this.scrollChatToEnd());
 
-            void this.$wire.sendChatMessage().finally(() => {
+            void this.$wire.sendChatMessage(message).finally(() => {
                 this.chatSending = false;
                 this.chatPending = '';
                 this.$nextTick(() => this.scrollChatToEnd());
             });
+        },
+
+        /**
+         * Abandon the turn in flight.
+         *
+         * This aborts the Livewire message client-side (see the interceptor in
+         * init()), so the streamed reply stops and the response — including any
+         * block changes the assistant made — never lands. The PHP request
+         * itself keeps running to completion on the server; there is no channel
+         * to interrupt it, because Livewire serialises requests per component
+         * and a cancel call would simply queue behind the turn it means to
+         * cancel. The transcript row it writes therefore still appears on the
+         * next full render.
+         */
+        stopChat(this: PageEditorComponent): void {
+            if (chatCancel !== null) {
+                chatCancel();
+            }
+
+            this.chatSending = false;
+            this.chatPending = '';
         },
 
         scrollChatToEnd(this: PageEditorComponent): void {
@@ -261,11 +390,37 @@ export function pageEditor(
             );
         },
 
+        /**
+         * Hand the canvas the field to make editable — but only when the
+         * double-clicked text EXACTLY matches one of the selected block's
+         * string draft fields, so the edit always writes back to a known
+         * field rather than to whatever the click happened to land on.
+         */
+        grantInlineEdit(this: PageEditorComponent, text: string): void {
+            const draft = this.$wire.data?.block ?? {};
+            const needle = text.trim();
+
+            const match =
+                needle === ''
+                    ? undefined
+                    : Object.entries(draft).find(
+                          ([, value]) =>
+                              typeof value === 'string' &&
+                              value.trim() === needle,
+                      );
+
+            if (match) {
+                this.postToCanvas({
+                    type: 'inline-edit-grant',
+                    field: match[0],
+                });
+            }
+        },
+
         onModalOpened(this: PageEditorComponent, event: CustomEvent): void {
             const id = modalId(event);
 
             if (id === config.modals.library) this.libraryOpen = true;
-            if (id === config.modals.drawer) this.drawerOpen = true;
         },
 
         onModalClosed(this: PageEditorComponent, event: CustomEvent): void {
@@ -277,8 +432,6 @@ export function pageEditor(
                 // otherwise leave the armed insert line lit with nothing coming.
                 this.postToCanvas({ type: 'insert-armed', position: null });
             }
-
-            if (id === config.modals.drawer) this.drawerOpen = false;
         },
 
         onMessage(this: PageEditorComponent, event: MessageEvent): void {
@@ -298,7 +451,7 @@ export function pageEditor(
             }
 
             if (message.type === 'block-clicked') {
-                this.$wire.selectBlock(message.key);
+                void this.$wire.selectBlock(message.key);
             }
 
             if (message.type === 'action') {
@@ -337,29 +490,17 @@ export function pageEditor(
                 this.$wire.deselectBlock();
             }
 
-            if (
-                message.type === 'inline-edit-request' &&
-                message.key === this.$wire.selectedBlockKey
-            ) {
-                // Grant only when the double-clicked text exactly matches
-                // one of the selected block's string draft fields — that
-                // field becomes the contenteditable target.
-                const draft = this.$wire.data?.block ?? {};
-                const text = (message.text ?? '').trim();
-                const match =
-                    text === ''
-                        ? undefined
-                        : Object.entries(draft).find(
-                              ([, value]) =>
-                                  typeof value === 'string' &&
-                                  value.trim() === text,
-                          );
+            if (message.type === 'inline-edit-request') {
+                const { key, text } = message;
 
-                if (match) {
-                    this.postToCanvas({
-                        type: 'inline-edit-grant',
-                        field: match[0],
-                    });
+                // The block has to be selected for its draft to be readable,
+                // but a double-click may land on one that is not.
+                if (key === this.$wire.selectedBlockKey) {
+                    this.grantInlineEdit(text);
+                } else {
+                    void this.$wire
+                        .selectBlock(key)
+                        .then(() => this.grantInlineEdit(text));
                 }
             }
 
@@ -460,6 +601,21 @@ export function pageEditor(
         },
 
         init(this: PageEditorComponent): void {
+            this.$nextTick(() => this.fitLayout());
+
+            // Hands stopChat() a handle on the chat turn in flight. Registered
+            // once and fired per matching message, so the handle is always the
+            // current one and is dropped when the turn ends.
+            this.$wire.$interceptMessage(
+                'sendChatMessage',
+                ({ cancel, onFinish }) => {
+                    chatCancel = cancel;
+                    onFinish(() => {
+                        chatCancel = null;
+                    });
+                },
+            );
+
             this.$wire.on(
                 'page-editor:refresh-canvas',
                 ({ url }: { url: string }) => this.reload(url),

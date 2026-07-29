@@ -24,35 +24,13 @@
         }
 
         .pc-search {
-            border: 0;
-            border-radius: 0.5rem;
-            padding: 0.375rem 0.75rem;
-            font-size: 0.875rem;
-            width: 16rem;
-            background: var(--fi-color-white, #fff);
-            box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1);
+            width: 18rem;
         }
 
-        .dark .pc-search {
-            background: rgba(255, 255, 255, 0.05);
-            box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1);
-            color: inherit;
-        }
-
-        .pc-tool-button {
-            border-radius: 0.375rem;
-            padding: 0.25rem 0.625rem;
+        .pc-zoom {
             font-size: 0.75rem;
-            opacity: 0.7;
-            box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1);
-        }
-
-        .pc-tool-button:hover {
-            opacity: 1;
-        }
-
-        .dark .pc-tool-button {
-            box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12);
+            opacity: 0.55;
+            padding-inline: 0.25rem;
         }
 
         .pc-hint {
@@ -284,30 +262,41 @@
         x-on:keydown.escape.window="closeMenu()"
     >
         <div class="pc-toolbar">
-            <input
-                type="search"
-                class="pc-search"
-                x-ref="search"
-                x-model="search"
-                x-on:keydown.enter.prevent="submitSearch()"
-                placeholder="{{ __('Search pages…') }}"
-            />
+            {{-- Filament's own controls, so this toolbar matches the page
+                 header actions right above it instead of being a lookalike. --}}
+            <div class="pc-search">
+                <x-filament::input.wrapper prefix-icon="heroicon-m-magnifying-glass">
+                    <x-filament::input
+                        type="search"
+                        x-ref="search"
+                        x-model="search"
+                        x-on:keydown.enter.prevent="submitSearch()"
+                        :placeholder="__('Search pages…')"
+                    />
+                </x-filament::input.wrapper>
+            </div>
 
             {{-- The two act on different things, so they say so: one moves
                  the camera, the other moves the cards. --}}
-            <button
-                type="button"
-                class="pc-tool-button"
-                title="{{ __('Zoom out until every page is on screen. Does not move any card.') }}"
+            {{-- Default size, not `sm`: it shares Filament's input height, so
+                 the buttons line up with the search field beside them. --}}
+            <x-filament::button
+                color="gray"
+                :title="__('Zoom out until every page is on screen. Does not move any card.')"
                 x-on:click="fitToCards()"
-            >{{ __('Fit to screen') }}</button>
-            <button
-                type="button"
-                class="pc-tool-button"
-                title="{{ __('Put every card back in the default grid, discarding how you arranged them.') }}"
+            >
+                {{ __('Fit to screen') }}
+            </x-filament::button>
+
+            <x-filament::button
+                color="gray"
+                :title="__('Put every card back in the default grid, discarding how you arranged them.')"
                 x-on:click="resetPositions()"
-            >{{ __('Reset positions') }}</button>
-            <span class="pc-tool-button" style="box-shadow: none; opacity: 0.55;" x-text="Math.round(scale * 100) + '%'"></span>
+            >
+                {{ __('Reset layout') }}
+            </x-filament::button>
+
+            <span class="pc-zoom" x-text="Math.round(scale * 100) + '%'"></span>
 
             <span class="pc-hint">{{ __('Right-click the canvas to add a page · drag to arrange · double-click to edit') }}</span>
         </div>

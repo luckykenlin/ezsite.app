@@ -45,6 +45,17 @@ let dragStartOrder = '';
 let pendingEdit: PendingEdit | null = null;
 let editing: ActiveEdit | null = null;
 let inputTimer: ReturnType<typeof setTimeout> | undefined;
+let selectedKey: string | null = null;
+let hoveredKey: string | null = null;
+let clickTimer: ReturnType<typeof setTimeout> | undefined;
+
+/**
+ * How long a click on a block waits before it becomes "open the settings
+ * drawer". Double-clicking text starts an inline edit, and the drawer narrows
+ * the canvas as it slides in — so without this grace period the first click of
+ * a double-click would shift the very words the second click is aiming at.
+ */
+const DOUBLE_CLICK_GRACE = 250;
 
 const armInsertLine = (position: number | null): void => {
     document
@@ -71,15 +82,19 @@ const pageBlockKeys = (): string[] =>
         .map((el) => el.dataset.blockKey)
         .filter((key): key is string => key !== undefined && !isChromeKey(key));
 
-const toolbar = (): HTMLElement => {
-    const el = document.createElement('div');
-    el.setAttribute('data-editor-toolbar', '');
-
+const dragHandle = (): HTMLElement => {
     const handle = document.createElement('span');
     handle.setAttribute('data-editor-drag', '');
     handle.title = 'Drag to reorder';
     handle.textContent = '⠿';
-    el.appendChild(handle);
+
+    return handle;
+};
+
+const toolbar = (): HTMLElement => {
+    const el = document.createElement('div');
+    el.setAttribute('data-editor-toolbar', '');
+    el.appendChild(dragHandle());
 
     const buttons: [BlockAction, string, string][] = [
         ['move-up', '↑', 'Move up'],
@@ -118,18 +133,62 @@ const mark = (attribute: string, key: string | null): HTMLElement | null => {
     return el;
 };
 
-const select = (key: string | null): HTMLElement | null => {
+/**
+ * The full toolbar belongs to the SELECTED block; a merely hovered one gets
+ * the drag handle alone.
+ *
+ * Both halves matter. Dragging is a "see it, grab it" gesture, so it must not
+ * require selecting first — but a whole toolbar chasing the pointer flickered
+ * from block to block as the mouse crossed the page, and put destructive
+ * buttons under the cursor on the way past. A single handle on hover keeps
+ * reordering immediate without the noise.
+ *
+ * Chrome pseudo-blocks get neither: the structural verbs don't apply to a
+ * site-wide header or footer.
+ */
+const paintToolbar = (): void => {
     document
-        .querySelectorAll('[data-editor-toolbar]')
+        .querySelectorAll('[data-editor-toolbar], [data-editor-drag-only]')
         .forEach((el) => el.remove());
+
+    const attach = (key: string | null, full: boolean): void => {
+        if (key === null || isChromeKey(key)) {
+            return;
+        }
+
+        const block = document.querySelector<HTMLElement>(
+            `[data-block-key="${CSS.escape(key)}"]`,
+        );
+
+        if (!block) {
+            return;
+        }
+
+        if (full) {
+            block.appendChild(toolbar());
+
+            return;
+        }
+
+        const holder = document.createElement('div');
+        holder.setAttribute('data-editor-drag-only', '');
+        holder.appendChild(dragHandle());
+        block.appendChild(holder);
+    };
+
+    attach(selectedKey, true);
+
+    if (hoveredKey !== selectedKey) {
+        attach(hoveredKey, false);
+    }
+};
+
+const select = (key: string | null): HTMLElement | null => {
+    selectedKey = key;
 
     const el = mark('data-editor-selected', key);
 
-    // Chrome pseudo-blocks are edited in the drawer only — the structural
-    // toolbar verbs don't apply to them.
-    if (el && !isChromeKey(key)) {
-        el.appendChild(toolbar());
-    }
+    paintToolbar();
 
     return el;
 };
@@ -208,8 +267,14 @@ document.addEventListener(
         const key = blockKeyOf(closestFrom(event.target, '[data-block-key]'));
 
         if (key !== null) {
+            // Outline and toolbar land immediately; only telling the parent
+            // (which opens the drawer) waits to see if a second click follows.
             select(key);
-            post({ type: 'block-clicked', key });
+            clearTimeout(clickTimer);
+            clickTimer = setTimeout(
+                () => post({ type: 'block-clicked', key }),
+                DOUBLE_CLICK_GRACE,
+            );
 
             return;
         }
@@ -222,6 +287,27 @@ document.addEventListener(
     true,
 );
 
+// Hovering arms a block's toolbar, so reordering never needs a click first.
+// `mouseover` rather than `mouseenter` because it bubbles: one listener covers
+// every block, including ones added by a canvas patch. The toolbar itself sits
+// inside the block, so reaching for the drag handle keeps the pointer "on" it.
+document.addEventListener('mouseover', (event) => {
+    // Mid-drag the toolbar is what is being held, and mid-edit the DOM churn
+    // would fight the caret.
+    if (dragging || editing) {
+        return;
+    }
+
+    const key = blockKeyOf(closestFrom(event.target, '[data-block-key]'));
+
+    if (key === hoveredKey) {
+        return;
+    }
+
+    hoveredKey = key;
+    paintToolbar();
+});
+
 // Double-click starts inline text editing: the parent matches the
 // clicked text against the selected block's draft fields and grants
 // (or ignores) the request.
@@ -229,6 +315,10 @@ document.addEventListener('dblclick', (event) => {
     if (editing) {
         return;
     }
+
+    // This is a double-click, so the pending single-click never happens: no
+    // drawer, no canvas reflow under the caret.
+    clearTimeout(clickTimer);
 
     const key = blockKeyOf(closestFrom(event.target, '[data-block-key]'));
     const el = event.target instanceof HTMLElement ? event.target : null;
