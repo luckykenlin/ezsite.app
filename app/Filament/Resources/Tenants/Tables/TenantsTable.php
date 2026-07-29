@@ -30,7 +30,12 @@ final class TenantsTable
                     ->label('Domain')
                     ->placeholder('No domain')
                     ->state(fn (Tenant $record): ?string => $record->domain?->getUrl())
-                    ->url(fn (Tenant $record): string => $record->domain?->getUrl().'admin')
+                    // Straight into the tenant's panel. Null when there is no
+                    // domain — concatenating onto the null would have produced
+                    // the bare string "admin" and made the cell a broken link.
+                    ->url(fn (Tenant $record): ?string => $record->domain === null
+                        ? null
+                        : $record->domain->getUrl().'admin')
                     ->openUrlInNewTab(),
                 TextColumn::make('created_at')
                     ->dateTime()

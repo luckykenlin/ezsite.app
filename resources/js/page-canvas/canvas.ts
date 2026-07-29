@@ -50,7 +50,7 @@ interface CanvasWire {
 
 interface AlpineInjected {
     $wire: CanvasWire;
-    $refs: { viewport: HTMLElement; world: HTMLElement };
+    $refs: { viewport: HTMLElement; world: HTMLElement; menu: HTMLElement };
     $nextTick(callback: () => void): void;
 }
 
@@ -87,7 +87,15 @@ interface PageCanvasComponent extends AlpineInjected {
     onCardOpen(event: Event): void;
     onViewportContextMenu(event: MouseEvent): void;
     onCardContextMenu(event: MouseEvent): void;
+    openMenu(
+        event: MouseEvent,
+        page: string | null,
+        url: string,
+        isDraft: boolean,
+    ): void;
+    placeMenu(): void;
     menuStyle(): string;
+    onMenuKeydown(event: KeyboardEvent): void;
     closeMenu(): void;
     run(action: string, page: string): void;
     openFromMenu(): void;
@@ -282,6 +290,8 @@ export function pageCanvas(
     let onPointerUp: (() => void) | null = null;
     let onDismiss: ((event: Event) => void) | null = null;
     let layoutObserver: MutationObserver | null = null;
+    /** What opened the menu, so focus can go back there when it closes. */
+    let menuOpener: HTMLElement | null = null;
     let viewTimer: ReturnType<typeof setTimeout> | null = null;
     let pendingView: { x: number; y: number; scale: number } | null = null;
 
@@ -534,8 +544,9 @@ export function pageCanvas(
                 return;
             }
 
+            // Dismissing the menu is the window-level listener's job; it runs
+            // in the capture phase, so this stopPropagation cannot skip it.
             event.stopPropagation();
-            this.closeMenu();
 
             const world = this.screenToWorld(event.clientX, event.clientY);
             const position = this.positionOf(card);
@@ -564,14 +575,7 @@ export function pageCanvas(
             event.preventDefault();
 
             pendingPlacement = this.screenToWorld(event.clientX, event.clientY);
-            this.menu = {
-                open: true,
-                x: event.clientX,
-                y: event.clientY,
-                page: null,
-                url: '',
-                isDraft: false,
-            };
+            this.openMenu(event, null, '', false);
         },
 
         onCardContextMenu(this: PageCanvasComponent, event: MouseEvent): void {
@@ -593,42 +597,129 @@ export function pageCanvas(
                 y: position.y,
             };
 
+            this.openMenu(
+                event,
+                card.id,
+                card.url,
+                card.element.dataset.draft === '1',
+            );
+        },
+
+        openMenu(
+            this: PageCanvasComponent,
+            event: MouseEvent,
+            page: string | null,
+            url: string,
+            isDraft: boolean,
+        ): void {
+            menuOpener =
+                event.currentTarget instanceof HTMLElement
+                    ? event.currentTarget
+                    : null;
+
             this.menu = {
                 open: true,
                 x: event.clientX,
                 y: event.clientY,
-                page: card.id,
-                url: card.url,
-                isDraft: card.element.dataset.draft === '1',
+                page,
+                url,
+                isDraft,
             };
+
+            this.$nextTick(() => this.placeMenu());
         },
 
         /**
-         * Physical `left`/`top`, kept inside the window.
+         * Puts the menu on screen and moves focus into it, once it has been
+         * rendered and can be measured.
          *
-         * `menu.x/y` are clientX/clientY, i.e. measured from the left — so
-         * `inset-inline-start` would mirror the menu across the window in an
-         * RTL locale. And right-clicking near the right or bottom edge used to
-         * push items off screen with no way to reach them, since the element
-         * is fixed.
+         * Desktop menus FLIP about the pointer when they don't fit rather than
+         * sliding along the edge, so the cursor never ends up on top of an
+         * item it didn't mean to be on.
          */
-        menuStyle(this: PageCanvasComponent): string {
-            const width = 190;
-            const height = this.menu.page === null ? 46 : 150;
-            const x = Math.max(
-                8,
-                Math.min(this.menu.x, window.innerWidth - width - 8),
-            );
-            const y = Math.max(
-                8,
-                Math.min(this.menu.y, window.innerHeight - height - 8),
-            );
+        placeMenu(this: PageCanvasComponent): void {
+            const element = this.$refs.menu;
+            const rect = element.getBoundingClientRect();
+            const margin = 8;
+            let x = this.menu.x;
+            let y = this.menu.y;
 
-            return `left: ${x}px; top: ${y}px;`;
+            if (x + rect.width > window.innerWidth - margin) {
+                x = Math.max(margin, x - rect.width);
+            }
+
+            if (y + rect.height > window.innerHeight - margin) {
+                y = Math.max(margin, y - rect.height);
+            }
+
+            this.menu = { ...this.menu, x, y };
+            element.querySelector<HTMLElement>('.pc-menu-item')?.focus();
         },
 
+        /** Physical left/top — `menu.x` is a clientX, which is LTR by nature. */
+        menuStyle(this: PageCanvasComponent): string {
+            return `left: ${this.menu.x}px; top: ${this.menu.y}px;`;
+        },
+
+        /**
+         * Arrow keys cycle, Home/End jump, Enter/Space activate (the buttons
+         * do that themselves), Tab leaves — the keyboard contract every
+         * desktop menu has.
+         */
+        onMenuKeydown(this: PageCanvasComponent, event: KeyboardEvent): void {
+            const items = Array.from(
+                this.$refs.menu.querySelectorAll<HTMLElement>('.pc-menu-item'),
+            );
+
+            if (items.length === 0) {
+                return;
+            }
+
+            const current = items.findIndex(
+                (item) => item === document.activeElement,
+            );
+
+            if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                event.preventDefault();
+
+                const step = event.key === 'ArrowDown' ? 1 : -1;
+
+                items[(current + step + items.length) % items.length]?.focus();
+
+                return;
+            }
+
+            if (event.key === 'Home' || event.key === 'End') {
+                event.preventDefault();
+                (event.key === 'Home'
+                    ? items[0]
+                    : items[items.length - 1]
+                )?.focus();
+
+                return;
+            }
+
+            if (event.key === 'Escape' || event.key === 'Tab') {
+                this.closeMenu();
+            }
+        },
+
+        /** Returns focus to whatever opened the menu, as a menu should. */
         closeMenu(this: PageCanvasComponent): void {
+            if (!this.menu.open) {
+                return;
+            }
+
             this.menu = { ...this.menu, open: false };
+
+            if (
+                menuOpener !== null &&
+                this.$refs.menu.contains(document.activeElement)
+            ) {
+                menuOpener.focus();
+            }
+
+            menuOpener = null;
         },
 
         run(this: PageCanvasComponent, action: string, page: string): void {
@@ -842,26 +933,44 @@ export function pageCanvas(
                 panOrigin = null;
             };
 
-            // Any press outside the menu dismisses it. The menu is fixed to
-            // screen coordinates while the world moves under it, so leaving it
-            // open across a pan or a click elsewhere lets it hover over a
-            // different card than the one its verbs would act on.
+            // A context menu is anchored to a point on screen, so anything
+            // that moves the content under it — a scroll, a wheel, a resize —
+            // has to dismiss it, exactly like the OS one. Otherwise it floats
+            // over a different card than the one its verbs act on.
+            //
+            // Capture phase, and on `window`, because the scroll may happen in
+            // the Filament panel or over the menu itself, neither of which
+            // bubbles through the canvas.
             onDismiss = (event: Event): void => {
-                if (
-                    this.menu.open &&
-                    !(
-                        event.target instanceof Element &&
-                        event.target.closest('.pc-menu') !== null
-                    )
-                ) {
-                    this.closeMenu();
+                if (!this.menu.open) {
+                    return;
                 }
+
+                // A press inside the menu is a click on an item, not a dismiss.
+                if (
+                    event.type === 'pointerdown' &&
+                    event.target instanceof Element &&
+                    event.target.closest('.pc-menu') !== null
+                ) {
+                    return;
+                }
+
+                this.closeMenu();
             };
 
             window.addEventListener('pointermove', onPointerMove);
             window.addEventListener('pointerup', onPointerUp);
             window.addEventListener('pointercancel', onPointerUp);
-            window.addEventListener('pointerdown', onDismiss, true);
+
+            for (const type of ['pointerdown', 'wheel', 'scroll'] as const) {
+                window.addEventListener(type, onDismiss, {
+                    capture: true,
+                    passive: true,
+                });
+            }
+
+            window.addEventListener('resize', onDismiss);
+            window.addEventListener('blur', onDismiss);
 
             // Livewire adds, removes and reorders cards on every action, and
             // Alpine does not re-run bindings for a morphed element — so the
@@ -907,7 +1016,16 @@ export function pageCanvas(
             }
 
             if (onDismiss !== null) {
-                window.removeEventListener('pointerdown', onDismiss, true);
+                for (const type of [
+                    'pointerdown',
+                    'wheel',
+                    'scroll',
+                ] as const) {
+                    window.removeEventListener(type, onDismiss, true);
+                }
+
+                window.removeEventListener('resize', onDismiss);
+                window.removeEventListener('blur', onDismiss);
             }
         },
     };

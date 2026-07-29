@@ -125,6 +125,13 @@
             box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18), 0 0 0 2px var(--fi-color-primary-500, #6366f1);
         }
 
+        /* While its menu is open, the card it belongs to stays marked — with
+           the menu floating free, there was otherwise nothing saying which
+           card Delete was about to act on. */
+        .pc-card[data-menu='true'] {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1), 0 0 0 2px var(--fi-color-primary-500, #6366f1);
+        }
+
         .pc-card[data-dim='true'] {
             opacity: 0.25;
         }
@@ -216,7 +223,9 @@
         }
 
         .pc-menu-item {
-            display: block;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
             width: 100%;
             border-radius: 0.375rem;
             padding: 0.375rem 0.625rem;
@@ -224,16 +233,45 @@
             text-align: start;
         }
 
-        .pc-menu-item:hover {
+        /* Hover and keyboard focus have to look identical — arrowing down a
+           menu should highlight exactly what hovering does. */
+        .pc-menu-item:hover,
+        .pc-menu-item:focus,
+        .pc-menu-item:focus-visible {
             background: rgba(0, 0, 0, 0.05);
+            outline: none;
         }
 
-        .dark .pc-menu-item:hover {
+        .dark .pc-menu-item:hover,
+        .dark .pc-menu-item:focus {
             background: rgba(255, 255, 255, 0.08);
         }
 
-        .pc-menu-item[data-danger]:hover {
+        .pc-menu-icon {
+            width: 1rem;
+            height: 1rem;
+            flex: none;
+            opacity: 0.55;
+        }
+
+        /* Destructive items read as destructive before you hover them. */
+        .pc-menu-item[data-danger] {
             color: #dc2626;
+        }
+
+        .pc-menu-item[data-danger]:hover,
+        .pc-menu-item[data-danger]:focus {
+            background: rgba(220, 38, 38, 0.1);
+        }
+
+        .pc-menu-separator {
+            height: 1px;
+            margin: 0.25rem 0.375rem;
+            background: rgba(0, 0, 0, 0.08);
+        }
+
+        .dark .pc-menu-separator {
+            background: rgba(255, 255, 255, 0.12);
         }
     </style>
 
@@ -286,6 +324,10 @@
                     <div
                         wire:key="canvas-card-{{ $card['id'] }}"
                         class="pc-card"
+                        {{-- -1, not 0: focusable so closing the menu can hand
+                             focus back, without putting every card in the tab
+                             order. --}}
+                        tabindex="-1"
                         data-page-id="{{ $card['id'] }}"
                         data-index="{{ $index }}"
                         data-title="{{ $card['title'] }}"
@@ -298,6 +340,7 @@
                         x-bind:style="cardStyle($el)"
                         x-bind:data-dim="isDimmed(@js($card['title']))"
                         x-bind:data-dragging="dragging === @js((string) $card['id'])"
+                        x-bind:data-menu="menu.open && menu.page === @js((string) $card['id'])"
                         x-on:pointerdown="onCardPointerDown($event)"
                         x-on:dblclick="onCardOpen($event)"
                         x-on:contextmenu.prevent.stop="onCardContextMenu($event)"
@@ -344,26 +387,50 @@
             @endif
         </div>
 
+        {{-- A real context menu: it dismisses on scroll, wheel, resize, blur,
+             Escape and any press outside; it flips rather than slides when it
+             would leave the window; and it takes focus so the arrow keys work.
+             The listeners live in canvas.ts because a scroll in the Filament
+             panel never reaches this element. --}}
         <div
             class="pc-menu"
+            role="menu"
+            aria-orientation="vertical"
+            x-ref="menu"
             x-show="menu.open"
             x-cloak
             x-bind:style="menuStyle()"
-            x-on:pointerdown.stop
+            x-on:keydown="onMenuKeydown($event)"
             x-on:contextmenu.prevent.stop
         >
             <template x-if="menu.page === null">
-                <button type="button" class="pc-menu-item" x-on:click="createHere()">{{ __('New page here') }}</button>
+                <button type="button" role="menuitem" class="pc-menu-item" x-on:click="createHere()">
+                    <x-filament::icon icon="heroicon-o-plus" class="pc-menu-icon" />
+                    {{ __('New page here') }}
+                </button>
             </template>
 
             <template x-if="menu.page !== null">
                 <div>
-                    <button type="button" class="pc-menu-item" x-on:click="openFromMenu()">{{ __('Open in editor') }}</button>
-                    <button type="button" class="pc-menu-item" x-on:click="run('publishPage', menu.page)">
+                    <button type="button" role="menuitem" class="pc-menu-item" x-on:click="openFromMenu()">
+                        <x-filament::icon icon="heroicon-o-pencil-square" class="pc-menu-icon" />
+                        {{ __('Open in editor') }}
+                    </button>
+                    <button type="button" role="menuitem" class="pc-menu-item" x-on:click="run('publishPage', menu.page)">
+                        <x-filament::icon icon="heroicon-o-globe-alt" class="pc-menu-icon" />
                         <span x-text="menu.isDraft ? @js(__('Publish')) : @js(__('Unpublish'))"></span>
                     </button>
-                    <button type="button" class="pc-menu-item" x-on:click="run('duplicatePage', menu.page)">{{ __('Duplicate') }}</button>
-                    <button type="button" class="pc-menu-item" data-danger x-on:click="run('deletePage', menu.page)">{{ __('Delete') }}</button>
+                    <button type="button" role="menuitem" class="pc-menu-item" x-on:click="run('duplicatePage', menu.page)">
+                        <x-filament::icon icon="heroicon-o-square-2-stack" class="pc-menu-icon" />
+                        {{ __('Duplicate') }}
+                    </button>
+
+                    <div class="pc-menu-separator" role="separator"></div>
+
+                    <button type="button" role="menuitem" class="pc-menu-item" data-danger x-on:click="run('deletePage', menu.page)">
+                        <x-filament::icon icon="heroicon-o-trash" class="pc-menu-icon" />
+                        {{ __('Delete') }}
+                    </button>
                 </div>
             </template>
         </div>

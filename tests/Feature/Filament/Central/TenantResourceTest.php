@@ -68,7 +68,7 @@ test('creating a tenant requires an email address that is not already taken', fu
 
 // The subdomain-vs-custom-domain distinction belongs to Domain::getUrl() and is
 // covered by Unit/Models/DomainTest; here we only assert the column delegates to it.
-test('domain column links to the tenant resolved url', function (): void {
+test('domain column links to the tenant admin panel', function (): void {
     $centralDomain = array_first(config('tenancy.identification.central_domains'));
     $tenant = Tenant::factory()->create();
     Domain::factory()->create(['tenant_id' => $tenant->id, 'domain' => 'acme-inc']);
@@ -77,7 +77,7 @@ test('domain column links to the tenant resolved url', function (): void {
         ->call('loadTable')
         ->assertTableColumnExists(
             'domain.domain',
-            fn ($column): bool => $column->getUrl() === sprintf('http://acme-inc.%s/', $centralDomain),
+            fn ($column): bool => $column->getUrl() === sprintf('http://acme-inc.%s/admin', $centralDomain),
             record: $tenant,
         );
 });
