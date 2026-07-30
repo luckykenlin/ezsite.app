@@ -117,5 +117,7 @@ it('requires a key and a content object', function (): void {
 
     expect($serialized['key']['type'])->toBe('string')
         ->and($serialized['content']['type'])->toBe('object')
-        ->and(updateTool(heroDraft())->description())->not->toBeEmpty();
+        // Merge semantics belong in the description: a model that thinks this
+        // replaces the block sends every field and blanks what it omits.
+        ->and(updateTool(heroDraft())->description())->toContain('Send only the fields you want to change');
 });

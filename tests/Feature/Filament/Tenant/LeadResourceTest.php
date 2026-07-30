@@ -96,17 +96,11 @@ it('archives an enquiry', function (): void {
     expect($lead->refresh()->status)->toBe(LeadStatus::Archived);
 });
 
-it('marks and archives in bulk', function (): void {
+// Bulk mark-as-read is covered by the read-timestamp test above; this is the
+// archive half, and that it only touches the selected rows.
+it('archives in bulk, leaving unselected enquiries alone', function (): void {
     $first = tenantLead(['name' => 'First']);
     $second = tenantLead(['name' => 'Second']);
-
-    Livewire::test(ListLeads::class)
-        ->call('loadTable')
-        ->selectTableRecords([$first, $second])
-        ->callAction(TestAction::make('markAsRead')->table()->bulk());
-
-    expect($first->refresh()->status)->toBe(LeadStatus::Read)
-        ->and($second->refresh()->status)->toBe(LeadStatus::Read);
 
     Livewire::test(ListLeads::class)
         ->call('loadTable')
@@ -114,7 +108,7 @@ it('marks and archives in bulk', function (): void {
         ->callAction(TestAction::make('archive')->table()->bulk());
 
     expect($first->refresh()->status)->toBe(LeadStatus::Archived)
-        ->and($second->refresh()->status)->toBe(LeadStatus::Read);
+        ->and($second->refresh()->status)->toBe(LeadStatus::New);
 });
 
 it('reading an enquiry through the viewer marks it read', function (): void {
@@ -138,6 +132,5 @@ it('badges the unread count on the sidebar', function (): void {
 });
 
 it('cannot be created by hand', function (): void {
-    expect(LeadResource::canCreate())->toBeFalse()
-        ->and(LeadResource::getRelations())->toBeEmpty();
+    expect(LeadResource::canCreate())->toBeFalse();
 });

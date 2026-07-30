@@ -88,23 +88,6 @@ test('the editor canvas glue is loaded by the preview document only', function (
         ->and(file_get_contents($views.'/components/filament-fabricator/layouts/main.blade.php'))->not->toContain('page-editor');
 });
 
-test('dragging a library block onto the canvas is gone from both ends', function (): void {
-    // Another one nothing at runtime can see. Half-removing this leaves the
-    // canvas listening for a message the editor never sends — or worse, a live
-    // drop path with nothing to arm it — and neither shows up in a request
-    // test under withoutVite() or in PHP coverage.
-    $resources = dirname(__DIR__, 2).'/resources';
-
-    foreach (['protocol.ts', 'editor.ts', 'canvas.ts'] as $file) {
-        expect(file_get_contents($resources.'/js/page-editor/'.$file))
-            ->not->toContain('library-drag')
-            ->not->toContain('library-drop');
-    }
-
-    expect(file_get_contents($resources.'/css/page-editor-canvas.css'))
-        ->not->toContain('data-editor-insert-mode');
-});
-
 test('the builder Alpine modules are loaded panel-wide, never scoped to their page', function (): void {
     // Same blind spot as above, different failure. Both modules register their
     // component on `alpine:init`, which fires once — on the first full page

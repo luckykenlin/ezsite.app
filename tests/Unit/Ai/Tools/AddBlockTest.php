@@ -6,7 +6,6 @@ use App\Actions\Pages\AddPageBlock;
 use App\Ai\BlockDataSanitizer;
 use App\Ai\PageDraft;
 use App\Ai\Tools\AddBlock;
-use App\Filament\Fabricator\BlockRegistry;
 use Illuminate\JsonSchema\JsonSchemaTypeFactory;
 use Laravel\Ai\Tools\Request;
 
@@ -87,12 +86,7 @@ it('enumerates the addable types in its schema, excluding chrome', function (): 
         ->and($serialized['type']['enum'])->not->toContain('header')
         ->and($serialized['type']['enum'])->not->toContain('footer')
         ->and($serialized['position']['type'])->toBe('integer')
-        ->and(addTool(twoBlockDraft())->description())->not->toBeEmpty();
-});
-
-it('offers exactly the vocabulary minus chrome', function (): void {
-    expect(AddBlock::types())->toBe(array_values(array_diff(
-        array_keys(BlockRegistry::vocabulary()),
-        ['header', 'footer'],
-    )));
+        // A block arrives with placeholder copy, so the description has to send
+        // the model on to UpdateBlockContent — otherwise it stops at sample text.
+        ->and(addTool(twoBlockDraft())->description())->toContain('UpdateBlockContent');
 });

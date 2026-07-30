@@ -46,7 +46,7 @@ final readonly class UniquePageSlug
      * The slug a base reduces to before any collision suffix — sanitised,
      * never empty, never the root slug.
      */
-    public function normalise(string $base): string
+    private function normalise(string $base): string
     {
         $slug = Str::slug($base);
 

@@ -14,7 +14,8 @@ it('constrains the structured output to presets and non-chrome vocabulary types'
         $schema,
     )), associative: true);
 
-    expect($serialized['preset']['enum'])->toBe(array_column(StylePreset::cases(), 'value'))
+    expect($serialized['preset']['enum'])->toContain('warm-craft', 'professional-minimal')
+        ->and($serialized['preset']['enum'])->toHaveSameSize(StylePreset::cases())
         ->and($serialized['pages']['maxItems'])->toBe(1);
 
     $blockType = $serialized['pages']['items']['properties']['blocks']['items']['properties']['type'];
@@ -23,7 +24,10 @@ it('constrains the structured output to presets and non-chrome vocabulary types'
         ->and($blockType['enum'])->not->toContain('header')
         ->and($blockType['enum'])->not->toContain('footer');
 
-    // Smoke only — the instruction copy is free to evolve; the schema above is
-    // the real contract.
-    expect(new SiteDraftAgent()->instructions())->not->toBeEmpty();
+    // The copy is free to evolve, but two clauses are load-bearing: the block
+    // views escape everything (so markup would render as text), and the draft is
+    // persisted verbatim (so an invented fact reaches the live site).
+    expect(new SiteDraftAgent()->instructions())
+        ->toContain('never output HTML')
+        ->toContain('never invent facts');
 });

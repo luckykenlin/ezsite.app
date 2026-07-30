@@ -88,8 +88,3 @@ it('falls back to a usable slug when the name has nothing to transliterate', fun
     // Never "/" — that slug is the home page and is only ever chosen on purpose.
     expect($slugs)->toBe(['page', 'page-2']);
 });
-
-it('exposes the sanitised base without touching the database', function (): void {
-    expect(resolve(UniquePageSlug::class)->normalise('Our Services'))->toBe('our-services')
-        ->and(resolve(UniquePageSlug::class)->normalise('///'))->toBe('page');
-});

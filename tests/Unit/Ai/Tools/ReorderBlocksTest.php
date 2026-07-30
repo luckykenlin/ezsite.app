@@ -87,5 +87,7 @@ it('takes a list of keys and describes itself', function (): void {
 
     expect($serialized['keys']['type'])->toBe('array')
         ->and($serialized['keys']['items']['type'])->toBe('string')
-        ->and(reorderTool(orderableDraft())->description())->not->toBeEmpty();
+        // The complete-list requirement has to be in the description: a partial
+        // list is rejected, and the model only knows why if it was told upfront.
+        ->and(reorderTool(orderableDraft())->description())->toContain('exactly once');
 });

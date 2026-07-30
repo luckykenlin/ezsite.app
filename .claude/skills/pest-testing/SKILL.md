@@ -140,9 +140,9 @@ assertions (strict types everywhere, models & actions `final`, actions expose
 `handle()`, no `dd`/`dump`/`ray`). Add an expectation here when you introduce a
 new structural convention rather than relying on review.
 
-## What a test should assert (three standing conventions)
+## What a test should assert (four standing conventions)
 
-Derived from a full audit of the suite; each one names the shape that keeps a
+Derived from full audits of the suite; each one names the shape that keeps a
 test from degrading into a change detector.
 
 **1. Enum tests assert structural invariants over `::cases()`, never literal
@@ -182,6 +182,17 @@ consumers in a single dataset — do not restate its behavior once per consumer.
 `Unit/Actions/Pages/FindPageBlockIndexTest` is the reference: one dataset
 invokes all four key-addressed actions, so each delegation is still exercised
 while the contract lives under the primitive's own name.
+
+**4. Never re-compute the production expression; assert literals or invariants.**
+`expect(AddBlock::types())->toBe(array_values(array_diff(array_keys(
+BlockRegistry::vocabulary()), ['header', 'footer'])))` restates the method body,
+so it passes by construction and can never fail. Write what the answer *is*
+(`->toContain('hero', 'features')->not->toContain('header')`) or an invariant
+that survives a rewrite (`->toHaveCount(count(StylePreset::cases()))`). The
+same rule kills `->and($tool->description())->not->toBeEmpty()`: a description
+exists to carry ONE load-bearing instruction to the model — pin that clause
+(`->toContain('Send only the fields you want to change')`), not its length.
+Prompt/instruction copy is otherwise free to evolve.
 
 ### Gotcha: scoped instances survive between `$this->get()` calls
 
