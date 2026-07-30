@@ -15,7 +15,9 @@ use App\Models\PageChatMessage;
 use App\Models\User;
 use Closure;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Laravel\Ai\Streaming\Events\TextDelta;
+use RuntimeException;
 use Throwable;
 
 /**
@@ -37,12 +39,37 @@ use Throwable;
 final readonly class ChatEditPage
 {
     /**
+     * Wall-clock budget for one turn, enforced between stream events.
+     *
+     * A turn has no natural upper bound — `MaxSteps` × the per-request
+     * `Timeout` is minutes — but every layer above it does (php-fpm's
+     * `max_execution_time`, nginx's `fastcgi_read_timeout`). Whichever of those
+     * fires first kills the process, and a PHP fatal is NOT a Throwable: it
+     * bypasses the catch in handle(), so the operator gets no apology. Worse,
+     * `wire:stream` has already written to the response body by then, so the
+     * 500 that follows cannot set its own headers ("Cannot modify header
+     * information") and the editor renders a BLANK modal.
+     *
+     * So the deadline is ours, and it throws — which the catch below turns into
+     * "the page is unchanged, try again". Keep this comfortably under the
+     * deployment's fpm/nginx read timeouts; a single hung provider request is
+     * bounded separately by PageEditorAgent's own `#[Timeout]` (Guzzle throws,
+     * which is catchable too).
+     */
+    private const int TURN_BUDGET_SECONDS = 90;
+
+    /**
      * @param  list<array{key: string, type: string, data: array<string, mixed>}>  $blocks  the editor's current draft
      * @param  (Closure(string): void)|null  $onDelta  called with each chunk of the reply as it arrives
      * @return array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, reply: string, failed: bool}
      */
     public function handle(Page $page, array $blocks, string $message, ?User $user = null, ?Closure $onDelta = null): array
     {
+        // Hand the time budget to TURN_BUDGET_SECONDS instead: PHP's own limit
+        // can only fail as an uncatchable fatal, and the default 30s is shorter
+        // than a single provider round trip, let alone a multi-tool turn.
+        set_time_limit(0);
+
         $this->record($page, $user, ChatRole::User, $message);
 
         $draft = new PageDraft($blocks);
@@ -73,7 +100,13 @@ final readonly class ChatEditPage
     /**
      * This page's transcript, oldest first — what the chat panel renders.
      *
-     * @return list<array{role: string, content: string, changed: bool}>
+     * Assistant turns also come back as HTML: the model answers in light
+     * markdown (lists, tables, bold) and rendering it is the difference between
+     * a readable summary of six sections and a wall of pipes and asterisks. The
+     * operator's own turns are NOT rendered — their text is theirs, shown
+     * verbatim and escaped.
+     *
+     * @return list<array{role: string, content: string, html: string|null, changed: bool}>
      */
     public function transcript(Page $page): array
     {
@@ -83,6 +116,7 @@ final readonly class ChatEditPage
             $transcript[] = [
                 'role' => $entry->role->value,
                 'content' => $entry->content,
+                'html' => $entry->role === ChatRole::Assistant ? $this->markdown($entry->content) : null,
                 'changed' => $entry->changedThePage(),
             ];
         }
@@ -112,9 +146,22 @@ final readonly class ChatEditPage
             $message,
         );
 
+        // Started before the first request, not after: the slowest turns are the
+        // ones where step one already takes too long.
+        $deadline = now()->addSeconds(self::TURN_BUDGET_SECONDS);
+
         $response = new PageEditorAgent($draft, (int) $page->id)->stream((string) $prompt);
 
         foreach ($response as $event) {
+            // Between events is the only place a turn can be stopped: tools run
+            // inside the iteration. Whatever the draft holds is discarded by the
+            // caller's catch, so a half-finished turn never reaches the page.
+            throw_if(
+                now()->greaterThan($deadline),
+                RuntimeException::class,
+                sprintf('The chat turn exceeded its %d second budget.', self::TURN_BUDGET_SECONDS),
+            );
+
             if ($event instanceof TextDelta && $onDelta instanceof Closure) {
                 $onDelta($event->delta);
             }
@@ -158,6 +205,23 @@ final readonly class ChatEditPage
         }
 
         return $changed;
+    }
+
+    /**
+     * The assistant's answer as HTML.
+     *
+     * The model's output is untrusted text that ends up in the operator's
+     * browser, so raw HTML in it is STRIPPED rather than passed through, and
+     * javascript:/data: links are refused — a prompt injection reaching the
+     * transcript must not become markup. Everything the panel renders comes from
+     * commonmark's own escaped output.
+     */
+    private function markdown(string $content): string
+    {
+        return Str::markdown($content, [
+            'html_input' => 'strip',
+            'allow_unsafe_links' => false,
+        ]);
     }
 
     private function record(Page $page, ?User $user, ChatRole $role, string $content, ?int $changed = null): void

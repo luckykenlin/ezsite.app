@@ -1,0 +1,141 @@
+<?php
+
+declare(strict_types=1);
+
+use App\Actions\Pages\CacheChatTurn;
+use App\Ai\Agents\PageEditorAgent;
+use App\Jobs\ChatEditPageJob;
+use App\Models\Page;
+use App\Models\PageChatMessage;
+use App\Models\Tenant;
+use App\Models\User;
+use Illuminate\Support\Facades\Log;
+use Laravel\Ai\Responses\Data\ToolCall;
+
+/*
+ * The queued half of a chat turn. The turn's own behaviour lives in
+ * ChatEditPageTest — these cover the job wrapper: that it edits the DRAFT it was
+ * handed, publishes progress for the SSE route to tail, and that a failure of the
+ * job ITSELF (not of the provider, which ChatEditPage contains) still reaches the
+ * editor instead of leaving it polling a turn nobody will finish.
+ */
+
+beforeEach(function (): void {
+    $this->tenant = Tenant::factory()->create();
+    $this->page = $this->createTenantPage($this->tenant, []);
+});
+
+function chatJob(array $blocks, string $token = 'tok', ?int $userId = null): ChatEditPageJob
+{
+    return new ChatEditPageJob(
+        (string) test()->tenant->id,
+        (int) test()->page->id,
+        $userId,
+        'Shorten the headline',
+        $token,
+        $blocks,
+    );
+}
+
+function jobBlocks(): array
+{
+    return [['key' => 'k1', 'type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Old headline']]];
+}
+
+it('edits the draft it was handed and publishes the result for the editor', function (): void {
+    PageEditorAgent::fake([
+        new ToolCall('c1', 'UpdateBlockContent', ['key' => 'k1', 'content' => ['heading' => 'Fresh bread daily']]),
+        'Shortened the headline.',
+    ]);
+
+    chatJob(jobBlocks())->handle();
+
+    $turn = $this->runInTenant($this->tenant, fn (): ?array => resolve(CacheChatTurn::class)->read('tok'));
+
+    expect($turn['status'])->toBe('done')
+        ->and($turn['failed'])->toBeFalse()
+        ->and($turn['reply'])->toBe('Shortened the headline.')
+        ->and($turn['blocks'][0]['data']['heading'])->toBe('Fresh bread daily')
+        // Still nothing written to the page: the operator reviews and saves.
+        ->and(Page::query()->findOrFail($this->page->id)->blocks)->toBeEmpty();
+});
+
+it('publishes the reply as it streams so the stream route has something to tail', function (): void {
+    PageEditorAgent::fake(['Shortened the hero headline for you.']);
+
+    chatJob(jobBlocks())->handle();
+
+    // The final write carries the whole reply; the intermediate ones are what the
+    // SSE route forwards (PageEditorChatStreamTest drives those).
+    $turn = $this->runInTenant($this->tenant, fn (): ?array => resolve(CacheChatTurn::class)->read('tok'));
+
+    expect($turn['reply'])->toBe('Shortened the hero headline for you.');
+});
+
+it('attributes the turn to the user who asked', function (): void {
+    PageEditorAgent::fake(['Done.']);
+
+    $user = User::factory()->create();
+
+    chatJob(jobBlocks(), userId: $user->id)->handle();
+
+    expect($this->runInTenant(
+        $this->tenant,
+        fn () => PageChatMessage::query()->where('role', 'user')->sole()->user_id,
+    ))->toBe($user->id);
+});
+
+/*
+ * ChatEditPage catches anything the provider throws, so the job only fails when
+ * the JOB dies — a worker killed mid-turn by a deploy or `queue:restart`, a
+ * timeout, a payload it cannot deserialise. The editor is polling a token by
+ * then, so it has to be told, or it waits out its whole give-up window.
+ */
+it('reports a dead job to the editor with the page unchanged', function (): void {
+    Log::spy();
+
+    chatJob(jobBlocks())->failed(new RuntimeException('worker killed mid-turn'));
+
+    $turn = $this->runInTenant($this->tenant, fn (): ?array => resolve(CacheChatTurn::class)->read('tok'));
+
+    expect($turn['status'])->toBe('done')
+        ->and($turn['failed'])->toBeTrue()
+        ->and($turn['reply'])->toContain("couldn't finish that")
+        // The blocks it was handed, untouched — never a half-applied edit.
+        ->and($turn['blocks'])->toBe(jobBlocks());
+
+    Log::shouldHaveReceived('error')
+        ->withArgs(fn (string $message, array $context): bool => $message === 'page_chat.job_failed'
+            && $context['exception'] === 'worker killed mid-turn')
+        ->once();
+});
+
+it('keeps an answer that landed just before the job died', function (): void {
+    PageEditorAgent::fake([
+        new ToolCall('c1', 'UpdateBlockContent', ['key' => 'k1', 'content' => ['heading' => 'Fresh bread daily']]),
+        'Shortened the headline.',
+    ]);
+
+    $job = chatJob(jobBlocks());
+    $job->handle();
+
+    // Failing on the way out — after the result was published but before the job
+    // was released. That answer is real, so it must not be overwritten with an
+    // apology the operator would see instead of their edit.
+    $job->failed(new RuntimeException('died releasing the job'));
+
+    $turn = $this->runInTenant($this->tenant, fn (): ?array => resolve(CacheChatTurn::class)->read('tok'));
+
+    expect($turn['failed'])->toBeFalse()
+        ->and($turn['blocks'][0]['data']['heading'])->toBe('Fresh bread daily');
+});
+
+it('survives a failure whose exception is gone', function (): void {
+    // Laravel passes null when the failure has no throwable behind it.
+    chatJob(jobBlocks())->failed(null);
+
+    expect($this->runInTenant(
+        $this->tenant,
+        fn (): ?array => resolve(CacheChatTurn::class)->read('tok'),
+    )['failed'])->toBeTrue();
+});

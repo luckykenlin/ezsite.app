@@ -168,6 +168,39 @@ it('keeps the page unchanged and apologizes when the provider fails', function (
         ->once();
 });
 
+/*
+ * Regression: a slow turn used to die on PHP's max_execution_time (30s by
+ * default, shorter than one provider round trip). A fatal is not a Throwable,
+ * so it skipped the apology above — and since wire:stream had already written
+ * to the response body, the 500 could not set its headers and the editor
+ * rendered a BLANK modal over the canvas. The budget below is ours, so it
+ * throws and lands in the same catch as any provider failure.
+ */
+it('gives up with an apology when a turn outruns its budget', function (): void {
+    Log::spy();
+
+    // A provider slower than the budget. The suite freezes the clock, so moving
+    // it is what "slow" means here — and the SDK calls this closure before it
+    // yields the first event, which is exactly where a real turn spends its time
+    // waiting. `test()->` because travel() is a TestCase method, not a helper.
+    PageEditorAgent::fake(function (): string {
+        test()->travel(100)->seconds();
+
+        return 'Still going...';
+    });
+
+    $result = chatTurn(chatBlocks(), 'Rewrite every block');
+
+    expect($result['failed'])->toBeTrue()
+        ->and($result['blocks'])->toBe(chatBlocks())
+        ->and($result['reply'])->toContain("couldn't reach the assistant");
+
+    Log::shouldHaveReceived('error')
+        ->withArgs(fn (string $message, array $context): bool => $message === 'page_chat.failed'
+            && str_contains($context['exception'], 'second budget'))
+        ->once();
+});
+
 it('reads a page transcript back oldest first', function (): void {
     PageEditorAgent::fake(['First answer.', 'Second answer.']);
 
@@ -182,6 +215,63 @@ it('reads a page transcript back oldest first', function (): void {
     expect(array_column($transcript, 'content'))->toBe([
         'First question', 'First answer.', 'Second question', 'Second answer.',
     ])->and(array_column($transcript, 'role'))->toBe(['user', 'assistant', 'user', 'assistant']);
+});
+
+/*
+ * The model answers in light markdown — a table of what is on the page reads far
+ * better than a wall of pipes — so assistant turns are rendered to HTML for the
+ * panel. That output is untrusted text going into the operator's browser, which
+ * is the interesting half of these.
+ */
+it('renders an assistant answer from markdown to html', function (): void {
+    PageEditorAgent::fake(["Rewrote **two** sections:\n\n- Hero\n- Contact"]);
+
+    chatTurn(chatBlocks(), 'Rewrite the copy');
+
+    $assistant = $this->runInTenant(
+        $this->tenant,
+        fn (): array => resolve(ChatEditPage::class)->transcript($this->page),
+    )[1];
+
+    expect($assistant['html'])->toContain('<strong>two</strong>')
+        ->toContain('<li>Hero</li>')
+        // The raw markdown stays available for anything that wants the text.
+        ->and($assistant['content'])->toContain('**two**');
+});
+
+it('shows the operator their own words verbatim, never as markup', function (): void {
+    PageEditorAgent::fake(['Done.']);
+
+    chatTurn(chatBlocks(), 'Make **this** shorter');
+
+    $transcript = $this->runInTenant(
+        $this->tenant,
+        fn (): array => resolve(ChatEditPage::class)->transcript($this->page),
+    );
+
+    // Their message is theirs: the panel escapes it, so it must not arrive as
+    // pre-rendered HTML that would interpret whatever they happened to type.
+    expect($transcript[0]['html'])->toBeNull()
+        ->and($transcript[0]['content'])->toBe('Make **this** shorter');
+});
+
+it('refuses markup and unsafe links inside an assistant answer', function (): void {
+    PageEditorAgent::fake([
+        "<img src=x onerror=alert(1)> and <b>bold</b>\n\n[click](javascript:alert(1))",
+    ]);
+
+    chatTurn(chatBlocks(), 'Do something');
+
+    $html = $this->runInTenant(
+        $this->tenant,
+        fn (): array => resolve(ChatEditPage::class)->transcript($this->page),
+    )[1]['html'];
+
+    // A prompt injection reaching the transcript must not become live markup.
+    expect($html)->not->toContain('<img')
+        ->and($html)->not->toContain('onerror')
+        ->and($html)->not->toContain('<b>')
+        ->and($html)->not->toContain('javascript:');
 });
 
 it('scopes a transcript to its own tenant', function (): void {

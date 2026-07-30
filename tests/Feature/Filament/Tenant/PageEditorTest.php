@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Actions\Pages\CacheChatTurn;
 use App\Actions\Pages\CachePageEditorPreview;
 use App\Ai\Agents\PageEditorAgent;
 use App\Design\StylePreset;
@@ -10,6 +11,7 @@ use App\Enums\PageStatus;
 use App\Filament\Fabricator\BlockRegistry;
 use App\Filament\Tenant\Resources\PageResource\Actions\PageIdentityFields;
 use App\Filament\Tenant\Resources\PageResource\Pages\PageEditor;
+use App\Jobs\ChatEditPageJob;
 use App\Models\Business;
 use App\Models\Location;
 use App\Models\Media;
@@ -18,6 +20,7 @@ use App\Models\SiteSetting;
 use App\Models\Tenant;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Queue;
 use Laravel\Ai\Responses\Data\ToolCall;
 use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
@@ -970,6 +973,12 @@ it('cannot open a page belonging to another tenant', function (): void {
  * like a hand edit: it lands on the undo stack, repaints the canvas, and stays
  * unsaved until the operator says so. The SDK's fake gateway runs the real
  * tools, so these go through the actual AI → tool → blocks path.
+ *
+ * The turn runs on a queue worker (ChatEditPageJob) and the editor polls for it,
+ * so `sendChatMessage` only dispatches — every assertion about a RESULT has to
+ * poll first. The suite's queue is sync, so the job has already finished by the
+ * time the dispatching call returns; a real worker makes the same poll return
+ * `running` a few times before the answer lands.
  */
 
 it('applies an assistant edit to the draft, undoably, without saving it', function (): void {
@@ -988,11 +997,15 @@ it('applies an assistant edit to the draft, undoably, without saving it', functi
         'Shortened the headline.',
     ]);
 
-    $component->set('chatInput', 'Shorten the headline')->call('sendChatMessage');
+    $component->set('chatInput', 'Shorten the headline')
+        ->call('sendChatMessage')
+        ->call('pollChatTurn');
 
     expect($component->get('blocks')[0]['data']['heading'])->toBe('Fresh bread daily')
         ->and($component->get('isDirty'))->toBeTrue()
         ->and($component->get('chatInput'))->toBeEmpty()
+        // The turn is over, so the editor stops polling.
+        ->and($component->get('chatTurnToken'))->toBeNull()
         // Not persisted: the operator reviews it on the canvas first.
         ->and(Page::query()->findOrFail($page->id)->blocks[0]['data']['heading'])->toBe('Old headline');
 
@@ -1008,12 +1021,21 @@ it('shows both sides of the turn in the panel and marks the one that edited', fu
 
     $component = Livewire::test(PageEditor::class, ['record' => $page->id])
         ->set('chatInput', 'What does the hero do?')
-        ->call('sendChatMessage');
+        ->call('sendChatMessage')
+        ->call('pollChatTurn');
 
-    expect($component->get('chatMessages'))->toBe([
-        ['role' => 'user', 'content' => 'What does the hero do?', 'changed' => false],
-        ['role' => 'assistant', 'content' => 'The hero block is the banner at the top.', 'changed' => false],
+    $messages = $component->get('chatMessages');
+
+    expect(array_map(fn (array $message): array => [
+        $message['role'], $message['content'], $message['changed'],
+    ], $messages))->toBe([
+        ['user', 'What does the hero do?', false],
+        ['assistant', 'The hero block is the banner at the top.', false],
     ])
+        // The assistant's answer also arrives rendered — see ChatEditPageTest for
+        // that contract; the operator's own turn stays plain text.
+        ->and($messages[0]['html'])->toBeNull()
+        ->and($messages[1]['html'])->toContain('banner at the top')
         // An answer that changed nothing must not flag the page dirty.
         ->and($component->get('isDirty'))->toBeFalse();
 });
@@ -1102,9 +1124,121 @@ it('takes the message as an argument and leaves the box empty', function (): voi
     $page = editorPage([['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']]]);
 
     $component = Livewire::test(PageEditor::class, ['record' => $page->id])
-        ->call('sendChatMessage', 'Shorten the headline');
+        ->call('sendChatMessage', 'Shorten the headline')
+        ->call('pollChatTurn');
 
     expect($component->get('chatInput'))->toBeEmpty()
         ->and(array_column($component->get('chatMessages'), 'content'))
         ->toBe(['Shorten the headline', 'Shortened it.']);
+});
+
+/*
+ * The rest of the asynchronous contract: what the operator sees while a turn is
+ * still running, and the three ways one ends other than answering.
+ */
+
+/*
+ * Regression: sending only dispatched the job, so between this request returning
+ * and a worker picking the job up there was no turn in the cache at all — and the
+ * browser connects to the stream route in exactly that window. The route 404'd,
+ * the editor fell back to its slow poll, and the whole reply appeared at once
+ * with no typing. Queue::fake() holds the job so the window stays open.
+ */
+it('opens the turn before dispatching, so the stream can connect at once', function (): void {
+    Queue::fake();
+
+    $page = editorPage([['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']]]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->call('sendChatMessage', 'Shorten the headline');
+
+    $token = $component->get('chatTurnToken');
+
+    expect($token)->not->toBeNull()
+        // Readable already, with nothing streamed yet.
+        ->and(resolve(CacheChatTurn::class)->read($token))->toMatchArray([
+            'status' => 'running',
+            'reply' => '',
+            'failed' => false,
+        ]);
+
+    Queue::assertPushed(
+        ChatEditPageJob::class,
+        fn (ChatEditPageJob $job): bool => $job->tenantId === $this->tenant->id,
+    );
+});
+
+it('keeps waiting while the turn is still running', function (): void {
+    $page = editorPage([['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']]]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->call('sendChatMessage', 'Shorten the headline');
+
+    // Stand in for the worker mid-turn: prose streamed, no result yet. The reply
+    // itself belongs to the SSE stream (see PageEditorChatStreamController), so
+    // polling has nothing to do here except not give up.
+    resolve(CacheChatTurn::class)->handle($component->get('chatTurnToken'), 'Shortening the');
+
+    $component->call('pollChatTurn');
+
+    expect($component->get('chatTurnToken'))->not->toBeNull()
+        ->and($component->get('isDirty'))->toBeFalse();
+});
+
+it('refuses a second turn while one is already running', function (): void {
+    PageEditorAgent::fake(['First.'])->preventStrayPrompts();
+
+    $page = editorPage([['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']]]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->call('sendChatMessage', 'First question');
+
+    $token = $component->get('chatTurnToken');
+
+    // Only one turn may be in flight: a second would race the first onto the
+    // same draft, and the loser's edits would vanish without a trace.
+    $component->call('sendChatMessage', 'Second question');
+
+    expect($component->get('chatTurnToken'))->toBe($token);
+});
+
+it('drops the result when the operator stops the turn', function (): void {
+    PageEditorAgent::fake([
+        new ToolCall('c1', 'AddBlock', ['type' => 'cta']),
+        'Added a call to action.',
+    ]);
+
+    $page = editorPage([['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']]]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->call('sendChatMessage', 'Add a CTA')
+        ->call('cancelChatTurn')
+        // Polling after a stop must not resurrect the discarded answer.
+        ->call('pollChatTurn');
+
+    expect($component->get('chatTurnToken'))->toBeNull()
+        ->and(array_column($component->get('blocks'), 'type'))->toBe(['hero'])
+        ->and($component->get('isDirty'))->toBeFalse();
+
+    // Stopping twice is harmless.
+    $component->call('cancelChatTurn');
+});
+
+it('gives up on a turn whose worker never reported back', function (): void {
+    $page = editorPage([['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']]]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->call('sendChatMessage', 'Shorten the headline');
+
+    // A worker that died mid-turn writes nothing, so the token would otherwise
+    // sit there polling forever with the composer stuck in its sending state.
+    resolve(CacheChatTurn::class)->forget($component->get('chatTurnToken'));
+
+    $component->call('pollChatTurn')->assertNotNotified();
+
+    $this->travel(4)->minutes();
+
+    $component->call('pollChatTurn')->assertNotified();
+
+    expect($component->get('chatTurnToken'))->toBeNull();
 });

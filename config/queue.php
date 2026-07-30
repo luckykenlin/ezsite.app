@@ -42,7 +42,15 @@ return [
             'connection' => env('DB_QUEUE_CONNECTION'),
             'table' => env('DB_QUEUE_TABLE', 'jobs'),
             'queue' => env('DB_QUEUE', 'default'),
-            'retry_after' => (int) env('DB_QUEUE_RETRY_AFTER', 90),
+            // MUST stay above the longest `#[Timeout]` any job declares —
+            // GenerateSiteDraftJob's 360s, currently. This is how long the queue
+            // waits before assuming a reserved job died and handing it to
+            // another worker; set below a job's real runtime, the AI jobs get
+            // re-dispatched WHILE still running, and the second delivery fails
+            // them on `Tries(1)` ("attempted too many times") — which is the
+            // operator losing their turn to a passing 90-second provider call.
+            // Guarded by Feature/Queue/JobTimeoutTest.
+            'retry_after' => (int) env('DB_QUEUE_RETRY_AFTER', 420),
             'after_commit' => false,
         ],
 

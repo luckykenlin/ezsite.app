@@ -286,6 +286,120 @@
             opacity: 0.55;
         }
 
+        /* Rendered markdown. `pre-wrap` is for raw text, so it has to go here:
+           kept on, the source's own newlines would double every gap the block
+           elements already provide. Deliberately hand-written rather than pulling
+           in the typography plugin — this is one narrow column of chat prose, not
+           a CMS article. */
+        .pe-chat-prose {
+            white-space: normal;
+        }
+
+        .pe-chat-prose > :first-child {
+            margin-top: 0;
+        }
+
+        .pe-chat-prose > :last-child {
+            margin-bottom: 0;
+        }
+
+        .pe-chat-prose p,
+        .pe-chat-prose ul,
+        .pe-chat-prose ol,
+        .pe-chat-prose pre,
+        .pe-chat-prose blockquote {
+            margin: 0.5rem 0;
+        }
+
+        .pe-chat-prose ul,
+        .pe-chat-prose ol {
+            padding-inline-start: 1.25rem;
+        }
+
+        .pe-chat-prose ul {
+            list-style: disc;
+        }
+
+        .pe-chat-prose ol {
+            list-style: decimal;
+        }
+
+        .pe-chat-prose li {
+            margin: 0.125rem 0;
+        }
+
+        .pe-chat-prose strong {
+            font-weight: 600;
+        }
+
+        .pe-chat-prose em {
+            font-style: italic;
+        }
+
+        .pe-chat-prose a {
+            text-decoration: underline;
+            text-underline-offset: 2px;
+        }
+
+        .pe-chat-prose h1,
+        .pe-chat-prose h2,
+        .pe-chat-prose h3,
+        .pe-chat-prose h4 {
+            margin: 0.75rem 0 0.375rem;
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+
+        .pe-chat-prose code {
+            border-radius: 0.25rem;
+            padding: 0.0625rem 0.25rem;
+            background: rgba(113, 113, 122, 0.14);
+            font-size: 0.8125rem;
+        }
+
+        .pe-chat-prose pre {
+            overflow-x: auto;
+            border-radius: 0.5rem;
+            padding: 0.625rem 0.75rem;
+            background: rgba(113, 113, 122, 0.14);
+        }
+
+        .pe-chat-prose pre code {
+            padding: 0;
+            background: none;
+        }
+
+        .pe-chat-prose blockquote {
+            border-inline-start: 2px solid rgba(113, 113, 122, 0.35);
+            padding-inline-start: 0.625rem;
+            opacity: 0.85;
+        }
+
+        /* The model likes tables for "here is what is on the page". The rail is
+           narrow, so the table scrolls inside its own wrapper rather than
+           widening the column. */
+        .pe-chat-prose table {
+            display: block;
+            overflow-x: auto;
+            width: 100%;
+            border-collapse: collapse;
+            margin: 0.5rem 0;
+            font-size: 0.8125rem;
+        }
+
+        .pe-chat-prose th,
+        .pe-chat-prose td {
+            border: 1px solid rgba(113, 113, 122, 0.25);
+            padding: 0.25rem 0.5rem;
+            text-align: start;
+            vertical-align: top;
+        }
+
+        .pe-chat-prose th {
+            background: rgba(113, 113, 122, 0.1);
+            font-weight: 600;
+        }
+
         /* A chip, not a sentence: it marks which turns actually touched the
            page, so an unsaved edit is never a surprise. */
         .pe-chat-edited {
@@ -588,6 +702,7 @@
                 'confirmRemove' => __('Remove this block?'),
                 'confirmLeave' => __('You have unsaved changes. Leave this page?'),
             ]),
+            chatStreamUrl: @js(route('page-editor.chat-stream')),
         })"
         x-on:message.window="onMessage($event)"
         x-on:keydown.window="onKeydown($event)"
@@ -623,11 +738,23 @@
 
                 <div class="pe-chat-log" x-ref="chatLog">
                     @forelse ($this->chatMessages as $index => $message)
-                        <div
-                            wire:key="chat-{{ $index }}"
-                            class="pe-chat-message"
-                            data-role="{{ $message['role'] }}"
-                        >{{ $message['content'] }}@if ($message['changed'])<span class="pe-chat-edited">{{ __('Edited the page — review and Save') }}</span>@endif</div>
+                        {{-- The assistant answers in light markdown, rendered to
+                             HTML by ChatEditPage::transcript() with raw HTML
+                             stripped and unsafe links refused. The operator's own
+                             turns stay escaped text — see the action. --}}
+                        @if ($message['html'] !== null)
+                            <div
+                                wire:key="chat-{{ $index }}"
+                                class="pe-chat-message pe-chat-prose"
+                                data-role="{{ $message['role'] }}"
+                            >{!! $message['html'] !!}@if ($message['changed'])<span class="pe-chat-edited">{{ __('Edited the page — review and Save') }}</span>@endif</div>
+                        @else
+                            <div
+                                wire:key="chat-{{ $index }}"
+                                class="pe-chat-message"
+                                data-role="{{ $message['role'] }}"
+                            >{{ $message['content'] }}</div>
+                        @endif
                     @empty
                         {{-- Centred in the empty thread rather than pinned to
                              the top, with the examples as buttons: the hardest
@@ -657,7 +784,14 @@
                     @endforelse
 
                     {{-- The turn in flight: the operator's message, then the
-                         reply as it streams in. --}}
+                         reply as it arrives.
+
+                         The turn runs on a queue worker (ChatEditPageJob) and
+                         the reply is streamed straight from there over SSE
+                         (page-editor.chat-stream), so this bubble belongs to
+                         Alpine — `wire:ignore` keeps Livewire from re-rendering
+                         over the text as it arrives. The slow poll below is only
+                         a backstop for a stream that never connected. --}}
                     <div class="pe-chat-message" data-role="user" data-pending x-show="chatSending" x-text="chatPending" x-cloak></div>
 
                     <div
@@ -665,8 +799,13 @@
                         data-role="assistant"
                         x-show="chatSending"
                         x-cloak
-                        wire:stream="{{ \App\Filament\Tenant\Resources\PageResource\Pages\PageEditor::CHAT_STREAM }}"
+                        wire:ignore
+                        x-text="chatStream"
                     ></div>
+
+                    @if ($this->chatTurnToken !== null)
+                        <div wire:poll.5s="pollChatTurn"></div>
+                    @endif
                 </div>
 
                 {{-- The composer stays editable while a turn runs, the way

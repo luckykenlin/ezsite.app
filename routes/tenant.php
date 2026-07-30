@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\PageController;
+use App\Http\Controllers\PageEditorChatStreamController;
 use App\Http\Controllers\PageEditorPreviewController;
 use App\Http\Controllers\RobotsController;
 use App\Http\Controllers\SitemapController;
@@ -20,6 +21,11 @@ Route::middleware([
 ])->group(function (): void {
     Route::get('/_editor/preview', PageEditorPreviewController::class)
         ->name('page-editor.preview');
+
+    // The chat reply as the worker writes it. Its own route rather than
+    // Livewire's wire:stream — see the controller for why.
+    Route::get('/_editor/chat-stream', PageEditorChatStreamController::class)
+        ->name('page-editor.chat-stream');
 
     Route::get('/sitemap.xml', SitemapController::class)->name('sitemap');
     Route::get('/robots.txt', RobotsController::class)->name('robots');

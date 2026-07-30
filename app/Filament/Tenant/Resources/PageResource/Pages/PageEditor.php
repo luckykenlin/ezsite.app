@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Tenant\Resources\PageResource\Pages;
 
 use App\Actions\Pages\AddPageBlock;
+use App\Actions\Pages\CacheChatTurn;
 use App\Actions\Pages\CachePageEditorPreview;
 use App\Actions\Pages\ChatEditPage;
 use App\Actions\Pages\DuplicatePage;
@@ -22,6 +23,7 @@ use App\Filament\Tenant\Pages\BusinessProfile;
 use App\Filament\Tenant\Resources\PageResource;
 use App\Filament\Tenant\Resources\PageResource\Actions\DesignAction;
 use App\Filament\Tenant\Resources\PageResource\Actions\PageSettingsAction;
+use App\Jobs\ChatEditPageJob;
 use App\Models\Business;
 use App\Models\Page as PageModel;
 use App\Models\SiteSetting;
@@ -73,17 +75,19 @@ final class PageEditor extends Page
     use InteractsWithRecord;
 
     /**
-     * The `wire:stream` target the assistant's reply is typed into while the
-     * turn runs. Mirrored by the blade's `wire:stream` attribute.
-     */
-    public const string CHAT_STREAM = 'chatReply';
-
-    /**
      * The block library's `<x-filament::modal>` id. A constant rather than a
      * literal because the blade and this class both name it, and a typo would
      * silently produce a modal nothing can open.
      */
     public const string BLOCK_LIBRARY_MODAL = 'page-editor-block-library';
+
+    /**
+     * How long the editor waits for a turn before giving up on it. Only reached
+     * when the worker dies without writing a result (OOM, a `queue:restart`
+     * mid-turn) — an ordinary slow turn is bounded by ChatEditPage's own budget
+     * and comes back as a failure the operator can read.
+     */
+    private const int CHAT_TURN_TIMEOUT_SECONDS = 180;
 
     private const int HISTORY_LIMIT = 50;
 
@@ -160,11 +164,24 @@ final class PageEditor extends Page
      * Persisted per page (see {@see \App\Models\PageChatMessage}), so it
      * survives a reload and a teammate opening the same page.
      *
-     * @var list<array{role: string, content: string, changed: bool}>
+     * @var list<array{role: string, content: string, html: string|null, changed: bool}>
      */
     public array $chatMessages = [];
 
     public string $chatInput = '';
+
+    /**
+     * The turn in flight, or null when the assistant is idle. Doubles as the
+     * poll switch: the blade only renders `wire:poll` while this is set, so an
+     * idle editor makes no requests at all.
+     */
+    public ?string $chatTurnToken = null;
+
+    /**
+     * Unix timestamp the turn was dispatched, for the give-up check. An int
+     * because Livewire serialises component state to JSON on every roundtrip.
+     */
+    public ?int $chatTurnStartedAt = null;
 
     protected static string $resource = PageResource::class;
 
@@ -522,7 +539,7 @@ final class PageEditor extends Page
     {
         $message = mb_trim($message ?? $this->chatInput);
 
-        if ($message === '') {
+        if ($message === '' || $this->chatTurnToken !== null) {
             return;
         }
 
@@ -540,25 +557,83 @@ final class PageEditor extends Page
 
         $user = auth()->user();
 
-        $result = resolve(ChatEditPage::class)->handle(
-            $this->pageRecord(),
-            $this->blocks,
+        $this->chatTurnToken = Str::random(40);
+        $this->chatTurnStartedAt = now()->getTimestamp();
+
+        // Open the turn BEFORE dispatching. The browser connects to the stream
+        // route as soon as this request returns, which is well before a worker
+        // picks the job up — and that route 404s on a turn it cannot find. Without
+        // this the stream is refused, the editor falls back to its slow poll, and
+        // the whole reply lands at once with no typing at all.
+        resolve(CacheChatTurn::class)->handle($this->chatTurnToken, '');
+
+        $page = $this->pageRecord();
+
+        // Dispatched rather than run here: see ChatEditPageJob. This request
+        // returns immediately and pollChatTurn() picks the answer up.
+        dispatch(new ChatEditPageJob(
+            (string) $page->tenant_id,
+            (int) $page->id,
+            $user instanceof User ? (int) $user->id : null,
             $message,
-            $user instanceof User ? $user : null,
-            function (string $delta): void {
-                $this->stream(content: $delta, name: self::CHAT_STREAM);
-            },
-        );
+            $this->chatTurnToken,
+            $this->blocks,
+        ));
+    }
+
+    /**
+     * Pick up a finished turn and apply its blocks the same way a hand edit
+     * lands — through {@see applyBlocks()}, so it is undoable and still needs a
+     * Save.
+     *
+     * Called the moment the SSE stream ends, and by a slow `wire:poll` as a
+     * backstop for a stream that never connected at all. The reply itself is NOT
+     * read here: the stream owns that bubble (see the blade's `wire:ignore`), and
+     * a copy rendered from component state would fight it on every poll.
+     */
+    public function pollChatTurn(): void
+    {
+        if ($this->chatTurnToken === null) {
+            return;
+        }
+
+        $turns = resolve(CacheChatTurn::class);
+        $turn = $turns->read($this->chatTurnToken);
+
+        if ($turn === null || $turn['status'] !== 'done') {
+            $this->abandonStalledChatTurn();
+
+            return;
+        }
+
+        $turns->forget($this->chatTurnToken);
+        $this->endChatTurn();
 
         // An answer that changed nothing must not touch the undo stack or the
         // dirty flag — asking "what does this block do?" is not an edit.
-        if ($result['blocks'] !== $this->blocks) {
-            $this->applyBlocks($result['blocks']);
+        if ($turn['blocks'] !== null && $turn['blocks'] !== $this->blocks) {
+            $this->applyBlocks($turn['blocks']);
         }
 
         $this->chatMessages = resolve(ChatEditPage::class)->transcript($this->pageRecord());
 
         $this->dispatch('page-editor:chat-replied');
+    }
+
+    /**
+     * Stop waiting for the turn (the composer's stop button). The worker runs to
+     * completion — there is no way to interrupt a provider call mid-flight — so
+     * its answer still reaches the transcript on the next full render; only the
+     * block changes are dropped, which is what "stop" means to the operator.
+     */
+    public function cancelChatTurn(): void
+    {
+        if ($this->chatTurnToken === null) {
+            return;
+        }
+
+        resolve(CacheChatTurn::class)->forget($this->chatTurnToken);
+        $this->endChatTurn();
     }
 
     public function save(): void
@@ -1200,6 +1275,35 @@ final class PageEditor extends Page
             'type' => $slot->value,
             'data' => $variant === null ? [] : [Block::VARIANT_KEY => $variant],
         ];
+    }
+
+    private function endChatTurn(): void
+    {
+        $this->chatTurnToken = null;
+        $this->chatTurnStartedAt = null;
+    }
+
+    /**
+     * Give up on a turn whose worker never reported back, so the assistant does
+     * not sit "thinking" forever with no way out. Only a dead worker gets here;
+     * a slow provider is stopped by ChatEditPage's budget and reports a failure.
+     */
+    private function abandonStalledChatTurn(): void
+    {
+        if ($this->chatTurnStartedAt === null
+            || now()->getTimestamp() - $this->chatTurnStartedAt < self::CHAT_TURN_TIMEOUT_SECONDS) {
+            return;
+        }
+
+        $this->endChatTurn();
+
+        Notification::make()
+            ->title(__('The assistant did not answer'))
+            ->body(__('Your page is unchanged. Please try again.'))
+            ->warning()
+            ->send();
+
+        $this->dispatch('page-editor:chat-replied');
     }
 
     private function blockIndexOrNull(?string $key): ?int

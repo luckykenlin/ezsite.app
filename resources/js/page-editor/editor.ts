@@ -32,6 +32,8 @@ interface PageEditorConfig {
         confirmRemove: string;
         confirmLeave: string;
     };
+    /** Route the chat reply is streamed from, per turn token. */
+    chatStreamUrl: string;
 }
 
 /** The Livewire component surface this Alpine component talks to. */
@@ -40,6 +42,8 @@ interface EditorWire {
     pendingInsertPosition: number | null;
     isDirty: boolean;
     chatInput: string;
+    /** Null whenever no chat turn is in flight — see sendChat(). */
+    chatTurnToken: string | null;
     data?: { block?: Record<string, unknown> };
     mountedActions?: unknown[];
     save(): void;
@@ -53,13 +57,8 @@ interface EditorWire {
     reorderBlocks(keys: string[]): void;
     openBlockLibrary(position: number | null): void;
     sendChatMessage(message: string): Promise<unknown>;
-    $interceptMessage(
-        action: string,
-        callback: (context: {
-            cancel: () => void;
-            onFinish: (callback: () => void) => void;
-        }) => void,
-    ): void;
+    pollChatTurn(): Promise<unknown>;
+    cancelChatTurn(): Promise<unknown>;
     /** `live: false` writes the property without a round trip of its own. */
     set(name: string, value: unknown, live?: boolean): void;
     on(event: string, handler: (payload: never) => void): void;
@@ -97,6 +96,10 @@ interface PageEditorComponent extends AlpineInjected {
     chatSending: boolean;
     /** The operator's message, echoed locally until the server render lands. */
     chatPending: string;
+    /** The reply as it streams in, owned here rather than by Livewire. */
+    chatStream: string;
+    openChatStream(token: string): void;
+    closeChatStream(): void;
     fitLayout(): void;
     onComposerEnter(event: KeyboardEvent): void;
     useSuggestion(text: string): void;
@@ -155,8 +158,8 @@ const LAYOUT_MIN_HEIGHT = 384;
 export function pageEditor(
     config: PageEditorConfig,
 ): Omit<PageEditorComponent, keyof AlpineInjected> {
-    /** Aborts the chat turn in flight, set per message by the interceptor. */
-    let chatCancel: (() => void) | null = null;
+    /** The SSE connection carrying the reply of the turn in flight. */
+    let chatSource: EventSource | null = null;
 
     return {
         device: 'desktop',
@@ -170,6 +173,7 @@ export function pageEditor(
         },
         chatSending: false,
         chatPending: '',
+        chatStream: '',
         libraryOpen: false,
 
         /**
@@ -263,32 +267,102 @@ export function pageEditor(
             this.$wire.set('chatInput', '', false);
             this.$nextTick(() => this.scrollChatToEnd());
 
-            void this.$wire.sendChatMessage(message).finally(() => {
-                this.chatSending = false;
-                this.chatPending = '';
-                this.$nextTick(() => this.scrollChatToEnd());
+            // Resolves as soon as the turn is QUEUED, not when it answers — the
+            // chat-replied event clears the sending state once it does.
+            //
+            // But the server can also decline to start one (an invalid open
+            // block, a turn already running), and then no event is ever coming:
+            // the absence of a token is how that is detected. Without this the
+            // composer would sit in its sending state with nothing to wait for.
+            void this.$wire
+                .sendChatMessage(message)
+                .then(() => {
+                    const token = this.$wire.chatTurnToken;
+
+                    if (token === null) {
+                        this.chatSending = false;
+                        this.chatPending = '';
+
+                        return;
+                    }
+
+                    this.openChatStream(token);
+                })
+                .catch(() => {
+                    this.chatSending = false;
+                    this.chatPending = '';
+                });
+        },
+
+        /**
+         * Follow the reply as the worker writes it. Each message is the next
+         * slice, so this only appends; the server closes the stream when the turn
+         * ends, which is the cue to fetch the result.
+         *
+         * A dropped connection is not an error worth surfacing: the turn is on
+         * the worker and finishes regardless, so pollChatTurn() — which also runs
+         * on a slow wire:poll — still lands the blocks.
+         */
+        openChatStream(this: PageEditorComponent, token: string): void {
+            this.closeChatStream();
+            this.chatStream = '';
+
+            const source = new EventSource(
+                `${config.chatStreamUrl}?token=${encodeURIComponent(token)}`,
+            );
+
+            chatSource = source;
+
+            // 'update', NOT 'message': Laravel's eventStream() labels every frame
+            // `event: update`, and SSE delivers a named event only to a listener
+            // for that name — `onmessage` is for unnamed frames, so it would
+            // receive nothing at all and the reply would only appear when the
+            // stream ended. Pinned server-side by PageEditorChatStreamTest.
+            source.addEventListener('update', (event: MessageEvent<string>) => {
+                // It closes with a sentinel frame rather than an event of its
+                // own.
+                if (event.data === '</stream>') {
+                    this.closeChatStream();
+                    void this.$wire.pollChatTurn();
+
+                    return;
+                }
+
+                this.chatStream += event.data;
+                this.scrollChatToEnd();
             });
+
+            source.addEventListener('error', () => {
+                this.closeChatStream();
+                void this.$wire.pollChatTurn();
+            });
+        },
+
+        closeChatStream(this: PageEditorComponent): void {
+            if (chatSource !== null) {
+                chatSource.close();
+                chatSource = null;
+            }
         },
 
         /**
          * Abandon the turn in flight.
          *
-         * This aborts the Livewire message client-side (see the interceptor in
-         * init()), so the streamed reply stops and the response — including any
-         * block changes the assistant made — never lands. The PHP request
-         * itself keeps running to completion on the server; there is no channel
-         * to interrupt it, because Livewire serialises requests per component
-         * and a cancel call would simply queue behind the turn it means to
-         * cancel. The transcript row it writes therefore still appears on the
-         * next full render.
+         * The turn runs on a queue worker, so there is nothing to abort
+         * client-side: this tells the server to stop polling for it and drop its
+         * result. The worker still runs to completion — a provider call cannot be
+         * interrupted mid-flight — so the answer it writes still shows up in the
+         * transcript on the next full render; only the block changes are
+         * discarded, which is what "stop" means to the operator.
          */
         stopChat(this: PageEditorComponent): void {
-            if (chatCancel !== null) {
-                chatCancel();
-            }
+            this.closeChatStream();
 
             this.chatSending = false;
             this.chatPending = '';
+            this.chatStream = '';
+
+            void this.$wire.cancelChatTurn();
         },
 
         scrollChatToEnd(this: PageEditorComponent): void {
@@ -603,19 +677,6 @@ export function pageEditor(
         init(this: PageEditorComponent): void {
             this.$nextTick(() => this.fitLayout());
 
-            // Hands stopChat() a handle on the chat turn in flight. Registered
-            // once and fired per matching message, so the handle is always the
-            // current one and is dropped when the turn ends.
-            this.$wire.$interceptMessage(
-                'sendChatMessage',
-                ({ cancel, onFinish }) => {
-                    chatCancel = cancel;
-                    onFinish(() => {
-                        chatCancel = null;
-                    });
-                },
-            );
-
             this.$wire.on(
                 'page-editor:refresh-canvas',
                 ({ url }: { url: string }) => this.reload(url),
@@ -640,13 +701,23 @@ export function pageEditor(
                     this.postToCanvas({ type: 'select', key, scroll });
                 },
             );
+            // The turn is over — answered, failed, or given up on. This is the
+            // only place the sending state clears, because the request that
+            // started the turn returned long before it finished.
             this.$wire.on('page-editor:chat-replied', () => {
+                this.closeChatStream();
+
+                this.chatSending = false;
+                this.chatPending = '';
+                // The answer is in the transcript now, so the streaming bubble
+                // has to let go of its copy or it would show twice.
+                this.chatStream = '';
                 this.$nextTick(() => this.scrollChatToEnd());
             });
 
-            // Livewire writes streamed tokens straight into the DOM, with no
-            // event to hook — so watch the log and keep the newest text in
-            // view as the reply types itself out.
+            // Each poll re-renders the reply bubble in place, which fires no
+            // event of its own — so watch the log and keep the newest text in
+            // view as the answer grows.
             const log = this.$refs.chatLog;
 
             if (log) {
