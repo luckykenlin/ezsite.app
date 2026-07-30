@@ -112,7 +112,7 @@
             "rector --dry-run",
             "npm run test:lint"
         ],
-        "test:unit": "XDEBUG_MODE=\"coverage\" pest --parallel --processes=8 --coverage --exactly=100.0",
+        "test:unit": "XDEBUG_MODE=\"coverage\" pest --parallel --processes=8 --coverage --exactly=100.0 --tia",
         "test:types": [
             "phpstan --memory-limit=-1",
             "npm run test:types"
