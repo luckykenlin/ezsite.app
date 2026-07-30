@@ -8,11 +8,11 @@ use App\Ai\Agents\PageEditorAgent;
 use App\Ai\PageDraft;
 use App\Ai\Prompts\PageEditPrompt;
 use App\Enums\ChatRole;
-use App\Filament\Fabricator\BlockRegistry;
-use App\Models\Business;
 use App\Models\Page;
 use App\Models\PageChatMessage;
 use App\Models\User;
+use App\Site\BindResolver;
+use App\Site\Blocks\BlockVocabulary;
 use Closure;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -58,6 +58,17 @@ final readonly class ChatEditPage
      */
     private const int TURN_BUDGET_SECONDS = 90;
 
+    public function __construct(
+        private BlockVocabulary $vocabulary,
+        // The request-scoped resolver rather than a fresh `Business::query()`:
+        // one turn asks for the business through the prompt and, on the render
+        // that follows, through every bound block. Memoizing it is the whole
+        // reason BindResolver is `scoped`.
+        private BindResolver $bindResolver,
+    ) {
+        //
+    }
+
     /**
      * @param  list<array{key: string, type: string, data: array<string, mixed>}>  $blocks  the editor's current draft
      * @param  (Closure(string): void)|null  $onDelta  called with each chunk of the reply as it arrives
@@ -98,7 +109,9 @@ final readonly class ChatEditPage
     }
 
     /**
-     * This page's transcript, oldest first — what the chat panel renders.
+     * This page's recent transcript, oldest first — what the chat panel renders.
+     * Capped at {@see PageEditorAgent::HISTORY_LIMIT}, the same window the
+     * assistant remembers.
      *
      * Assistant turns also come back as HTML: the model answers in light
      * markdown (lists, tables, bold) and rendering it is the difference between
@@ -112,7 +125,19 @@ final readonly class ChatEditPage
     {
         $transcript = [];
 
-        foreach (PageChatMessage::query()->where('page_id', $page->id)->orderBy('id')->get() as $entry) {
+        // Bounded by the agent's own memory window, and for the same reason it
+        // has one: this runs on every editor mount AND every poll tick, and it
+        // markdown-renders each assistant line. Unbounded, a long-lived page paid
+        // to re-render its entire history every few seconds. Newest N, then
+        // reversed, so the panel still reads oldest-first.
+        $entries = PageChatMessage::query()
+            ->where('page_id', $page->id)
+            ->orderByDesc('id')
+            ->limit(PageEditorAgent::HISTORY_LIMIT)
+            ->get()
+            ->reverse();
+
+        foreach ($entries as $entry) {
             $transcript[] = [
                 'role' => $entry->role->value,
                 'content' => $entry->content,
@@ -141,8 +166,8 @@ final readonly class ChatEditPage
         $prompt = new PageEditPrompt(
             $page,
             $draft,
-            BlockRegistry::vocabulary(),
-            Business::query()->first(),
+            $this->vocabulary->all(),
+            $this->bindResolver->business(),
             $message,
         );
 

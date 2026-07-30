@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Concerns;
+namespace App\Tenancy;
 
 use RuntimeException;
 
@@ -15,7 +15,7 @@ use RuntimeException;
  * Reads are intentionally NOT guarded — the central cockpit legitimately reads
  * across tenants on the BYPASSRLS connection.
  *
- * @see \App\Actions\RunInTenant the sanctioned write channel this guard steers towards
+ * @see RunInTenant the sanctioned write channel this guard steers towards
  */
 trait RequiresTenantContext
 {

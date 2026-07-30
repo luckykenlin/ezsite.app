@@ -53,7 +53,6 @@ final class TenantPanelProvider extends PanelProvider
                 AccountWidget::class,
                 FilamentInfoWidget::class,
             ])
-            ->viteTheme('resources/css/filament/tenant/theme.css')
             ->plugins([
                 FilamentFabricatorPlugin::make(),
                 CuratorPlugin::make()

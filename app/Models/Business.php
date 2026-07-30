@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Casts\AsDesignTokens;
-use App\Concerns\RequiresTenantContext;
 use App\Design\DesignTokens;
-use App\Filament\Fabricator\MediaResolver;
+use App\Site\MediaResolver;
+use App\Tenancy\RequiresTenantContext;
 use Database\Factories\BusinessFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;

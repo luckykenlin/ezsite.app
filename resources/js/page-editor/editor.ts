@@ -11,7 +11,7 @@
  * as the config argument.
  *
  * @see resources/js/page-editor/protocol.ts the message contract
- * @see resources/js/page-editor/canvas.ts the other side of the bridge
+ * @see resources/js/page-editor/canvas-glue.ts the other side of the bridge
  */
 
 import {
@@ -19,6 +19,8 @@ import {
     type EditorMessage,
     type ShortcutName,
     isChromeKey,
+    isFieldName,
+    matchShortcut,
     NAMESPACE,
     readMessage,
 } from './protocol';
@@ -582,7 +584,7 @@ export function pageEditor(
                 message.type === 'inline-input' &&
                 message.key === this.$wire.selectedBlockKey &&
                 typeof message.field === 'string' &&
-                /^[a-z0-9_]+$/.test(message.field)
+                isFieldName(message.field)
             ) {
                 this.$wire.set('data.block.' + message.field, message.value);
             }
@@ -603,41 +605,17 @@ export function pageEditor(
                 return;
             }
 
-            if (event.key === 'Escape') {
-                this.runShortcut('deselect');
+            const shortcut = matchShortcut(event);
 
+            if (!shortcut) {
                 return;
             }
 
-            if (event.key === 'Delete' || event.key === 'Backspace') {
+            if (shortcut.preventDefault) {
                 event.preventDefault();
-                this.runShortcut('remove-selected');
-
-                return;
             }
 
-            if (!(event.metaKey || event.ctrlKey)) {
-                return;
-            }
-
-            if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
-                event.preventDefault();
-                this.runShortcut(
-                    event.key === 'ArrowUp'
-                        ? 'move-selected-up'
-                        : 'move-selected-down',
-                );
-            }
-
-            if (event.key === 's') {
-                event.preventDefault();
-                this.runShortcut('save');
-            }
-
-            if (event.key === 'z') {
-                event.preventDefault();
-                this.runShortcut(event.shiftKey ? 'redo' : 'undo');
-            }
+            this.runShortcut(shortcut.name);
         },
 
         onBeforeUnload(

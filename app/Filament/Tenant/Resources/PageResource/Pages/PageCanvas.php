@@ -7,9 +7,9 @@ namespace App\Filament\Tenant\Resources\PageResource\Pages;
 use App\Actions\Pages\CreatePageFromName;
 use App\Actions\Pages\DuplicatePage;
 use App\Actions\Pages\PublishPage;
-use App\Filament\Fabricator\BlockRegistry;
 use App\Filament\Tenant\Resources\PageResource;
 use App\Models\Page as PageModel;
+use App\Site\Blocks\BlockVocabulary;
 use Filament\Actions\Action;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
@@ -86,7 +86,7 @@ final class PageCanvas extends Page
     #[Computed]
     public function cards(): array
     {
-        $vocabulary = BlockRegistry::vocabulary();
+        $vocabulary = resolve(BlockVocabulary::class);
         $pages = PageModel::query()->orderBy('title')->get();
         $paths = $this->paths($pages);
 
@@ -103,7 +103,7 @@ final class PageCanvas extends Page
                     'blockCount' => count($types),
                     'icons' => array_map(
                         static fn (string $type): array => [
-                            'icon' => $vocabulary[$type]['icon'] ?? null,
+                            'icon' => $vocabulary->get($type)?->icon,
                             'label' => Str::headline($type),
                         ],
                         array_slice($types, 0, self::ICON_STRIP_LIMIT),

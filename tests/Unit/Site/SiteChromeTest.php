@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-use App\Filament\Fabricator\BindResolver;
-use App\Filament\Fabricator\SiteChrome;
 use App\Models\SiteSetting;
 use App\Models\Tenant;
+use App\Site\BindResolver;
+use App\Site\SiteChrome;
 use Illuminate\Support\Facades\DB;
 
 it('serves default header and footer entries when a business exists but nothing is saved', function (): void {

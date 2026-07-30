@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Ai;
 
-use App\Filament\Fabricator\BlockRegistry;
-use App\Filament\Fabricator\PageBlocks\Block;
+use App\Site\Blocks\BlockShape;
+use App\Site\Blocks\BlockVocabulary;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -14,21 +14,38 @@ use Illuminate\Support\Facades\Log;
  * Shared by both AI write paths — {@see SiteDraftValidator} (whole-site
  * generation) and {@see Tools\UpdateBlockContent} (the editor chat) —
  * so a field the model may not author is rejected identically in both. Unknown
- * types and fields are dropped and logged (matching BlockRegistry's defensive
+ * types and fields are dropped and logged (matching the render layer's defensive
  * philosophy), the reserved keys are server-owned, and every leaf string is
  * de-tagged: block views render this content unescaped-free but on shared
  * tenant domains, so tags never survive the boundary.
  *
- * The vocabulary is memoized per instance — a draft sanitizes many blocks in
- * one pass, and {@see BlockRegistry::vocabulary()} walks every registered
- * block class on each call.
+ * KNOWN LIMIT — the field whitelist is TOP-LEVEL ONLY. `BlockType::$fields`
+ * is a flat list of {@see \Filament\Forms\Components\Field} names, so a `Repeater`
+ * contributes just its own name (`features`) and never its `->schema()` children.
+ * Inside a repeater item, therefore, keys are shape-limited (scalars only, one
+ * level deep, each de-tagged) but NOT name-limited: an undeclared item key
+ * survives. That is currently inert rather than exploitable — every repeater view
+ * reads explicit keys (`$item['icon']`, `$link['url']`), nothing iterates
+ * arbitrary keys, and a nested key cannot become an HTML attribute because it
+ * sits inside a declared prop's array. Fixing it properly means teaching
+ * `contract()` about nested shapes; until a real need appears, this comment is
+ * the honest boundary.
+ *
+ * URL schemes are NOT this class's job: `strip_tags()` does nothing to
+ * `javascript:`, so that is guarded at render time by
+ * {@see \App\Filament\Fabricator\BlockRegistry::denyExecutableUrls()}, which covers panel- and
+ * seeder-authored links too.
+ *
+ * The vocabulary arrives injected and is container-`scoped`, so a draft that
+ * sanitizes twenty blocks walks the registered block classes once, not twenty
+ * times — the memoization this class used to do itself.
  */
-final class BlockDataSanitizer
+final readonly class BlockDataSanitizer
 {
-    /**
-     * @var array<string, array{type: string, variants: list<string>, bind: string|null, icon: string|null, fields: list<string>}>|null
-     */
-    private ?array $vocabulary = null;
+    public function __construct(private BlockVocabulary $vocabulary)
+    {
+        //
+    }
 
     /**
      * Whitelist a block's data against its contract: unlisted and reserved keys
@@ -40,11 +57,11 @@ final class BlockDataSanitizer
      */
     public function handle(string $type, array $data): array
     {
-        $fields = $this->vocabulary()[$type]['fields'] ?? [];
+        $fields = $this->vocabulary->get($type)->fields ?? [];
         $sanitized = [];
 
         foreach ($data as $key => $value) {
-            if ($key === Block::VARIANT_KEY || $key === Block::BIND_KEY) {
+            if (in_array($key, BlockShape::reservedKeys(), true)) {
                 continue; // server-owned, silently stripped
             }
 
@@ -70,15 +87,7 @@ final class BlockDataSanitizer
      */
     public function knows(string $type): bool
     {
-        return array_key_exists($type, $this->vocabulary());
-    }
-
-    /**
-     * @return array<string, array{type: string, variants: list<string>, bind: string|null, icon: string|null, fields: list<string>}>
-     */
-    private function vocabulary(): array
-    {
-        return $this->vocabulary ??= BlockRegistry::vocabulary();
+        return $this->vocabulary->has($type);
     }
 
     /**

@@ -8,21 +8,32 @@ use App\Enums\BindType;
 use App\Filament\Fabricator\PageBlocks\Block;
 use App\Models\Business;
 use App\Models\Location;
+use App\Site\BindResolver;
+use App\Site\Blocks\BlockShape;
+use App\Site\Blocks\BlockType;
+use App\Site\Blocks\BlockVocabulary;
+use App\Site\MediaResolver;
+use App\Site\UrlScheme;
+use Illuminate\Support\Facades\Log;
 use Z3d0X\FilamentFabricator\Facades\FilamentFabricator;
 
 /**
- * Aggregation layer over FilamentFabricator's name→class manager.
+ * The render-side glue between a stored `{type, data}` entry and the Blade
+ * component that draws it.
  *
- * Two jobs:
- *  1. {@see vocabulary()} — the enumerated set of block contracts. This is the
- *     "vocabulary" the AI layer is allowed to compose from, and the hard
- *     boundary that keeps blocks *selectable but never authorable* by tenants.
- *  2. {@see resolveComponent()} / {@see normalizeData()} — the defensive glue the
- *     overridden render view uses so an unknown type, invalid variant, or
- *     malformed `data` degrades gracefully (skip + log) instead of fataling on a
- *     live tenant site.
+ * Its job is defensiveness: an unknown type, an invalid variant, a malformed
+ * `data`, a dangling media id or an unresolvable bind must degrade gracefully
+ * (skip + log) rather than fatal on a live tenant site. Consumed almost entirely
+ * by the overridden `page-blocks` view.
  *
- * Variant and bind are read from reserved keys *inside* `data` (see {@see Block}).
+ * The one thing here that is NOT render glue is {@see contracts()}, which
+ * enumerates the registered block classes. That enumeration is a domain concept —
+ * see {@see BlockVocabulary}, which is what everything outside this namespace
+ * reads; this class only supplies the raw material, because it is on the side of
+ * the fence that can see the Filament block classes.
+ *
+ * Variant and bind are read from reserved keys *inside* `data`
+ * (see {@see BlockShape}).
  */
 final class BlockRegistry
 {
@@ -41,21 +52,26 @@ final class BlockRegistry
     ];
 
     /**
-     * Every registered block's machine-readable contract, keyed by type.
+     * Every registered block's contract, keyed by type — the raw material for
+     * {@see BlockVocabulary}, which is what the rest of the app actually reads.
      *
-     * @return array<string, array{type: string, variants: list<string>, bind: string|null, icon: string|null, fields: list<string>}>
+     * Lives here because this is the side that can enumerate the Filament block
+     * classes; it is assembled into the domain-layer vocabulary once per request
+     * by {@see \App\Providers\AppServiceProvider}.
+     *
+     * @return array<string, BlockType>
      */
-    public static function vocabulary(): array
+    public static function contracts(): array
     {
-        $vocabulary = [];
+        $contracts = [];
 
         foreach (FilamentFabricator::getPageBlocksRaw() as $class) {
             if (is_string($class) && is_subclass_of($class, Block::class)) {
-                $vocabulary[$class::getName()] = $class::contract();
+                $contracts[$class::getName()] = $class::contract();
             }
         }
 
-        return $vocabulary;
+        return $contracts;
     }
 
     /**
@@ -69,25 +85,20 @@ final class BlockRegistry
      */
     public static function resolveComponent(array $block): ?string
     {
-        $type = self::blockType($block);
+        $blockType = self::blockTypeFor($block);
 
-        if ($type === null) {
+        if (! $blockType instanceof BlockType) {
             return null;
         }
 
-        $class = FilamentFabricator::getPageBlockFromName($type);
+        $base = 'filament-fabricator.page-blocks.'.$blockType->type;
 
-        if (! is_string($class) || ! is_subclass_of($class, Block::class)) {
-            return null;
-        }
-
-        $base = 'filament-fabricator.page-blocks.'.$type;
-
-        if ($class::variants() === []) {
+        if ($blockType->variants === []) {
             return $base;
         }
 
-        $variant = self::variant($block, $class);
+        $data = is_array($block['data'] ?? null) ? $block['data'] : [];
+        $variant = $blockType->resolveVariant($data[BlockShape::VARIANT_KEY] ?? null);
 
         return $variant === null ? null : $base.'.'.$variant;
     }
@@ -103,15 +114,13 @@ final class BlockRegistry
     public static function normalizeData(array $block): array
     {
         $data = is_array($block['data'] ?? null) ? $block['data'] : [];
+        $blockType = self::blockTypeFor($block);
 
-        $type = self::blockType($block);
-        $class = $type === null ? null : FilamentFabricator::getPageBlockFromName($type);
-
-        if ($class !== null && is_subclass_of($class, Block::class) && $class::variants() !== []) {
-            $current = $data[Block::VARIANT_KEY] ?? null;
+        if ($blockType instanceof BlockType && $blockType->variants !== []) {
+            $current = $data[BlockShape::VARIANT_KEY] ?? null;
 
             if (! is_string($current) || $current === '') {
-                $data[Block::VARIANT_KEY] = $class::defaultVariant();
+                $data[BlockShape::VARIANT_KEY] = $blockType->defaultVariant();
             }
         }
 
@@ -199,16 +208,9 @@ final class BlockRegistry
      */
     public static function bindAttributes(array $block): ?array
     {
-        $type = self::blockType($block);
-        $class = $type === null ? null : FilamentFabricator::getPageBlockFromName($type);
+        $bindType = self::blockTypeFor($block)?->bind;
 
-        if (! is_string($class) || ! is_subclass_of($class, Block::class)) {
-            return [];
-        }
-
-        $bindType = $class::bindType();
-
-        if ($bindType === null) {
+        if (! $bindType instanceof BindType) {
             return [];
         }
 
@@ -244,7 +246,55 @@ final class BlockRegistry
             }
         }
 
+        return self::denyExecutableUrls($data);
+    }
+
+    /**
+     * Drop URL values whose scheme executes when a browser follows them.
+     *
+     * Block data reaches `href`/`src` through Blade's `{{ }}`, which escapes the
+     * VALUE but does nothing about the SCHEME — `javascript:alert(1)` in a
+     * `cta_url` is a live link. Every authoring path feeds these fields:
+     * {@see \App\Ai\BlockDataSanitizer} only `strip_tags()`es leaves (a no-op on
+     * a scheme), the panel's {@see Fields\LinkInput}
+     * deliberately allows relative paths and anchors, and seeders write raw
+     * arrays. So the guard belongs at the one point every path funnels through
+     * rather than at any single author — {@see resolveMediaUrls()} calls this for
+     * the top-level node and once per repeater item.
+     *
+     * Unsetting rather than blanking is deliberate: every one of the
+     * data-sourced href/src sites is wrapped in an `@if`, so a missing key
+     * renders nothing at all instead of an empty `href=""` that reloads the page.
+     *
+     * @param  array<array-key, mixed>  $data
+     * @return array<array-key, mixed>
+     */
+    private static function denyExecutableUrls(array $data): array
+    {
+        foreach ($data as $key => $value) {
+            if (! self::isDeniedUrl($key, $value)) {
+                continue;
+            }
+
+            Log::warning('block.url_denied', ['key' => $key]);
+
+            unset($data[$key]);
+        }
+
         return $data;
+    }
+
+    /**
+     * Whether one `data` entry is a URL-carrying field holding an executable
+     * scheme. Keyed on the naming convention the views read — `url` on repeater
+     * items, `*_url` for top-level props like `cta_url` and `image_url`.
+     */
+    private static function isDeniedUrl(mixed $key, mixed $value): bool
+    {
+        return is_string($key)
+            && is_string($value)
+            && ($key === 'url' || str_ends_with($key, '_url'))
+            && UrlScheme::isExecutable($value);
     }
 
     /**
@@ -257,7 +307,7 @@ final class BlockRegistry
     private static function boundLocationId(array $block): ?int
     {
         $data = is_array($block['data'] ?? null) ? $block['data'] : [];
-        $bind = $data[Block::BIND_KEY] ?? null;
+        $bind = $data[BlockShape::BIND_KEY] ?? null;
         $id = is_array($bind) ? ($bind['location_id'] ?? null) : null;
 
         if (is_int($id)) {
@@ -280,21 +330,18 @@ final class BlockRegistry
     }
 
     /**
-     * The variant to render: the block's default when unset, the stored value
-     * when valid, or null when a non-empty stored value is unrecognised.
+     * The contract for a stored block, or null when it cannot be rendered: a
+     * malformed entry, or a type this app does not register (so never authorable
+     * by a tenant). Resolved through the vocabulary rather than the Fabricator
+     * facade, which collapses the `getPageBlockFromName()` + `is_subclass_of()`
+     * pair this class used to repeat three times.
      *
      * @param  array<string, mixed>  $block
-     * @param  class-string<Block>  $class
      */
-    private static function variant(array $block, string $class): ?string
+    private static function blockTypeFor(array $block): ?BlockType
     {
-        $data = is_array($block['data'] ?? null) ? $block['data'] : [];
-        $variant = $data[Block::VARIANT_KEY] ?? null;
+        $type = self::blockType($block);
 
-        if (! is_string($variant) || $variant === '') {
-            return $class::defaultVariant();
-        }
-
-        return array_key_exists($variant, $class::variants()) ? $variant : null;
+        return $type === null ? null : resolve(BlockVocabulary::class)->get($type);
     }
 }

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Actions\Pages\AddPageBlock;
+use App\Enums\ChromeSlot;
 use App\Filament\Fabricator\PageBlocks\Heading;
 use App\Filament\Fabricator\PageBlocks\Hero;
 
@@ -41,7 +42,12 @@ it('inserts at an explicit position and clamps out-of-range positions', function
     'negative clamps to the start' => [-3, 0],
 ]);
 
-it('throws loudly on an unknown block type', function (): void {
-    expect(fn (): array => resolve(AddPageBlock::class)->handle([], 'carousel'))
-        ->toThrow(InvalidArgumentException::class, 'Unknown block type [carousel].');
-});
+it('throws loudly on a block type that cannot go in a page', function (string $type): void {
+    // Site chrome is a registered Block and would otherwise pass the
+    // is_subclass_of check, landing a second header inside one page's body.
+    expect(fn (): array => resolve(AddPageBlock::class)->handle([], $type))
+        ->toThrow(InvalidArgumentException::class, sprintf('Block type [%s] cannot be added to a page.', $type));
+})->with([
+    'an unknown type' => ['carousel'],
+    ...array_map(static fn (string $slot): array => [$slot], ChromeSlot::values()),
+]);

@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-use App\Filament\Fabricator\MediaResolver;
 use App\Models\Media;
 use App\Models\Tenant;
+use App\Site\MediaResolver;
 use Illuminate\Support\Facades\DB;
 
 it('resolves ids to urls with one batched query', function (): void {

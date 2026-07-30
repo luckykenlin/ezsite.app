@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Models;
 
-use App\Concerns\RequiresTenantContext;
 use App\Enums\PageStatus;
+use App\Tenancy\RequiresTenantContext;
 use Database\Factories\PageFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -44,6 +44,18 @@ final class Page extends FabricatorPage
     public function isDraft(): bool
     {
         return $this->status === PageStatus::Draft;
+    }
+
+    /**
+     * The site's front page: slug `/` at the top level.
+     *
+     * Both halves matter — a nested page may legitimately be slugged `/`, so the
+     * parent check is what makes this the ROOT. That pair was written out in three
+     * places, one of which omitted the parent check.
+     */
+    public function isHome(): bool
+    {
+        return $this->slug === '/' && $this->parent_id === null;
     }
 
     /**

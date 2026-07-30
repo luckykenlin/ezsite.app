@@ -16,6 +16,7 @@ use App\Ai\Tools\ReorderBlocks;
 use App\Ai\Tools\UpdateBlockContent;
 use App\Enums\ChatRole;
 use App\Models\PageChatMessage;
+use App\Site\Blocks\BlockVocabulary;
 use Laravel\Ai\Attributes\MaxSteps;
 use Laravel\Ai\Attributes\Temperature;
 use Laravel\Ai\Attributes\Timeout;
@@ -58,8 +59,13 @@ final readonly class PageEditorAgent implements Agent, Conversational, HasTools
      * How far back the assistant remembers. Generous enough to follow "now do
      * the same to the next section", bounded so a long session's prompt (which
      * also carries the page outline and the whole vocabulary) stays affordable.
+     *
+     * Public because the chat panel bounds its transcript by the SAME number
+     * ({@see \App\Actions\Pages\ChatEditPage::transcript()}): showing the operator
+     * more history than the assistant can actually see invites "you just said…"
+     * about a message that is no longer in the prompt.
      */
-    private const int HISTORY_LIMIT = 20;
+    public const int HISTORY_LIMIT = 20;
 
     private const string INSTRUCTIONS = 'You are the editing assistant inside a small-business '
         .'website builder. The operator has one page open and asks you to change it. '
@@ -141,7 +147,7 @@ final readonly class PageEditorAgent implements Agent, Conversational, HasTools
 
         return [
             new UpdateBlockContent($this->draft, $sanitizer, resolve(UpdatePageBlock::class)),
-            new AddBlock($this->draft, $sanitizer, resolve(AddPageBlock::class)),
+            new AddBlock($this->draft, resolve(AddPageBlock::class), resolve(BlockVocabulary::class)),
             new RemoveBlock($this->draft, resolve(RemovePageBlock::class)),
             new ReorderBlocks($this->draft, resolve(ReorderPageBlocks::class)),
         ];

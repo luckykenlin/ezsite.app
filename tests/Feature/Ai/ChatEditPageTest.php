@@ -317,3 +317,30 @@ it('runs fine without a delta listener', function (): void {
 
     expect(chatTurn(chatBlocks())['reply'])->toBe('Done.');
 });
+
+it('shows only as much transcript as the assistant remembers, oldest first', function (): void {
+    // The panel re-reads this on every mount AND every poll tick, markdown
+    // rendering each assistant line, so it is bounded — by the agent's own
+    // memory window, so the operator is never shown history the model cannot see.
+    $limit = PageEditorAgent::HISTORY_LIMIT;
+
+    $this->runInTenant($this->tenant, function () use ($limit): void {
+        foreach (range(1, $limit + 5) as $i) {
+            PageChatMessage::query()->create([
+                'tenant_id' => $this->tenant->id,
+                'page_id' => $this->page->id,
+                'role' => $i % 2 === 0 ? ChatRole::Assistant : ChatRole::User,
+                'content' => 'message '.$i,
+            ]);
+        }
+
+        $transcript = resolve(ChatEditPage::class)->transcript($this->page);
+
+        expect($transcript)->toHaveCount($limit)
+            // The NEWEST N, still rendered oldest-first.
+            ->and($transcript[0]['content'])->toBe('message 6')
+            ->and($transcript[$limit - 1]['content'])->toBe('message '.($limit + 5))
+            // The list is re-indexed, not a preserved-key slice.
+            ->and(array_keys($transcript))->toBe(range(0, $limit - 1));
+    });
+});

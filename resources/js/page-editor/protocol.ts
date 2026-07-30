@@ -30,6 +30,75 @@ export type ShortcutName =
     | 'move-selected-up'
     | 'move-selected-down';
 
+/**
+ * The keyboard shortcut a keydown maps to, or null when it maps to none.
+ *
+ * ONE definition, deliberately. Both sides of the boundary listen for keydown —
+ * the parent window and the canvas document, because either can hold focus — and
+ * they used to carry a private copy of this table each. Adding a shortcut then
+ * meant three coordinated edits (both handlers plus {@see ShortcutName}), and the
+ * two copies were free to drift silently in the meantime.
+ *
+ * Callers keep their own guards (the editor ignores keys while a modal is open or
+ * a field has focus; the canvas ignores them while inline-editing) and their own
+ * `preventDefault()` — Escape deliberately does not suppress the default, so a
+ * native dismissal still works, which is why that decision is returned rather than
+ * taken here.
+ */
+export function matchShortcut(
+    event: KeyboardEvent,
+): { name: ShortcutName; preventDefault: boolean } | null {
+    if (event.key === 'Escape') {
+        return { name: 'deselect', preventDefault: false };
+    }
+
+    if (event.key === 'Delete' || event.key === 'Backspace') {
+        return { name: 'remove-selected', preventDefault: true };
+    }
+
+    if (!(event.metaKey || event.ctrlKey)) {
+        return null;
+    }
+
+    if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+        return {
+            name:
+                event.key === 'ArrowUp'
+                    ? 'move-selected-up'
+                    : 'move-selected-down',
+            preventDefault: true,
+        };
+    }
+
+    if (event.key === 's') {
+        return { name: 'save', preventDefault: true };
+    }
+
+    if (event.key === 'z') {
+        return {
+            name: event.shiftKey ? 'redo' : 'undo',
+            preventDefault: true,
+        };
+    }
+
+    return null;
+}
+
+/**
+ * Whether a string is a block field name the inline editor may target.
+ *
+ * The allowlist for double-click-to-edit: the parent resolves which field a
+ * clicked bit of text belongs to by matching it against the inspector's state,
+ * then writes to `data.block.<field>`. This keeps that write from wandering into a
+ * dotted or nested path.
+ *
+ * Kept exactly as loose as the inline regex it replaces, so moving it here is a
+ * pure deduplication and not a silent tightening.
+ */
+export function isFieldName(value: string): boolean {
+    return /^[a-z0-9_]+$/.test(value);
+}
+
 /** The structural verbs on the canvas's floating block toolbar. */
 export type BlockAction = 'move-up' | 'move-down' | 'duplicate' | 'remove';
 

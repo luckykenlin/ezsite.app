@@ -5,9 +5,8 @@ declare(strict_types=1);
 namespace App\Filament\Tenant\Resources\PageResource\Pages;
 
 use App\Actions\Pages\AddPageBlock;
-use App\Actions\Pages\CacheChatTurn;
+use App\Actions\Pages\BuildEditorPreviewDraft;
 use App\Actions\Pages\CachePageEditorPreview;
-use App\Actions\Pages\ChatEditPage;
 use App\Actions\Pages\DuplicatePage;
 use App\Actions\Pages\DuplicatePageBlock;
 use App\Actions\Pages\MovePageBlock;
@@ -19,15 +18,17 @@ use App\Enums\BindType;
 use App\Enums\ChromeSlot;
 use App\Filament\Fabricator\BlockRegistry;
 use App\Filament\Fabricator\PageBlocks\Block;
-use App\Filament\Tenant\Pages\BusinessProfile;
 use App\Filament\Tenant\Resources\PageResource;
 use App\Filament\Tenant\Resources\PageResource\Actions\DesignAction;
 use App\Filament\Tenant\Resources\PageResource\Actions\PageSettingsAction;
-use App\Jobs\ChatEditPageJob;
-use App\Models\Business;
+use App\Filament\Tenant\Resources\PageResource\Concerns\HasBlockHistory;
+use App\Filament\Tenant\Resources\PageResource\Concerns\HasSiteChromeDraft;
+use App\Filament\Tenant\Resources\PageResource\Concerns\HostsEditorModals;
+use App\Filament\Tenant\Resources\PageResource\Concerns\InteractsWithPageChat;
 use App\Models\Page as PageModel;
-use App\Models\SiteSetting;
-use App\Models\User;
+use App\Site\Blocks\BlockData;
+use App\Site\Blocks\BlockType;
+use App\Site\Blocks\BlockVocabulary;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
@@ -36,7 +37,6 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Z3d0X\FilamentFabricator\Facades\FilamentFabricator;
@@ -47,7 +47,7 @@ use Z3d0X\FilamentFabricator\Facades\FilamentFabricator;
  * state through the real tenant layout chain (see
  * {@see CachePageEditorPreview}), and a PERSISTENT inspector showing the
  * selected block's Filament schema — or, with nothing selected, the page
- * itself. The block library ({@see BlockRegistry::vocabulary()}) lives in a
+ * itself. The block library ({@see BlockVocabulary::pageTypes()}) lives in a
  * modal, opened by the chat composer's "+" or by a canvas insert line.
  *
  * The inspector is a plain column, not a drawer. Editing block content is the
@@ -72,6 +72,10 @@ use Z3d0X\FilamentFabricator\Facades\FilamentFabricator;
  */
 final class PageEditor extends Page
 {
+    use HasBlockHistory;
+    use HasSiteChromeDraft;
+    use HostsEditorModals;
+    use InteractsWithPageChat;
     use InteractsWithRecord;
 
     /**
@@ -82,14 +86,13 @@ final class PageEditor extends Page
     public const string BLOCK_LIBRARY_MODAL = 'page-editor-block-library';
 
     /**
-     * How long the editor waits for a turn before giving up on it. Only reached
-     * when the worker dies without writing a result (OOM, a `queue:restart`
-     * mid-turn) — an ordinary slow turn is bounded by ChatEditPage's own budget
-     * and comes back as a failure the operator can read.
+     * The shortcut row on the empty-page overlay, in top-of-page order. Filtered
+     * against the registry at call time, so a removed type drops out silently
+     * instead of becoming a button that throws.
+     *
+     * @var list<string>
      */
-    private const int CHAT_TURN_TIMEOUT_SECONDS = 180;
-
-    private const int HISTORY_LIMIT = 50;
+    private const array QUICK_START_TYPES = ['hero', 'features', 'cta'];
 
     /**
      * @var list<array{key: string, type: string, data: array<string, mixed>}>
@@ -110,21 +113,6 @@ final class PageEditor extends Page
     public bool $isDirty = false;
 
     /**
-     * Structure-level undo stack: snapshots taken before every structural
-     * mutation (add/remove/move/reorder/duplicate/apply). Field edits are not
-     * snapshotted individually — they ride along inside the next snapshot
-     * once committed.
-     *
-     * @var list<array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, selectedBlockKey: string|null}>
-     */
-    public array $history = [];
-
-    /**
-     * @var list<array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, selectedBlockKey: string|null}>
-     */
-    public array $future = [];
-
-    /**
      * Where the next added block should land, armed by a canvas insert line;
      * null appends to the end. The library's buttons are rendered once and
      * cannot carry a per-open position, so it is held here instead.
@@ -132,66 +120,16 @@ final class PageEditor extends Page
     public ?int $pendingInsertPosition = null;
 
     /**
-     * The site-wide header/footer DRAFT entries, hydrated from the effective
-     * chrome (saved settings, or the default when a Business exists). Edited
-     * through the same commit pipeline as page blocks; persisted via
-     * SaveSiteChrome only when actually changed. Excluded from the undo
-     * stack (structure-level history covers page blocks only).
-     *
-     * @var array<string, array{type: string, data: array<string, mixed>}|null>
-     */
-    public array $chrome = ['header' => null, 'footer' => null];
-
-    public bool $chromeDirty = false;
-
-    /**
-     * Unsaved design-token values previewed on the canvas only (set while
-     * the Design modal is open; cleared on apply or close). Never persisted
-     * by Save — "Apply to site" in the modal is the only write path.
-     *
-     * @var array<string, string|null>|null
-     */
-    public ?array $designDraft = null;
-
-    /**
      * The "sample content is editable" hint fires once per editing session,
      * on the first added block.
      */
     public bool $sampleHintShown = false;
-
-    /**
-     * This page's chat transcript, oldest first, as the panel renders it.
-     * Persisted per page (see {@see \App\Models\PageChatMessage}), so it
-     * survives a reload and a teammate opening the same page.
-     *
-     * @var list<array{role: string, content: string, html: string|null, changed: bool}>
-     */
-    public array $chatMessages = [];
-
-    public string $chatInput = '';
-
-    /**
-     * The turn in flight, or null when the assistant is idle. Doubles as the
-     * poll switch: the blade only renders `wire:poll` while this is set, so an
-     * idle editor makes no requests at all.
-     */
-    public ?string $chatTurnToken = null;
-
-    /**
-     * Unix timestamp the turn was dispatched, for the give-up check. An int
-     * because Livewire serialises component state to JSON on every roundtrip.
-     */
-    public ?int $chatTurnStartedAt = null;
 
     protected static string $resource = PageResource::class;
 
     protected string $view = 'filament.tenant.pages.page-editor';
 
     protected static ?string $breadcrumb = 'Edit';
-
-    private ?Business $businessRecord = null;
-
-    private bool $businessLoaded = false;
 
     public function mount(int|string $record): void
     {
@@ -212,8 +150,6 @@ final class PageEditor extends Page
             $this->selectedBlockKey = $first;
             $this->fillBlockForm();
         }
-
-        $this->chatMessages = resolve(ChatEditPage::class)->transcript($this->pageRecord());
 
         $this->pushPreview();
     }
@@ -238,19 +174,50 @@ final class PageEditor extends Page
     }
 
     /**
-     * The block library for the left pane: type => label + icon, straight
-     * from the registry contracts.
+     * The shortcut row on the empty-page overlay: the few types most pages open
+     * with, in the order they usually get added.
+     *
+     * Intersected with {@see BlockVocabulary::pageTypes()} rather than trusted:
+     * these used to be literals in the blade, so renaming or removing a block
+     * turned the button into an `InvalidArgumentException` thrown out of a
+     * Livewire call. A type that no longer exists now simply drops out of the row.
+     *
+     * @return array<string, array{label: string, icon: string|null}>
+     */
+    public function quickStartBlocks(): array
+    {
+        $library = $this->blockLibrary();
+        $quickStart = [];
+
+        // Driven by QUICK_START_TYPES rather than array_intersect_key, which
+        // would return them in registry order instead of top-of-page order.
+        foreach (self::QUICK_START_TYPES as $type) {
+            if (array_key_exists($type, $library)) {
+                $quickStart[$type] = $library[$type];
+            }
+        }
+
+        return $quickStart;
+    }
+
+    /**
+     * The block library for the left pane: type => label + icon, from the
+     * page-level contracts only.
+     *
+     * Site chrome is excluded ({@see BlockVocabulary::pageTypes()}): a header
+     * belongs around the page, not inside one, and it is edited through the
+     * inspector's `chrome:*` pseudo blocks.
      *
      * @return array<string, array{label: string, icon: string|null}>
      */
     public function blockLibrary(): array
     {
         return array_map(
-            static fn (array $contract): array => [
-                'label' => Str::headline($contract['type']),
-                'icon' => $contract['icon'],
+            static fn (BlockType $contract): array => [
+                'label' => Str::headline($contract->type),
+                'icon' => $contract->icon,
             ],
-            BlockRegistry::vocabulary(),
+            resolve(BlockVocabulary::class)->pageTypes(),
         );
     }
 
@@ -266,19 +233,7 @@ final class PageEditor extends Page
             return null;
         }
 
-        $class = FilamentFabricator::getPageBlockFromName($selected['type']);
-
-        return is_string($class) && is_subclass_of($class, Block::class) ? $class::bindType() : null;
-    }
-
-    public function hasBusinessProfile(): bool
-    {
-        return $this->business() instanceof Business;
-    }
-
-    public function businessProfileUrl(): string
-    {
-        return BusinessProfile::getUrl();
+        return resolve(BlockVocabulary::class)->get($selected['type'])?->bind;
     }
 
     public function selectBlock(string $key): void
@@ -320,8 +275,12 @@ final class PageEditor extends Page
     }
 
     /**
-     * Insert a block at an explicit position — the drop target for dragging
-     * a library entry straight onto the canvas (null appends).
+     * Insert a block at an explicit position (null appends) — the insertion
+     * primitive {@see addBlock()} delegates to, carrying whatever position a
+     * canvas insert line armed via {@see openBlockLibrary()}.
+     *
+     * There is no drag-a-library-entry-onto-the-canvas caller, despite what this
+     * docblock used to claim: `protocol.ts` defines no such message.
      */
     public function addBlockAt(string $type, ?int $position): void
     {
@@ -346,7 +305,7 @@ final class PageEditor extends Page
 
             Notification::make()
                 ->title('Sample content added')
-                ->body('Double-click any text on the canvas to edit it, or open its settings from the drawer.')
+                ->body('Double-click any text on the canvas to edit it, or edit its settings in the panel on the right.')
                 ->info()
                 ->send();
         }
@@ -471,30 +430,6 @@ final class PageEditor extends Page
         $this->markDirty();
     }
 
-    public function undo(): void
-    {
-        $entry = array_pop($this->history);
-
-        if ($entry === null) {
-            return;
-        }
-
-        $this->future[] = ['blocks' => $this->blocks, 'selectedBlockKey' => $this->selectedBlockKey];
-        $this->restoreSnapshot($entry);
-    }
-
-    public function redo(): void
-    {
-        $entry = array_pop($this->future);
-
-        if ($entry === null) {
-            return;
-        }
-
-        $this->history[] = ['blocks' => $this->blocks, 'selectedBlockKey' => $this->selectedBlockKey];
-        $this->restoreSnapshot($entry);
-    }
-
     /**
      * Replace the whole draft in one call — the write entrypoint the phase-2
      * AI tools round-trip through. Entries must already carry keys (i.e. come
@@ -528,114 +463,6 @@ final class PageEditor extends Page
      * instead of a spinner. The streamed text is transient — the final render
      * reads the persisted transcript, which is also what a reload shows.
      */
-    /**
-     * @param  string|null  $message  what the operator typed, passed explicitly so
-     *                                the composer can be emptied the instant they
-     *                                hit send rather than when the turn returns
-     *                                (an AI round trip later); falls back to the
-     *                                bound property for non-browser callers
-     */
-    public function sendChatMessage(?string $message = null): void
-    {
-        $message = mb_trim($message ?? $this->chatInput);
-
-        if ($message === '' || $this->chatTurnToken !== null) {
-            return;
-        }
-
-        // Commit first: the operator may have typed into the drawer and then
-        // asked the assistant to work on that same block. An invalid draft
-        // aborts the turn with the field errors visible, and the message is
-        // left in the box so nothing is lost.
-        if (! $this->commitSelectedBlock()) {
-            $this->chatInput = $message;
-
-            return;
-        }
-
-        $this->chatInput = '';
-
-        $user = auth()->user();
-
-        $this->chatTurnToken = Str::random(40);
-        $this->chatTurnStartedAt = now()->getTimestamp();
-
-        // Open the turn BEFORE dispatching. The browser connects to the stream
-        // route as soon as this request returns, which is well before a worker
-        // picks the job up — and that route 404s on a turn it cannot find. Without
-        // this the stream is refused, the editor falls back to its slow poll, and
-        // the whole reply lands at once with no typing at all.
-        resolve(CacheChatTurn::class)->handle($this->chatTurnToken, '');
-
-        $page = $this->pageRecord();
-
-        // Dispatched rather than run here: see ChatEditPageJob. This request
-        // returns immediately and pollChatTurn() picks the answer up.
-        dispatch(new ChatEditPageJob(
-            (string) $page->tenant_id,
-            (int) $page->id,
-            $user instanceof User ? (int) $user->id : null,
-            $message,
-            $this->chatTurnToken,
-            $this->blocks,
-        ));
-    }
-
-    /**
-     * Pick up a finished turn and apply its blocks the same way a hand edit
-     * lands — through {@see applyBlocks()}, so it is undoable and still needs a
-     * Save.
-     *
-     * Called the moment the SSE stream ends, and by a slow `wire:poll` as a
-     * backstop for a stream that never connected at all. The reply itself is NOT
-     * read here: the stream owns that bubble (see the blade's `wire:ignore`), and
-     * a copy rendered from component state would fight it on every poll.
-     */
-    public function pollChatTurn(): void
-    {
-        if ($this->chatTurnToken === null) {
-            return;
-        }
-
-        $turns = resolve(CacheChatTurn::class);
-        $turn = $turns->read($this->chatTurnToken);
-
-        if ($turn === null || $turn['status'] !== 'done') {
-            $this->abandonStalledChatTurn();
-
-            return;
-        }
-
-        $turns->forget($this->chatTurnToken);
-        $this->endChatTurn();
-
-        // An answer that changed nothing must not touch the undo stack or the
-        // dirty flag — asking "what does this block do?" is not an edit.
-        if ($turn['blocks'] !== null && $turn['blocks'] !== $this->blocks) {
-            $this->applyBlocks($turn['blocks']);
-        }
-
-        $this->chatMessages = resolve(ChatEditPage::class)->transcript($this->pageRecord());
-
-        $this->dispatch('page-editor:chat-replied');
-    }
-
-    /**
-     * Stop waiting for the turn (the composer's stop button). The worker runs to
-     * completion — there is no way to interrupt a provider call mid-flight — so
-     * its answer still reaches the transcript on the next full render; only the
-     * block changes are dropped, which is what "stop" means to the operator.
-     */
-    public function cancelChatTurn(): void
-    {
-        if ($this->chatTurnToken === null) {
-            return;
-        }
-
-        resolve(CacheChatTurn::class)->forget($this->chatTurnToken);
-        $this->endChatTurn();
-    }
-
     public function save(): void
     {
         if (! $this->persistBlocks()) {
@@ -710,28 +537,6 @@ final class PageEditor extends Page
         }
     }
 
-    /**
-     * Persist the page-settings modal and repaint: a layout or title change
-     * re-renders the whole canvas document.
-     *
-     * @param  array<array-key, mixed>  $settings
-     */
-    public function updatePageSettings(array $settings): void
-    {
-        $this->pageRecord()->update(self::stringKeyed($settings));
-
-        $this->refreshCanvas();
-    }
-
-    /**
-     * Re-publish the draft and reload the canvas — the public repaint hook
-     * for collaborators that changed something the canvas renders.
-     */
-    public function refreshCanvas(): void
-    {
-        $this->pushPreview();
-    }
-
     public function previewUrl(): string
     {
         return route('page-editor.preview', [
@@ -771,89 +576,6 @@ final class PageEditor extends Page
         return $index === null ? null : $this->blocks[$index];
     }
 
-    /**
-     * The chrome slot a pseudo selection key refers to, or null for regular
-     * page-block keys.
-     */
-    public function chromeSlot(?string $key): ?ChromeSlot
-    {
-        return ChromeSlot::fromEditorKey($key);
-    }
-
-    /**
-     * Stage a design-token draft for the canvas preview (called by the
-     * Design modal's live fields). Nothing persists — the canvas simply
-     * re-renders with the draft theme layered over the saved one.
-     *
-     * @param  array<string, mixed>  $draft
-     */
-    public function previewDesign(array $draft): void
-    {
-        $this->designDraft = [
-            'preset' => is_string($draft['preset'] ?? null) ? $draft['preset'] : null,
-            'palette' => is_string($draft['palette'] ?? null) ? $draft['palette'] : null,
-            'font_pair' => is_string($draft['font_pair'] ?? null) ? $draft['font_pair'] : null,
-            'radius' => is_string($draft['radius'] ?? null) ? $draft['radius'] : null,
-            'density' => is_string($draft['density'] ?? null) ? $draft['density'] : null,
-        ];
-
-        $this->pushPreview();
-    }
-
-    public function clearDesignDraft(): void
-    {
-        if ($this->designDraft === null) {
-            return;
-        }
-
-        $this->designDraft = null;
-        $this->pushPreview();
-    }
-
-    /**
-     * Closing any modal without applying discards the design draft — only
-     * the Design modal ever sets it, and its "Apply to site" path clears it
-     * before unmount.
-     */
-    public function unmountAction(bool|string|null $cancelParentActions = null): void
-    {
-        parent::unmountAction($cancelParentActions);
-
-        $this->clearDesignDraft();
-    }
-
-    /**
-     * The tenant's Business, read once per Livewire request. Memoized on the
-     * component (not through the request-scoped BindResolver) because the
-     * Design modal WRITES the business: a cache shared with the render layer
-     * would have to be invalidated on save, and a stale read here would show
-     * the operator their pre-save tokens.
-     */
-    public function business(): ?Business
-    {
-        if (! $this->businessLoaded) {
-            $this->businessRecord = Business::query()->first();
-            $this->businessLoaded = true;
-        }
-
-        return $this->businessRecord;
-    }
-
-    /**
-     * The Business, for the paths only reachable once it exists (the Design
-     * modal is hidden without one).
-     */
-    public function businessOrFail(): Business
-    {
-        $business = $this->business();
-
-        if (! $business instanceof Business) {
-            throw (new ModelNotFoundException)->setModel(Business::class);
-        }
-
-        return $business;
-    }
-
     public function pageRecord(): PageModel
     {
         /** @var PageModel $record */
@@ -873,7 +595,7 @@ final class PageEditor extends Page
                 ->icon(Heroicon::OutlinedArrowUturnLeft)
                 ->iconButton()
                 ->color('gray')
-                ->disabled(fn (): bool => $this->history === [])
+                ->disabled(fn (): bool => $this->undoDepth === 0)
                 ->action(fn () => $this->undo()),
 
             Action::make('redo')
@@ -881,7 +603,7 @@ final class PageEditor extends Page
                 ->icon(Heroicon::OutlinedArrowUturnRight)
                 ->iconButton()
                 ->color('gray')
-                ->disabled(fn (): bool => $this->future === [])
+                ->disabled(fn (): bool => $this->redoDepth === 0)
                 ->action(fn () => $this->redo()),
 
             Action::make('visit')
@@ -925,58 +647,6 @@ final class PageEditor extends Page
     }
 
     /**
-     * Stored/dehydrated block data comes back as plain `array` — narrow its
-     * top-level keys to strings, the shape everything downstream declares.
-     *
-     * @param  array<array-key, mixed>  $values
-     * @return array<string, mixed>
-     */
-    private static function stringKeyed(array $values): array
-    {
-        $result = [];
-
-        foreach ($values as $key => $value) {
-            $result[(string) $key] = $value;
-        }
-
-        return $result;
-    }
-
-    /**
-     * Recursively drops null values AND arrays that end up empty (an
-     * untouched repeater, an unset bind), while preserving list shapes
-     * (repeater items keep their order and stay JSON arrays). For the block
-     * views a missing key and an empty value render identically, so this
-     * keeps the persisted shape minimal and makes an unedited commit compare
-     * identical to its stored form.
-     *
-     * @param  array<array-key, mixed>  $values
-     * @return array<array-key, mixed>
-     */
-    private static function withoutNulls(array $values): array
-    {
-        $result = [];
-
-        foreach ($values as $key => $value) {
-            if (is_array($value)) {
-                $value = self::withoutNulls($value);
-            }
-
-            if ($value === null) {
-                continue;
-            }
-
-            if ($value === []) {
-                continue;
-            }
-
-            $result[$key] = $value;
-        }
-
-        return array_is_list($values) ? array_values($result) : $result;
-    }
-
-    /**
      * The stored blocks with a transient uuid key each. Structurally broken
      * entries (non-array, missing type) are normalized to an empty-typed
      * block: they render as a placeholder on the canvas and stay deletable,
@@ -995,7 +665,7 @@ final class PageEditor extends Page
                 return [
                     'key' => (string) Str::uuid(),
                     'type' => is_string($type) ? $type : '',
-                    'data' => is_array($data) ? self::stringKeyed($data) : [],
+                    'data' => is_array($data) ? BlockData::stringKeyed($data) : [],
                 ];
             },
             $this->pageRecord()->blocks ?? [],
@@ -1027,7 +697,7 @@ final class PageEditor extends Page
         // resolve (the Section re-parents the fields when it renders).
         $blockSchema = $class::getBlockSchema()->container(Schema::make($this));
 
-        // Headingless: the drawer's own header already names the block type,
+        // Headingless: the inspector's own header already names the block type,
         // and a Section title would repeat it directly underneath.
         return Section::make()
             ->schema($blockSchema->getChildComponents())
@@ -1076,7 +746,7 @@ final class PageEditor extends Page
         // (an untouched field never appears in the JSON), and committing an
         // unedited block compares identical to its stored form — which is
         // what lets selectBlock() skip the canvas reload.
-        $committed = is_array($committed) ? self::stringKeyed(self::withoutNulls($committed)) : [];
+        $committed = is_array($committed) ? BlockData::committed($committed) : [];
 
         if ($slot instanceof ChromeSlot) {
             $entry = $this->chrome[$slot->value] ?? ['type' => $slot->value, 'data' => []];
@@ -1128,47 +798,6 @@ final class PageEditor extends Page
         return true;
     }
 
-    /**
-     * A slot's draft in SaveSiteChrome's shape: a single-entry list, or null
-     * when the tenant still relies on the default chrome.
-     *
-     * @return array<int, array{type: string, data: array<string, mixed>}>|null
-     */
-    private function chromeEntriesToSave(ChromeSlot $slot): ?array
-    {
-        $entry = $this->chrome[$slot->value] ?? null;
-
-        return $entry === null ? null : [$entry];
-    }
-
-    /**
-     * Record the pre-mutation state on the undo stack (and invalidate the
-     * redo stack — a new edit forks history). Callers snapshot AFTER a
-     * successful commit, so field edits ride inside the snapshot.
-     */
-    private function snapshot(): void
-    {
-        $this->history[] = ['blocks' => $this->blocks, 'selectedBlockKey' => $this->selectedBlockKey];
-
-        if (count($this->history) > self::HISTORY_LIMIT) {
-            array_shift($this->history);
-        }
-
-        $this->future = [];
-    }
-
-    /**
-     * @param  array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, selectedBlockKey: string|null}  $entry
-     */
-    private function restoreSnapshot(array $entry): void
-    {
-        $this->blocks = $entry['blocks'];
-        $this->selectedBlockKey = $entry['selectedBlockKey'];
-        $this->fillBlockForm();
-        $this->markDirty();
-        $this->dispatch('page-editor:select-canvas-block', key: $this->selectedBlockKey, scroll: false);
-    }
-
     private function markDirty(): void
     {
         $this->isDirty = true;
@@ -1184,35 +813,16 @@ final class PageEditor extends Page
      */
     private function pushPreview(bool $patch = false): void
     {
-        $blocks = $this->blocks;
-        $chrome = $this->chrome;
-        $index = $this->blockIndexOrNull($this->selectedBlockKey);
-        $slot = $this->chromeSlot($this->selectedBlockKey);
         $draft = $this->data['block'] ?? null;
 
-        if ($index !== null && is_array($draft)) {
-            $blocks[$index] = [
-                'key' => $blocks[$index]['key'],
-                'type' => $blocks[$index]['type'],
-                'data' => self::stringKeyed($draft),
-            ];
-        }
-
-        if ($slot instanceof ChromeSlot && is_array($draft)) {
-            $chrome[$slot->value] = [
-                'type' => $chrome[$slot->value]['type'] ?? $slot->value,
-                'data' => self::stringKeyed($draft),
-            ];
-        }
-
-        // Untouched null slots render their effective default on the canvas
-        // (mirroring SiteChrome's live-site fallback) without ever becoming
-        // part of the draft.
-        if ($this->hasBusinessProfile()) {
-            foreach (ChromeSlot::cases() as $case) {
-                $chrome[$case->value] ??= ['type' => $case->value, 'data' => []];
-            }
-        }
+        ['blocks' => $blocks, 'chrome' => $chrome] = resolve(BuildEditorPreviewDraft::class)->handle(
+            $this->blocks,
+            $this->chrome,
+            is_array($draft) ? $draft : null,
+            $this->blockIndexOrNull($this->selectedBlockKey),
+            $this->chromeSlot($this->selectedBlockKey),
+            $this->hasBusinessProfile(),
+        );
 
         resolve(CachePageEditorPreview::class)->handle($this->pageRecord(), $blocks, $this->previewToken, $chrome, $this->designDraft);
 
@@ -1230,80 +840,6 @@ final class PageEditor extends Page
         }
 
         $this->dispatch('page-editor:refresh-canvas', url: $this->previewUrl());
-    }
-
-    /**
-     * The STORED chrome entry for a slot, or null when the tenant relies on
-     * the default chrome — a null slot stays null on save, so merely opening
-     * the editor never materializes the default into site settings. The
-     * canvas preview computes the effective default at push time instead.
-     *
-     * @return array{type: string, data: array<string, mixed>}|null
-     */
-    private function hydratedChromeSlot(ChromeSlot $slot): ?array
-    {
-        $settings = SiteSetting::query()->first();
-        $stored = $slot === ChromeSlot::Header ? $settings?->header : $settings?->footer;
-        $entry = is_array($stored) ? ($stored[0] ?? null) : null;
-
-        if (! is_array($entry)) {
-            return null;
-        }
-
-        $type = $entry['type'] ?? null;
-        $data = $entry['data'] ?? null;
-
-        return [
-            'type' => is_string($type) ? $type : $slot->value,
-            'data' => is_array($data) ? self::stringKeyed($data) : [],
-        ];
-    }
-
-    /**
-     * A fresh draft entry for an empty chrome slot, pre-filled with the
-     * block's default variant so an inspect-without-editing visit commits
-     * identical and never flags the chrome dirty.
-     *
-     * @return array{type: string, data: array<string, mixed>}
-     */
-    private function defaultChromeEntry(ChromeSlot $slot): array
-    {
-        $class = FilamentFabricator::getPageBlockFromName($slot->value);
-        $variant = is_string($class) && is_subclass_of($class, Block::class) ? $class::defaultVariant() : null;
-
-        return [
-            'type' => $slot->value,
-            'data' => $variant === null ? [] : [Block::VARIANT_KEY => $variant],
-        ];
-    }
-
-    private function endChatTurn(): void
-    {
-        $this->chatTurnToken = null;
-        $this->chatTurnStartedAt = null;
-    }
-
-    /**
-     * Give up on a turn whose worker never reported back, so the assistant does
-     * not sit "thinking" forever with no way out. Only a dead worker gets here;
-     * a slow provider is stopped by ChatEditPage's budget and reports a failure.
-     */
-    private function abandonStalledChatTurn(): void
-    {
-        if ($this->chatTurnStartedAt === null
-            || now()->getTimestamp() - $this->chatTurnStartedAt < self::CHAT_TURN_TIMEOUT_SECONDS) {
-            return;
-        }
-
-        $this->endChatTurn();
-
-        Notification::make()
-            ->title(__('The assistant did not answer'))
-            ->body(__('Your page is unchanged. Please try again.'))
-            ->warning()
-            ->send();
-
-        $this->dispatch('page-editor:chat-replied');
     }
 
     private function blockIndexOrNull(?string $key): ?int

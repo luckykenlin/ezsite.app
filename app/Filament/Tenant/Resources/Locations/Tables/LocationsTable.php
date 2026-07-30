@@ -4,10 +4,9 @@ declare(strict_types=1);
 
 namespace App\Filament\Tenant\Resources\Locations\Tables;
 
-use App\Actions\BuildOpeningHours;
-use App\Actions\FormatOpeningHours;
 use App\Models\Business;
 use App\Models\Location;
+use App\Site\OpeningHoursForm;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
@@ -46,16 +45,16 @@ final class LocationsTable
             ->recordActions([
                 EditAction::make()
                     ->mutateRecordDataUsing(function (array $data, Location $record): array {
-                        $data['hours'] = resolve(FormatOpeningHours::class)->handle($record->opening_hours);
+                        $data['hours'] = resolve(OpeningHoursForm::class)->toFields($record->opening_hours);
 
                         // The VO isn't a form field and Livewire can't hydrate it.
                         unset($data['opening_hours']);
 
                         return $data;
                     })
-                    ->mutateFormDataUsing(function (array $data, Location $record): array {
+                    ->mutateDataUsing(function (array $data, Location $record): array {
                         $hours = $data['hours'] ?? [];
-                        $data['opening_hours'] = resolve(BuildOpeningHours::class)->handle(is_array($hours) ? $hours : [], $record->opening_hours);
+                        $data['opening_hours'] = resolve(OpeningHoursForm::class)->fromFields(is_array($hours) ? $hours : [], $record->opening_hours);
                         unset($data['hours']);
 
                         return $data;

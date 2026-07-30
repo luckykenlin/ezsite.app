@@ -7,7 +7,7 @@ namespace App\Ai\Tools;
 use App\Actions\Pages\UpdatePageBlock;
 use App\Ai\BlockDataSanitizer;
 use App\Ai\PageDraft;
-use App\Filament\Fabricator\PageBlocks\Block;
+use App\Site\Blocks\BlockShape;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Ai\Contracts\Tool;
 use Laravel\Ai\Tools\Request;
@@ -84,7 +84,7 @@ final readonly class UpdateBlockContent implements Tool
         // over from the stored data rather than taken from the merge.
         $merged = [...$block['data'], ...$clean];
 
-        foreach ([Block::VARIANT_KEY, Block::BIND_KEY] as $reserved) {
+        foreach (BlockShape::reservedKeys() as $reserved) {
             if (array_key_exists($reserved, $block['data'])) {
                 $merged[$reserved] = $block['data'][$reserved];
             }

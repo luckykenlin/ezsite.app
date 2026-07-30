@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
+use App\Actions\Pages\CacheBlockHistory;
 use App\Actions\Pages\CacheChatTurn;
 use App\Actions\Pages\CachePageEditorPreview;
 use App\Ai\Agents\PageEditorAgent;
 use App\Design\StylePreset;
 use App\Enums\ChromeSlot;
 use App\Enums\PageStatus;
-use App\Filament\Fabricator\BlockRegistry;
 use App\Filament\Tenant\Resources\PageResource\Actions\PageIdentityFields;
 use App\Filament\Tenant\Resources\PageResource\Pages\PageEditor;
 use App\Jobs\ChatEditPageJob;
@@ -18,16 +18,13 @@ use App\Models\Media;
 use App\Models\Page;
 use App\Models\SiteSetting;
 use App\Models\Tenant;
+use App\Site\Blocks\BlockVocabulary;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Queue;
 use Laravel\Ai\Responses\Data\ToolCall;
 use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
-
-beforeEach(function (): void {
-    $this->tenant = $this->actingAsTenantPanelMember();
-});
 
 /**
  * Create a page for the current tenant while tenancy is initialized (RLS
@@ -367,7 +364,7 @@ it('blocks every structural mutation and save while the selected draft is invali
     $component->call('save')->assertNotified();
 
     expect(array_column($component->get('blocks'), 'key'))->toBe([$first, $second])
-        ->and($component->get('history'))->toBeEmpty()
+        ->and($component->get('undoDepth'))->toBe(0)
         ->and(Page::query()->findOrFail($page->id)->blocks[0]['data']['heading'])->toBe('Welcome');
 });
 
@@ -472,7 +469,7 @@ it('undoes and redoes structural mutations', function (): void {
 
     $component->call('undo')->assertDispatched('page-editor:select-canvas-block');
     expect(array_column($component->get('blocks'), 'type'))->toBe(['hero'])
-        ->and($component->get('future'))->toHaveCount(1);
+        ->and($component->get('redoDepth'))->toBe(1);
 
     $component->call('redo');
     expect(array_column($component->get('blocks'), 'type'))->toBe(['hero', 'cta'])
@@ -480,8 +477,63 @@ it('undoes and redoes structural mutations', function (): void {
 
     // A new mutation forks history: the redo stack is invalidated.
     $component->call('undo')->call('addBlock', 'features');
-    expect($component->get('future'))->toBeEmpty();
+    expect($component->get('redoDepth'))->toBe(0);
 });
+
+it('does not destroy uncommitted keystrokes when undoing right after typing', function (): void {
+    // The inspector bindings are debounced, not committed on blur, so typing
+    // lives only in $data['block'] until a verb commits it. Undo used to skip
+    // that commit, so the text never reached the redo stack and was gone for
+    // good. Undo still reverts it — the popped snapshot legitimately predates
+    // the typing — but redo must now be able to bring it back.
+    $page = editorPage([
+        ['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']],
+    ]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
+    $component->call('addBlock', 'cta');
+
+    $hero = $component->get('blocks')[0]['key'];
+    $component->call('selectBlock', $hero)->set('data.block.heading', 'Typed but uncommitted');
+
+    $component->call('undo');
+
+    // Undo steps back past both the insertion and the typing.
+    expect(array_column($component->get('blocks'), 'type'))->toBe(['hero'])
+        ->and($component->get('blocks')[0]['data']['heading'])->toBe('Welcome');
+
+    // Redo restores the insertion AND the text, which is what the commit buys:
+    // the redo entry was captured from the committed draft, not a stale copy.
+    $component->call('redo');
+
+    expect(array_column($component->get('blocks'), 'type'))->toBe(['hero', 'cta'])
+        ->and($component->get('blocks')[0]['data']['heading'])->toBe('Typed but uncommitted');
+});
+
+it('refuses to undo or redo while the inspector draft is invalid', function (string $verb): void {
+    // Undo/redo are commit-guarded like every other verb, so an invalid draft
+    // stops them the same way it stops add/remove/move — the operator fixes the
+    // field rather than losing the structural step to a silent bail.
+    $page = editorPage([
+        ['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']],
+    ]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
+    $component->call('addBlock', 'cta');
+
+    // Put something on the redo stack so `redo` has work it could do.
+    $component->call('undo')->call('addBlock', 'features')->call('undo');
+
+    $hero = $component->get('blocks')[0]['key'];
+    $component->call('selectBlock', $hero)->set('data.block.heading', '');
+
+    $before = $component->get('blocks');
+
+    $component->call($verb)->assertNotified('Fix the highlighted fields first');
+
+    // A rejected commit aborts the whole verb: nothing moved.
+    expect($component->get('blocks'))->toBe($before);
+})->with(['undo', 'redo']);
 
 it('caps the undo history', function (): void {
     $page = editorPage([]);
@@ -494,7 +546,40 @@ it('caps the undo history', function (): void {
         ]);
     }
 
-    expect($component->get('history'))->toHaveCount(50);
+    // Bounded by CacheBlockHistory::LIMIT, and only the DEPTH is on the
+    // component — the snapshots themselves never enter the Livewire payload.
+    expect($component->get('undoDepth'))->toBe(CacheBlockHistory::LIMIT);
+});
+
+it('keeps the undo history out of the Livewire payload however deep it gets', function (): void {
+    // The reason the stacks live in the cache: they used to be public arrays, so
+    // every roundtrip — every keystroke, every 5s poll tick — carried up to 50 full
+    // block snapshots each way, growing as the operator worked. Only the depths
+    // ride along now, so the payload is flat in history depth.
+    $page = editorPage([]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
+
+    $shallow = mb_strlen(json_encode($component->snapshot, JSON_THROW_ON_ERROR));
+
+    foreach (range(1, 20) as $i) {
+        $component->call('applyBlocks', [
+            ['key' => 'k'.$i, 'type' => 'heading', 'data' => ['content' => str_repeat('long content ', 40), 'level' => 'h2']],
+        ]);
+    }
+
+    $deep = mb_strlen(json_encode($component->snapshot, JSON_THROW_ON_ERROR));
+    $snapshot = json_encode($component->snapshot, JSON_THROW_ON_ERROR);
+
+    expect($component->get('undoDepth'))->toBe(20)
+        // 20 snapshots of ~500 bytes of block content would add >10KB; the payload
+        // only grows by the one current block the editor legitimately holds.
+        ->and($deep - $shallow)->toBeLessThan(2_000)
+        // And the stacks are not in there under any name.
+        ->and($snapshot)->not->toContain('"history"')
+        ->and($snapshot)->not->toContain('"future"')
+        // The transcript is computed, so it is absent too.
+        ->and($snapshot)->not->toContain('"chatMessages"');
 });
 
 it('publishes and unpublishes from inside the editor, saving the draft first', function (): void {
@@ -553,7 +638,7 @@ it('does not reload the canvas when selecting without pending edits', function (
         ->assertDispatched('page-editor:refresh-canvas');
 });
 
-it('offers every registered block type in the library, with its icon', function (): void {
+it('offers every page-level block type in the library, with its icon', function (): void {
     // What the structure list used to assert about icons and labels now only
     // matters here: the library is the last place the editor renders a block
     // type without the canvas rendering the block itself.
@@ -565,7 +650,36 @@ it('offers every registered block type in the library, with its icon', function 
 
     expect($library)->toHaveKeys(['hero', 'heading'])
         ->and($library['hero'])->toBe(['label' => 'Hero', 'icon' => 'o-sparkles'])
-        ->and($library['heading'])->toBe(['label' => 'Heading', 'icon' => 'o-h1']);
+        ->and($library['heading'])->toBe(['label' => 'Heading', 'icon' => 'o-h1'])
+        // Site chrome is NOT offered: a header belongs around the page, not
+        // inside one, and it is edited through the inspector's chrome slots.
+        ->and(array_keys($library))->not->toContain(...ChromeSlot::values());
+});
+
+it('refuses to add site chrome as a page block, however it is called', function (string $type): void {
+    // The library filter is a suggestion, not a boundary — wire:click-able
+    // methods are callable from the browser with any argument.
+    $page = editorPage([]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
+
+    expect(fn () => $component->call('addBlock', $type))
+        ->toThrow(InvalidArgumentException::class, sprintf('Block type [%s] cannot be added to a page.', $type));
+})->with(ChromeSlot::values());
+
+it('drops a quick-start shortcut whose block type no longer exists', function (): void {
+    $page = editorPage([]);
+
+    $quickStart = Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->instance()
+        ->quickStartBlocks();
+
+    // Top-of-page order, not registry order — a hero shortcut listed after a
+    // call-to-action would read as the wrong place to start.
+    expect(array_keys($quickStart))->toBe(['hero', 'features', 'cta'])
+        // Derived from the registry, so it can never offer a type addBlock rejects.
+        ->and(array_keys($quickStart))
+        ->each->toBeIn(array_keys(resolve(BlockVocabulary::class)->pageTypes()));
 });
 
 it('hints that bound blocks read from the business profile', function (): void {
@@ -732,7 +846,7 @@ it('ignores structural verbs on the chrome pseudo blocks', function (): void {
     $component->call('duplicateBlock', 'chrome:header');
 
     expect($component->get('blocks'))->toHaveCount(1)
-        ->and($component->get('history'))->toBeEmpty();
+        ->and($component->get('undoDepth'))->toBe(0);
 });
 
 it('previews design-token drafts on the canvas only, and discards them on close', function (): void {
@@ -904,7 +1018,7 @@ it('drops every library block in valid: sample content passes its own validation
     $page = editorPage([]);
 
     $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
-    $types = array_keys(BlockRegistry::vocabulary());
+    $types = array_keys(resolve(BlockVocabulary::class)->pageTypes());
 
     // Each addBlock commits (= validates) the previously added block; an
     // invalid sample would notify a warning and stop the list growing.
@@ -1012,6 +1126,41 @@ it('applies an assistant edit to the draft, undoably, without saving it', functi
     $component->call('undo');
 
     expect($component->get('blocks')[0]['data']['heading'])->toBe('Old headline');
+});
+
+it('keeps an edit made while a turn was in flight recoverable by undo', function (): void {
+    $page = editorPage([
+        ['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Old headline']],
+        ['type' => 'heading', 'data' => ['content' => 'Section', 'level' => 'h2']],
+    ]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
+    $heroKey = $component->get('blocks')[0]['key'];
+
+    PageEditorAgent::fake([
+        new ToolCall('c1', 'UpdateBlockContent', ['key' => $heroKey, 'content' => ['heading' => 'Fresh bread daily']]),
+        'Shortened the headline.',
+    ]);
+
+    // The operator keeps typing into the second block while the turn runs. The
+    // draft is uncommitted, and applyBlocks() replaces $blocks wholesale — so
+    // without a commit first, this text vanished with no way back.
+    $component->set('chatInput', 'Shorten the headline')
+        ->call('sendChatMessage');
+
+    $headingKey = $component->get('blocks')[1]['key'];
+    $component->call('selectBlock', $headingKey)
+        ->set('data.block.content', 'Typed mid-turn')
+        ->call('pollChatTurn');
+
+    // The assistant's edit landed.
+    expect($component->get('blocks')[0]['data']['heading'])->toBe('Fresh bread daily');
+
+    // And the operator's mid-turn text is one Undo away rather than lost.
+    $component->call('undo');
+
+    expect($component->get('blocks')[1]['data']['content'])->toBe('Typed mid-turn')
+        ->and($component->get('blocks')[0]['data']['heading'])->toBe('Old headline');
 });
 
 it('shows both sides of the turn in the panel and marks the one that edited', function (): void {

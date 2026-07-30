@@ -13,6 +13,12 @@ parameters:
         - database
         - public
         - routes
+        # NOTE: tests/ is deliberately NOT analysed. Adding it produces 1227
+        # errors at level max (measured 2026-07-30) — overwhelmingly
+        # missingType.iterableValue on test helpers and offsetAccess on array
+        # assertions. Worth doing, but as its own opt-in effort (most likely at a
+        # lower level for tests), not as a drive-by: a baseline is not an option
+        # here, since this project deliberately has none.
 
 
     level: max

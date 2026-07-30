@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-use App\Filament\Fabricator\BindResolver;
 use App\Models\Business;
 use App\Models\Location;
 use App\Models\Tenant;
+use App\Site\BindResolver;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 

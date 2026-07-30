@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Filament\Fabricator\Fields;
 
 use App\Models\Page;
+use App\Site\UrlScheme;
+use Closure;
 use Filament\Forms\Components\TextInput;
 
 /**
@@ -18,7 +20,12 @@ use Filament\Forms\Components\TextInput;
  *
  * No ->url() rule for the same reason the blocks never had one: internal
  * links are relative paths ("/contact") or anchors ("#contact"), which the
- * url rule rejects.
+ * url rule rejects. What replaces it is a narrow deny-list
+ * ({@see UrlScheme::isExecutable()}) so the field still refuses the schemes that
+ * execute — the render guard in
+ * {@see \App\Filament\Fabricator\BlockRegistry::denyExecutableUrls()} would drop
+ * them anyway, but silently, and an operator who pastes one deserves to be told
+ * rather than watch their link vanish.
  */
 final class LinkInput
 {
@@ -26,6 +33,11 @@ final class LinkInput
     {
         return TextInput::make($name)
             ->maxLength(2048)
+            ->rule(static fn (): Closure => static function (string $attribute, mixed $value, Closure $fail): void {
+                if (is_string($value) && UrlScheme::isExecutable($value)) {
+                    $fail(__('This link uses a scheme that is not allowed.'));
+                }
+            })
             // Lazy: building the schema (e.g. for contract()) never queries.
             ->datalist(fn (): array => Page::query()
                 ->orderBy('title')

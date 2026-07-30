@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace App\Actions\Pages;
 
-use App\Filament\Fabricator\PageBlocks\Block;
+use App\Site\Blocks\BlockShape;
+use App\Site\Blocks\BlockType;
+use App\Site\Blocks\BlockVocabulary;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
-use Z3d0X\FilamentFabricator\Facades\FilamentFabricator;
 
 /**
  * Appends (or inserts) a new block into an editor blocks list.
@@ -22,29 +23,40 @@ use Z3d0X\FilamentFabricator\Facades\FilamentFabricator;
  */
 final readonly class AddPageBlock
 {
+    public function __construct(private BlockVocabulary $vocabulary)
+    {
+        //
+    }
+
     /**
      * @param  list<array{key: string, type: string, data: array<string, mixed>}>  $blocks
      * @return array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, key: string}
      */
     public function handle(array $blocks, string $type, ?int $position = null): array
     {
-        $class = FilamentFabricator::getPageBlockFromName($type);
+        $blockType = $this->vocabulary->get($type);
 
+        // Chrome is rejected here, not only in the UI that lists types: every
+        // `wire:click`-able method is callable from the browser with any
+        // argument, so the library filter alone is a suggestion, not a boundary.
+        // Chrome never legitimately flows through this action — the editor builds
+        // its slot entries in defaultChromeEntry() and SiteChromeSettings uses a
+        // Filament Builder.
         throw_unless(
-            is_string($class) && is_subclass_of($class, Block::class),
+            $blockType instanceof BlockType && ! $blockType->isChrome(),
             InvalidArgumentException::class,
-            sprintf('Unknown block type [%s].', $type),
+            sprintf('Block type [%s] cannot be added to a page.', $type),
         );
 
         $key = (string) Str::uuid();
 
-        // A fresh block lands with its sample content (see Block::$sample):
-        // it renders presentable immediately and passes its own validation —
-        // an empty required field would otherwise block every next action.
-        $data = $class::sample();
+        // A fresh block lands with its sample content: it renders presentable
+        // immediately and passes its own validation — an empty required field
+        // would otherwise block every next action.
+        $data = $blockType->sample;
 
-        if ($class::variants() !== []) {
-            $data = [Block::VARIANT_KEY => $class::defaultVariant()] + $data;
+        if ($blockType->variants !== []) {
+            $data = [BlockShape::VARIANT_KEY => $blockType->defaultVariant()] + $data;
         }
 
         $block = [

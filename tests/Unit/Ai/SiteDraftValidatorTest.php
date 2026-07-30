@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 use App\Ai\SiteDraftValidator;
 use App\Design\StylePreset;
-use App\Exceptions\SiteDraftInvalid;
+use App\Exceptions\SiteDraftUnusable;
 use Illuminate\Support\Facades\Log;
 
 function draftValidator(): SiteDraftValidator
@@ -117,7 +117,7 @@ it('rejects a draft that survives with too few blocks', function (): void {
     $draft['pages'][0]['blocks'] = array_slice($draft['pages'][0]['blocks'], 0, 2);
 
     expect(fn (): array => draftValidator()->handle($draft, 'Fallback'))
-        ->toThrow(SiteDraftInvalid::class, '2 block(s) survived');
+        ->toThrow(SiteDraftUnusable::class, '2 block(s) survived');
 });
 
 it('rejects a draft without a hero', function (): void {
@@ -125,10 +125,10 @@ it('rejects a draft without a hero', function (): void {
     $draft['pages'][0]['blocks'][0]['type'] = 'testimonials';
 
     expect(fn (): array => draftValidator()->handle($draft, 'Fallback'))
-        ->toThrow(SiteDraftInvalid::class, 'no hero');
+        ->toThrow(SiteDraftUnusable::class, 'no hero');
 });
 
 it('rejects an entirely missing page', function (): void {
     expect(fn (): array => draftValidator()->handle(['preset' => 'warm-craft', 'pages' => 'oops'], 'Fallback'))
-        ->toThrow(SiteDraftInvalid::class);
+        ->toThrow(SiteDraftUnusable::class);
 });

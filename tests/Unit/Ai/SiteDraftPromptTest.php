@@ -3,10 +3,10 @@
 declare(strict_types=1);
 
 use App\Ai\Prompts\SiteDraftPrompt;
-use App\Filament\Fabricator\BlockRegistry;
 use App\Models\Business;
 use App\Models\Location;
 use App\Models\Tenant;
+use App\Site\Blocks\BlockVocabulary;
 
 it('assembles the profile, locations, vocabulary, presets and language sections', function (): void {
     $tenant = Tenant::factory()->create();
@@ -27,7 +27,7 @@ it('assembles the profile, locations, vocabulary, presets and language sections'
     $prompt = (string) new SiteDraftPrompt(
         Business::query()->findOrFail($business->getKey()),
         Location::query()->get(),
-        BlockRegistry::vocabulary(),
+        resolve(BlockVocabulary::class)->all(),
     );
 
     expect($prompt)->toContain('Name: Corner Cafe')
@@ -51,7 +51,7 @@ it('degrades gracefully when the business has no locations and no locale', funct
     $prompt = (string) new SiteDraftPrompt(
         Business::query()->findOrFail($business->getKey()),
         Location::query()->get(),
-        BlockRegistry::vocabulary(),
+        resolve(BlockVocabulary::class)->all(),
     );
 
     expect($prompt)->toContain('None recorded yet.')

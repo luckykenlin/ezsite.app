@@ -6,6 +6,8 @@ namespace App\Filament\Fabricator\PageBlocks;
 
 use App\Enums\BindType;
 use App\Models\Location;
+use App\Site\Blocks\BlockShape;
+use App\Site\Blocks\BlockType;
 use Filament\Forms\Components\Builder\Block as BuilderBlock;
 use Filament\Forms\Components\Field;
 use Filament\Forms\Components\Select;
@@ -18,11 +20,13 @@ use Z3d0X\FilamentFabricator\PageBlocks\PageBlock;
  *
  * FilamentFabricator only ever persists `{type, data}`, so `variant`
  * and `bind` live as reserved keys *inside* `data` (`data.variant`, `data.bind`).
- * This class owns that convention: it auto-injects the `variant` Select into the
- * block's form (so it dehydrates into `data`), and exposes the machine-readable
- * {@see contract()} that {@see \App\Filament\Fabricator\BlockRegistry} aggregates
- * into the AI's "vocabulary" — the single enumeration point that makes blocks
- * selectable but never authorable by tenants.
+ * Those key NAMES are {@see BlockShape}, in the domain layer, because the AI
+ * writer and the page actions read them too; this class owns the FORM half of the
+ * convention — it auto-injects the `variant` Select so its value dehydrates into
+ * `data` — and translates itself into the domain's {@see BlockType} via
+ * {@see contract()}. Those contracts are aggregated into
+ * {@see \App\Site\Blocks\BlockVocabulary}, the single enumeration point that makes
+ * blocks selectable but never authorable by tenants.
  *
  * A subclass declares its layout variants and bind target by redeclaring the
  * {@see $variants} / {@see $bindType} properties, and implements {@see fields()}
@@ -31,16 +35,6 @@ use Z3d0X\FilamentFabricator\PageBlocks\PageBlock;
  */
 abstract class Block extends PageBlock
 {
-    /**
-     * The reserved key, inside a block's `data`, that stores the chosen variant.
-     */
-    final public const string VARIANT_KEY = 'variant';
-
-    /**
-     * The reserved key, inside a block's `data`, that stores the bind target.
-     */
-    final public const string BIND_KEY = 'bind';
-
     /**
      * The layout variants this block offers, as `variantKey => human label`.
      * An empty map means the block has a single, non-variant view.
@@ -88,11 +82,6 @@ abstract class Block extends PageBlock
         return static::$variants;
     }
 
-    final public static function bindType(): ?BindType
-    {
-        return static::$bindType;
-    }
-
     /**
      * @return array<string, mixed>
      */
@@ -113,20 +102,23 @@ abstract class Block extends PageBlock
      * Machine-readable description of this block type for the AI vocabulary and
      * for the "tenants select, never author" enforcement boundary.
      *
-     * @return array{type: string, variants: list<string>, bind: string|null, icon: string|null, fields: list<string>}
+     * Returns the domain-layer {@see BlockType} rather than an array shape: this
+     * is the one place the Filament block schema is translated into something the
+     * rest of the app can read without the panel in the picture.
      */
-    final public static function contract(): array
+    final public static function contract(): BlockType
     {
-        return [
-            'type' => static::getName(),
-            'variants' => array_keys(static::$variants),
-            'bind' => static::$bindType?->value,
-            'icon' => static::$icon?->value,
-            'fields' => array_values(array_map(
+        return new BlockType(
+            type: static::getName(),
+            variants: array_keys(static::$variants),
+            bind: static::$bindType,
+            icon: static::$icon?->value,
+            fields: array_values(array_map(
                 static fn (Field $field): string => $field->getName(),
                 static::fields(),
             )),
-        ];
+            sample: self::sample(),
+        );
     }
 
     /**
@@ -150,7 +142,7 @@ abstract class Block extends PageBlock
     }
 
     /**
-     * The auto-injected variant selector. Its name is {@see VARIANT_KEY}, so its
+     * The auto-injected variant selector. Its name is {@see BlockShape::VARIANT_KEY}, so its
      * value dehydrates into `data.variant`. Explicitly live WITHOUT a debounce:
      * switching layout is the highest-visual-impact edit in the page editor,
      * and this field-level setting overrides the debounced binding the editor's
@@ -158,7 +150,7 @@ abstract class Block extends PageBlock
      */
     protected static function variantField(): Select
     {
-        return Select::make(self::VARIANT_KEY)
+        return Select::make(BlockShape::VARIANT_KEY)
             ->label('Layout variant')
             ->options(static::$variants)
             ->default(self::defaultVariant())
@@ -176,11 +168,10 @@ abstract class Block extends PageBlock
      */
     protected static function bindField(): Select
     {
-        return Select::make(self::BIND_KEY.'.location_id')
+        return Select::make(BlockShape::BIND_KEY.'.location_id')
             ->label('Location')
             ->options(fn (): array => Location::query()
-                ->orderByDesc('is_primary')
-                ->orderBy('id')
+                ->primaryFirst()
                 ->pluck('label', 'id')
                 ->all())
             ->live()

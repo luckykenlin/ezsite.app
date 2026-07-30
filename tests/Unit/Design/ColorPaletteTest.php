@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-use App\Actions\RunInTenant;
 use App\Design\ColorPalette;
 use App\Models\Business;
 use App\Models\Tenant;
+use App\Tenancy\RunInTenant;
 
 const PALETTE_VARIABLES = [
     '--color-base-100', '--color-base-200', '--color-base-300', '--color-base-content',

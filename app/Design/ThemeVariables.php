@@ -24,14 +24,6 @@ final class ThemeVariables
     /**
      * @return array<string, string>
      */
-    public static function variables(Business $business): array
-    {
-        return self::variablesFor($business->design_tokens, $business);
-    }
-
-    /**
-     * @return array<string, string>
-     */
     public static function variablesFor(DesignTokens $tokens, Business $business): array
     {
         return [

@@ -3,9 +3,9 @@
 declare(strict_types=1);
 
 use App\Actions\Pages\CachePageEditorPreview;
-use App\Actions\RunInTenant;
 use App\Models\Page;
 use App\Models\Tenant;
+use App\Tenancy\RunInTenant;
 
 /**
  * The page editor's canvas preview route: token-gated draft rendering through

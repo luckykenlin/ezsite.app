@@ -2,45 +2,59 @@
 
 declare(strict_types=1);
 
+use App\Enums\BindType;
+use App\Enums\ChromeSlot;
 use App\Filament\Fabricator\BlockRegistry;
 use App\Models\Business;
 use App\Models\Location;
 use App\Models\Tenant;
-use Z3d0X\FilamentFabricator\Facades\FilamentFabricator;
+use App\Site\Blocks\BlockType;
+use App\Site\Blocks\BlockVocabulary;
 
 it('enumerates every block contract in the vocabulary', function (): void {
-    $vocabulary = BlockRegistry::vocabulary();
+    $vocabulary = resolve(BlockVocabulary::class)->all();
 
     expect($vocabulary)->toHaveKeys([
         'hero', 'heading', 'header', 'features', 'testimonials', 'gallery', 'cta', 'contact', 'footer',
     ])
-        ->and($vocabulary['hero'])->toBe([
-            'type' => 'hero',
-            'variants' => ['centered-minimal', 'left-text-right-image', 'full-bleed-overlay'],
-            'bind' => null,
-            'icon' => 'o-sparkles',
-            'fields' => ['eyebrow', 'heading', 'subheading', 'cta_label', 'cta_url', 'image_id', 'image_url'],
-        ])
-        ->and($vocabulary['heading']['variants'])->toBeEmpty()
+        ->and($vocabulary['hero']->variants)->toBe(['centered-minimal', 'left-text-right-image', 'full-bleed-overlay'])
+        ->and($vocabulary['hero']->bind)->toBeNull()
+        ->and($vocabulary['hero']->icon)->toBe('o-sparkles')
+        ->and($vocabulary['hero']->fields)
+        ->toBe(['eyebrow', 'heading', 'subheading', 'cta_label', 'cta_url', 'image_id', 'image_url'])
+        ->and($vocabulary['heading']->variants)->toBeEmpty()
         // Every block declares an editor icon.
-        ->and(array_filter($vocabulary, fn (array $contract): bool => $contract['icon'] === null))->toBeEmpty()
+        ->and(array_filter($vocabulary, fn (BlockType $contract): bool => $contract->icon === null))->toBeEmpty()
         // Every block ships sample content, and its keys stay within the
         // block's declared fields (a typo here would silently drop content).
-        ->and(array_filter($vocabulary, function (array $contract): bool {
-            $class = FilamentFabricator::getPageBlockFromName($contract['type']);
-            if ($class::sample() === []) {
-                return true;
-            }
-
-            return array_diff(array_keys($class::sample()), $contract['fields']) !== [];
-        }))->toBeEmpty()
-        ->and($vocabulary['contact']['bind'])->toBe('location')
-        ->and($vocabulary['header']['bind'])->toBe('business')
-        ->and($vocabulary['footer']['bind'])->toBe('location')
+        ->and(array_filter(
+            $vocabulary,
+            fn (BlockType $contract): bool => $contract->sample === []
+                || array_diff(array_keys($contract->sample), $contract->fields) !== [],
+        ))->toBeEmpty()
+        ->and($vocabulary['contact']->bind)->toBe(BindType::Location)
+        ->and($vocabulary['header']->bind)->toBe(BindType::Business)
+        ->and($vocabulary['footer']->bind)->toBe(BindType::Location)
         // The factual blocks above are the ONLY bound ones; every other block
         // is content-only and must declare no bind.
-        ->and(array_keys(array_filter($vocabulary, fn (array $contract): bool => $contract['bind'] !== null)))
+        ->and(array_keys(array_filter($vocabulary, fn (BlockType $contract): bool => $contract->bind instanceof BindType)))
         ->toEqualCanonicalizing(['header', 'contact', 'footer']);
+});
+
+it('separates the page-level types from site chrome', function (): void {
+    $vocabulary = resolve(BlockVocabulary::class);
+
+    expect($vocabulary->pageTypeNames())
+        ->not->toContain(...ChromeSlot::values())
+        ->and(array_keys($vocabulary->all()))->toContain(...ChromeSlot::values())
+        ->and($vocabulary->get('header')?->isChrome())->toBeTrue()
+        ->and($vocabulary->get('hero')?->isChrome())->toBeFalse()
+        ->and($vocabulary->isAddableToPage('hero'))->toBeTrue()
+        ->and($vocabulary->isAddableToPage('header'))->toBeFalse()
+        // An unknown type is not addable either, and does not blow up.
+        ->and($vocabulary->isAddableToPage('carousel'))->toBeFalse()
+        ->and($vocabulary->has('carousel'))->toBeFalse()
+        ->and($vocabulary->get('carousel'))->toBeNull();
 });
 
 it('resolves a valid variant to its component', function (): void {

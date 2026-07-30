@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Casts\OpeningHours as OpeningHoursCast;
-use App\Concerns\RequiresTenantContext;
+use App\Tenancy\RequiresTenantContext;
 use Database\Factories\LocationFactory;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -57,6 +59,24 @@ final class Location extends Model
     public function business(): BelongsTo
     {
         return $this->belongsTo(Business::class);
+    }
+
+    /**
+     * Primary location first, then oldest — the order every "which location?"
+     * read uses.
+     *
+     * Named because three places have to agree on it: what a bound block RENDERS
+     * ({@see \App\Site\BindResolver::location()}), the order of the location
+     * PICKER's options, and the digest the site-draft prompt sees. They were three
+     * identical literals; a disagreement would have shown up as a block rendering
+     * one location while its picker defaulted to another.
+     *
+     * @param  Builder<$this>  $query
+     */
+    #[Scope]
+    protected function primaryFirst(Builder $query): void
+    {
+        $query->orderByDesc('is_primary')->orderBy('id');
     }
 
     /**

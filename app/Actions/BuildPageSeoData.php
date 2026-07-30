@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Actions;
 
-use App\Filament\Fabricator\BindResolver;
-use App\Filament\Fabricator\MediaResolver;
 use App\Models\Business;
 use App\Models\Page;
+use App\Site\BindResolver;
+use App\Site\MediaResolver;
 use Illuminate\Support\Str;
 use RalphJSmit\Laravel\SEO\SchemaCollection;
 use RalphJSmit\Laravel\SEO\Support\SEOData;
@@ -89,7 +89,7 @@ final readonly class BuildPageSeoData
      */
     private function schema(Page $page, ?Business $business, ?string $image): ?SchemaCollection
     {
-        if (! $business instanceof Business || ! $this->isHomePage($page)) {
+        if (! $business instanceof Business || ! $page->isHome()) {
             return null;
         }
 
@@ -100,10 +100,5 @@ final readonly class BuildPageSeoData
         );
 
         return SchemaCollection::make()->add(fn (): array => $schema);
-    }
-
-    private function isHomePage(Page $page): bool
-    {
-        return $page->slug === '/' && $page->parent_id === null;
     }
 }

@@ -45,7 +45,7 @@
 
     // Batch-load every media reference in this block set (one query per
     // render; the request-scoped resolver dedupes across chrome + page).
-    resolve(\App\Filament\Fabricator\MediaResolver::class)
+    resolve(\App\Site\MediaResolver::class)
         ->preload(\App\Filament\Fabricator\BlockRegistry::mediaIds(is_array($blocks) ? $blocks : []));
 @endphp
 

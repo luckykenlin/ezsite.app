@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace App\Ai\Prompts;
 
-use App\Actions\FormatOpeningHours;
 use App\Design\StylePreset;
 use App\Models\Business;
 use App\Models\Location;
+use App\Site\Blocks\BlockType;
+use App\Site\OpeningHoursForm;
 use Illuminate\Support\Collection;
 use Stringable;
 
@@ -21,7 +22,7 @@ final readonly class SiteDraftPrompt implements Stringable
 {
     /**
      * @param  Collection<int, Location>  $locations
-     * @param  array<string, array{type: string, variants: list<string>, bind: string|null, icon: string|null, fields: list<string>}>  $vocabulary
+     * @param  array<string, BlockType>  $vocabulary
      */
     public function __construct(
         private Business $business,
@@ -64,7 +65,7 @@ final readonly class SiteDraftPrompt implements Stringable
             return "## Locations\nNone recorded yet.";
         }
 
-        $formatter = new FormatOpeningHours;
+        $formatter = new OpeningHoursForm;
 
         $digests = $this->locations->map(function (Location $location) use ($formatter): string {
             $address = implode(', ', array_filter([
@@ -74,7 +75,7 @@ final readonly class SiteDraftPrompt implements Stringable
                 $location->postal_code,
             ]));
 
-            $hours = collect($formatter->handle($location->opening_hours))
+            $hours = collect($formatter->toFields($location->opening_hours))
                 ->filter()
                 ->map(fn (string $ranges, string $day): string => ucfirst($day).' '.$ranges)
                 ->implode('; ');
@@ -96,7 +97,7 @@ final readonly class SiteDraftPrompt implements Stringable
             .'Compose the page ONLY from these block types. Every block object has EXACTLY two keys: '
             .'"type" (one of the listed types) and "data" (an object whose keys come ONLY from that '
             ."type's \"fields\" list — fields not in the list are discarded).\n"
-            .json_encode($this->vocabulary, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR)
+            .json_encode($this->authorableFields(), JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR)
             ."\n\nField rules:\n"
             .'- Use the exact field names listed. Do NOT invent names like "items", "text", '
             .'"cta_text" or "button_text" — e.g. hero uses cta_label/cta_url, features uses a '
@@ -144,5 +145,22 @@ final readonly class SiteDraftPrompt implements Stringable
     private function languageSection(): string
     {
         return "## Language\nWrite all user-visible copy in: ".($this->business->locale ?? 'en');
+    }
+
+    /**
+     * The vocabulary as the model should see it: type => authorable field names.
+     *
+     * Spelled out rather than json_encode()ing the BlockType objects directly —
+     * their `sample` and `icon` are render/editor concerns that would only add
+     * tokens and invite the model to copy placeholder copy verbatim.
+     *
+     * @return array<string, list<string>>
+     */
+    private function authorableFields(): array
+    {
+        return array_map(
+            static fn (BlockType $type): array => $type->fields,
+            $this->vocabulary,
+        );
     }
 }

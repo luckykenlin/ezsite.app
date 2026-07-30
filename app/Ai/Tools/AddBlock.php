@@ -5,9 +5,8 @@ declare(strict_types=1);
 namespace App\Ai\Tools;
 
 use App\Actions\Pages\AddPageBlock;
-use App\Ai\BlockDataSanitizer;
 use App\Ai\PageDraft;
-use App\Filament\Fabricator\BlockRegistry;
+use App\Site\Blocks\BlockVocabulary;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Ai\Contracts\Tool;
 use Laravel\Ai\Tools\Request;
@@ -15,8 +14,9 @@ use Laravel\Ai\Tools\Request;
 /**
  * Adds a new section to the page. The type must come from the enumerated
  * vocabulary — that enumeration is what keeps blocks selectable but never
- * authorable, so the tool's schema carries the allowed types as an enum and
- * chrome (header/footer) is excluded: those are site-wide, not page content.
+ * authorable, so the tool's schema carries the allowed types as an enum. Chrome
+ * is excluded because it is site-wide, not page content; that exclusion lives
+ * once in {@see BlockVocabulary::pageTypes()} rather than as a literal here.
  *
  * The block lands with its own sample content ({@see AddPageBlock}), which
  * already passes the block's validation. The model is expected to follow up
@@ -26,23 +26,22 @@ final readonly class AddBlock implements Tool
 {
     public function __construct(
         private PageDraft $draft,
-        private BlockDataSanitizer $sanitizer,
         private AddPageBlock $add,
+        private BlockVocabulary $vocabulary,
     ) {
         //
     }
 
     /**
-     * The page-level block types, i.e. the vocabulary minus site chrome.
+     * The page-level block types this tool accepts — the one answer to "may the
+     * model add this?", used for the schema enum, the runtime guard, and the
+     * error message alike.
      *
      * @return list<string>
      */
-    public static function types(): array
+    public function types(): array
     {
-        return array_values(array_diff(
-            array_keys(BlockRegistry::vocabulary()),
-            ['header', 'footer'],
-        ));
+        return $this->vocabulary->pageTypeNames();
     }
 
     public function description(): string
@@ -58,7 +57,7 @@ final readonly class AddBlock implements Tool
     {
         return [
             'type' => $schema->string()
-                ->enum(self::types())
+                ->enum($this->types())
                 ->description('The kind of section to add.')
                 ->required(),
             'position' => $schema->integer()
@@ -71,11 +70,11 @@ final readonly class AddBlock implements Tool
         $arguments = $request->toArray();
         $type = $arguments['type'] ?? null;
 
-        if (! is_string($type) || ! $this->sanitizer->knows($type) || in_array($type, ['header', 'footer'], true)) {
+        if (! is_string($type) || ! in_array($type, $this->types(), true)) {
             return sprintf(
                 "'%s' is not a block type you can add. Pick one of: %s.",
                 is_string($type) ? $type : 'that',
-                implode(', ', self::types()),
+                implode(', ', $this->types()),
             );
         }
 

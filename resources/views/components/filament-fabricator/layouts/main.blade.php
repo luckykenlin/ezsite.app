@@ -22,7 +22,7 @@
             :entries="$editorChrome[ChromeSlot::Header->value] ?? []"
         />
     @else
-        <x-filament-fabricator::page-blocks :blocks="resolve(\App\Filament\Fabricator\SiteChrome::class)->headerBlocks()" />
+        <x-filament-fabricator::page-blocks :blocks="resolve(\App\Site\SiteChrome::class)->headerBlocks()" />
     @endif
 
     <x-filament-fabricator::page-blocks :blocks="$page->blocks" :editor-keys="$editorKeys" :insertable="is_array($editorKeys)" />
@@ -33,6 +33,6 @@
             :entries="$editorChrome[ChromeSlot::Footer->value] ?? []"
         />
     @else
-        <x-filament-fabricator::page-blocks :blocks="resolve(\App\Filament\Fabricator\SiteChrome::class)->footerBlocks()" />
+        <x-filament-fabricator::page-blocks :blocks="resolve(\App\Site\SiteChrome::class)->footerBlocks()" />
     @endif
 </x-filament-fabricator::layouts.base>

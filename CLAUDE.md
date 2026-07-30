@@ -37,10 +37,20 @@ Two more conventions inside that directory:
   belongs there, NOT on `PageEditor` — the page class is the block/undo/preview
   state machine and should stay that.
 - The editor's browser code lives in `resources/js/page-editor/*.ts` and
-  `resources/css/page-editor-canvas.css`, never inline in Blade. Inline
-  `<script>`/`x-data` bodies escape `npm run test:lint` and `tsc --noEmit`.
-  `protocol.ts` is the single definition of the editor↔canvas message
-  contract; the chrome key prefix in it mirrors `App\Enums\ChromeSlot`.
+  `resources/css/{page-editor,page-canvas,page-editor-canvas}.css`, never inline
+  in Blade — inline `<script>`/`x-data`/`<style>` bodies escape
+  `npm run test:lint` and `tsc --noEmit`. Enforced by *"the builder views keep
+  their styles in stylesheets, not inline"* in `tests/Arch/ConventionsTest.php`.
+  The two page sheets load **panel-wide** (like the Alpine modules, and for the
+  reason documented on that render hook), so every selector in them must stay
+  `.pe-`/`.pc-` prefixed; the same arch test checks that.
+- `protocol.ts` is the single definition of the editor↔canvas contract: the
+  message types, the keyboard-shortcut table (`matchShortcut()` — both windows
+  listen for keydown, so it must not be duplicated), and the chrome key prefix,
+  which mirrors `App\Enums\ChromeSlot`.
+- `resources/js/page-editor/canvas-glue.ts` runs INSIDE the preview iframe;
+  `resources/js/page-canvas/canvas.ts` is the separate pan/zoom page map. They
+  were both named `canvas.ts` once — do not reintroduce that.
 
 <laravel-boost-guidelines>
 === .ai/app.actions rules ===

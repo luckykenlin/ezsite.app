@@ -5,6 +5,6 @@
 
     Both live in resources/ so the repo's eslint + tsc gates cover them:
     - resources/css/page-editor-canvas.css
-    - resources/js/page-editor/canvas.ts (protocol.ts documents the messages)
+    - resources/js/page-editor/canvas-glue.ts (protocol.ts documents the messages)
 --}}
-@vite(['resources/css/page-editor-canvas.css', 'resources/js/page-editor/canvas.ts'])
+@vite(['resources/css/page-editor-canvas.css', 'resources/js/page-editor/canvas-glue.ts'])

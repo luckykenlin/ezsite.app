@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Ai;
 
-use App\Filament\Fabricator\PageBlocks\Block;
+use App\Site\Blocks\BlockShape;
 use Illuminate\Support\Str;
 
 /**
@@ -80,8 +80,8 @@ final class PageDraft
 
         foreach ($this->blocks as $position => $block) {
             $data = $block['data'];
-            $variant = $data[Block::VARIANT_KEY] ?? null;
-            unset($data[Block::VARIANT_KEY], $data[Block::BIND_KEY]);
+            $variant = $data[BlockShape::VARIANT_KEY] ?? null;
+            unset($data[BlockShape::VARIANT_KEY], $data[BlockShape::BIND_KEY]);
 
             $lines[] = sprintf(
                 '%d. %s%s [key: %s]%s',

@@ -4,15 +4,15 @@ declare(strict_types=1);
 
 use App\Ai\PageDraft;
 use App\Ai\Prompts\PageEditPrompt;
-use App\Filament\Fabricator\BlockRegistry;
 use App\Models\Business;
 use App\Models\Page;
+use App\Site\Blocks\BlockVocabulary;
 
 function editPrompt(PageDraft $draft, ?Business $business = null, string $message = 'Shorten the headline'): string
 {
     $page = Page::factory()->make(['title' => 'Home', 'slug' => '/', 'status' => 'draft']);
 
-    return (string) new PageEditPrompt($page, $draft, BlockRegistry::vocabulary(), $business, $message);
+    return (string) new PageEditPrompt($page, $draft, resolve(BlockVocabulary::class)->all(), $business, $message);
 }
 
 function heroPageDraft(): PageDraft
@@ -31,7 +31,7 @@ it('states which page is open and whether it is live', function (): void {
 it('marks a published page as published', function (): void {
     $page = Page::factory()->make(['title' => 'Home', 'slug' => '/', 'status' => 'published']);
 
-    expect((string) new PageEditPrompt($page, heroPageDraft(), BlockRegistry::vocabulary(), null, 'hi'))
+    expect((string) new PageEditPrompt($page, heroPageDraft(), resolve(BlockVocabulary::class)->all(), null, 'hi'))
         ->toContain('Status: published');
 });
 

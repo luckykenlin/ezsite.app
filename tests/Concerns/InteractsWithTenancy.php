@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Tests\Concerns;
 
-use App\Actions\RunInTenant;
 use App\Models\Business;
 use App\Models\Location;
 use App\Models\Page;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Tenancy\RunInTenant;
 use Closure;
 use Filament\Facades\Filament;
 

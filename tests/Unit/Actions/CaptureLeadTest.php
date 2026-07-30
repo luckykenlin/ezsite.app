@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 use App\Actions\CaptureLead;
 use App\Enums\LeadStatus;
+use App\Events\LeadCaptured;
 use App\Models\Lead;
 use App\Models\Location;
 use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Notifications\DatabaseNotification;
+use Illuminate\Support\Facades\Event;
 
 it('stores the enquiry against the current tenant', function (): void {
     $tenant = Tenant::factory()->create();
@@ -34,6 +36,23 @@ it('stores the enquiry against the current tenant', function (): void {
         ->and($stored->source)->toBe('contact_form')
         ->and($stored->status)->toBe(LeadStatus::New)
         ->and($stored->ip_address)->toBe('203.0.113.7');
+});
+
+it('announces the capture rather than knowing how operators are told', function (): void {
+    // The seam that keeps App\Actions off the admin panel: the action stores the
+    // lead and fires the event, and App\Listeners\NotifyOperatorsOfLead owns the
+    // Filament notification and the inbox URL. Pinned so a future "just send it
+    // here" shortcut reintroducing the panel import fails loudly.
+    Event::fake([LeadCaptured::class]);
+
+    $tenant = Tenant::factory()->create();
+
+    $lead = $this->runInTenant($tenant, fn (): Lead => resolve(CaptureLead::class)->handle(['name' => 'Mei']));
+
+    Event::assertDispatched(
+        LeadCaptured::class,
+        fn (LeadCaptured $event): bool => $event->lead->is($lead),
+    );
 });
 
 it('notifies every member of the tenant with a link to the inbox', function (): void {

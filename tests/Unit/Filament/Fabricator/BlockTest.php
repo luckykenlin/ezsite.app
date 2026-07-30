@@ -2,13 +2,14 @@
 
 declare(strict_types=1);
 
-use App\Filament\Fabricator\PageBlocks\Block;
 use App\Filament\Fabricator\PageBlocks\Contact;
 use App\Filament\Fabricator\PageBlocks\Header;
 use App\Filament\Fabricator\PageBlocks\Heading;
 use App\Filament\Fabricator\PageBlocks\Hero;
 use App\Models\Location;
 use App\Models\Tenant;
+use App\Site\Blocks\BlockShape;
+use Filament\Forms\Components\Builder\Block;
 use Filament\Forms\Components\Field;
 use Filament\Forms\Components\Select;
 use Filament\Schemas\Concerns\InteractsWithSchemas;
@@ -20,7 +21,7 @@ use Livewire\Component as LivewireComponent;
  * Filament component getters resolve through their schema container, so give the
  * built block a minimal standalone host before introspecting its children.
  */
-function containerizedBlockComponents(Filament\Forms\Components\Builder\Block $block): array
+function containerizedBlockComponents(Block $block): array
 {
     $livewire = new class extends LivewireComponent implements HasSchemas
     {
@@ -43,9 +44,9 @@ it('auto-injects a location picker between the variant selector and content fiel
     /** @var Select $bindSelect */
     $bindSelect = $components[1];
 
-    expect($components[0]->getName())->toBe(Block::VARIANT_KEY)
+    expect($components[0]->getName())->toBe(BlockShape::VARIANT_KEY)
         ->and($bindSelect)->toBeInstanceOf(Select::class)
-        ->and($bindSelect->getName())->toBe(Block::BIND_KEY.'.location_id')
+        ->and($bindSelect->getName())->toBe(BlockShape::BIND_KEY.'.location_id')
         ->and($bindSelect->isRequired())->toBeFalse()
         ->and(array_values($bindSelect->getOptions()))->toBe(['Main spot'])
         ->and(array_map(fn (Field $field): string => $field->getName(), array_slice($components, 2)))
@@ -66,7 +67,7 @@ it('does not inject a location picker on Business-bound blocks', function (): vo
         containerizedBlockComponents(Header::getBlockSchema()),
     );
 
-    expect($fieldNames)->toBe([Block::VARIANT_KEY, 'nav_links', 'cta_label', 'cta_url']);
+    expect($fieldNames)->toBe([BlockShape::VARIANT_KEY, 'nav_links', 'cta_label', 'cta_url']);
 });
 
 it("auto-injects a required variant selector ahead of a variant block's content fields", function (): void {
@@ -78,7 +79,7 @@ it("auto-injects a required variant selector ahead of a variant block's content 
 
     expect($schema->getName())->toBe('hero')
         ->and($variantSelect)->toBeInstanceOf(Select::class)
-        ->and($variantSelect->getName())->toBe(Block::VARIANT_KEY)
+        ->and($variantSelect->getName())->toBe(BlockShape::VARIANT_KEY)
         ->and($variantSelect->getOptions())->toBe(Hero::variants())
         ->and($variantSelect->getDefaultState())->toBe('centered-minimal')
         ->and($variantSelect->isRequired())->toBeTrue()

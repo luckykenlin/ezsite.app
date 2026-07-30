@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Ai;
 
 use App\Design\StylePreset;
-use App\Exceptions\SiteDraftInvalid;
-use App\Filament\Fabricator\BlockRegistry;
+use App\Exceptions\SiteDraftUnusable;
+use App\Site\Blocks\BlockVocabulary;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -27,8 +27,10 @@ final readonly class SiteDraftValidator
      */
     private const int MAX_META_DESCRIPTION = 160;
 
-    public function __construct(private BlockDataSanitizer $sanitizer)
-    {
+    public function __construct(
+        private BlockDataSanitizer $sanitizer,
+        private BlockVocabulary $vocabulary,
+    ) {
         //
     }
 
@@ -48,7 +50,7 @@ final readonly class SiteDraftValidator
         $blocks = $this->blocks(is_array($page['blocks'] ?? null) ? $page['blocks'] : []);
 
         if (count($blocks) < self::MIN_BLOCKS || ! in_array('hero', array_column($blocks, 'type'), true)) {
-            throw new SiteDraftInvalid(sprintf(
+            throw new SiteDraftUnusable(sprintf(
                 'Draft not viable after sanitization: %d block(s) survived%s.',
                 count($blocks),
                 in_array('hero', array_column($blocks, 'type'), true) ? '' : ', no hero',
@@ -115,14 +117,14 @@ final readonly class SiteDraftValidator
      */
     private function blocks(array $blocks): array
     {
-        $vocabulary = BlockRegistry::vocabulary();
+        $pageTypes = $this->vocabulary->pageTypes();
         $sanitized = [];
         $hasHero = false;
 
         foreach ($blocks as $index => $block) {
             $type = is_array($block) && is_string($block['type'] ?? null) ? $block['type'] : null;
 
-            if ($type === null || ! array_key_exists($type, $vocabulary) || in_array($type, ['header', 'footer'], true)) {
+            if ($type === null || ! array_key_exists($type, $pageTypes)) {
                 Log::warning('site_draft.block_dropped', ['reason' => 'unknown_or_chrome_type', 'type' => $type, 'index' => $index]);
 
                 continue;

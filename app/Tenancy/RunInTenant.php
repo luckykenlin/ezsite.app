@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Actions;
+namespace App\Tenancy;
 
 use App\Models\Tenant;
 use Closure;
@@ -28,7 +28,7 @@ use Stancl\Tenancy\Contracts\Tenant as TenantContract;
  * caller's context — return a scalar/id and re-fetch, or finish the work inside
  * the callback.
  *
- * @see \App\Concerns\RequiresTenantContext runtime guard (belt-and-suspenders)
+ * @see RequiresTenantContext runtime guard (belt-and-suspenders)
  */
 final readonly class RunInTenant
 {

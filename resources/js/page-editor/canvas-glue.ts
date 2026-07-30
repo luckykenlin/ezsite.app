@@ -17,9 +17,9 @@ import {
     type BlockAction,
     type CanvasMessage,
     type EditorMessage,
-    type ShortcutName,
     closestFrom,
     isChromeKey,
+    matchShortcut,
     NAMESPACE,
     readMessage,
 } from './protocol';
@@ -436,11 +436,9 @@ document.addEventListener('dragend', () => {
     }
 });
 
-// Forward the editor shortcuts so they work while the canvas has focus.
+// Forward the editor shortcuts so they work while the canvas has focus. The
+// mapping itself lives in protocol.ts, shared with the parent window's handler.
 document.addEventListener('keydown', (event) => {
-    const shortcut = (name: ShortcutName): void =>
-        post({ type: 'shortcut', name });
-
     if (editing) {
         if (event.key === 'Enter' || event.key === 'Escape') {
             event.preventDefault();
@@ -455,40 +453,23 @@ document.addEventListener('keydown', (event) => {
         return;
     }
 
-    if (event.key === 'Escape') {
+    const shortcut = matchShortcut(event);
+
+    if (!shortcut) {
+        return;
+    }
+
+    if (shortcut.preventDefault) {
+        event.preventDefault();
+    }
+
+    // Clear the local selection ring immediately rather than waiting for the
+    // round trip, so Escape feels instant even on a slow connection.
+    if (shortcut.name === 'deselect') {
         select(null);
-        shortcut('deselect');
-
-        return;
     }
 
-    if (event.key === 'Delete' || event.key === 'Backspace') {
-        event.preventDefault();
-        shortcut('remove-selected');
-
-        return;
-    }
-
-    if (!(event.metaKey || event.ctrlKey)) {
-        return;
-    }
-
-    if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
-        event.preventDefault();
-        shortcut(
-            event.key === 'ArrowUp' ? 'move-selected-up' : 'move-selected-down',
-        );
-    }
-
-    if (event.key === 's') {
-        event.preventDefault();
-        shortcut('save');
-    }
-
-    if (event.key === 'z') {
-        event.preventDefault();
-        shortcut(event.shiftKey ? 'redo' : 'undo');
-    }
+    post({ type: 'shortcut', name: shortcut.name });
 });
 
 // Paste guard for browsers without contenteditable="plaintext-only".

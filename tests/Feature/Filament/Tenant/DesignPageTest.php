@@ -11,10 +11,6 @@ use App\Filament\Tenant\Pages\Design;
 use App\Models\Business;
 use Livewire\Livewire;
 
-beforeEach(function (): void {
-    $this->tenant = $this->actingAsTenantPanelMember();
-});
-
 test('the page is inaccessible until a business profile exists', function (): void {
     expect(Design::canAccess())->toBeFalse();
 

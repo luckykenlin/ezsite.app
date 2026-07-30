@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-use App\Concerns\RequiresTenantContext;
 use App\Models\Business;
 use App\Models\Post;
+use App\Tenancy\RequiresTenantContext;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Events\MigrationsEnded;
 use Illuminate\Support\Facades\Artisan;

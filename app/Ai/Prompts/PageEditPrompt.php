@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace App\Ai\Prompts;
 
 use App\Ai\PageDraft;
+use App\Enums\BindType;
+use App\Enums\ChromeSlot;
 use App\Models\Business;
 use App\Models\Page;
+use App\Site\Blocks\BlockType;
 use Stringable;
 
 /**
@@ -28,7 +31,7 @@ use Stringable;
 final readonly class PageEditPrompt implements Stringable
 {
     /**
-     * @param  array<string, array{type: string, variants: list<string>, bind: string|null, icon: string|null, fields: list<string>}>  $vocabulary
+     * @param  array<string, BlockType>  $vocabulary
      */
     public function __construct(
         private Page $page,
@@ -73,21 +76,21 @@ final readonly class PageEditPrompt implements Stringable
         foreach ($present as $type) {
             $contract = $this->vocabulary[$type] ?? null;
 
-            if ($contract === null) {
+            if (! $contract instanceof BlockType) {
                 continue;
             }
 
             $lines[] = sprintf(
                 '- %s: %s%s',
                 $type,
-                $contract['fields'] === [] ? '(no content fields)' : implode(', ', $contract['fields']),
-                $contract['bind'] === null
-                    ? ''
-                    : ' — also shows live '.$contract['bind'].' details automatically; write only its narrative fields',
+                $contract->fields === [] ? '(no content fields)' : implode(', ', $contract->fields),
+                $contract->bind instanceof BindType
+                    ? ' — also shows live '.$contract->bind->value.' details automatically; write only its narrative fields'
+                    : '',
             );
         }
 
-        $addable = array_diff(array_keys($this->vocabulary), $present, ['header', 'footer']);
+        $addable = array_diff(array_keys($this->vocabulary), $present, ChromeSlot::values());
 
         return "## Block vocabulary\n"
             .'The fields each block type on this page accepts. Field names not listed here are '

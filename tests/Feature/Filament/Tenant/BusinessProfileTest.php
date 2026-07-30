@@ -9,10 +9,6 @@ use App\Models\Media;
 use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
 
-beforeEach(function (): void {
-    $this->tenant = $this->actingAsTenantPanelMember();
-});
-
 test('the first save creates the business for the current tenant', function (): void {
     Livewire::test(BusinessProfile::class)
         ->fillForm([

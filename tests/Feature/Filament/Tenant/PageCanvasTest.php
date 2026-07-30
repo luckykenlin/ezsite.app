@@ -10,10 +10,6 @@ use Filament\Actions\Testing\TestAction;
 use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 
-beforeEach(function (): void {
-    $this->tenant = $this->actingAsTenantPanelMember();
-});
-
 /**
  * @param  array<string, mixed>  $attributes
  */

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Ai\Agents;
 
 use App\Design\StylePreset;
-use App\Filament\Fabricator\BlockRegistry;
+use App\Site\Blocks\BlockVocabulary;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Ai\Attributes\Temperature;
 use Laravel\Ai\Attributes\Timeout;
@@ -32,7 +32,7 @@ use Laravel\Ai\Promptable;
  */
 #[Temperature(0.2)]
 #[Timeout(150)]
-final class SiteDraftAgent implements Agent, HasStructuredOutput
+final readonly class SiteDraftAgent implements Agent, HasStructuredOutput
 {
     use Promptable;
 
@@ -46,6 +46,11 @@ final class SiteDraftAgent implements Agent, HasStructuredOutput
         .'never invent facts, addresses, prices or reviews that are not in the '
         .'profile. Write ALL user-visible copy in the requested language.';
 
+    public function __construct(private BlockVocabulary $vocabulary)
+    {
+        //
+    }
+
     public function instructions(): string
     {
         return self::INSTRUCTIONS;
@@ -56,10 +61,7 @@ final class SiteDraftAgent implements Agent, HasStructuredOutput
      */
     public function schema(JsonSchema $schema): array
     {
-        $blockTypes = array_values(array_diff(
-            array_keys(BlockRegistry::vocabulary()),
-            ['header', 'footer'],
-        ));
+        $blockTypes = $this->vocabulary->pageTypeNames();
 
         return [
             'preset' => $schema->string()

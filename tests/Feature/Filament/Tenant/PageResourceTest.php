@@ -9,10 +9,6 @@ use App\Filament\Tenant\Resources\PageResource\Pages\PageEditor;
 use App\Models\Page;
 use Livewire\Livewire;
 
-beforeEach(function (): void {
-    $this->tenant = $this->actingAsTenantPanelMember();
-});
-
 test('the site canvas is the way in and the visual editor is the way to edit', function (): void {
     // The status badge and the publish/duplicate verbs Fabricator's table used
     // to carry now live on the canvas card menus — see PageCanvasTest.

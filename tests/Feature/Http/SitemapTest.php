@@ -31,15 +31,3 @@ it('lists the published indexable pages of the requested tenant only', function 
         ->assertDontSee('draft-page')
         ->assertDontSee('competitor');
 });
-
-it('advertises the tenant sitemap in robots.txt and keeps the panel out', function (): void {
-    Tenant::factory()->withDomain('acme')->create();
-
-    $this->get(sprintf('http://acme.%s/robots.txt', $this->centralDomain()))
-        ->assertOk()
-        ->assertHeader('Content-Type', 'text/plain; charset=UTF-8')
-        ->assertSee('User-agent: *')
-        ->assertSee('Disallow: /admin')
-        ->assertSee('Disallow: /_editor')
-        ->assertSee(sprintf('Sitemap: http://acme.%s/sitemap.xml', $this->centralDomain()));
-});

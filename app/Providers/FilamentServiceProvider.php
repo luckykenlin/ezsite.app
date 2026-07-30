@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Design\ThemeVariables;
-use App\Filament\Fabricator\BindResolver;
+use App\Site\BindResolver;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
@@ -81,6 +81,11 @@ final class FilamentServiceProvider extends ServiceProvider
         // so their `alpine:init` listeners are in place by the time Alpine
         // boots.
         //
+        // The two stylesheets ride along for a different reason: they are only
+        // safe panel-wide because every selector in them is `.pe-`/`.pc-`
+        // prefixed, and scoping them would mean a page-scoped render hook, which
+        // the arch test forbids for exactly the reason below.
+        //
         // Deliberately NOT scoped to the builder pages. `alpine:init` fires
         // once, on the first full page load; the panel navigates with
         // wire:navigate, which swaps the body and calls Alpine.initTree()
@@ -91,7 +96,12 @@ final class FilamentServiceProvider extends ServiceProvider
         FilamentView::registerRenderHook(
             PanelsRenderHook::SCRIPTS_BEFORE,
             fn (): HtmlString => new HtmlString(Blade::render(<<<'BLADE'
-                @vite(['resources/js/page-editor/editor.ts', 'resources/js/page-canvas/canvas.ts'])
+                @vite([
+                    'resources/js/page-editor/editor.ts',
+                    'resources/js/page-canvas/canvas.ts',
+                    'resources/css/page-editor.css',
+                    'resources/css/page-canvas.css',
+                ])
             BLADE)),
         );
 

@@ -6,10 +6,6 @@ use App\Filament\Tenant\Pages\SiteChromeSettings;
 use App\Models\SiteSetting;
 use Livewire\Livewire;
 
-beforeEach(function (): void {
-    $this->tenant = $this->actingAsTenantPanelMember();
-});
-
 test('saving a header and footer creates the settings row in block-entry shape', function (): void {
     Livewire::test(SiteChromeSettings::class)
         ->fillForm([

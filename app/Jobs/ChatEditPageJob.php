@@ -6,9 +6,9 @@ namespace App\Jobs;
 
 use App\Actions\Pages\CacheChatTurn;
 use App\Actions\Pages\ChatEditPage;
-use App\Actions\RunInTenant;
 use App\Models\Page;
 use App\Models\User;
+use App\Tenancy\RunInTenant;
 use Carbon\CarbonImmutable;
 use Illuminate\Queue\Attributes\Timeout;
 use Illuminate\Queue\Attributes\Tries;

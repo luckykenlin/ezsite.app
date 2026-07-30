@@ -3,15 +3,15 @@
 declare(strict_types=1);
 
 use App\Actions\Pages\AddPageBlock;
-use App\Ai\BlockDataSanitizer;
 use App\Ai\PageDraft;
 use App\Ai\Tools\AddBlock;
+use App\Site\Blocks\BlockVocabulary;
 use Illuminate\JsonSchema\JsonSchemaTypeFactory;
 use Laravel\Ai\Tools\Request;
 
 function addTool(PageDraft $draft): AddBlock
 {
-    return new AddBlock($draft, resolve(BlockDataSanitizer::class), resolve(AddPageBlock::class));
+    return new AddBlock($draft, resolve(AddPageBlock::class), resolve(BlockVocabulary::class));
 }
 
 function twoBlockDraft(): PageDraft

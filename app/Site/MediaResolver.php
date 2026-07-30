@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Filament\Fabricator;
+namespace App\Site;
 
 use App\Models\Media;
 

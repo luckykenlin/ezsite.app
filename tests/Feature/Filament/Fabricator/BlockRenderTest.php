@@ -249,6 +249,45 @@ it('escapes authored block content to prevent stored XSS', function (): void {
         ->assertSee('&lt;script&gt;', false);
 });
 
+it('strips executable url schemes out of every rendered href and src', function (): void {
+    // Blade's {{ }} escapes the VALUE but not the SCHEME, so a stored
+    // `javascript:` cta_url would render as a live link. Covers both nesting
+    // levels (top-level props and repeater items) and both contexts (href, src).
+    $tenant = Tenant::factory()->withDomain('acme')->create();
+    $this->createTenantBusiness($tenant, ['name' => 'Corner Cafe']);
+    $this->createTenantPage($tenant, [
+        ['type' => 'cta', 'data' => [
+            'variant' => 'boxed',
+            'heading' => 'Book now',
+            'cta_label' => 'Go',
+            'cta_url' => 'javascript:alert(1)',
+            'secondary_label' => 'Later',
+            'secondary_url' => "java\tscript:alert(2)",
+        ]],
+        ['type' => 'hero', 'data' => [
+            'variant' => 'full-bleed-overlay',
+            'heading' => 'Welcome',
+            'image_url' => 'data:text/html;base64,PHNjcmlwdD4x',
+        ]],
+        ['type' => 'gallery', 'data' => ['variant' => 'grid', 'images' => [
+            ['url' => 'JaVaScRiPt:alert(3)', 'alt' => 'Bad'],
+            ['url' => 'https://example.com/good.jpg', 'alt' => 'Good'],
+        ]]],
+    ]);
+
+    $response = $this->get(sprintf('http://acme.%s/', $this->centralDomain()));
+
+    $response->assertOk()
+        ->assertDontSee('javascript:', false)
+        ->assertDontSee('vbscript:', false)
+        ->assertDontSee('data:text/html', false)
+        // The legitimate sibling still renders, so the guard is not blanket.
+        ->assertSee('https://example.com/good.jpg', false)
+        // Labels survive: only the url key is dropped, not the whole block.
+        ->assertSee('Book now', false)
+        ->assertSee('Welcome', false);
+});
+
 it('skips a bound block with a warning when its bind cannot resolve, while siblings render', function (array $block, string $dontSee, bool $withBusiness, int $warnings): void {
     Log::spy();
 

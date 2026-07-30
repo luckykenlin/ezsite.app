@@ -3,14 +3,15 @@
 declare(strict_types=1);
 
 use App\Actions\GenerateSiteDraft;
-use App\Actions\RunInTenant;
 use App\Ai\Agents\SiteDraftAgent;
 use App\Design\StylePreset;
 use App\Enums\PageStatus;
-use App\Exceptions\SiteDraftInvalid;
+use App\Exceptions\SiteDraftRefused;
+use App\Exceptions\SiteDraftUnusable;
 use App\Models\Business;
 use App\Models\Page;
 use App\Models\Tenant;
+use App\Tenancy\RunInTenant;
 use Laravel\Ai\Prompts\AgentPrompt;
 
 function fakeDraftResponse(array $overrides = []): array
@@ -122,7 +123,7 @@ it('refuses to touch a published home page', function (): void {
     ]);
 
     expect(fn (): Page => generateFor($tenant))
-        ->toThrow(SiteDraftInvalid::class, 'already published')
+        ->toThrow(SiteDraftRefused::class, 'already published')
         ->and(Page::query()->sole()->title)->toBe('Home'); // untouched
 });
 
@@ -142,6 +143,28 @@ it('recovers from one drifted response by retrying', function (): void {
     expect(Page::query()->sole()->title)->toBe('Corner Cafe — Home');
 });
 
+it('does not retry when the site state refuses the write', function (): void {
+    // A published home page is not a provider problem, so it must not spend a
+    // second ~90 second call to be told the same thing. The distinction lives in
+    // the exception type: SiteDraftRefused is outside the retry's catch.
+    SiteDraftAgent::fake([fakeDraftResponse(), fakeDraftResponse()]);
+
+    $tenant = Tenant::factory()->create();
+    $this->createTenantBusiness($tenant, [], 1);
+    $this->runInTenant($tenant, function () use ($tenant): void {
+        Page::query()->create([
+            'tenant_id' => $tenant->id,
+            'title' => 'Home',
+            'slug' => '/',
+            'layout' => 'main',
+            'blocks' => [],
+            'status' => PageStatus::Published,
+        ]);
+    });
+
+    expect(fn (): Page => generateFor($tenant))->toThrow(SiteDraftRefused::class);
+});
+
 it('rejects a response without structured output after the retry also fails', function (): void {
     SiteDraftAgent::fake([
         'plain text, not a structured draft',
@@ -152,5 +175,5 @@ it('rejects a response without structured output after the retry also fails', fu
     $this->createTenantBusiness($tenant, [], 1);
 
     expect(fn (): Page => generateFor($tenant))
-        ->toThrow(SiteDraftInvalid::class, 'no structured output');
+        ->toThrow(SiteDraftUnusable::class, 'no structured output');
 });

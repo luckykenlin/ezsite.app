@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Filament\Fabricator;
+namespace App\Site;
 
 use App\Models\Business;
 use App\Models\Location;
@@ -47,8 +47,7 @@ final class BindResolver
     public function locations(): Collection
     {
         return $this->locations ??= Location::query()
-            ->orderByDesc('is_primary')
-            ->orderBy('id')
+            ->primaryFirst()
             ->get();
     }
 

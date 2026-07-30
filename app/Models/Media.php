@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
-use App\Concerns\RequiresTenantContext;
+use App\Tenancy\RequiresTenantContext;
 use Awcodes\Curator\Models\Media as CuratorMedia;
 use Database\Factories\MediaFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;

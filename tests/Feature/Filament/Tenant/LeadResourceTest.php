@@ -10,10 +10,6 @@ use App\Models\Tenant;
 use Filament\Actions\Testing\TestAction;
 use Livewire\Livewire;
 
-beforeEach(function (): void {
-    $this->tenant = $this->actingAsTenantPanelMember();
-});
-
 function tenantLead(array $attributes = []): Lead
 {
     return Lead::query()->create([

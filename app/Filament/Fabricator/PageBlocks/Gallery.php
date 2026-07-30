@@ -17,10 +17,17 @@ use Filament\Support\Icons\Heroicon;
 final class Gallery extends Block
 {
     /**
-     * A self-contained gray SVG so sample galleries render without any
-     * external request or media library — the label tells users to swap it.
+     * A local gray SVG so sample galleries render without any external request
+     * or media library — the label tells users to swap it.
+     *
+     * A shipped asset rather than the `data:image/svg+xml` URI this used to be:
+     * {@see \App\Filament\Fabricator\BlockRegistry::denyExecutableUrls()} strips
+     * every `data:` URL out of block data at render time, and a scheme that is
+     * safe in `<img src>` but executable in `href` is not worth carving an
+     * exception for — `images[].url` and `nav_links[].url` share a key name, so
+     * the guard cannot tell the two contexts apart.
      */
-    private const string PLACEHOLDER_IMAGE = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='800' height='600'><rect width='800' height='600' fill='%23e5e7eb'/><text x='400' y='310' fill='%239ca3af' font-family='sans-serif' font-size='32' text-anchor='middle'>Replace this image</text></svg>";
+    private const string PLACEHOLDER_IMAGE = '/images/placeholder.svg';
 
     protected static string $name = 'gallery';
 

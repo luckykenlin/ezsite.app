@@ -4,24 +4,22 @@ declare(strict_types=1);
 
 namespace App\Actions;
 
-use App\Filament\Tenant\Resources\Leads\LeadResource;
+use App\Events\LeadCaptured;
 use App\Models\Lead;
 use App\Models\Location;
 use App\Models\Page;
-use App\Models\User;
-use Filament\Actions\Action;
-use Filament\Notifications\Notification;
-use Filament\Support\Icons\Heroicon;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Records an enquiry from the public tenant site and tells the operator about
- * it: a database notification (the panel's bell) to every member of the
- * tenant, carrying a link straight to the inbox.
+ * Records an enquiry from the public tenant site.
  *
  * Runs inside tenant context — the Lead write is RLS-scoped and guarded by
  * RequiresTenantContext, so a lead can never land on the wrong tenant.
+ *
+ * Telling the operator is a separate concern: this fires {@see LeadCaptured} and
+ * {@see \App\Listeners\NotifyOperatorsOfLead} builds the panel notification. That
+ * keeps the Filament dependency (and the inbox URL) out of the domain layer, and
+ * means capturing a lead does not require the panel to be installed.
  */
 final readonly class CaptureLead
 {
@@ -41,38 +39,10 @@ final readonly class CaptureLead
             'ip_address' => $ipAddress,
         ]));
 
-        $this->notifyOperators($lead);
+        // Dispatched after the transaction commits, so a listener can never
+        // observe (or notify about) a lead that then rolled back.
+        event(new LeadCaptured($lead));
 
         return $lead;
-    }
-
-    /**
-     * Panel members are found through the `tenant_user` pivot, which is
-     * exempt from RLS on purpose — so this works whatever the current
-     * connection is. A tenant with no members yet simply gets no
-     * notification; the lead is already safely stored.
-     */
-    private function notifyOperators(Lead $lead): void
-    {
-        $users = User::query()
-            ->whereHas('tenants', fn (Builder $query): Builder => $query->whereKey(tenant('id')))
-            ->get();
-
-        if ($users->isEmpty()) {
-            return;
-        }
-
-        Notification::make()
-            ->title(sprintf('New enquiry from %s', $lead->name))
-            ->body($lead->contactLine() ?? $lead->message ?? '')
-            ->icon(Heroicon::OutlinedInbox)
-            ->success()
-            ->actions([
-                Action::make('view')
-                    ->label('Open inbox')
-                    ->url(LeadResource::getUrl('index', panel: 'tenant'))
-                    ->markAsRead(),
-            ])
-            ->sendToDatabase($users);
     }
 }

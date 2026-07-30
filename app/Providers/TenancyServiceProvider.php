@@ -17,45 +17,10 @@ use Livewire\Features\SupportFileUploads\FilePreviewController;
 use Livewire\Livewire;
 use Stancl\JobPipeline\JobPipeline;
 use Stancl\Tenancy\Contracts\Tenant;
-use Stancl\Tenancy\Events\BootstrappingTenancy;
-use Stancl\Tenancy\Events\CreatingDomain;
-use Stancl\Tenancy\Events\CreatingPendingTenant;
-use Stancl\Tenancy\Events\CreatingStorageSymlink;
-use Stancl\Tenancy\Events\CreatingTenant;
-use Stancl\Tenancy\Events\DatabaseCreated;
-use Stancl\Tenancy\Events\DatabaseDeleted;
-use Stancl\Tenancy\Events\DatabaseMigrated;
-use Stancl\Tenancy\Events\DatabaseRolledBack;
-use Stancl\Tenancy\Events\DatabaseSeeded;
-use Stancl\Tenancy\Events\DeletingDomain;
 use Stancl\Tenancy\Events\DeletingTenant;
-use Stancl\Tenancy\Events\DomainCreated;
-use Stancl\Tenancy\Events\DomainDeleted;
-use Stancl\Tenancy\Events\DomainSaved;
-use Stancl\Tenancy\Events\DomainUpdated;
-use Stancl\Tenancy\Events\EndingTenancy;
-use Stancl\Tenancy\Events\InitializingTenancy;
-use Stancl\Tenancy\Events\PendingTenantCreated;
-use Stancl\Tenancy\Events\PendingTenantPulled;
-use Stancl\Tenancy\Events\PullingPendingTenant;
-use Stancl\Tenancy\Events\RemovingStorageSymlink;
-use Stancl\Tenancy\Events\RevertedToCentralContext;
-use Stancl\Tenancy\Events\RevertingToCentralContext;
-use Stancl\Tenancy\Events\SavingDomain;
-use Stancl\Tenancy\Events\SavingTenant;
-use Stancl\Tenancy\Events\StorageSymlinkCreated;
-use Stancl\Tenancy\Events\StorageSymlinkRemoved;
-use Stancl\Tenancy\Events\TenancyBootstrapped;
 use Stancl\Tenancy\Events\TenancyEnded;
 use Stancl\Tenancy\Events\TenancyInitialized;
 use Stancl\Tenancy\Events\TenantCreated;
-use Stancl\Tenancy\Events\TenantDeleted;
-use Stancl\Tenancy\Events\TenantMaintenanceModeDisabled;
-use Stancl\Tenancy\Events\TenantMaintenanceModeEnabled;
-use Stancl\Tenancy\Events\TenantSaved;
-use Stancl\Tenancy\Events\TenantUpdated;
-use Stancl\Tenancy\Events\UpdatingDomain;
-use Stancl\Tenancy\Events\UpdatingTenant;
 use Stancl\Tenancy\Jobs\CreateStorageSymlinks;
 use Stancl\Tenancy\Jobs\DeleteDomains;
 use Stancl\Tenancy\Jobs\RemoveStorageSymlinks;
@@ -85,12 +50,14 @@ use Stancl\Tenancy\ResourceSyncing\Listeners\UpdateOrCreateSyncedResource;
  * We can sustainably develop Tenancy for Laravel thanks to our sponsors.
  * Big thanks to everyone listed here: https://github.com/sponsors/stancl
  *
- * You can also support us, and save time, by purchasing these products:
- *   Exclusive content for sponsors: https://sponsors.tenancyforlaravel.com
- *   Multi-Tenant SaaS boilerplate: https://portal.archte.ch/boilerplate
- *   Multi-Tenant Laravel in Production e-book: https://portal.archte.ch/book
- *
- * All of these products can also be accessed at https://portal.archte.ch
+ * NOTE FOR UPGRADES: this started as the package's published stub, but the event
+ * map has been trimmed to the events this app actually listens to. The stub
+ * additionally lists ~35 events mapped to empty arrays as documentation of what
+ * is available; {@see bootEvents()} iterates the inner listener array, so an
+ * empty entry registers nothing and carrying them was purely cosmetic. If you
+ * are diffing against a newer upstream stub, expect those absences — and check
+ * the upstream list for newly added events worth handling rather than assuming
+ * this map is exhaustive.
  */
 final class TenancyServiceProvider extends ServiceProvider
 {
@@ -103,8 +70,6 @@ final class TenancyServiceProvider extends ServiceProvider
     public function events(): array
     {
         return [
-            // Tenant events
-            CreatingTenant::class => [],
             // No database provisioning jobs here — this app uses
             // single-database tenancy via Postgres RLS. But the tenant DOES
             // get its own filesystem: FilesystemTenancyBootstrapper points
@@ -119,10 +84,6 @@ final class TenancyServiceProvider extends ServiceProvider
                     CreateStorageSymlinks::class,
                 ])->send(fn (TenantCreated $event): Tenant => $event->tenant)->shouldBeQueued(false),
             ],
-            SavingTenant::class => [],
-            TenantSaved::class => [],
-            UpdatingTenant::class => [],
-            TenantUpdated::class => [],
             DeletingTenant::class => [
                 JobPipeline::make([
                     DeleteDomains::class,
@@ -133,51 +94,14 @@ final class TenancyServiceProvider extends ServiceProvider
                     RemoveStorageSymlinks::class,
                 ])->send(fn (DeletingTenant $event): Tenant => $event->tenant)->shouldBeQueued(false),
             ],
-            TenantDeleted::class => [
-                // ResourceSyncing\Listeners\DeleteAllTenantMappings::class,
-            ],
 
-            TenantMaintenanceModeEnabled::class => [],
-            TenantMaintenanceModeDisabled::class => [],
-
-            // Pending tenant events
-            CreatingPendingTenant::class => [],
-            PendingTenantCreated::class => [],
-            PullingPendingTenant::class => [],
-            PendingTenantPulled::class => [],
-
-            // Domain events
-            CreatingDomain::class => [],
-            DomainCreated::class => [],
-            SavingDomain::class => [],
-            DomainSaved::class => [],
-            UpdatingDomain::class => [],
-            DomainUpdated::class => [],
-            DeletingDomain::class => [],
-            DomainDeleted::class => [],
-
-            // Database events
-            DatabaseCreated::class => [],
-            DatabaseMigrated::class => [],
-            DatabaseSeeded::class => [],
-            DatabaseRolledBack::class => [],
-            DatabaseDeleted::class => [],
-
-            // Tenancy events
-            InitializingTenancy::class => [],
+            // Tenancy lifecycle
             TenancyInitialized::class => [
                 BootstrapTenancy::class,
             ],
-
-            EndingTenancy::class => [],
             TenancyEnded::class => [
                 RevertToCentralContext::class,
             ],
-
-            BootstrappingTenancy::class => [],
-            TenancyBootstrapped::class => [],
-            RevertingToCentralContext::class => [],
-            RevertedToCentralContext::class => [],
 
             // Resource syncing
             SyncedResourceSaved::class => [
@@ -198,18 +122,7 @@ final class TenancyServiceProvider extends ServiceProvider
             CentralResourceDetachedFromTenant::class => [
                 DeleteResourceInTenant::class,
             ],
-
-            // Storage symlinks
-            CreatingStorageSymlink::class => [],
-            StorageSymlinkCreated::class => [],
-            RemovingStorageSymlink::class => [],
-            StorageSymlinkRemoved::class => [],
         ];
-    }
-
-    public function register(): void
-    {
-        //
     }
 
     public function boot(): void
@@ -219,17 +132,11 @@ final class TenancyServiceProvider extends ServiceProvider
         $this->syncRlsPoliciesAfterMigrations();
 
         $this->makeTenancyMiddlewareHighestPriority();
-        $this->overrideUrlInTenantContext();
         $this->tenantizeCuratorRoute();
 
-        // // Include soft deleted resources in synced resource queries.
-        // ResourceSyncing\Listeners\UpdateOrCreateSyncedResource::$scopeGetModelQuery = function (Builder $query) {
-        //     if ($query->hasMacro('withTrashed')) {
-        //         $query->withTrashed();
-        //     }
-        // };
-
-        // // To make Livewire v3 work with Tenancy, make the update route universal.
+        // Livewire's update route must be universal: it is one URL serving both
+        // the central and every tenant domain, so it identifies the tenant from
+        // the request rather than being registered per-domain.
         Livewire::setUpdateRoute(fn (array $handle) => RouteFacade::post('/livewire/update', $handle)
             ->middleware([
                 'web',
@@ -237,6 +144,8 @@ final class TenancyServiceProvider extends ServiceProvider
                 InitializeTenancyByDomainOrSubdomain::class,
             ]));
 
+        // Same reasoning for temporary-upload previews, whose controller reads
+        // from the tenant-suffixed disk.
         FilePreviewController::$middleware = [
             'web',
             'universal',
@@ -244,12 +153,6 @@ final class TenancyServiceProvider extends ServiceProvider
         ];
     }
 
-    /**
-     * Set \Stancl\Tenancy\Bootstrappers\RootUrlBootstrapper::$rootUrlOverride here
-     * to override the root URL used in CLI while in tenant context.
-     *
-     * @see \Stancl\Tenancy\Bootstrappers\RootUrlBootstrapper
-     */
     /**
      * Curator registers its Glide media route with NO middleware. On this
      * RLS setup that is doubly wrong: the metadata lookup would run on the
@@ -269,30 +172,6 @@ final class TenancyServiceProvider extends ServiceProvider
                 ]);
             }
         }
-    }
-
-    private function overrideUrlInTenantContext(): void
-    {
-        // \Stancl\Tenancy\Bootstrappers\RootUrlBootstrapper::$rootUrlOverride = function (Tenant $tenant, string $originalRootUrl) {
-        //     $tenantDomain = $tenant instanceof \Stancl\Tenancy\Contracts\SingleDomainTenant
-        //         ? $tenant->domain
-        //         : $tenant->domains->first()->domain;
-        //
-        //     if (is_null($tenantDomain)) {
-        //         return $originalRootUrl;
-        //     }
-        //
-        //     $scheme = str($originalRootUrl)->before('://');
-        //
-        //     if (str_contains($tenantDomain, '.')) {
-        //         // Domain identification
-        //         return $scheme . '://' . $tenantDomain . '/';
-        //     } else {
-        //         // Subdomain identification
-        //         $originalDomain = str($originalRootUrl)->after($scheme . '://')->before('/');
-        //         return $scheme . '://' . $tenantDomain . '.' . $originalDomain . '/';
-        //     }
-        // };
     }
 
     private function bootEvents(): void
@@ -333,8 +212,6 @@ final class TenancyServiceProvider extends ServiceProvider
                     ->middleware('tenant')
                     ->group(base_path('routes/tenant.php'));
             }
-
-            // $this->cloneRoutes();
         });
     }
 

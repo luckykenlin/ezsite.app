@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 use App\Ai\Agents\SiteDraftAgent;
 use App\Design\StylePreset;
+use App\Site\Blocks\BlockVocabulary;
 use Illuminate\JsonSchema\JsonSchemaTypeFactory;
 
 it('constrains the structured output to presets and non-chrome vocabulary types', function (): void {
-    $schema = new SiteDraftAgent()->schema(new JsonSchemaTypeFactory);
+    $schema = new SiteDraftAgent(resolve(BlockVocabulary::class))->schema(new JsonSchemaTypeFactory);
 
     $serialized = json_decode(json_encode(array_map(
         fn ($type): array => $type->toArray(),
@@ -27,7 +28,7 @@ it('constrains the structured output to presets and non-chrome vocabulary types'
     // The copy is free to evolve, but two clauses are load-bearing: the block
     // views escape everything (so markup would render as text), and the draft is
     // persisted verbatim (so an invented fact reaches the live site).
-    expect(new SiteDraftAgent()->instructions())
+    expect(new SiteDraftAgent(resolve(BlockVocabulary::class))->instructions())
         ->toContain('never output HTML')
         ->toContain('never invent facts');
 });

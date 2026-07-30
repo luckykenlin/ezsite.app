@@ -8,7 +8,7 @@
  * from the panel's build have no business leaking in there.
  *
  * The behaviour that toggles these attributes lives in
- * resources/js/page-editor/canvas.ts.
+ * resources/js/page-editor/canvas-glue.ts.
  */
 
 [data-block-key] {

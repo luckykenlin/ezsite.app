@@ -137,3 +137,17 @@ pest()->extend(TestCase::class)
         $createdTenantKeys = [];
     })
     ->in('Feature', 'Unit');
+
+/*
+ * Every tenant-panel test signs in as a member of a fresh tenant — that is the
+ * precondition for the panel being reachable at all (a plain User::factory() has
+ * no panel access; see User::canAccessPanel()).
+ *
+ * Bound here rather than repeated per file: it was nine byte-identical
+ * `beforeEach` blocks. It has to be a directory-scoped binding rather than a
+ * nested Pest.php, because a nested beforeEach does not bind in this project — see
+ * the pest-testing skill.
+ */
+pest()->beforeEach(function (): void {
+    $this->tenant = $this->actingAsTenantPanelMember();
+})->in('Feature/Filament/Tenant');

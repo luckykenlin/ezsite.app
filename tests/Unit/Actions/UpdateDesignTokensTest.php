@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use App\Actions\RunInTenant;
 use App\Actions\UpdateDesignTokens;
 use App\Design\ColorPalette;
 use App\Design\FontPair;
@@ -11,6 +10,7 @@ use App\Design\SpacingDensity;
 use App\Design\StylePreset;
 use App\Models\Business;
 use App\Models\Tenant;
+use App\Tenancy\RunInTenant;
 
 function tokenBusiness(): array
 {

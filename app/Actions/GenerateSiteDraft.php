@@ -9,13 +9,15 @@ use App\Ai\Prompts\SiteDraftPrompt;
 use App\Ai\SiteDraftValidator;
 use App\Design\StylePreset;
 use App\Enums\PageStatus;
-use App\Exceptions\SiteDraftInvalid;
-use App\Filament\Fabricator\BlockRegistry;
-use App\Filament\Fabricator\PageBlocks\Block;
+use App\Exceptions\SiteDraftRefused;
+use App\Exceptions\SiteDraftUnusable;
 use App\Models\Business;
 use App\Models\Location;
 use App\Models\Page;
+use App\Site\Blocks\BlockShape;
+use App\Site\Blocks\BlockVocabulary;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Laravel\Ai\Responses\StructuredAgentResponse;
 
 /**
@@ -33,6 +35,7 @@ final readonly class GenerateSiteDraft
     public function __construct(
         private SiteDraftValidator $validator,
         private ApplyStylePreset $applyStylePreset,
+        private BlockVocabulary $vocabulary,
     ) {
         //
     }
@@ -41,10 +44,16 @@ final readonly class GenerateSiteDraft
     {
         try {
             $draft = $this->requestDraft($business);
-        } catch (SiteDraftInvalid) {
-            // Providers whose structured output is prompt-enforced (DeepSeek)
-            // occasionally drift off-schema; one fresh attempt usually lands.
-            // A second failure propagates to the caller.
+        } catch (SiteDraftUnusable $siteDraftUnusable) {
+            // One fresh attempt. Logged, because this used to be silent: a
+            // tenant whose generation always needs two provider calls (a sparse
+            // profile, say) looked identical to one that always needs one, and
+            // the second call costs ~90 seconds.
+            Log::warning('site_draft.retrying', [
+                'tenant_id' => tenant('id'),
+                'reason' => $siteDraftUnusable->getMessage(),
+            ]);
+
             $draft = $this->requestDraft($business);
         }
 
@@ -52,7 +61,7 @@ final readonly class GenerateSiteDraft
 
         throw_if(
             $existing !== null && ! $existing->isDraft(),
-            SiteDraftInvalid::class,
+            SiteDraftRefused::class,
             'The home page is already published; refusing to overwrite it.',
         );
 
@@ -93,15 +102,15 @@ final readonly class GenerateSiteDraft
      */
     private function requestDraft(Business $business): array
     {
-        $locations = Location::query()->orderByDesc('is_primary')->orderBy('id')->get();
+        $locations = Location::query()->primaryFirst()->get();
 
-        $response = new SiteDraftAgent()->prompt(
-            (string) new SiteDraftPrompt($business, $locations, BlockRegistry::vocabulary()),
+        $response = new SiteDraftAgent($this->vocabulary)->prompt(
+            (string) new SiteDraftPrompt($business, $locations, $this->vocabulary->all()),
         );
 
         throw_unless(
             $response instanceof StructuredAgentResponse,
-            SiteDraftInvalid::class,
+            SiteDraftUnusable::class,
             'The agent returned no structured output.',
         );
 
@@ -114,11 +123,11 @@ final readonly class GenerateSiteDraft
      */
     private function stampVariants(array $blocks, StylePreset $preset): array
     {
-        $vocabulary = BlockRegistry::vocabulary();
+        $vocabulary = $this->vocabulary->all();
         $defaults = $preset->blockVariantDefaults();
 
         return array_map(function (array $block) use ($vocabulary, $defaults): array {
-            $variants = $vocabulary[$block['type']]['variants'];
+            $variants = $vocabulary[$block['type']]->variants;
 
             if ($variants !== []) {
                 $preferred = $defaults[$block['type']] ?? null;
@@ -126,7 +135,7 @@ final readonly class GenerateSiteDraft
                 // Falls back to the block's first variant if the preset has no
                 // (valid) default for this type — e.g. a block added after the
                 // preset was authored.
-                $block['data'][Block::VARIANT_KEY] = in_array($preferred, $variants, true) ? $preferred : $variants[0];
+                $block['data'][BlockShape::VARIANT_KEY] = in_array($preferred, $variants, true) ? $preferred : $variants[0];
             }
 
             return $block;

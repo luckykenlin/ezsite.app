@@ -14,7 +14,7 @@ namespace App\Enums;
  *
  * The contract, registry, and renderer treat `bind` as a first-class capability;
  * live resolution happens at render time through
- * {@see \App\Filament\Fabricator\BindResolver} and
+ * {@see \App\Site\BindResolver} and
  * {@see \App\Filament\Fabricator\BlockRegistry::bindAttributes()}.
  */
 enum BindType: string

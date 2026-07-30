@@ -3,7 +3,6 @@
 declare(strict_types=1);
 
 use App\Filament\Tenant\Resources\Locations\Pages\ListLocations;
-use App\Models\Business;
 use App\Models\Location;
 use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
@@ -11,17 +10,8 @@ use Filament\Actions\Testing\TestAction;
 use Livewire\Livewire;
 use Spatie\OpeningHours\OpeningHours;
 
-beforeEach(function (): void {
-    $this->tenant = $this->actingAsTenantPanelMember();
-});
-
-function createTenantPanelBusiness(): Business
-{
-    return Business::factory()->create(['tenant_id' => tenant('id')]);
-}
-
 test('can create a location scoped to the tenant and its business, with opening hours', function (): void {
-    $business = createTenantPanelBusiness();
+    $business = $this->createTenantBusiness($this->tenant, [], 0);
 
     Livewire::test(ListLocations::class)
         ->callAction(CreateAction::class, [
@@ -48,7 +38,7 @@ test('the create action is hidden until a business profile exists', function ():
         ->assertActionHidden(CreateAction::class)
         ->assertSee('Save your Business profile first');
 
-    createTenantPanelBusiness();
+    $this->createTenantBusiness($this->tenant, [], 0);
 
     Livewire::test(ListLocations::class)
         ->call('loadTable')
@@ -56,7 +46,7 @@ test('the create action is hidden until a business profile exists', function ():
 });
 
 test('can update a location, round-tripping hours and preserving exceptions', function (): void {
-    $business = createTenantPanelBusiness();
+    $business = $this->createTenantBusiness($this->tenant, [], 0);
     $location = Location::factory()->create([
         'tenant_id' => $this->tenant->id,
         'business_id' => $business->id,
@@ -82,7 +72,7 @@ test('can update a location, round-tripping hours and preserving exceptions', fu
 });
 
 test('rejects a malformed hours string', function (): void {
-    createTenantPanelBusiness();
+    $this->createTenantBusiness($this->tenant, [], 0);
 
     Livewire::test(ListLocations::class)
         ->callAction(CreateAction::class, [
@@ -93,7 +83,7 @@ test('rejects a malformed hours string', function (): void {
 });
 
 test('rejects overlapping ranges on the offending day', function (): void {
-    createTenantPanelBusiness();
+    $this->createTenantBusiness($this->tenant, [], 0);
 
     Livewire::test(ListLocations::class)
         ->callAction(CreateAction::class, [

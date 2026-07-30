@@ -83,9 +83,50 @@ test('the editor canvas glue is loaded by the preview document only', function (
     $views = dirname(__DIR__, 2).'/resources/views';
 
     expect(file_get_contents($views.'/filament/tenant/pages/partials/page-editor-canvas.blade.php'))
-        ->toContain('resources/js/page-editor/canvas.ts')
+        ->toContain('resources/js/page-editor/canvas-glue.ts')
         ->toContain('resources/css/page-editor-canvas.css')
         ->and(file_get_contents($views.'/components/filament-fabricator/layouts/main.blade.php'))->not->toContain('page-editor');
+});
+
+test('the builder views keep their styles in stylesheets, not inline', function (): void {
+    // CLAUDE.md: the editor's browser code lives in resources/, never inline in
+    // Blade. These two views held 920 lines of <style> between them, which put
+    // them outside `vp fmt --check` and outside every reviewer's diff habits.
+    //
+    // Panel-wide loading is only safe because every selector in those sheets is
+    // `.pe-`/`.pc-` prefixed, so this also guards the prefix: an unprefixed rule
+    // would leak into every page of the tenant panel.
+    $views = dirname(__DIR__, 2).'/resources/views/filament/tenant/pages';
+    $css = dirname(__DIR__, 2).'/resources/css';
+
+    foreach (['page-editor', 'page-canvas'] as $name) {
+        expect(file_get_contents($views.'/'.$name.'.blade.php'))
+            ->not->toContain('<style')
+            ->and(file_get_contents($css.'/'.$name.'.css'))->not->toBeEmpty();
+    }
+
+    // Every CLASS the sheets style must carry the prefix. Checking class tokens
+    // rather than whole selectors keeps this from trying to parse CSS: `.dark`
+    // descendant combinators, media queries and keyframe steps all come out right,
+    // and a class is the only way one of these rules can reach another page.
+    $prefixes = ['page-editor' => 'pe-', 'page-canvas' => 'pc-'];
+
+    foreach ($prefixes as $name => $prefix) {
+        // Comments first: prose mentions filenames, and `.blade.php` reads as
+        // three class tokens otherwise.
+        $sheet = preg_replace('#/\*.*?\*/#s', '', (string) file_get_contents($css.'/'.$name.'.css'));
+        $classes = [];
+        preg_match_all('/\.([a-zA-Z][\w-]*)/', (string) $sheet, $classes);
+
+        $leaked = array_values(array_unique(array_filter(
+            $classes[1],
+            // `.dark` is Filament's own theme switch, which these sheets read
+            // rather than define.
+            static fn (string $class): bool => $class !== 'dark' && ! str_starts_with($class, $prefix),
+        )));
+
+        expect($leaked)->toBeEmpty();
+    }
 });
 
 test('the builder Alpine modules are loaded panel-wide, never scoped to their page', function (): void {
