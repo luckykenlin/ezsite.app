@@ -6,6 +6,7 @@ namespace App\Models;
 
 use App\Enums\PageStatus;
 use App\Tenancy\RequiresTenantContext;
+use Carbon\CarbonImmutable;
 use Database\Factories\PageFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -23,6 +24,8 @@ use Z3d0X\FilamentFabricator\Models\Page as FabricatorPage;
  * @property string|null $seo_description
  * @property int|null $seo_image_media_id
  * @property bool $is_indexable
+ * @property array<string, mixed>|null $draft
+ * @property CarbonImmutable|null $draft_updated_at
  *
  * @method static PageFactory factory($count = null, $state = [])
  */
@@ -67,6 +70,8 @@ final class Page extends FabricatorPage
             ...parent::casts(),
             'status' => PageStatus::class,
             'is_indexable' => 'boolean',
+            'draft' => 'array',
+            'draft_updated_at' => 'immutable_datetime',
         ];
     }
 }
