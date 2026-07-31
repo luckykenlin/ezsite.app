@@ -26,8 +26,12 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  * state, so losing it costs nothing: the worker finishes regardless, and the
  * editor's poll still picks the result up.
  *
- * Token-gated exactly like the canvas preview: the token is unguessable and the
- * cache is tenant-prefixed, so it only resolves inside the tenant that wrote it.
+ * Gated exactly like the canvas preview: an authenticated user AND an unguessable
+ * token in a tenant-prefixed cache, so it only resolves inside the tenant that
+ * wrote it. The token alone used to be the whole gate — the route group carries no
+ * `auth` middleware — which left an unauthenticated endpoint streaming the
+ * assistant's reply. 404 rather than 403, matching the unknown-token branch, so
+ * neither confirms that a turn exists.
  */
 final class PageEditorChatStreamController extends Controller
 {
@@ -46,6 +50,8 @@ final class PageEditorChatStreamController extends Controller
 
     public function __invoke(Request $request, CacheChatTurn $turns): StreamedResponse
     {
+        abort_unless(auth()->hasUser(), 404);
+
         $token = (string) $request->query('token');
 
         abort_if($turns->read($token) === null, 404);

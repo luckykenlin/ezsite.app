@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Actions\Pages\CachePageEditorPreview;
 use App\Models\Page;
 use App\Models\Tenant;
+use App\Models\User;
 use App\Tenancy\RunInTenant;
 
 /**
@@ -12,6 +13,13 @@ use App\Tenancy\RunInTenant;
  * the real tenant layout chain, with the editor-only selection markup that
  * must never leak into live-site renders.
  */
+beforeEach(function (): void {
+    // The route requires an authenticated user as well as the token — see the
+    // controller. Any user will do: the token, tenant-prefixed in the cache, is
+    // what scopes the draft to its tenant.
+    $this->actingAs(User::factory()->create());
+});
+
 function cachePreviewFor(Tenant $tenant, Page $page, array $blocks, string $token, ?array $chrome = null): void
 {
     resolve(RunInTenant::class)->handle(
@@ -232,4 +240,19 @@ it('leaks no editor markup into live-site renders', function (): void {
         ->assertSee('Welcome friends')
         ->assertDontSee('data-block-key')
         ->assertDontSee('data-editor-insert');
+});
+
+it('serves nobody who is not signed in', function (): void {
+    // Defence in depth: the token used to be the only gate, which left the live
+    // unpublished draft of a page readable by anyone who obtained a URL. 404 and
+    // not 403, so it is indistinguishable from an unknown token.
+    auth()->logout();
+
+    $tenant = Tenant::factory()->withDomain('acme')->create();
+    $page = $this->createTenantPage($tenant, []);
+
+    cachePreviewFor($tenant, $page, [], 'tok');
+
+    $this->get(sprintf('http://acme.%s/_editor/preview?token=tok', $this->centralDomain()))
+        ->assertNotFound();
 });

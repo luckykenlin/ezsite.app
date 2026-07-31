@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Actions\Pages\CacheChatTurn;
 use App\Models\Tenant;
+use App\Models\User;
 use Illuminate\Support\Sleep;
 
 /**
@@ -15,6 +16,10 @@ use Illuminate\Support\Sleep;
  * in for the worker: it runs between the route's reads, which is exactly when a
  * real worker would have appended more text.
  */
+beforeEach(function (): void {
+    $this->actingAs(User::factory()->create());
+});
+
 function chatStreamResponse(string $token): string
 {
     return test()->get(sprintf(
@@ -113,5 +118,14 @@ it('does not resolve a token across tenants', function (): void {
     // The turn cache is tenant-prefixed, so another tenant's editor cannot read
     // this turn even holding the token.
     $this->get(sprintf('http://beta.%s/_editor/chat-stream?token=tok', $this->centralDomain()))
+        ->assertNotFound();
+});
+
+it('streams to nobody who is not signed in', function (): void {
+    auth()->logout();
+
+    Tenant::factory()->withDomain('acme')->create();
+
+    $this->get(sprintf('http://acme.%s/_editor/chat-stream?token=tok', $this->centralDomain()))
         ->assertNotFound();
 });

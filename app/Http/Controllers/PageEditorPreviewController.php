@@ -23,14 +23,26 @@ use Z3d0X\FilamentFabricator\Facades\FilamentFabricator;
  * plus the editor-only `data-block-key` wrappers and the click-to-select
  * script the wrapping editor page talks to.
  *
- * Access model mirrors filament-peek's preview route, which this app already
- * ships: an unguessable random token in a tenant-prefixed cache, so a URL is
- * useless cross-tenant and expires with the editing session.
+ * Two independent gates. The route requires an authenticated user, and the token
+ * is an unguessable random in a tenant-prefixed cache, so a URL is useless
+ * cross-tenant and expires with the editing session.
+ *
+ * The token alone used to be the whole gate — the route group carries no `auth`
+ * middleware — which made this an unauthenticated endpoint serving the live,
+ * unpublished draft of a page as the operator typed it. The token made that hard
+ * to reach rather than impossible, and a leaked URL (a screenshot, a support
+ * ticket, a proxy log) stayed valid for the session. Requiring a user costs
+ * nothing: only the editor's own iframe loads this, and it is inside the panel.
+ *
+ * 404 rather than 403, matching the unknown-token branch below, so the two are
+ * indistinguishable and neither confirms that a page or token exists.
  */
 final class PageEditorPreviewController extends Controller
 {
     public function __invoke(Request $request): View
     {
+        abort_unless(auth()->hasUser(), 404);
+
         $payload = Cache::get(CachePageEditorPreview::key((string) $request->query('token')));
 
         abort_unless(is_array($payload), 404);
