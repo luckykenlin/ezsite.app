@@ -4,21 +4,25 @@ declare(strict_types=1);
 
 use App\Ai\Agents\PageEditorAgent;
 use App\Ai\PageDraft;
+use App\Ai\SiteStyleDraft;
 use App\Ai\Tools\AddBlock;
 use App\Ai\Tools\RemoveBlock;
 use App\Ai\Tools\ReorderBlocks;
+use App\Ai\Tools\SetBlockVariant;
+use App\Ai\Tools\SetSiteStyle;
 use App\Ai\Tools\UpdateBlockContent;
+use App\Design\DesignTokens;
 use App\Enums\ChatRole;
 use App\Models\PageChatMessage;
 use App\Models\Tenant;
 use Laravel\Ai\Tools\Request;
 
-function editorAgent(PageDraft $draft, int $pageId = 1): PageEditorAgent
+function editorAgent(PageDraft $draft, int $pageId = 1, ?SiteStyleDraft $style = null): PageEditorAgent
 {
-    return new PageEditorAgent($draft, $pageId);
+    return new PageEditorAgent($draft, $pageId, $style);
 }
 
-it('offers the four page-editing verbs', function (): void {
+it('offers the page-editing verbs, without the site style when there is no business', function (): void {
     $tools = editorAgent(new PageDraft([]))->tools();
 
     expect(array_map(fn (object $tool): string => $tool::class, $tools))->toBe([
@@ -26,7 +30,20 @@ it('offers the four page-editing verbs', function (): void {
         AddBlock::class,
         RemoveBlock::class,
         ReorderBlocks::class,
+        SetBlockVariant::class,
     ]);
+});
+
+/*
+ * Design tokens live on the Business row, so without one there is nowhere for a
+ * style to land and every SetSiteStyle call would be a dead end the model cannot
+ * diagnose. Mirrors DesignAction::visible(hasBusinessProfile()) — and saves the
+ * tool's schema tokens on every turn of a profile-less tenant.
+ */
+it('adds the site-style verb only when a style draft is supplied', function (): void {
+    $tools = editorAgent(new PageDraft([]), style: new SiteStyleDraft(DesignTokens::default()))->tools();
+
+    expect(array_map(fn (object $tool): string => $tool::class, $tools))->toContain(SetSiteStyle::class);
 });
 
 /*
@@ -95,13 +112,44 @@ it('caps how far back it remembers', function (): void {
         ->and($messages->last()->content)->toBe($newest->content);
 });
 
-it('instructs the model to edit through tools and to leave layout alone', function (): void {
+it('instructs the model to edit through tools and never to invent facts', function (): void {
     $instructions = editorAgent(new PageDraft([]))->instructions();
 
     expect($instructions)->toContain('calling a tool')
-        ->toContain('never invent facts')
-        // Layout and theme belong to the operator's Design controls.
-        ->toContain('Layout and styling are not yours to set');
+        ->toContain('never invent facts');
+});
+
+/*
+ * Design authority replaced a flat prohibition ("Layout and styling are not
+ * yours to set... use the Design button"), so the guard rails that made that
+ * prohibition safe have to be restated as rules about HOW to choose, not
+ * whether to. Three matter enough to pin:
+ *
+ *  - the enumerated space, or the model reaches for CSS it cannot deliver;
+ *  - presets over loose tokens, which is the whole coherence argument;
+ *  - the blast radius, because a token change reaches pages the operator is not
+ *    looking at and they have to be told so in the reply.
+ */
+it('grants design authority only within the enumerated space', function (): void {
+    $instructions = editorAgent(new PageDraft([]))->instructions();
+
+    expect($instructions)->toContain('Layout and style ARE yours to set')
+        ->toContain('never a hex colour, a font name, a pixel value or CSS')
+        ->toContain('styles are combinations that were designed together')
+        ->toContain('affects every page')
+        // A named brand is translated into the style vocabulary, never echoed.
+        ->toContain('never name it back');
+});
+
+/*
+ * Every view is already mobile-first and no per-breakpoint styling exists, so
+ * the model has nothing to change here. Left unsaid it reaches for `density:
+ * compact` and reports a mobile improvement the operator cannot verify from a
+ * desktop canvas — a hallucinated success, which is worse than a plain no.
+ */
+it('tells the model there is no mobile-only styling to set', function (): void {
+    expect(editorAgent(new PageDraft([]))->instructions())
+        ->toContain('no mobile-only styling');
 });
 
 /*

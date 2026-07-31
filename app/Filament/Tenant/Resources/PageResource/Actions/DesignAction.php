@@ -6,6 +6,7 @@ namespace App\Filament\Tenant\Resources\PageResource\Actions;
 
 use App\Actions\SaveDesignSelection;
 use App\Design\StylePreset;
+use App\Design\TokenKey;
 use App\Design\TokenOptions;
 use App\Filament\Tenant\Resources\PageResource\Pages\PageEditor;
 use Filament\Actions\Action;
@@ -27,13 +28,13 @@ final readonly class DesignAction
     public static function make(PageEditor $editor): Action
     {
         $preview = function (Get $get) use ($editor): void {
-            $editor->previewDesign([
-                'preset' => $get('preset'),
-                'palette' => $get('palette'),
-                'font_pair' => $get('font_pair'),
-                'radius' => $get('radius'),
-                'density' => $get('density'),
-            ]);
+            $draft = ['preset' => $get('preset')];
+
+            foreach (TokenKey::values() as $key) {
+                $draft[$key] = $get($key);
+            }
+
+            $editor->previewDesign($draft);
         };
 
         return Action::make('design')
@@ -44,14 +45,13 @@ final readonly class DesignAction
             ->modalSubmitActionLabel('Apply to site')
             ->fillForm(function () use ($editor): array {
                 $tokens = $editor->businessOrFail()->design_tokens;
+                $state = ['preset' => $tokens->preset?->value];
 
-                return [
-                    'preset' => $tokens->preset?->value,
-                    'palette' => $tokens->palette->value,
-                    'font_pair' => $tokens->fontPair->value,
-                    'radius' => $tokens->radius->value,
-                    'density' => $tokens->density->value,
-                ];
+                foreach (TokenKey::cases() as $key) {
+                    $state[$key->value] = $key->valueOn($tokens);
+                }
+
+                return $state;
             })
             ->schema([
                 Select::make('preset')
@@ -65,18 +65,17 @@ final readonly class DesignAction
                         if ($preset !== null) {
                             $tokens = $preset->tokens();
 
-                            $set('palette', $tokens->palette->value);
-                            $set('font_pair', $tokens->fontPair->value);
-                            $set('radius', $tokens->radius->value);
-                            $set('density', $tokens->density->value);
+                            foreach (TokenKey::cases() as $key) {
+                                $set($key->value, $key->valueOn($tokens));
+                            }
                         }
 
                         $preview($get);
                     }),
-                self::tokenSelect('palette', null, TokenOptions::palettes(), $preview),
-                self::tokenSelect('font_pair', 'Fonts', TokenOptions::fontPairs(), $preview),
-                self::tokenSelect('radius', 'Corner radius', TokenOptions::radiusScales(), $preview),
-                self::tokenSelect('density', 'Spacing density', TokenOptions::densities(), $preview),
+                ...array_map(
+                    static fn (TokenKey $key): Select => self::tokenSelect($key, $preview),
+                    TokenKey::cases(),
+                ),
             ])
             ->action(function (array $data) use ($editor): void {
                 resolve(SaveDesignSelection::class)->handle($editor->businessOrFail(), $data);
@@ -95,14 +94,13 @@ final readonly class DesignAction
      * One fine-tune token: always has a value, and repaints the canvas the
      * moment it changes.
      *
-     * @param  array<string, string>  $options
      * @param  callable(Get): void  $preview
      */
-    private static function tokenSelect(string $name, ?string $label, array $options, callable $preview): Select
+    private static function tokenSelect(TokenKey $key, callable $preview): Select
     {
-        return Select::make($name)
-            ->label($label)
-            ->options($options)
+        return Select::make($key->value)
+            ->label($key->label())
+            ->options(TokenOptions::for($key))
             ->selectablePlaceholder(false)
             ->live()
             ->afterStateUpdated(fn (Get $get) => $preview($get));

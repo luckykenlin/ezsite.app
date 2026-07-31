@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Tenant\Resources\PageResource\Concerns;
 
 use App\Actions\Pages\CacheBlockHistory;
+use Livewire\Attributes\Locked;
 
 /**
  * The editor's structure-level undo/redo.
@@ -32,8 +33,10 @@ trait HasBlockHistory
      * snapshots in every Livewire payload — see that class for why. The blade needs
      * these to enable/disable the buttons, which is all the UI ever knew.
      */
+    #[Locked]
     public int $undoDepth = 0;
 
+    #[Locked]
     public int $redoDepth = 0;
 
     /**
@@ -57,7 +60,7 @@ trait HasBlockHistory
             return;
         }
 
-        $future[] = ['blocks' => $this->blocks, 'selectedBlockKey' => $this->selectedBlockKey];
+        $future[] = $this->currentSnapshot();
 
         $this->writeHistory($history, $future);
         $this->restoreSnapshot($entry);
@@ -77,7 +80,7 @@ trait HasBlockHistory
             return;
         }
 
-        $history[] = ['blocks' => $this->blocks, 'selectedBlockKey' => $this->selectedBlockKey];
+        $history[] = $this->currentSnapshot();
 
         $this->writeHistory($history, $future);
         $this->restoreSnapshot($entry);
@@ -104,14 +107,35 @@ trait HasBlockHistory
     {
         ['history' => $history] = $this->historyStacks();
 
-        $history[] = ['blocks' => $this->blocks, 'selectedBlockKey' => $this->selectedBlockKey];
+        $history[] = $this->currentSnapshot();
 
         // A new edit forks history, so the redo stack is discarded.
         $this->writeHistory($history, []);
     }
 
     /**
-     * @return array{history: list<array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, selectedBlockKey: string|null}>, future: list<array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, selectedBlockKey: string|null}>}
+     * The state one Undo steps back to.
+     *
+     * `design` is the staged, unsaved site style. It belongs in the snapshot
+     * because a chat turn can change blocks AND stage a restyle, and both land
+     * under a single {@see snapshot()} — without it, undoing such a turn would
+     * put the blocks back while leaving the canvas painted in a style the
+     * operator has just rejected, which is a state that never existed. It is
+     * null for every hand edit, and reading a null back out is a no-op.
+     *
+     * @return array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, selectedBlockKey: string|null, design: array<string, string|null>|null}
+     */
+    private function currentSnapshot(): array
+    {
+        return [
+            'blocks' => $this->blocks,
+            'selectedBlockKey' => $this->selectedBlockKey,
+            'design' => $this->designDraft,
+        ];
+    }
+
+    /**
+     * @return array{history: list<array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, selectedBlockKey: string|null, design: array<string, string|null>|null}>, future: list<array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, selectedBlockKey: string|null, design: array<string, string|null>|null}>}
      */
     private function historyStacks(): array
     {
@@ -122,8 +146,8 @@ trait HasBlockHistory
      * Persist both stacks and mirror their depths onto the component, which is the
      * only part of them the blade ever needed.
      *
-     * @param  list<array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, selectedBlockKey: string|null}>  $history
-     * @param  list<array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, selectedBlockKey: string|null}>  $future
+     * @param  list<array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, selectedBlockKey: string|null, design: array<string, string|null>|null}>  $history
+     * @param  list<array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, selectedBlockKey: string|null, design: array<string, string|null>|null}>  $future
      */
     private function writeHistory(array $history, array $future): void
     {
@@ -135,12 +159,19 @@ trait HasBlockHistory
     }
 
     /**
-     * @param  array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, selectedBlockKey: string|null}  $entry
+     * @param  array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, selectedBlockKey: string|null, design: array<string, string|null>|null}  $entry
      */
     private function restoreSnapshot(array $entry): void
     {
         $this->blocks = $entry['blocks'];
         $this->selectedBlockKey = $entry['selectedBlockKey'];
+
+        // Before markDirty(), which pushes the preview — pushPreview() reads
+        // `$designDraft`, so restoring it here is what repaints the canvas in the
+        // right theme without a second round trip.
+        $this->designDraft = $entry['design'];
+        $this->designDraftSource = $entry['design'] === null ? null : 'chat';
+
         $this->fillBlockForm();
         $this->markDirty();
         $this->dispatch('page-editor:select-canvas-block', key: $this->selectedBlockKey, scroll: false);

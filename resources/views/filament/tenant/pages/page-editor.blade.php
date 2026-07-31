@@ -87,6 +87,32 @@
                                 data-role="{{ $message['role'] }}"
                             >{{ $message['content'] }}</div>
                         @endif
+                        {{-- The site style the last turn staged.
+
+                             A block edit is reviewed on the canvas and committed
+                             by Save. A style is not the same kind of change: it
+                             writes the business row, so it retunes EVERY page
+                             including published ones, and it must not ride along
+                             with a Save that means "this page". Hence its own
+                             gate, right where the operator is reading about it.
+
+                             Rendered after the last message rather than beside
+                             it, because a design-only turn changes no blocks —
+                             `$message['changed']` is correctly false for it, so
+                             it has no bubble badge to hang off. --}}
+                        @if ($loop->last && $this->chatDesignAwaitingApply)
+                            <div class="pe-chat-design" wire:key="chat-design-gate">
+                                <p class="pe-chat-design-note">{{ __('This look is previewed on the canvas. Applying it changes every page on the site.') }}</p>
+                                <div class="pe-chat-design-actions">
+                                    <x-filament::button size="xs" wire:click="applyChatDesign" wire:loading.attr="disabled">
+                                        {{ __('Apply to site') }}
+                                    </x-filament::button>
+                                    <x-filament::button size="xs" color="gray" wire:click="discardChatDesign" wire:loading.attr="disabled">
+                                        {{ __('Discard') }}
+                                    </x-filament::button>
+                                </div>
+                            </div>
+                        @endif
                     @empty
                         {{-- Centred in the empty thread rather than pinned to
                              the top, with the examples as buttons: the hardest

@@ -9,12 +9,15 @@ use App\Ai\ChangedBlocks;
 use App\Ai\ChatActivity;
 use App\Ai\PageDraft;
 use App\Ai\Prompts\PageEditPrompt;
+use App\Ai\SiteStyleDraft;
 use App\Enums\ChatRole;
+use App\Models\Business;
 use App\Models\Page;
 use App\Models\PageChatMessage;
 use App\Models\User;
 use App\Site\BindResolver;
 use App\Site\Blocks\BlockVocabulary;
+use App\Site\SiteContext;
 use Closure;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -71,6 +74,7 @@ final readonly class ChatEditPage
         private RecordPageChatMessage $transcript,
         private ChatActivity $activity,
         private ChangedBlocks $changed,
+        private SiteContext $site,
     ) {
         //
     }
@@ -79,7 +83,7 @@ final readonly class ChatEditPage
      * @param  list<array{key: string, type: string, data: array<string, mixed>}>  $blocks  the editor's current draft
      * @param  (Closure(string): void)|null  $onDelta  called with each chunk of the reply as it arrives
      * @param  (Closure(string): void)|null  $onActivity  called with one line per tool call, as it is announced
-     * @return array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, reply: string, failed: bool}
+     * @return array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, reply: string, failed: bool, design: array<string, string|null>|null}
      */
     public function handle(
         Page $page,
@@ -102,8 +106,14 @@ final readonly class ChatEditPage
 
         $draft = new PageDraft($blocks);
 
+        // Null when the tenant has no Business profile: tokens live on that row,
+        // so there is nowhere for a style to be applied — and the agent withholds
+        // the design tool for the same reason.
+        $business = $this->bindResolver->business();
+        $style = $business instanceof Business ? new SiteStyleDraft($business->design_tokens) : null;
+
         try {
-            $reply = $this->ask($page, $draft, $message, $onDelta, $onActivity);
+            $reply = $this->ask($page, $draft, $style, $message, $onDelta, $onActivity);
         } catch (Throwable $throwable) {
             Log::error('page_chat.failed', [
                 'page_id' => $page->id,
@@ -114,7 +124,10 @@ final readonly class ChatEditPage
 
             $this->record($page, $user, ChatRole::Assistant, $reply);
 
-            return ['blocks' => $blocks, 'reply' => $reply, 'failed' => true];
+            // `design` is explicitly null, not merely absent: a turn that chose a
+            // palette and then died must not leave the operator previewing a
+            // half-finished restyle they never saw described.
+            return ['blocks' => $blocks, 'reply' => $reply, 'failed' => true, 'design' => null];
         }
 
         $edited = $draft->blocks();
@@ -122,7 +135,7 @@ final readonly class ChatEditPage
 
         $this->record($page, $user, ChatRole::Assistant, $reply, $changed);
 
-        return ['blocks' => $edited, 'reply' => $reply, 'failed' => false];
+        return ['blocks' => $edited, 'reply' => $reply, 'failed' => false, 'design' => $style?->toArray()];
     }
 
     /**
@@ -179,7 +192,7 @@ final readonly class ChatEditPage
      * @param  (Closure(string): void)|null  $onDelta
      * @param  (Closure(string): void)|null  $onActivity
      */
-    private function ask(Page $page, PageDraft $draft, string $message, ?Closure $onDelta, ?Closure $onActivity = null): string
+    private function ask(Page $page, PageDraft $draft, ?SiteStyleDraft $style, string $message, ?Closure $onDelta, ?Closure $onActivity = null): string
     {
         $prompt = new PageEditPrompt(
             $page,
@@ -187,13 +200,15 @@ final readonly class ChatEditPage
             $this->vocabulary->all(),
             $this->bindResolver->business(),
             $message,
+            $this->site,
+            $style,
         );
 
         // Started before the first request, not after: the slowest turns are the
         // ones where step one already takes too long.
         $deadline = now()->addSeconds(self::TURN_BUDGET_SECONDS);
 
-        $response = new PageEditorAgent($draft, (int) $page->id)->stream((string) $prompt);
+        $response = new PageEditorAgent($draft, (int) $page->id, $style)->stream((string) $prompt);
 
         foreach ($response as $event) {
             // Between events is the only place a turn can be stopped: tools run

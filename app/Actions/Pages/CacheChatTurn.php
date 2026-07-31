@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Actions\Pages;
 
+use App\Design\TokenKey;
 use Illuminate\Support\Facades\Cache;
 
 /**
@@ -50,8 +51,15 @@ final readonly class CacheChatTurn
      *                                  same reason: the stream forwards only the
      *                                  increment, so a browser that reconnects
      *                                  mid-turn still gets the lines it missed.
+     * @param  array<string, string|null>|null  $design  the site style the turn STAGED, or
+     *                                                   null when it left the style alone.
+     *                                                   Travels beside the blocks rather than
+     *                                                   inside them because tokens are
+     *                                                   site-scoped — they are not part of any
+     *                                                   page — and the editor has to apply both
+     *                                                   halves under one undo snapshot.
      */
-    public function handle(string $token, string $reply, ?array $blocks = null, bool $failed = false, array $activity = []): void
+    public function handle(string $token, string $reply, ?array $blocks = null, bool $failed = false, array $activity = [], ?array $design = null): void
     {
         Cache::put(self::key($token), [
             'status' => $blocks === null ? 'running' : 'done',
@@ -59,6 +67,7 @@ final readonly class CacheChatTurn
             'blocks' => $blocks,
             'failed' => $failed,
             'activity' => $activity,
+            'design' => $design,
         ], now()->addMinutes(self::TTL_MINUTES));
     }
 
@@ -68,7 +77,7 @@ final readonly class CacheChatTurn
      * editor's state and from there into the page, so a malformed entry is
      * dropped here instead of downstream.
      *
-     * @return array{status: string, reply: string, blocks: list<array{key: string, type: string, data: array<string, mixed>}>|null, failed: bool, activity: list<string>}|null
+     * @return array{status: string, reply: string, blocks: list<array{key: string, type: string, data: array<string, mixed>}>|null, failed: bool, activity: list<string>, design: array<string, string|null>|null}|null
      */
     public function read(string $token): ?array
     {
@@ -84,6 +93,7 @@ final readonly class CacheChatTurn
             'blocks' => $this->normalisedBlocks($turn['blocks'] ?? null),
             'failed' => (bool) ($turn['failed'] ?? false),
             'activity' => $this->normalisedActivity($turn['activity'] ?? null),
+            'design' => $this->normalisedDesign($turn['design'] ?? null),
         ];
     }
 
@@ -105,6 +115,36 @@ final readonly class CacheChatTurn
         }
 
         return array_values(array_filter($activity, is_string(...)));
+    }
+
+    /**
+     * The staged style, reduced to the keys the editor's preview understands.
+     *
+     * Normalised for the same reason the blocks are: this arrives from an
+     * external store and goes straight into `$designDraft`, from which
+     * {@see \App\Design\ThemeVariables::styleFor()} compiles a `<style>` tag.
+     * Every value there is re-resolved against a token enum, so a junk value
+     * cannot reach CSS — but an unexpected KEY would ride along into the
+     * editor's state, so only known ones survive.
+     *
+     * Returns null for anything that is not an array, which is also the
+     * "this turn left the style alone" signal.
+     *
+     * @return array<string, string|null>|null
+     */
+    private function normalisedDesign(mixed $design): ?array
+    {
+        if (! is_array($design)) {
+            return null;
+        }
+
+        $normalised = ['preset' => is_string($design['preset'] ?? null) ? $design['preset'] : null];
+
+        foreach (TokenKey::values() as $key) {
+            $normalised[$key] = is_string($design[$key] ?? null) ? $design[$key] : null;
+        }
+
+        return $normalised;
     }
 
     /**

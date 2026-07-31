@@ -63,6 +63,29 @@ final readonly class DesignTokens
     }
 
     /**
+     * This look in one line, e.g. `warm-craft — warm-sand, elegant-serif, lg,
+     * spacious`.
+     *
+     * For the chat assistant, which needs to know where the site currently
+     * stands before it can act on "make it warmer" — warmer than what is not
+     * answerable from the request alone. Lives here rather than on either
+     * consumer ({@see \App\Site\SiteContext::digest()} describes the SAVED
+     * tokens, {@see \App\Ai\SiteStyleDraft} the staged ones) so the two can
+     * never drift into describing the same tokens differently.
+     */
+    public function describe(): string
+    {
+        $values = array_map(
+            fn (TokenKey $key): string => $key->valueOn($this),
+            TokenKey::cases(),
+        );
+
+        $preset = $this->preset;
+
+        return ($preset instanceof StylePreset ? $preset->value : 'custom').' — '.implode(', ', $values);
+    }
+
+    /**
      * A copy with the given tokens replaced. Any manual override detaches
      * the preset marker — the combination is custom from then on.
      */

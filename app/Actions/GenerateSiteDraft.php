@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Actions;
 
+use App\Actions\Pages\StampVariantDefaults;
 use App\Ai\Agents\SiteDraftAgent;
 use App\Ai\Prompts\SiteDraftPrompt;
 use App\Ai\SiteDraftValidator;
@@ -14,7 +15,6 @@ use App\Exceptions\SiteDraftUnusable;
 use App\Models\Business;
 use App\Models\Location;
 use App\Models\Page;
-use App\Site\Blocks\BlockShape;
 use App\Site\Blocks\BlockVocabulary;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -36,6 +36,7 @@ final readonly class GenerateSiteDraft
         private SiteDraftValidator $validator,
         private ApplyStylePreset $applyStylePreset,
         private BlockVocabulary $vocabulary,
+        private StampVariantDefaults $stampVariantDefaults,
     ) {
         //
     }
@@ -65,7 +66,7 @@ final readonly class GenerateSiteDraft
             'The home page is already published; refusing to overwrite it.',
         );
 
-        $blocks = $this->stampVariants($draft['blocks'], $draft['preset']);
+        $blocks = $this->stampVariantDefaults->handle($draft['blocks'], $draft['preset']);
 
         return DB::transaction(function () use ($business, $existing, $draft, $blocks): Page {
             $this->applyStylePreset->handle($business, $draft['preset']);
@@ -115,30 +116,5 @@ final readonly class GenerateSiteDraft
         );
 
         return $this->validator->handle($response->toArray(), $business->name);
-    }
-
-    /**
-     * @param  list<array{type: string, data: array<string, mixed>}>  $blocks
-     * @return list<array{type: string, data: array<string, mixed>}>
-     */
-    private function stampVariants(array $blocks, StylePreset $preset): array
-    {
-        $vocabulary = $this->vocabulary->all();
-        $defaults = $preset->blockVariantDefaults();
-
-        return array_map(function (array $block) use ($vocabulary, $defaults): array {
-            $variants = $vocabulary[$block['type']]->variants;
-
-            if ($variants !== []) {
-                $preferred = $defaults[$block['type']] ?? null;
-
-                // Falls back to the block's first variant if the preset has no
-                // (valid) default for this type — e.g. a block added after the
-                // preset was authored.
-                $block['data'][BlockShape::VARIANT_KEY] = in_array($preferred, $variants, true) ? $preferred : $variants[0];
-            }
-
-            return $block;
-        }, $blocks);
     }
 }

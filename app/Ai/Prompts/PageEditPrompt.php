@@ -5,11 +5,14 @@ declare(strict_types=1);
 namespace App\Ai\Prompts;
 
 use App\Ai\PageDraft;
+use App\Ai\SiteStyleDraft;
+use App\Design\StylePreset;
 use App\Enums\BindType;
 use App\Enums\ChromeSlot;
 use App\Models\Business;
 use App\Models\Page;
 use App\Site\Blocks\BlockType;
+use App\Site\SiteContext;
 use Stringable;
 
 /**
@@ -39,6 +42,8 @@ final readonly class PageEditPrompt implements Stringable
         private array $vocabulary,
         private ?Business $business,
         private string $message,
+        private ?SiteContext $site = null,
+        private ?SiteStyleDraft $style = null,
     ) {
         //
     }
@@ -49,6 +54,8 @@ final readonly class PageEditPrompt implements Stringable
             $this->pageSection(),
             $this->draft->outline(),
             $this->vocabularySection(),
+            $this->siteSection(),
+            $this->styleSection(),
             $this->businessSection(),
             $this->requestSection(),
         ]));
@@ -81,9 +88,13 @@ final readonly class PageEditPrompt implements Stringable
             }
 
             $lines[] = sprintf(
-                '- %s: %s%s',
+                '- %s: %s%s%s',
                 $type,
                 $contract->fields === [] ? '(no content fields)' : implode(', ', $contract->fields),
+                // The layouts this type offers, inline rather than behind a
+                // lookup tool: "make the hero full-width" must not cost a round
+                // trip, and it is ~5 tokens per type actually on the page.
+                $contract->variants === [] ? '' : ' — layouts: '.implode(', ', $contract->variants),
                 $contract->bind instanceof BindType
                     ? ' — also shows live '.$contract->bind->value.' details automatically; write only its narrative fields'
                     : '',
@@ -93,14 +104,60 @@ final readonly class PageEditPrompt implements Stringable
         $addable = array_diff(array_keys($this->vocabulary), $present, ChromeSlot::values());
 
         return "## Block vocabulary\n"
-            .'The fields each block type on this page accepts. Field names not listed here are '
-            ."discarded — never invent one, and never write \"variant\" or \"bind\".\n"
+            .'The fields each block type on this page accepts, and the layouts it can be switched '
+            .'to. Field names not listed here are discarded — never invent one, and never write '
+            ."\"variant\", \"bind\" or a layout name as if it were a content field.\n"
             .($lines === [] ? '(nothing on the page yet)' : implode("\n", $lines))
             .($addable === [] ? '' : "\nTypes you can add: ".implode(', ', $addable).'.')
             ."\nList fields (features, testimonials, images, nav_links) take an array of flat "
             .'objects, e.g. features: [{icon, title, description}]. For links use relative paths '
             .'like "/contact" or anchors like "#contact". The site header and footer are '
             .'site-wide and are not part of this page.';
+    }
+
+    /**
+     * The rest of the site: who the business is, what the saved look is, and
+     * which pages exist. That last one closes a real gap — the vocabulary
+     * section tells the model to write relative links like "/contact" without
+     * ever saying which addresses are real.
+     */
+    private function siteSection(): ?string
+    {
+        return $this->site?->digest();
+    }
+
+    /**
+     * The style menu, and where the site currently stands.
+     *
+     * Present only when the design tools are — no Business profile means no
+     * token row to write to, so publishing the menu would invite a call that
+     * cannot land. ~150 tokens, and it is the whole grounding for "make it more
+     * premium": {@see StylePreset::vibes()} holds INDUSTRY nouns, so without
+     * `synonyms()` in the prompt an adjective has nothing to match against and
+     * the model free-associates among six labels.
+     */
+    private function styleSection(): ?string
+    {
+        if (! $this->style instanceof SiteStyleDraft) {
+            return null;
+        }
+
+        $lines = array_map(
+            static fn (StylePreset $preset): string => sprintf(
+                '- %s — %s Words: %s',
+                $preset->value,
+                $preset->description(),
+                implode(', ', $preset->synonyms()),
+            ),
+            StylePreset::cases(),
+        );
+
+        return "## Site style\n"
+            .'The whole site currently uses: '.$this->style->current()->describe()."\n"
+            ."Changing this affects every page. The styles you can choose from:\n"
+            .implode("\n", $lines)
+            ."\nMatch the operator's own words against the \"Words\" list. A brand or website they "
+            .'name is translated into those words, never stored or repeated back.';
     }
 
     /**

@@ -9,6 +9,7 @@ use App\Site\BindResolver;
 use App\Site\Blocks\BlockVocabulary;
 use App\Site\MediaResolver;
 use App\Site\SiteChrome;
+use App\Site\SiteContext;
 use Illuminate\Support\ServiceProvider;
 
 final class AppServiceProvider extends ServiceProvider
@@ -18,6 +19,7 @@ final class AppServiceProvider extends ServiceProvider
         $this->app->scoped(BindResolver::class);
         $this->app->scoped(MediaResolver::class);
         $this->app->scoped(SiteChrome::class);
+        $this->app->scoped(SiteContext::class);
 
         // The one place the two layers are wired together. The block CLASSES are
         // Filament form schemas and stay under App\Filament (Fabricator globs them

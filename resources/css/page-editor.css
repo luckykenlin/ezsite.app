@@ -548,6 +548,43 @@
     background: currentColor;
 }
 
+/* The staged-site-style gate. A card rather than the inline pill
+   `.pe-chat-edited` uses, because this one is not a badge on an answer:
+   it carries two buttons, and the change it describes reaches every page
+   on the site rather than the one on the canvas. */
+.pe-chat-design {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-top: 0.25rem;
+    border: 1px solid rgba(99, 102, 241, 0.28);
+    border-radius: 0.625rem;
+    padding: 0.625rem 0.75rem;
+    background: rgba(99, 102, 241, 0.08);
+}
+
+.dark .pe-chat-design {
+    border-color: rgba(129, 140, 248, 0.32);
+    background: rgba(99, 102, 241, 0.14);
+}
+
+.pe-chat-design-note {
+    margin: 0;
+    font-size: 0.75rem;
+    line-height: 1.4;
+    color: #3730a3;
+}
+
+.dark .pe-chat-design-note {
+    color: #c7d2fe;
+}
+
+.pe-chat-design-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem;
+}
+
 /* Centred in the thread, so a fresh conversation reads as an
    invitation rather than as a paragraph stuck to the ceiling. */
 .pe-chat-empty {

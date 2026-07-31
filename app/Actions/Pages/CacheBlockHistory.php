@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Actions\Pages;
 
+use App\Design\TokenKey;
 use App\Site\Blocks\BlockData;
 use Illuminate\Support\Facades\Cache;
 
@@ -58,8 +59,8 @@ final readonly class CacheBlockHistory
     }
 
     /**
-     * @param  list<array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, selectedBlockKey: string|null}>  $history
-     * @param  list<array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, selectedBlockKey: string|null}>  $future
+     * @param  list<array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, selectedBlockKey: string|null, design: array<string, string|null>|null}>  $history
+     * @param  list<array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, selectedBlockKey: string|null, design: array<string, string|null>|null}>  $future
      */
     public function handle(int $pageId, array $history, array $future): void
     {
@@ -77,7 +78,7 @@ final readonly class CacheBlockHistory
      * snapshot is dropped here rather than downstream — the same reasoning as
      * {@see CacheChatTurn::read()}.
      *
-     * @return array{history: list<array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, selectedBlockKey: string|null}>, future: list<array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, selectedBlockKey: string|null}>}
+     * @return array{history: list<array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, selectedBlockKey: string|null, design: array<string, string|null>|null}>, future: list<array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, selectedBlockKey: string|null, design: array<string, string|null>|null}>}
      */
     public function read(int $pageId): array
     {
@@ -93,7 +94,7 @@ final readonly class CacheBlockHistory
     /**
      * Whether a stored entry has the shape of a snapshot at all.
      *
-     * @phpstan-assert-if-true array{blocks: array<array-key, mixed>, selectedBlockKey?: mixed} $entry
+     * @phpstan-assert-if-true array{blocks: array<array-key, mixed>, selectedBlockKey?: mixed, design?: mixed} $entry
      */
     private function isSnapshot(mixed $entry): bool
     {
@@ -114,7 +115,7 @@ final readonly class CacheBlockHistory
     }
 
     /**
-     * @return list<array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, selectedBlockKey: string|null}>
+     * @return list<array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, selectedBlockKey: string|null, design: array<string, string|null>|null}>
      */
     private function normalisedStack(mixed $stack): array
     {
@@ -134,7 +135,33 @@ final readonly class CacheBlockHistory
             $normalised[] = [
                 'blocks' => $this->normalisedBlocks($entry['blocks']),
                 'selectedBlockKey' => is_string($selected) ? $selected : null,
+                'design' => $this->normalisedDesign($entry['design'] ?? null),
             ];
+        }
+
+        return $normalised;
+    }
+
+    /**
+     * The staged site style a snapshot carried, reduced to known keys.
+     *
+     * Null both when the snapshot predates this key and when the edit simply
+     * had no staged style — the two are indistinguishable and mean the same
+     * thing to {@see \App\Filament\Tenant\Resources\PageResource\Concerns\HasBlockHistory::restoreSnapshot()},
+     * which is why an already-cached stack survives the change inertly.
+     *
+     * @return array<string, string|null>|null
+     */
+    private function normalisedDesign(mixed $design): ?array
+    {
+        if (! is_array($design)) {
+            return null;
+        }
+
+        $normalised = ['preset' => is_string($design['preset'] ?? null) ? $design['preset'] : null];
+
+        foreach (TokenKey::values() as $key) {
+            $normalised[$key] = is_string($design[$key] ?? null) ? $design[$key] : null;
         }
 
         return $normalised;

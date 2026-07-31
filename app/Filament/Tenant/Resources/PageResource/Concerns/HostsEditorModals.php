@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Tenant\Resources\PageResource\Concerns;
 
+use App\Design\TokenKey;
 use App\Filament\Tenant\Pages\BusinessProfile;
 use App\Models\Business;
 use App\Site\Blocks\BlockData;
@@ -41,26 +42,46 @@ trait HostsEditorModals
      */
     public ?array $designDraft = null;
 
+    /**
+     * Who staged the current draft: `'modal'` for the Design modal's live
+     * fields, `'chat'` for the assistant. Null whenever there is no draft.
+     *
+     * The distinction is load-bearing, not bookkeeping. {@see unmountAction()}
+     * discards the draft on ANY modal close, which is right for the modal's own
+     * transient state and catastrophic for the assistant's: opening Page
+     * settings would silently throw away a restyle the operator was still
+     * reviewing, with nothing on screen to say it had gone.
+     */
+    public ?string $designDraftSource = null;
+
     private ?Business $businessRecord = null;
 
     private bool $businessLoaded = false;
 
     /**
-     * Stage a design-token draft for the canvas preview (called by the
-     * Design modal's live fields). Nothing persists — the canvas simply
-     * re-renders with the draft theme layered over the saved one.
+     * Stage a design-token draft for the canvas preview. Nothing persists —
+     * the canvas simply re-renders with the draft theme layered over the saved
+     * one; "Apply to site" is still the only write path.
+     *
+     * Two producers now: the Design modal's live fields, and
+     * {@see \App\Ai\Tools\SetSiteStyle} by way of the chat turn. The key list
+     * is derived from {@see TokenKey} rather than written out, because a
+     * literal list silently DROPS any token not named in it — the assistant
+     * would describe a change the canvas never shows.
      *
      * @param  array<string, mixed>  $draft
+     * @param  'modal'|'chat'  $source
      */
-    public function previewDesign(array $draft): void
+    public function previewDesign(array $draft, string $source = 'modal'): void
     {
-        $this->designDraft = [
-            'preset' => is_string($draft['preset'] ?? null) ? $draft['preset'] : null,
-            'palette' => is_string($draft['palette'] ?? null) ? $draft['palette'] : null,
-            'font_pair' => is_string($draft['font_pair'] ?? null) ? $draft['font_pair'] : null,
-            'radius' => is_string($draft['radius'] ?? null) ? $draft['radius'] : null,
-            'density' => is_string($draft['density'] ?? null) ? $draft['density'] : null,
-        ];
+        $staged = ['preset' => is_string($draft['preset'] ?? null) ? $draft['preset'] : null];
+
+        foreach (TokenKey::values() as $key) {
+            $staged[$key] = is_string($draft[$key] ?? null) ? $draft[$key] : null;
+        }
+
+        $this->designDraft = $staged;
+        $this->designDraftSource = $source;
 
         $this->pushPreview();
     }
@@ -72,17 +93,24 @@ trait HostsEditorModals
         }
 
         $this->designDraft = null;
+        $this->designDraftSource = null;
         $this->pushPreview();
     }
 
     /**
-     * Closing any modal without applying discards the design draft — only
-     * the Design modal ever sets it, and its "Apply to site" path clears it
-     * before unmount.
+     * Closing a modal without applying discards the draft the MODAL staged —
+     * its fields are gone, so the preview they were driving should be too.
+     *
+     * A chat-staged draft survives: it is the result of a turn the operator has
+     * not answered yet, and it has its own Apply affordance in the chat rail.
      */
     public function unmountAction(bool|string|null $cancelParentActions = null): void
     {
         parent::unmountAction($cancelParentActions);
+
+        if ($this->designDraftSource === 'chat') {
+            return;
+        }
 
         $this->clearDesignDraft();
     }

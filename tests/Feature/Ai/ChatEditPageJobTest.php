@@ -5,8 +5,10 @@ declare(strict_types=1);
 use App\Actions\Pages\CacheChatTurn;
 use App\Actions\Pages\RecordPageChatMessage;
 use App\Ai\Agents\PageEditorAgent;
+use App\Design\StylePreset;
 use App\Enums\ChatRole;
 use App\Jobs\ChatEditPageJob;
+use App\Models\Business;
 use App\Models\Page;
 use App\Models\PageChatMessage;
 use App\Models\Tenant;
@@ -211,4 +213,60 @@ it('survives a failure whose exception is gone', function (): void {
         $this->tenant,
         fn (): ?array => resolve(CacheChatTurn::class)->read('tok'),
     )['failed'])->toBeTrue();
+});
+
+/*
+ * The staged style has to survive the worker → cache → editor hop, which is a
+ * serialisation boundary the blocks already cross. It travels beside them rather
+ * than inside them because tokens are site-scoped — they belong to no page — and
+ * the editor needs both halves to land under one undo snapshot.
+ */
+it('publishes a staged site style for the editor to pick up', function (): void {
+    $this->createTenantBusiness($this->tenant, [], 0);
+
+    PageEditorAgent::fake([
+        new ToolCall('call-1', 'SetSiteStyle', ['preset' => 'warm-craft']),
+        'Warmed the site up.',
+    ])->preventStrayPrompts();
+
+    chatJob(jobBlocks())->handle();
+
+    $turn = $this->runInTenant($this->tenant, fn (): ?array => resolve(CacheChatTurn::class)->read('tok'));
+
+    expect($turn['design']['preset'])->toBe('warm-craft')
+        ->and($turn['design']['palette'])->toBe(StylePreset::WarmCraft->tokens()->palette->value)
+        // And still nothing written — the operator applies it from the rail.
+        ->and(Business::query()->sole()->design_tokens->preset)->toBeNull();
+});
+
+it('publishes no style for a turn that only touched content', function (): void {
+    $this->createTenantBusiness($this->tenant, [], 0);
+
+    PageEditorAgent::fake([
+        new ToolCall('call-1', 'UpdateBlockContent', ['key' => 'k1', 'content' => ['heading' => 'Fresh']]),
+        'Rewrote the headline.',
+    ])->preventStrayPrompts();
+
+    chatJob(jobBlocks())->handle();
+
+    $turn = $this->runInTenant($this->tenant, fn (): ?array => resolve(CacheChatTurn::class)->read('tok'));
+
+    expect($turn['design'])->toBeNull();
+});
+
+/*
+ * A job that DIED (a deploy, a worker OOM) never returned a result, so anything
+ * it had begun choosing is discarded along with the block edits.
+ */
+it('leaves no staged style behind when the job itself fails', function (): void {
+    $this->createTenantBusiness($this->tenant, [], 0);
+
+    Log::spy();
+
+    chatJob(jobBlocks())->failed(new RuntimeException('worker killed'));
+
+    $turn = $this->runInTenant($this->tenant, fn (): ?array => resolve(CacheChatTurn::class)->read('tok'));
+
+    expect($turn['design'])->toBeNull()
+        ->and($turn['blocks'])->toBe(jobBlocks());
 });

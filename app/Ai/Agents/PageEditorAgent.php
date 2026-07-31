@@ -7,12 +7,16 @@ namespace App\Ai\Agents;
 use App\Actions\Pages\AddPageBlock;
 use App\Actions\Pages\RemovePageBlock;
 use App\Actions\Pages\ReorderPageBlocks;
+use App\Actions\Pages\StampVariantDefaults;
 use App\Actions\Pages\UpdatePageBlock;
 use App\Ai\BlockDataSanitizer;
 use App\Ai\PageDraft;
+use App\Ai\SiteStyleDraft;
 use App\Ai\Tools\AddBlock;
 use App\Ai\Tools\RemoveBlock;
 use App\Ai\Tools\ReorderBlocks;
+use App\Ai\Tools\SetBlockVariant;
+use App\Ai\Tools\SetSiteStyle;
 use App\Ai\Tools\UpdateBlockContent;
 use App\Enums\ChatRole;
 use App\Models\PageChatMessage;
@@ -68,7 +72,8 @@ final readonly class PageEditorAgent implements Agent, Conversational, HasTools
     public const int HISTORY_LIMIT = 20;
 
     private const string INSTRUCTIONS = 'You are the editing assistant inside a small-business '
-        .'website builder. The operator has one page open and asks you to change it. '
+        .'website builder. The operator has one page open and asks you to change it — its words, '
+        .'its sections, the layout of a section, or the way the whole site looks. '
         ."\n\n"
         .'You work on this page and nothing else. General knowledge, news, current events, '
         .'people, politics, maths, translation, code, other software, advice unrelated to this '
@@ -86,9 +91,26 @@ final readonly class PageEditorAgent implements Agent, Conversational, HasTools
         .'outline each tool returns, and only use field names from the block vocabulary you '
         .'were given: an invented field name is discarded, so re-read the outline and retry '
         .'with a real one instead of repeating yourself. '
-        .'Layout and styling are not yours to set — no variant, theme or CSS choices; if the '
-        .'operator asks for a different look, tell them to use the Design button. '
         .'You may add and remove sections, but only remove one when they clearly asked. '
+        .'Nothing you do is saved — the operator reviews every change on the canvas and saves it '
+        .'themselves — so when a request is clear, make the change instead of asking whether you should. '
+        ."\n\n"
+        .'Layout and style ARE yours to set, but only through the choices the builder offers: never '
+        ."a hex colour, a font name, a pixel value or CSS. The levers differ in reach. A section's "
+        .'layout changes one block on this page. The site style changes the colours, fonts, corner '
+        .'shapes and spacing of EVERY page on the site. When the operator describes a feeling — '
+        .'"more premium", "warmer", "cleaner", "bolder" — match their words against the style list '
+        .'you were given and set that style; styles are combinations that were designed together, '
+        .'and picking colours, type and shapes one at a time is how a site starts to look wrong. '
+        .'Fine-tune a single setting only when they named that thing itself ("rounder corners", '
+        .'"tighter spacing"). When you set a site style, align this page\'s section layouts to it in '
+        .'the same call rather than changing sections one by one. One look per site: never restyle '
+        .'the whole site to suit one section. If a brand, a person or another website is named, '
+        .'translate it into the qualities in your style list — never name it back, and never claim '
+        .'the result resembles it. If you change the site style, say in your answer that it affects '
+        .'every page and that they apply it separately. '
+        .'The site is already responsive and there is no mobile-only styling to set: if they ask for '
+        .'a mobile improvement, say so plainly and offer a change you can actually make. '
         ."\n\n"
         .'Write copy that is concise and specific to this business, and never invent facts — '
         .'no addresses, prices, opening hours, awards or testimonials that are not already in '
@@ -99,14 +121,20 @@ final readonly class PageEditorAgent implements Agent, Conversational, HasTools
         .'language the operator wrote in. The chat renders light markdown, so a short list, a '
         .'small table or bold for a section name is fine where it genuinely helps them scan a '
         .'multi-section change; a one-line answer needs none of it. Never use headings, and '
-        .'never paste the copy you wrote. If you changed nothing, say so and why.';
+        .'never paste the copy you wrote. If you changed nothing, say so and why. '
+        .'When a request is broad enough that you will make several changes, open with one short '
+        .'sentence naming what you are about to do before your first tool call, then do it.';
 
     /**
      * @param  PageDraft  $draft  the shared working copy every tool mutates
+     * @param  SiteStyleDraft|null  $style  the turn's staged site style; null when
+     *                                      the tenant has no Business profile, which
+     *                                      is also when the design tools are withheld
      */
     public function __construct(
         private PageDraft $draft,
         private int $pageId,
+        private ?SiteStyleDraft $style = null,
     ) {
         //
     }
@@ -139,17 +167,32 @@ final readonly class PageEditorAgent implements Agent, Conversational, HasTools
     }
 
     /**
-     * @return list<AddBlock|RemoveBlock|ReorderBlocks|UpdateBlockContent>
+     * The design tools are withheld when there is no Business profile, mirroring
+     * `DesignAction::visible(hasBusinessProfile())`: tokens are stored on that
+     * row, so without one there is nowhere for a style to be applied and every
+     * such call would be a dead end the model cannot diagnose. Better to not
+     * offer the verb — and to save its schema tokens on every turn.
+     *
+     * @return list<AddBlock|RemoveBlock|ReorderBlocks|SetBlockVariant|SetSiteStyle|UpdateBlockContent>
      */
     public function tools(): iterable
     {
         $sanitizer = resolve(BlockDataSanitizer::class);
+        $vocabulary = resolve(BlockVocabulary::class);
+        $update = resolve(UpdatePageBlock::class);
 
-        return [
-            new UpdateBlockContent($this->draft, $sanitizer, resolve(UpdatePageBlock::class)),
-            new AddBlock($this->draft, resolve(AddPageBlock::class), resolve(BlockVocabulary::class)),
+        $tools = [
+            new UpdateBlockContent($this->draft, $sanitizer, $update),
+            new AddBlock($this->draft, resolve(AddPageBlock::class), $vocabulary),
             new RemoveBlock($this->draft, resolve(RemovePageBlock::class)),
             new ReorderBlocks($this->draft, resolve(ReorderPageBlocks::class)),
+            new SetBlockVariant($this->draft, $vocabulary, $update),
         ];
+
+        if ($this->style instanceof SiteStyleDraft) {
+            $tools[] = new SetSiteStyle($this->style, $this->draft, resolve(StampVariantDefaults::class));
+        }
+
+        return $tools;
     }
 }

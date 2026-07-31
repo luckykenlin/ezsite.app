@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Actions;
 
 use App\Design\StylePreset;
+use App\Design\TokenKey;
 use App\Models\Business;
 
 /**
@@ -29,7 +30,7 @@ final readonly class SaveDesignSelection
     }
 
     /**
-     * @param  array<array-key, mixed>  $selection  raw form state: preset + the four token keys
+     * @param  array<array-key, mixed>  $selection  raw form state: preset + every {@see TokenKey}
      */
     public function handle(Business $business, array $selection): Business
     {
@@ -59,15 +60,15 @@ final readonly class SaveDesignSelection
     {
         $tokens = $preset->tokens();
 
-        return ($selection['palette'] ?? null) === $tokens->palette->value
-            && ($selection['font_pair'] ?? null) === $tokens->fontPair->value
-            && ($selection['radius'] ?? null) === $tokens->radius->value
-            && ($selection['density'] ?? null) === $tokens->density->value;
+        return array_all(
+            TokenKey::cases(),
+            fn (TokenKey $key): bool => ($selection[$key->value] ?? null) === $key->valueOn($tokens),
+        );
     }
 
     /**
-     * The four token keys, keeping only the ones the form actually supplied —
-     * an absent (e.g. hidden) field must not be written as null.
+     * Every token key, keeping only the ones the form actually supplied — an
+     * absent (e.g. hidden) field must not be written as null.
      *
      * @param  array<array-key, mixed>  $selection
      * @return array<string, string>
@@ -76,7 +77,7 @@ final readonly class SaveDesignSelection
     {
         $changes = [];
 
-        foreach (['palette', 'font_pair', 'radius', 'density'] as $key) {
+        foreach (TokenKey::values() as $key) {
             $value = $selection[$key] ?? null;
 
             if (is_string($value)) {

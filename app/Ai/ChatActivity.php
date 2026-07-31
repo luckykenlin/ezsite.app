@@ -60,6 +60,13 @@ final readonly class ChatActivity
                 ? __('Removing a block…')
                 : str_replace(':block', $block, __('Removing the :block block…')),
             'ReorderBlocks' => __('Reordering the page…'),
+            'SetBlockVariant' => $block === null
+                ? __('Changing a block layout…')
+                : str_replace(':block', $block, __('Changing the :block layout…')),
+            // Named without the style it is switching to: the argument is a
+            // preset SLUG the operator has never seen, and by the time this
+            // renders the canvas is about to show them the answer anyway.
+            'SetSiteStyle' => __('Restyling the site…'),
             default => null,
         };
 

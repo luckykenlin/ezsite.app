@@ -5,11 +5,21 @@ declare(strict_types=1);
 use App\Actions\Pages\CacheBlockHistory;
 use Illuminate\Support\Facades\Cache;
 
+/**
+ * A snapshot in the shape the editor writes AND reads back.
+ *
+ * `design` is the staged, unsaved site style a chat turn can carry; it is null
+ * for every hand edit, which is the overwhelming majority. Included here rather
+ * than only in the read assertions because a round trip has to be shape-stable:
+ * an entry that came out different from how it went in is the bug this file
+ * exists to catch.
+ */
 function historyEntry(string $key = 'k1', string $content = 'One'): array
 {
     return [
         'blocks' => [['key' => $key, 'type' => 'heading', 'data' => ['content' => $content]]],
         'selectedBlockKey' => $key,
+        'design' => null,
     ];
 }
 
@@ -82,6 +92,7 @@ it('drops malformed snapshots instead of letting them reach the page', function 
                 ['key' => 'k4', 'type' => 'heading', 'data' => ['0' => 'numeric key']],
             ],
             'selectedBlockKey' => null,
+            'design' => null,
         ]]);
 });
 

@@ -8,6 +8,7 @@ use App\Design\ColorPalette;
 use App\Design\FontPair;
 use App\Design\RadiusScale;
 use App\Design\SpacingDensity;
+use App\Design\TokenKey;
 use App\Models\Business;
 use InvalidArgumentException;
 
@@ -19,22 +20,20 @@ use InvalidArgumentException;
  */
 final readonly class UpdateDesignTokens
 {
-    private const array KEYS = ['palette', 'font_pair', 'radius', 'density'];
-
     /**
      * @param  array<string, string>  $changes  token key => enum value
      */
     public function handle(Business $business, array $changes): Business
     {
-        $unknown = array_diff(array_keys($changes), self::KEYS);
+        $unknown = array_diff(array_keys($changes), TokenKey::values());
 
         throw_if($unknown !== [], InvalidArgumentException::class, 'Unknown design token key(s): '.implode(', ', $unknown).'.');
 
         $tokens = $business->design_tokens->with(
-            palette: $this->enumValue(ColorPalette::class, $changes, 'palette'),
-            fontPair: $this->enumValue(FontPair::class, $changes, 'font_pair'),
-            radius: $this->enumValue(RadiusScale::class, $changes, 'radius'),
-            density: $this->enumValue(SpacingDensity::class, $changes, 'density'),
+            palette: $this->enumValue(ColorPalette::class, $changes, TokenKey::Palette),
+            fontPair: $this->enumValue(FontPair::class, $changes, TokenKey::FontPair),
+            radius: $this->enumValue(RadiusScale::class, $changes, TokenKey::Radius),
+            density: $this->enumValue(SpacingDensity::class, $changes, TokenKey::Density),
         );
 
         $business->update(['design_tokens' => $tokens]);
@@ -43,21 +42,32 @@ final readonly class UpdateDesignTokens
     }
 
     /**
+     * The submitted value for one key, or null when the caller did not supply
+     * it — `DesignTokens::with()` reads null as "leave this token alone".
+     *
+     * The enum class is passed explicitly rather than read from
+     * `$key->tokenClass()` so the generic keeps its concrete return type: the
+     * whole point of `with()`'s typed parameters is that a caller cannot hand
+     * it a palette where a radius belongs, and resolving the class at runtime
+     * would erase that to `BackedEnum` at every call site. `TokenKey` supplies
+     * the part that was genuinely duplicated — the key STRING and the
+     * allow-list above.
+     *
      * @template TEnum of \BackedEnum
      *
      * @param  class-string<TEnum>  $enum
      * @param  array<string, string>  $changes
      * @return TEnum|null
      */
-    private function enumValue(string $enum, array $changes, string $key): mixed
+    private function enumValue(string $enum, array $changes, TokenKey $key): mixed
     {
-        if (! array_key_exists($key, $changes)) {
+        if (! array_key_exists($key->value, $changes)) {
             return null;
         }
 
-        $value = $enum::tryFrom($changes[$key]);
+        $value = $enum::tryFrom($changes[$key->value]);
 
-        throw_if($value === null, InvalidArgumentException::class, sprintf('Invalid value [%s] for design token [%s].', $changes[$key], $key));
+        throw_if($value === null, InvalidArgumentException::class, sprintf('Invalid value [%s] for design token [%s].', $changes[$key->value], $key->value));
 
         return $value;
     }

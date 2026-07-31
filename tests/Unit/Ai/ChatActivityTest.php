@@ -36,6 +36,10 @@ it('names the block a tool call is about', function (string $tool, array $argume
     // From the argument, not the draft: the block does not exist yet.
     'adding' => ['AddBlock', ['type' => 'cta'], 'Adding a Cta block…'],
     'reordering' => ['ReorderBlocks', ['keys' => ['k2', 'k1']], 'Reordering the page…'],
+    'relaying one section' => ['SetBlockVariant', ['key' => 'k1', 'variant' => 'full-bleed-overlay'], 'Changing the Hero layout…'],
+    // Named without the preset it is switching to: the argument is a slug the
+    // operator has never seen, and the canvas is about to show them the answer.
+    'restyling the site' => ['SetSiteStyle', ['preset' => 'warm-craft'], 'Restyling the site…'],
 ]);
 
 it('falls back to the indefinite line when the arguments name no block', function (string $tool, array $arguments, string $expected): void {
@@ -48,6 +52,7 @@ it('falls back to the indefinite line when the arguments name no block', functio
     'no key at all' => ['UpdateBlockContent', [], 'Rewriting a block…'],
     'a non-string key' => ['RemoveBlock', ['key' => 42], 'Removing a block…'],
     'no type' => ['AddBlock', [], 'Adding a block…'],
+    'a layout switch on an invented key' => ['SetBlockVariant', ['key' => 'nope'], 'Changing a block layout…'],
 ]);
 
 it('says nothing at all about a tool it does not know', function (): void {

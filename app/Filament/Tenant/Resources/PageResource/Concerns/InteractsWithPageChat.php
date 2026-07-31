@@ -7,12 +7,14 @@ namespace App\Filament\Tenant\Resources\PageResource\Concerns;
 use App\Actions\Pages\CacheChatTurn;
 use App\Actions\Pages\ChatEditPage;
 use App\Actions\Pages\RecordPageChatMessage;
+use App\Actions\SaveDesignSelection;
 use App\Ai\ChangedBlocks;
 use App\Jobs\ChatEditPageJob;
 use App\Models\User;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Str;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Locked;
 
 /**
  * The page editor's AI chat rail: the transcript, the composer, and the lifecycle
@@ -29,8 +31,9 @@ use Livewire\Attributes\Computed;
  * settle or give up) and its own failure modes, and reading the block/undo state
  * machine was harder with it interleaved.
  *
- * Expects the host to provide `$blocks`, `applyBlocks()`, `commitSelectedBlock()`,
- * `pageRecord()` and `openBlockLibrary()`.
+ * Expects the host to provide `$blocks`, `$designDraft`, `applyTurn()`,
+ * `commitSelectedBlock()`, `clearDesignDraft()`, `hasBusinessProfile()`,
+ * `businessOrFail()`, `pageRecord()` and `openBlockLibrary()`.
  */
 trait InteractsWithPageChat
 {
@@ -52,7 +55,25 @@ trait InteractsWithPageChat
      * operator had saved, on every later visit to the page, and — worst — for a
      * turn whose result never reached the canvas at all.
      */
+    #[Locked]
     public bool $chatEditAwaitingSave = false;
+
+    /**
+     * Whether the assistant's last turn staged a SITE style the operator has not
+     * applied yet.
+     *
+     * Separate from {@see $chatEditAwaitingSave} because the two settle through
+     * different gates: blocks are committed by Save, a site style by "Apply to
+     * site" — which writes the `businesses` row and therefore reaches every page,
+     * published ones included. One button cannot mean both.
+     *
+     * Transient turn state for the same reason the block flag is: it must stop
+     * claiming there is something to review the moment there isn't. A design-only
+     * turn also records `changed_blocks = 0`, correctly — it did not edit the
+     * page — so nothing durable could drive this even if we wanted it to.
+     */
+    #[Locked]
+    public bool $chatDesignAwaitingApply = false;
 
     public string $chatInput = '';
 
@@ -61,12 +82,14 @@ trait InteractsWithPageChat
      * poll switch: the blade only renders `wire:poll` while this is set, so an
      * idle editor makes no requests at all.
      */
+    #[Locked]
     public ?string $chatTurnToken = null;
 
     /**
      * Unix timestamp the turn was dispatched, for the give-up check. An int
      * because Livewire serialises component state to JSON on every roundtrip.
      */
+    #[Locked]
     public ?int $chatTurnStartedAt = null;
 
     /**
@@ -203,16 +226,25 @@ trait InteractsWithPageChat
         // An answer that changed nothing must not touch the undo stack or the
         // dirty flag — asking "what does this block do?" is not an edit.
         $changed = [];
+        $editedBlocks = $turn['blocks'] !== null && $turn['blocks'] !== $this->blocks;
 
-        if ($turn['blocks'] !== null && $turn['blocks'] !== $this->blocks) {
+        if ($editedBlocks) {
             // Diffed BEFORE applying, against the draft actually on screen — the
             // worker's own count was taken against the draft as it was when the
             // turn was dispatched, which an edit made mid-turn has since moved on
             // from.
             $changed = resolve(ChangedBlocks::class)->keys($this->blocks, $turn['blocks']);
+        }
 
-            $this->applyBlocks($turn['blocks']);
+        // Both halves through ONE applyTurn(), so a turn that rewrote copy AND
+        // restyled the site is a single Undo. Each half is passed only when it
+        // actually moved: a turn that merely explained something must not touch
+        // the undo stack, the dirty flag or the canvas theme.
+        if ($editedBlocks || $turn['design'] !== null) {
+            $this->applyTurn($editedBlocks ? $turn['blocks'] : null, $turn['design']);
+        }
 
+        if ($editedBlocks) {
             // Only here: an answer that explained something rather than changing
             // it must not ask the operator to review and save nothing.
             $this->chatEditAwaitingSave = true;
@@ -224,6 +256,49 @@ trait InteractsWithPageChat
         // The keys ride along so the canvas can point at them once it has
         // reloaded with the new content — see the 'ready' handler in editor.ts.
         $this->dispatch('page-editor:chat-replied', changed: $changed);
+    }
+
+    /**
+     * Commit the style the assistant staged, through the one write path.
+     *
+     * This is the "confirm" half of acting-without-asking: a block edit is
+     * reversible from the page the operator is looking at, but a token write
+     * retunes every page on the site, so it gets its own deliberate click rather
+     * than riding along with Save. {@see SaveDesignSelection} makes
+     * the same preset-vs-custom decision it makes for the Design modal, so an
+     * AI-chosen preset is stored AS a preset and stays re-selectable.
+     */
+    public function applyChatDesign(): void
+    {
+        if ($this->designDraft === null || ! $this->hasBusinessProfile()) {
+            return;
+        }
+
+        resolve(SaveDesignSelection::class)->handle($this->businessOrFail(), $this->designDraft);
+
+        $this->chatDesignAwaitingApply = false;
+
+        // Clearing the draft re-pushes the preview; the canvas then renders the
+        // now-SAVED tokens through the ordinary head hook instead of the draft
+        // override, which looks identical and is the point.
+        $this->clearDesignDraft();
+
+        Notification::make()
+            ->title(__('Design applied to the whole site'))
+            ->success()
+            ->send();
+    }
+
+    /**
+     * Discard the staged style without applying it.
+     *
+     * Not the same as Undo: the operator may want to keep the copy the turn
+     * wrote and drop only the restyle.
+     */
+    public function discardChatDesign(): void
+    {
+        $this->chatDesignAwaitingApply = false;
+        $this->clearDesignDraft();
     }
 
     /**

@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 use App\Actions\Pages\ChatEditPage;
 use App\Ai\Agents\PageEditorAgent;
+use App\Design\DesignTokens;
+use App\Design\StylePreset;
 use App\Enums\ChatRole;
+use App\Models\Business;
 use App\Models\Page;
 use App\Models\PageChatMessage;
 use App\Models\Tenant;
@@ -383,4 +386,104 @@ it('shows only as much transcript as the assistant remembers, oldest first', fun
             // The list is re-indexed, not a preserved-key slice.
             ->and(array_keys($transcript))->toBe(range(0, $limit - 1));
     });
+});
+
+/*
+ * The safety property of the whole design feature: a turn that restyles the site
+ * must NOT write it. Tokens are site-scoped and ThemeVariables::style() reads the
+ * saved ones on every public render, so a write here would repaint a live website
+ * while its owner was still reading the reply. The turn hands back a staged style
+ * and the operator applies it themselves.
+ */
+it('stages a site style without writing it to the business', function (): void {
+    $this->createTenantBusiness($this->tenant, ['design_tokens' => DesignTokens::default()], 0);
+
+    PageEditorAgent::fake([
+        toolCall('SetSiteStyle', ['preset' => 'warm-craft']),
+        'Warmed the whole site up.',
+    ])->preventStrayPrompts();
+
+    $result = chatTurn(chatBlocks(), 'make it warmer');
+
+    expect($result['design'])->toBe(StylePreset::WarmCraft->tokens()->toArray())
+        // Untouched on disk — the "Apply to site" click is what writes it.
+        ->and(Business::query()->sole()->design_tokens->preset)->toBeNull();
+});
+
+it('reports no staged style when the turn only edited content', function (): void {
+    $this->createTenantBusiness($this->tenant, [], 0);
+
+    PageEditorAgent::fake([
+        toolCall('UpdateBlockContent', ['key' => 'k1', 'content' => ['heading' => 'Fresh']]),
+        'Rewrote the headline.',
+    ])->preventStrayPrompts();
+
+    expect(chatTurn(chatBlocks())['design'])->toBeNull();
+});
+
+/*
+ * Without a Business row there is nowhere for tokens to live, so the tool is not
+ * offered at all — mirroring DesignAction::visible(hasBusinessProfile()). A call
+ * the model cannot diagnose is worse than a verb it never sees.
+ */
+it('withholds the site-style tool when the tenant has no business profile', function (): void {
+    PageEditorAgent::fake(['I can only help with this page.'])->preventStrayPrompts();
+
+    expect(chatTurn(chatBlocks())['design'])->toBeNull();
+});
+
+/*
+ * A turn that chose a palette and then died must not leave the operator
+ * previewing half a decision they never saw described — the same reasoning that
+ * returns the blocks unchanged.
+ */
+it('discards a half-chosen style when the turn fails', function (): void {
+    $this->createTenantBusiness($this->tenant, ['design_tokens' => DesignTokens::default()], 0);
+
+    Log::spy();
+
+    PageEditorAgent::fake(function (): never {
+        throw new RuntimeException('provider exploded mid-restyle');
+    })->preventStrayPrompts();
+
+    $result = chatTurn(chatBlocks(), 'make it premium');
+
+    expect($result['failed'])->toBeTrue()
+        ->and($result['design'])->toBeNull()
+        ->and($result['blocks'])->toBe(chatBlocks())
+        ->and(Business::query()->sole()->design_tokens->preset)->toBeNull();
+});
+
+/*
+ * A restyle that aligns layouts changes BLOCKS as well as tokens, in one call —
+ * which is what keeps a broad restyle inside MaxSteps(12) and the turn budget.
+ */
+it('re-lays the page in the same call that stages the style', function (): void {
+    $this->createTenantBusiness($this->tenant, [], 0);
+
+    PageEditorAgent::fake([
+        toolCall('SetSiteStyle', ['preset' => 'bold-editorial', 'align_layouts' => true]),
+        'Went bold, and re-laid the sections to match.',
+    ])->preventStrayPrompts();
+
+    $result = chatTurn(chatBlocks(), 'make it dramatic');
+
+    expect($result['blocks'][0]['data']['variant'])
+        ->toBe(StylePreset::BoldEditorial->blockVariantDefaults()['hero'])
+        ->and($result['design']['preset'])->toBe('bold-editorial');
+});
+
+it('switches one section layout without touching the site style', function (): void {
+    $this->createTenantBusiness($this->tenant, [], 0);
+
+    PageEditorAgent::fake([
+        toolCall('SetBlockVariant', ['key' => 'k1', 'variant' => 'full-bleed-overlay']),
+        'Made the hero full-bleed.',
+    ])->preventStrayPrompts();
+
+    $result = chatTurn(chatBlocks(), 'put the photo behind the hero text');
+
+    expect($result['blocks'][0]['data']['variant'])->toBe('full-bleed-overlay')
+        ->and($result['blocks'][0]['data']['heading'])->toBe('Old headline')
+        ->and($result['design'])->toBeNull();
 });

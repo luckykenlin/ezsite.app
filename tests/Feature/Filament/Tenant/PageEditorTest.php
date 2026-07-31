@@ -1900,3 +1900,134 @@ it('gives up on a turn whose worker never reported back', function (): void {
 
     expect($component->get('chatTurnToken'))->toBeNull();
 });
+
+/*
+ * Design authority, from the editor's side.
+ *
+ * A chat turn can now move two kinds of state: this page's blocks, and the SITE's
+ * design tokens. The tokens reach every page including published ones, so the two
+ * settle through different gates — Save for blocks, "Apply to site" for the style
+ * — and both must land under ONE undo entry.
+ */
+
+it('stages a chat turn style on the canvas and asks before applying it', function (): void {
+    $this->createTenantBusiness($this->tenant, ['name' => 'Corner Cafe']);
+    $page = editorPage([]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->call('applyTurn', null, StylePreset::WarmCraft->tokens()->toArray());
+
+    expect($component->get('designDraft')['preset'])->toBe('warm-craft')
+        ->and($component->get('chatDesignAwaitingApply'))->toBeTrue()
+        // Previewed on the canvas...
+        ->and(cachedPreview($component)['design_tokens']['preset'])->toBe('warm-craft')
+        // ...and nowhere else. Save must not be a route to the businesses row.
+        ->and(Business::query()->sole()->design_tokens->preset)->toBeNull();
+});
+
+it('applies a chat turn style to the whole site only when asked', function (): void {
+    $this->createTenantBusiness($this->tenant, ['name' => 'Corner Cafe']);
+    $page = editorPage([]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->call('applyTurn', null, StylePreset::WarmCraft->tokens()->toArray())
+        ->call('applyChatDesign');
+
+    // Through SaveDesignSelection, so an AI-chosen preset is stored AS a preset
+    // and stays re-selectable rather than landing as an equivalent custom set.
+    expect(Business::query()->sole()->design_tokens->preset)->toBe(StylePreset::WarmCraft)
+        ->and($component->get('chatDesignAwaitingApply'))->toBeFalse()
+        ->and($component->get('designDraft'))->toBeNull();
+});
+
+it('can drop a staged style without losing the copy the turn wrote', function (): void {
+    $this->createTenantBusiness($this->tenant, ['name' => 'Corner Cafe']);
+    $page = editorPage([]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->call('applyTurn', [
+            ['key' => 'k1', 'type' => 'heading', 'data' => ['content' => 'Kept', 'level' => 'h2']],
+        ], StylePreset::WarmCraft->tokens()->toArray())
+        ->call('discardChatDesign');
+
+    expect($component->get('designDraft'))->toBeNull()
+        ->and($component->get('chatDesignAwaitingApply'))->toBeFalse()
+        // The block edit is a separate decision and survives.
+        ->and($component->get('blocks')[0]['data']['content'])->toBe('Kept');
+});
+
+/*
+ * One turn, one Undo — the property that makes acting-without-asking safe. Two
+ * apply calls would cost two Undos for one answer.
+ */
+it('takes a single undo entry for a turn that changed blocks and style together', function (): void {
+    $this->createTenantBusiness($this->tenant, ['name' => 'Corner Cafe']);
+    $page = editorPage([['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Before']]]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
+
+    $component->call('applyTurn', [
+        ['key' => 'k1', 'type' => 'hero', 'data' => ['variant' => 'full-bleed-overlay', 'heading' => 'After']],
+    ], StylePreset::WarmCraft->tokens()->toArray());
+
+    expect($component->get('undoDepth'))->toBe(1);
+});
+
+/*
+ * And that one Undo has to put BOTH halves back. Restoring the blocks while
+ * leaving the canvas painted in a rejected style is a state that never existed.
+ */
+it('reverts the blocks and the staged style together on undo', function (): void {
+    $this->createTenantBusiness($this->tenant, ['name' => 'Corner Cafe']);
+    $page = editorPage([['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Before']]]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
+
+    $component->call('applyTurn', [
+        ['key' => 'k1', 'type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'After']],
+    ], StylePreset::WarmCraft->tokens()->toArray());
+
+    $component->call('undo');
+
+    expect($component->get('blocks')[0]['data']['heading'])->toBe('Before')
+        ->and($component->get('designDraft'))->toBeNull()
+        // The canvas is repainted without the rejected theme in the same trip.
+        ->and(cachedPreview($component)['design_tokens'])->toBeNull();
+});
+
+/*
+ * unmountAction() discards the design draft on ANY modal close, which is right
+ * for the Design modal's own transient fields and catastrophic for a chat-staged
+ * one: opening Page settings would silently throw away a restyle the operator was
+ * still reviewing, with nothing on screen to say it had gone.
+ */
+it('keeps a chat-staged style when an unrelated modal closes', function (): void {
+    $this->createTenantBusiness($this->tenant, ['name' => 'Corner Cafe']);
+    $page = editorPage([]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->call('applyTurn', null, StylePreset::WarmCraft->tokens()->toArray())
+        ->mountAction('pageSettings')
+        ->unmountAction();
+
+    expect($component->get('designDraft')['preset'])->toBe('warm-craft')
+        ->and($component->get('chatDesignAwaitingApply'))->toBeTrue();
+});
+
+it('ignores an apply with nothing staged', function (): void {
+    $this->createTenantBusiness($this->tenant, ['name' => 'Corner Cafe']);
+    $page = editorPage([]);
+
+    Livewire::test(PageEditor::class, ['record' => $page->id])->call('applyChatDesign');
+
+    expect(Business::query()->sole()->design_tokens->preset)->toBeNull();
+});
+
+it('ignores an apply when there is no business to write to', function (): void {
+    $page = editorPage([]);
+
+    Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->call('applyTurn', null, StylePreset::WarmCraft->tokens()->toArray())
+        ->call('applyChatDesign')
+        ->assertOk();
+});

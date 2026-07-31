@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Design;
 
+use BackedEnum;
 use Illuminate\Support\Str;
 
 /**
@@ -35,41 +36,37 @@ final class TokenOptions
     }
 
     /**
-     * @return array<string, string>
-     */
-    public static function palettes(): array
-    {
-        return self::map(ColorPalette::cases(), static fn (ColorPalette $palette): string => self::headline($palette->value));
-    }
-
-    /**
-     * Font pairs read as the actual families, so the label doubles as a
-     * preview of what the site will use.
+     * One token's options. Replaces the four near-identical per-token methods
+     * that used to live here, so both design surfaces can render their
+     * fine-tune fields by looping {@see TokenKey::cases()} instead of naming
+     * each key twice (once for the field, once for the option map).
      *
      * @return array<string, string>
      */
-    public static function fontPairs(): array
+    public static function for(TokenKey $key): array
     {
-        return self::map(
-            FontPair::cases(),
-            static fn (FontPair $pair): string => $pair->headingFamily().' + '.$pair->bodyFamily(),
-        );
+        $options = [];
+
+        foreach ($key->tokenClass()::cases() as $case) {
+            $options[(string) $case->value] = self::optionLabel($case);
+        }
+
+        return $options;
     }
 
     /**
-     * @return array<string, string>
+     * One value's label. Font pairs are the exception the rest of the tokens
+     * prove: their names ("modern-sans") say less than the families they
+     * actually resolve to, so their label doubles as a preview of what the site
+     * will use. Everything else reads well as its own headlined key.
      */
-    public static function radiusScales(): array
+    private static function optionLabel(BackedEnum $case): string
     {
-        return self::map(RadiusScale::cases(), static fn (RadiusScale $radius): string => self::headline($radius->value));
-    }
+        if ($case instanceof FontPair) {
+            return $case->headingFamily().' + '.$case->bodyFamily();
+        }
 
-    /**
-     * @return array<string, string>
-     */
-    public static function densities(): array
-    {
-        return self::map(SpacingDensity::cases(), static fn (SpacingDensity $density): string => self::headline($density->value));
+        return self::headline((string) $case->value);
     }
 
     /**

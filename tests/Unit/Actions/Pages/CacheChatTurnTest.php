@@ -26,6 +26,7 @@ it('reports a turn that is still streaming as running, with no result to apply',
         'blocks' => null,
         'failed' => false,
         'activity' => [],
+        'design' => null,
     ]);
 });
 
@@ -40,6 +41,7 @@ it('reports a finished turn with its blocks', function (): void {
         'blocks' => $blocks,
         'failed' => false,
         'activity' => [],
+        'design' => null,
     ]);
 });
 
@@ -116,6 +118,7 @@ it('reads a structurally broken payload as nothing rather than throwing', functi
         'blocks' => null,
         'failed' => false,
         'activity' => [],
+        'design' => null,
     ]],
     'a non-string reply' => [['reply' => 42, 'blocks' => 'oops', 'activity' => 'not a list'], [
         'status' => 'running',
@@ -123,5 +126,31 @@ it('reads a structurally broken payload as nothing rather than throwing', functi
         'blocks' => null,
         'failed' => false,
         'activity' => [],
+        'design' => null,
     ]],
 ]);
+
+/*
+ * The staged style crosses the same untrusted boundary the blocks do, and lands
+ * in $designDraft — from which ThemeVariables compiles a <style> tag. Every value
+ * is re-resolved against a token enum downstream, so junk cannot reach CSS; an
+ * unexpected KEY would still ride into the editor's state, so only known ones
+ * survive the read.
+ */
+it('round-trips a staged style and keeps only the keys the editor knows', function (): void {
+    chatTurns()->handle('tok', 'Done.', [], design: [
+        'preset' => 'warm-craft',
+        'palette' => 'warm-sand',
+        'font_pair' => 42,
+        'smuggled' => 'value',
+    ]);
+
+    expect(chatTurns()->read('tok')['design'])->toBe([
+        'preset' => 'warm-craft',
+        'palette' => 'warm-sand',
+        // Non-strings become null rather than being passed along.
+        'font_pair' => null,
+        'radius' => null,
+        'density' => null,
+    ]);
+});

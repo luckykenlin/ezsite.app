@@ -4,9 +4,14 @@ declare(strict_types=1);
 
 use App\Ai\PageDraft;
 use App\Ai\Prompts\PageEditPrompt;
+use App\Ai\SiteStyleDraft;
+use App\Design\StylePreset;
 use App\Models\Business;
 use App\Models\Page;
+use App\Models\Tenant;
+use App\Site\BindResolver;
 use App\Site\Blocks\BlockVocabulary;
+use App\Site\SiteContext;
 
 function editPrompt(PageDraft $draft, ?Business $business = null, string $message = 'Shorten the headline'): string
 {
@@ -130,4 +135,66 @@ it('forbids stating facts when there is no business profile', function (): void 
 it('ends with the operator request', function (): void {
     expect(editPrompt(heroPageDraft(), null, 'Make it shorter'))
         ->toEndWith("## The operator's request\nMake it shorter");
+});
+
+/*
+ * The layouts each present type offers, inline rather than behind a lookup tool.
+ * SetBlockVariant validates the choice, but the model can only make a sensible
+ * one if it knows the options; ~5 tokens per type actually on the page is a
+ * cheaper way to say so than a round trip.
+ */
+it('lists the layouts the types on this page can switch to', function (): void {
+    expect(editPrompt(heroPageDraft()))
+        ->toContain('layouts: centered-minimal, left-text-right-image, full-bleed-overlay');
+});
+
+/*
+ * The style menu appears only alongside the tool that can act on it — tokens
+ * live on the Business row, so with no profile there is nowhere for a style to
+ * land and publishing the menu would invite a call that cannot succeed.
+ */
+it('leaves the style menu out when there is no style to change', function (): void {
+    expect(editPrompt(heroPageDraft()))->not->toContain('## Site style');
+});
+
+it('publishes the style menu and where the site currently stands', function (): void {
+    $tenant = Tenant::factory()->create();
+    $page = $this->createTenantPage($tenant, []);
+
+    $prompt = (string) new PageEditPrompt(
+        $page,
+        heroPageDraft(),
+        resolve(BlockVocabulary::class)->all(),
+        null,
+        'make it premium',
+        null,
+        new SiteStyleDraft(StylePreset::CalmCoastal->tokens()),
+    );
+
+    expect($prompt)->toContain('## Site style')
+        ->toContain('currently uses: calm-coastal')
+        ->toContain('Changing this affects every page')
+        // The adjectives are the grounding for "premium"; without them the model
+        // is choosing among six opaque slugs.
+        ->toContain('premium')
+        // A named brand is translated into those words, never stored or echoed.
+        ->toContain('never stored or repeated back');
+});
+
+it('tells the model which page addresses actually exist', function (): void {
+    $tenant = Tenant::factory()->create();
+    $page = $this->createTenantPage($tenant, []);
+    $this->createTenantPage($tenant, [], '/contact');
+
+    $prompt = (string) new PageEditPrompt(
+        $page,
+        heroPageDraft(),
+        resolve(BlockVocabulary::class)->all(),
+        null,
+        'link to the contact page',
+        new SiteContext(new BindResolver),
+    );
+
+    expect($prompt)->toContain('## This site')
+        ->toContain('/contact (published)');
 });

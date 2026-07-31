@@ -46,6 +46,7 @@ use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Livewire\Attributes\Locked;
 use Z3d0X\FilamentFabricator\Facades\FilamentFabricator;
 
 /**
@@ -103,19 +104,39 @@ final class PageEditor extends Page
     private const array QUICK_START_TYPES = ['hero', 'features', 'cta'];
 
     /**
+     * The whole page draft.
+     *
+     * `#[Locked]` because every mutation here is a method call — `addBlock()`,
+     * `removeBlock()`, `reorderBlocks()`, `applyTurn()` — each of which validates,
+     * snapshots and sanitises. Public and writable, the browser could POST an
+     * arbitrary block list and then call `save()`, landing content in
+     * `pages.blocks` that no block schema and no
+     * {@see \App\Ai\BlockDataSanitizer} ever saw. RLS keeps that inside one
+     * tenant; it does not make it harmless.
+     *
      * @var list<array{key: string, type: string, data: array<string, mixed>}>
      */
+    #[Locked]
     public array $blocks = [];
 
     public ?string $selectedBlockKey = null;
 
     /**
+     * Raw Filament inspector state. Deliberately NOT locked — this is the field
+     * binding path, and Livewire has to write it on every keystroke.
+     *
      * @var array<string, mixed>
      */
     public array $data = [];
 
+    /**
+     * Server-minted, per mount. Locked because it is the capability that lets
+     * the preview route read this session's draft.
+     */
+    #[Locked]
     public string $previewToken = '';
 
+    #[Locked]
     public int $previewVersion = 0;
 
     public bool $isDirty = false;
@@ -445,25 +466,49 @@ final class PageEditor extends Page
     }
 
     /**
-     * Replace the whole draft in one call — the write entrypoint the phase-2
-     * AI tools round-trip through. Entries must already carry keys (i.e. come
-     * from this editor's state fed through the `App\Actions\Pages` actions).
+     * Replace the whole draft in one call. Entries must already carry keys (i.e.
+     * come from this editor's state fed through the `App\Actions\Pages` actions).
+     *
+     * Kept for the human structural verbs and for restoring a revision; the chat
+     * path goes through {@see applyTurn()}, which also carries a staged style.
      *
      * @param  array<array{key: string, type: string, data: array<string, mixed>}>  $blocks
      */
     public function applyBlocks(array $blocks): void
     {
         $this->snapshot();
+        $this->replaceBlocks($blocks);
+    }
 
-        $this->blocks = array_values($blocks);
+    /**
+     * Land one chat turn: its block edits, its staged site style, or both.
+     *
+     * ONE {@see snapshot()} for the whole turn, which is what keeps "a chat turn
+     * is one Undo" true now that a turn can move two kinds of state. Two apply
+     * calls would cost two Undos for one answer, and snapshotting only the blocks
+     * would leave the canvas painted in a style the operator had just undone — a
+     * state that never existed.
+     *
+     * The style is STAGED, never written: `previewDesign()` re-renders the canvas
+     * and nothing else, and `SaveDesignSelection` behind the chat rail's "Apply to
+     * site" stays the only path to the `businesses` row. Tokens reach every page
+     * including published ones, so that separation is the whole safety story.
+     *
+     * @param  array<array{key: string, type: string, data: array<string, mixed>}>|null  $blocks
+     * @param  array<string, string|null>|null  $design
+     */
+    public function applyTurn(?array $blocks, ?array $design): void
+    {
+        $this->snapshot();
 
-        if ($this->blockIndexOrNull($this->selectedBlockKey) === null) {
-            $this->selectedBlockKey = null;
+        if ($blocks !== null) {
+            $this->replaceBlocks($blocks);
         }
 
-        // The applied draft is authoritative — refill the inspector from it.
-        $this->fillBlockForm();
-        $this->markDirty();
+        if ($design !== null) {
+            $this->previewDesign($design, source: 'chat');
+            $this->chatDesignAwaitingApply = true;
+        }
     }
 
     public function save(): void
@@ -696,6 +741,22 @@ final class PageEditor extends Page
                 ->disabled(fn (): bool => ! $this->isDirty)
                 ->action(fn () => $this->save()),
         ];
+    }
+
+    /**
+     * @param  array<array{key: string, type: string, data: array<string, mixed>}>  $blocks
+     */
+    private function replaceBlocks(array $blocks): void
+    {
+        $this->blocks = array_values($blocks);
+
+        if ($this->blockIndexOrNull($this->selectedBlockKey) === null) {
+            $this->selectedBlockKey = null;
+        }
+
+        // The applied draft is authoritative — refill the inspector from it.
+        $this->fillBlockForm();
+        $this->markDirty();
     }
 
     /**

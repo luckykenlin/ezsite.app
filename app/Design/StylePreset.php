@@ -54,6 +54,37 @@ enum StylePreset: string
     }
 
     /**
+     * The adjectives an operator actually reaches for when they want this look
+     * — the words "make it more premium" has to land on.
+     *
+     * Deliberately separate from {@see vibes()}, which are INDUSTRY nouns
+     * matched against the business category when composing a first draft. Not
+     * one list: nothing in `vibes()` contains *premium*, *refined* or *sleek*,
+     * so before this existed the chat assistant had nothing to ground a feeling
+     * against and would free-associate among six labels.
+     *
+     * Published verbatim in the chat prompt and in
+     * {@see \App\Ai\Tools\SetSiteStyle}'s schema description, which is the whole
+     * mechanism: a brand reference ("like Apple") is translated into adjectives
+     * and matched here, so no brand name ever reaches storage. Keep the lists
+     * disjoint — an adjective that names two presets grounds neither, and
+     * `StylePresetTest` asserts it.
+     *
+     * @return list<string>
+     */
+    public function synonyms(): array
+    {
+        return match ($this) {
+            self::WarmCraft => ['warm', 'welcoming', 'homely', 'rustic', 'organic', 'inviting'],
+            self::ProfessionalMinimal => ['premium', 'refined', 'upmarket', 'sleek', 'minimal', 'understated', 'serious', 'expensive'],
+            self::FreshModern => ['modern', 'fresh', 'clean', 'crisp', 'contemporary', 'techy'],
+            self::BoldEditorial => ['bold', 'dramatic', 'high-contrast', 'striking', 'confident', 'edgy'],
+            self::CalmCoastal => ['calm', 'airy', 'gentle', 'soothing', 'light', 'spacious'],
+            self::PlayfulFriendly => ['playful', 'friendly', 'fun', 'approachable', 'colourful', 'casual'],
+        };
+    }
+
+    /**
      * Industry-vibe tags the AI matches a business against when choosing a
      * preset.
      *

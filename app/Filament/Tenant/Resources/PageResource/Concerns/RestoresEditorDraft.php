@@ -9,6 +9,7 @@ use App\Actions\Pages\SavePageEditorDraft;
 use App\Enums\ChromeSlot;
 use App\Site\Blocks\BlockData;
 use Filament\Notifications\Notification;
+use Livewire\Attributes\Locked;
 
 /**
  * Makes the editor's unsaved work survive the page going away.
@@ -40,6 +41,7 @@ trait RestoresEditorDraft
      * operator always has a route back to the saved page — a restored draft has no
      * undo history behind it.
      */
+    #[Locked]
     public bool $draftRestored = false;
 
     /**

@@ -7,6 +7,7 @@ namespace App\Filament\Tenant\Pages;
 use App\Actions\SaveDesignSelection;
 use App\Design\ColorPalette;
 use App\Design\StylePreset;
+use App\Design\TokenKey;
 use App\Design\TokenOptions;
 use App\Models\Business;
 use BackedEnum;
@@ -50,12 +51,14 @@ final class Design extends Page
         $business = Business::query()->firstOrFail();
         $tokens = $business->design_tokens;
 
+        $state = ['preset' => $tokens->preset?->value];
+
+        foreach (TokenKey::cases() as $key) {
+            $state[$key->value] = $key->valueOn($tokens);
+        }
+
         $this->form->fill([
-            'preset' => $tokens->preset?->value,
-            'palette' => $tokens->palette->value,
-            'font_pair' => $tokens->fontPair->value,
-            'radius' => $tokens->radius->value,
-            'density' => $tokens->density->value,
+            ...$state,
             'brand_primary' => $business->brand_primary,
             'brand_secondary' => $business->brand_secondary,
             'brand_accent' => $business->brand_accent,
@@ -89,37 +92,27 @@ final class Design extends Page
 
                                 $tokens = $preset->tokens();
 
-                                $set('palette', $tokens->palette->value);
-                                $set('font_pair', $tokens->fontPair->value);
-                                $set('radius', $tokens->radius->value);
-                                $set('density', $tokens->density->value);
+                                foreach (TokenKey::cases() as $key) {
+                                    $set($key->value, $key->valueOn($tokens));
+                                }
                             }),
                     ]),
                 Section::make('Fine-tune')
                     ->description('Adjusting any of these detaches the preset — the combination becomes your own.')
                     ->schema([
-                        Grid::make(2)->schema([
-                            Select::make('palette')
-                                ->options(TokenOptions::palettes())
+                        Grid::make(2)->schema(array_map(
+                            static fn (TokenKey $key): Select => Select::make($key->value)
+                                ->label($key->label())
+                                ->options(TokenOptions::for($key))
                                 ->selectablePlaceholder(false)
-                                ->live()
+                                // Only the palette is live, and only because the
+                                // Brand colors section below watches it. The rest
+                                // are read on Save, so a round trip per keystroke
+                                // would buy nothing.
+                                ->live($key === TokenKey::Palette)
                                 ->columnSpan(1),
-                            Select::make('font_pair')
-                                ->label('Fonts')
-                                ->options(TokenOptions::fontPairs())
-                                ->selectablePlaceholder(false)
-                                ->columnSpan(1),
-                            Select::make('radius')
-                                ->label('Corner radius')
-                                ->options(TokenOptions::radiusScales())
-                                ->selectablePlaceholder(false)
-                                ->columnSpan(1),
-                            Select::make('density')
-                                ->label('Spacing density')
-                                ->options(TokenOptions::densities())
-                                ->selectablePlaceholder(false)
-                                ->columnSpan(1),
-                        ]),
+                            TokenKey::cases(),
+                        )),
                     ]),
                 Section::make('Brand colors')
                     ->description('Used when the palette is set to Brand.')
