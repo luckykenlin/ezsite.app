@@ -6,6 +6,8 @@ namespace App\Filament\Tenant\Resources\PageResource\Concerns;
 
 use App\Actions\Pages\CacheChatTurn;
 use App\Actions\Pages\ChatEditPage;
+use App\Actions\Pages\RecordPageChatMessage;
+use App\Ai\ChangedBlocks;
 use App\Jobs\ChatEditPageJob;
 use App\Models\User;
 use Filament\Notifications\Notification;
@@ -112,6 +114,7 @@ trait InteractsWithPageChat
         $this->chatInput = '';
 
         $user = auth()->user();
+        $user = $user instanceof User ? $user : null;
 
         $this->chatTurnToken = Str::random(40);
         $this->chatTurnStartedAt = now()->getTimestamp();
@@ -125,12 +128,22 @@ trait InteractsWithPageChat
 
         $page = $this->pageRecord();
 
+        // Recorded HERE rather than left to the worker, so that this response
+        // already renders the question: the transcript is then the only thing
+        // drawing the operator's bubble. It used to be written by
+        // ChatEditPage::handle() once the worker picked the job up, which meant
+        // the next poll tick rendered it UNDER the composer's local echo — the
+        // same message twice, one of them half-transparent, for as long as the
+        // turn ran. The echo is now dropped as soon as this request returns.
+        resolve(RecordPageChatMessage::class)->question($page, $user, $message);
+        unset($this->chatMessages);
+
         // Dispatched rather than run here: see ChatEditPageJob. This request
         // returns immediately and pollChatTurn() picks the answer up.
         dispatch(new ChatEditPageJob(
             (string) $page->tenant_id,
             (int) $page->id,
-            $user instanceof User ? (int) $user->id : null,
+            $user?->id === null ? null : (int) $user->id,
             $message,
             $this->chatTurnToken,
             $this->blocks,
@@ -189,7 +202,15 @@ trait InteractsWithPageChat
         //
         // An answer that changed nothing must not touch the undo stack or the
         // dirty flag — asking "what does this block do?" is not an edit.
+        $changed = [];
+
         if ($turn['blocks'] !== null && $turn['blocks'] !== $this->blocks) {
+            // Diffed BEFORE applying, against the draft actually on screen — the
+            // worker's own count was taken against the draft as it was when the
+            // turn was dispatched, which an edit made mid-turn has since moved on
+            // from.
+            $changed = resolve(ChangedBlocks::class)->keys($this->blocks, $turn['blocks']);
+
             $this->applyBlocks($turn['blocks']);
 
             // Only here: an answer that explained something rather than changing
@@ -200,7 +221,9 @@ trait InteractsWithPageChat
         // The turn added messages, so the memoized transcript is stale.
         unset($this->chatMessages);
 
-        $this->dispatch('page-editor:chat-replied');
+        // The keys ride along so the canvas can point at them once it has
+        // reloaded with the new content — see the 'ready' handler in editor.ts.
+        $this->dispatch('page-editor:chat-replied', changed: $changed);
     }
 
     /**

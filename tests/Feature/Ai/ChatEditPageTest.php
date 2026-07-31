@@ -40,11 +40,16 @@ function toolCall(string $name, array $arguments): ToolCall
 /**
  * Run a turn in the page's tenant context, the way the editor does.
  */
-function chatTurn(array $blocks, string $message = 'Shorten the headline', ?User $user = null, ?Closure $onDelta = null): array
-{
+function chatTurn(
+    array $blocks,
+    string $message = 'Shorten the headline',
+    ?User $user = null,
+    ?Closure $onDelta = null,
+    ?Closure $onActivity = null,
+): array {
     return test()->runInTenant(
         test()->tenant,
-        fn (): array => resolve(ChatEditPage::class)->handle(test()->page, $blocks, $message, $user, $onDelta),
+        fn (): array => resolve(ChatEditPage::class)->handle(test()->page, $blocks, $message, $user, $onDelta, $onActivity),
     );
 }
 
@@ -316,6 +321,41 @@ it('runs fine without a delta listener', function (): void {
     PageEditorAgent::fake(['Done.']);
 
     expect(chatTurn(chatBlocks())['reply'])->toBe('Done.');
+});
+
+/*
+ * The other half of "alive rather than hung", and the half that matters on a long
+ * turn: this agent edits through tools and writes its prose LAST, so a rewrite of
+ * several blocks streams no text at all until every edit is already made. Without
+ * these lines the panel shows nothing for most of a minute.
+ */
+it('announces each tool call as it is made', function (): void {
+    PageEditorAgent::fake([
+        toolCall('UpdateBlockContent', ['key' => 'k1', 'content' => ['heading' => 'Fresh bread daily']]),
+        toolCall('AddBlock', ['type' => 'gallery']),
+        'Rewrote the hero and added a gallery.',
+    ]);
+
+    $activity = [];
+
+    chatTurn(chatBlocks(), 'Rewrite the hero and add a gallery', null, null, function (string $line) use (&$activity): void {
+        $activity[] = $line;
+    });
+
+    // In the order the model worked, naming the block each step is about.
+    expect($activity)->toBe([
+        'Rewriting the Hero block…',
+        'Adding a Gallery block…',
+    ]);
+});
+
+it('runs fine without an activity listener', function (): void {
+    PageEditorAgent::fake([
+        toolCall('UpdateBlockContent', ['key' => 'k1', 'content' => ['heading' => 'Fresh']]),
+        'Done.',
+    ]);
+
+    expect(chatTurn(chatBlocks())['blocks'][0]['data']['heading'])->toBe('Fresh');
 });
 
 it('shows only as much transcript as the assistant remembers, oldest first', function (): void {

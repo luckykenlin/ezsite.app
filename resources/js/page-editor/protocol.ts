@@ -120,7 +120,22 @@ export type EditorMessage =
     | { type: 'select'; key: string | null; scroll: boolean }
     | { type: 'patch'; key: string; html: string }
     | { type: 'insert-armed'; position: number | null }
-    | { type: 'inline-edit-grant'; field: string };
+    | { type: 'inline-edit-grant'; field: string }
+    /**
+     * Point at what the assistant just changed. Transient and purely visual —
+     * it marks blocks, it does not select them, so the inspector keeps whatever
+     * the operator had open.
+     */
+    | { type: 'highlight'; keys: string[] };
+
+/**
+ * How long a changed-block highlight stays up.
+ *
+ * Long enough to find the block after the canvas repaints, short enough that it
+ * has faded by the time the operator starts editing — a permanent marker would
+ * become another thing to dismiss.
+ */
+export const HIGHLIGHT_MS = 2600;
 
 /**
  * A namespaced message from the expected origin, or null when it is anything

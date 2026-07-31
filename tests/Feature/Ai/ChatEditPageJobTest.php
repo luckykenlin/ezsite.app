@@ -74,6 +74,27 @@ it('publishes the reply as it streams so the stream route has something to tail'
     expect($turn['reply'])->toBe('Shortened the hero headline for you.');
 });
 
+it('publishes what the turn is doing, not only what it has said', function (): void {
+    PageEditorAgent::fake([
+        new ToolCall('c1', 'UpdateBlockContent', ['key' => 'k1', 'content' => ['heading' => 'Fresh bread daily']]),
+        new ToolCall('c2', 'AddBlock', ['type' => 'cta']),
+        'Rewrote the hero and added a call to action.',
+    ]);
+
+    chatJob(jobBlocks())->handle();
+
+    $turn = $this->runInTenant($this->tenant, fn (): ?array => resolve(CacheChatTurn::class)->read('tok'));
+
+    // The tool calls ARE the turn on this agent — the prose is written last — so
+    // these lines are the only thing the panel can show for most of a long one.
+    // They survive to the final write so a browser connecting late still sees the
+    // steps it missed.
+    expect($turn['activity'])->toBe([
+        'Rewriting the Hero block…',
+        'Adding a Cta block…',
+    ]);
+});
+
 it('attributes the turn to the user who asked', function (): void {
     PageEditorAgent::fake(['Done.']);
 

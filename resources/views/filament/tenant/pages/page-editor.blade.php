@@ -22,6 +22,9 @@
             labels: @js([
                 'confirmRemove' => __('Remove this block?'),
                 'confirmLeave' => __('You have unsaved changes. Leave this page?'),
+                'chatLeaveHint' => __('You can carry on elsewhere — the turn keeps running and picks up where it left off.'),
+                'chatSlow' => __('Bigger edits take a minute: the assistant rewrites one block at a time.'),
+                'chatNearLimit' => __('Almost there — this turn is close to its time limit.'),
             ]),
             chatStreamUrl: @js(route('page-editor.chat-stream')),
         })"
@@ -120,17 +123,62 @@
                          (page-editor.chat-stream), so this bubble belongs to
                          Alpine — `wire:ignore` keeps Livewire from re-rendering
                          over the text as it arrives. The slow poll below is only
-                         a backstop for a stream that never connected. --}}
-                    <div class="pe-chat-message" data-role="user" data-pending x-show="chatSending" x-text="chatPending" x-cloak></div>
+                         a backstop for a stream that never connected.
+
+                         The message above it is only an echo covering the send
+                         roundtrip: sendChatMessage() records the question, so the
+                         response that returns renders it for real and the echo
+                         clears itself. Keyed on `chatPending` rather than
+                         `chatSending` — the turn outlives the echo, and on
+                         `chatSending` this left an empty bubble behind. --}}
+                    <div class="pe-chat-message" data-role="user" data-pending x-show="chatPending !== ''" x-text="chatPending" x-cloak></div>
+
+                    {{-- What the turn is DOING, above what it has said.
+
+                         This agent edits through tools and writes its prose last,
+                         so a multi-block rewrite streams no text for most of a
+                         minute — the reply bubble below stays empty and the turn
+                         is indistinguishable from a hung one. Each line arrives as
+                         an `activity` frame on the same stream (see
+                         PageEditorChatStreamController). The last one is the step
+                         in progress; the ones above it are done. --}}
+                    <div class="pe-chat-activity" x-show="chatSending && chatActivity.length > 0" x-cloak>
+                        <template x-for="(line, index) in chatActivity" :key="index">
+                            <p class="pe-chat-activity-line" :data-done="index < chatActivity.length - 1 ? '' : null">
+                                <span class="pe-chat-activity-mark" aria-hidden="true"></span>
+                                <span x-text="line"></span>
+                            </p>
+                        </template>
+                    </div>
+
+                    {{-- The reply itself. Three dots until the first token lands:
+                         a blinking cursor on an empty line reads as a dead
+                         terminal, and on this agent that state can last a minute.
+                         `wire:ignore` keeps Livewire from re-rendering over the
+                         text as it arrives — the slow poll below is only a backstop
+                         for a stream that never connected. --}}
+                    <div class="pe-chat-thinking" x-show="chatSending && chatStream === ''" x-cloak aria-hidden="true">
+                        <span></span><span></span><span></span>
+                    </div>
 
                     <div
                         class="pe-chat-message pe-chat-cursor"
                         data-role="assistant"
-                        x-show="chatSending"
+                        x-show="chatSending && chatStream !== ''"
                         x-cloak
                         wire:ignore
                         x-text="chatStream"
                     ></div>
+
+                    {{-- How long this has been going, and — past the marks in
+                         CHAT_HINT_MARKS — one line of why that is still normal.
+                         Elapsed time only, never an estimate: the turn is a
+                         provider round trip plus an unknown number of tool calls,
+                         so a countdown would be a made-up number. --}}
+                    <div class="pe-chat-wait" x-show="chatSending" x-cloak>
+                        <span>{{ __('Working') }} · <span x-text="chatElapsedLabel()"></span></span>
+                        <span class="pe-chat-wait-hint" x-show="chatHint() !== ''" x-text="chatHint()"></span>
+                    </div>
 
                     @if ($this->chatTurnToken !== null)
                         <div wire:poll.5s="pollChatTurn"></div>

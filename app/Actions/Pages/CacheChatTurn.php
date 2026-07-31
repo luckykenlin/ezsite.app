@@ -45,14 +45,20 @@ final readonly class CacheChatTurn
      * carries them, unchanged.
      *
      * @param  list<array{key: string, type: string, data: array<string, mixed>}>|null  $blocks  null while still running
+     * @param  list<string>  $activity  what the turn has done so far, one line per tool
+     *                                  call. Cumulative like `$reply`, and for the
+     *                                  same reason: the stream forwards only the
+     *                                  increment, so a browser that reconnects
+     *                                  mid-turn still gets the lines it missed.
      */
-    public function handle(string $token, string $reply, ?array $blocks = null, bool $failed = false): void
+    public function handle(string $token, string $reply, ?array $blocks = null, bool $failed = false, array $activity = []): void
     {
         Cache::put(self::key($token), [
             'status' => $blocks === null ? 'running' : 'done',
             'reply' => $reply,
             'blocks' => $blocks,
             'failed' => $failed,
+            'activity' => $activity,
         ], now()->addMinutes(self::TTL_MINUTES));
     }
 
@@ -62,7 +68,7 @@ final readonly class CacheChatTurn
      * editor's state and from there into the page, so a malformed entry is
      * dropped here instead of downstream.
      *
-     * @return array{status: string, reply: string, blocks: list<array{key: string, type: string, data: array<string, mixed>}>|null, failed: bool}|null
+     * @return array{status: string, reply: string, blocks: list<array{key: string, type: string, data: array<string, mixed>}>|null, failed: bool, activity: list<string>}|null
      */
     public function read(string $token): ?array
     {
@@ -77,12 +83,28 @@ final readonly class CacheChatTurn
             'reply' => is_string($turn['reply'] ?? null) ? $turn['reply'] : '',
             'blocks' => $this->normalisedBlocks($turn['blocks'] ?? null),
             'failed' => (bool) ($turn['failed'] ?? false),
+            'activity' => $this->normalisedActivity($turn['activity'] ?? null),
         ];
     }
 
     public function forget(string $token): void
     {
         Cache::forget(self::key($token));
+    }
+
+    /**
+     * The activity lines that are actually strings. They are rendered in the chat
+     * rail, so anything else in the entry is dropped rather than reaching a view.
+     *
+     * @return list<string>
+     */
+    private function normalisedActivity(mixed $activity): array
+    {
+        if (! is_array($activity)) {
+            return [];
+        }
+
+        return array_values(array_filter($activity, is_string(...)));
     }
 
     /**

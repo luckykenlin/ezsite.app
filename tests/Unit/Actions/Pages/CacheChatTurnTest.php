@@ -25,6 +25,7 @@ it('reports a turn that is still streaming as running, with no result to apply',
         'reply' => 'Shortening the',
         'blocks' => null,
         'failed' => false,
+        'activity' => [],
     ]);
 });
 
@@ -38,7 +39,30 @@ it('reports a finished turn with its blocks', function (): void {
         'reply' => 'Shortened it.',
         'blocks' => $blocks,
         'failed' => false,
+        'activity' => [],
     ]);
+});
+
+it('carries the activity lines the turn has produced so far', function (): void {
+    // The progress list the chat rail draws above the reply. Cumulative like the
+    // reply itself, so a browser that reconnects mid-turn is not missing the
+    // steps it was disconnected for.
+    chatTurns()->handle('tok', '', activity: ['Rewriting the Hero block…', 'Adding a Cta block…']);
+
+    expect(chatTurns()->read('tok')['activity'])
+        ->toBe(['Rewriting the Hero block…', 'Adding a Cta block…']);
+});
+
+it('drops activity entries that are not lines of text', function (): void {
+    // They are rendered in the panel, so a malformed entry is dropped here rather
+    // than reaching a view — the same defensiveness the blocks get.
+    Cache::put(CacheChatTurn::key('tok'), [
+        'status' => 'running',
+        'reply' => '',
+        'activity' => ['Rewriting the Hero block…', ['nested'], 42],
+    ]);
+
+    expect(chatTurns()->read('tok')['activity'])->toBe(['Rewriting the Hero block…']);
 });
 
 it('carries the unchanged blocks of a failed turn', function (): void {
@@ -91,11 +115,13 @@ it('reads a structurally broken payload as nothing rather than throwing', functi
         'reply' => '',
         'blocks' => null,
         'failed' => false,
+        'activity' => [],
     ]],
-    'a non-string reply' => [['reply' => 42, 'blocks' => 'oops'], [
+    'a non-string reply' => [['reply' => 42, 'blocks' => 'oops', 'activity' => 'not a list'], [
         'status' => 'running',
         'reply' => '',
         'blocks' => null,
         'failed' => false,
+        'activity' => [],
     ]],
 ]);

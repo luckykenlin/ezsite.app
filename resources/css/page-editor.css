@@ -298,6 +298,116 @@
     opacity: 0.55;
 }
 
+/* Progress for a turn that is working rather than talking. Quieter than
+   the reply it precedes — this is scaffolding that disappears when the
+   answer lands, not part of the conversation. */
+.pe-chat-activity {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    color: rgba(0, 0, 0, 0.55);
+}
+
+.dark .pe-chat-activity {
+    color: rgba(255, 255, 255, 0.55);
+}
+
+.pe-chat-activity-line {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0;
+}
+
+/* A pulsing ring for the step in progress, a filled dot for the ones
+   already done — the same "was, is" reading a checklist gives, without
+   spending a whole icon on each line. */
+.pe-chat-activity-mark {
+    width: 0.5rem;
+    height: 0.5rem;
+    flex: none;
+    border-radius: 9999px;
+    border: 1.5px solid #6366f1;
+    animation: pe-chat-pulse 1.4s ease-in-out infinite;
+}
+
+.pe-chat-activity-line[data-done] {
+    opacity: 0.6;
+}
+
+.pe-chat-activity-line[data-done] .pe-chat-activity-mark {
+    background: #6366f1;
+    animation: none;
+}
+
+@keyframes pe-chat-pulse {
+    50% {
+        opacity: 0.25;
+        transform: scale(0.8);
+    }
+}
+
+/* Three dots for the stretch before the first token: this agent writes
+   its prose only after every tool call is done, so an empty bubble with
+   a cursor in it can sit there for most of a minute. */
+.pe-chat-thinking {
+    display: flex;
+    gap: 0.25rem;
+    align-items: center;
+    padding: 0.25rem 0;
+}
+
+.pe-chat-thinking span {
+    width: 0.375rem;
+    height: 0.375rem;
+    border-radius: 9999px;
+    background: rgba(99, 102, 241, 0.75);
+    animation: pe-chat-bounce 1.2s ease-in-out infinite;
+}
+
+.pe-chat-thinking span:nth-child(2) {
+    animation-delay: 0.15s;
+}
+
+.pe-chat-thinking span:nth-child(3) {
+    animation-delay: 0.3s;
+}
+
+@keyframes pe-chat-bounce {
+    50% {
+        opacity: 0.3;
+        transform: translateY(-0.1875rem);
+    }
+}
+
+/* The clock, and the one line of reassurance that follows it once a turn
+   has been going long enough to need one. */
+.pe-chat-wait {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    font-size: 0.75rem;
+    font-variant-numeric: tabular-nums;
+    color: rgba(0, 0, 0, 0.45);
+}
+
+.dark .pe-chat-wait {
+    color: rgba(255, 255, 255, 0.45);
+}
+
+.pe-chat-wait-hint {
+    font-style: italic;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pe-chat-activity-mark,
+    .pe-chat-thinking span {
+        animation: none;
+    }
+}
+
 /* Rendered markdown. `pre-wrap` is for raw text, so it has to go here:
    kept on, the source's own newlines would double every gap the block
    elements already provide. Deliberately hand-written rather than pulling

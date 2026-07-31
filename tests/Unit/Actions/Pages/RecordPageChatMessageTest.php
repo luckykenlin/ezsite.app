@@ -53,3 +53,48 @@ it('records how many blocks an answer changed', function (): void {
 
     expect(PageChatMessage::query()->findOrFail($message->getKey())->changedThePage())->toBeTrue();
 });
+
+/*
+ * Three places want the operator's question in the transcript — the editor when
+ * it dispatches the turn, the action when it runs one, the job when it dies —
+ * and none of them can see what the others did. question() is what lets all
+ * three write unconditionally.
+ */
+it('records the operator question only once per unanswered turn', function (): void {
+    $tenant = Tenant::factory()->create();
+    $page = $this->createTenantPage($tenant, []);
+    $user = User::factory()->create();
+
+    $contents = $this->runInTenant($tenant, function () use ($page, $user): array {
+        $transcript = resolve(RecordPageChatMessage::class);
+
+        // The editor records it on dispatch; the worker then records the same
+        // question again on its way into the turn.
+        $transcript->question($page, $user, 'Shorten the headline');
+        $transcript->question($page, $user, 'Shorten the headline');
+
+        return PageChatMessage::query()->orderBy('id')->pluck('content')->all();
+    });
+
+    expect($contents)->toBe(['Shorten the headline']);
+});
+
+it('records a repeated question again once it has been answered', function (): void {
+    // Only the NEWEST row is deduplicated: asking the same thing twice is a
+    // legitimate retry, and swallowing the second would leave the second answer
+    // hanging under the first question.
+    $tenant = Tenant::factory()->create();
+    $page = $this->createTenantPage($tenant, []);
+
+    $contents = $this->runInTenant($tenant, function () use ($page): array {
+        $transcript = resolve(RecordPageChatMessage::class);
+
+        $transcript->question($page, null, 'Shorten the headline');
+        $transcript->handle($page, null, ChatRole::Assistant, 'Shortened it.', 1);
+        $transcript->question($page, null, 'Shorten the headline');
+
+        return PageChatMessage::query()->orderBy('id')->pluck('content')->all();
+    });
+
+    expect($contents)->toBe(['Shorten the headline', 'Shortened it.', 'Shorten the headline']);
+});

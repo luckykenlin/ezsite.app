@@ -15,6 +15,12 @@
  */
 
 import {
+    chatElapsedLabel,
+    chatHintFor,
+    readChatFrame,
+    STREAM_END,
+} from './chat';
+import {
     type CanvasMessage,
     type EditorMessage,
     type ShortcutName,
@@ -33,6 +39,10 @@ interface PageEditorConfig {
     labels: {
         confirmRemove: string;
         confirmLeave: string;
+        /** Shown in the order they are declared, as the turn passes each mark. */
+        chatLeaveHint: string;
+        chatSlow: string;
+        chatNearLimit: string;
     };
     /** Route the chat reply is streamed from, per turn token. */
     chatStreamUrl: string;
@@ -46,6 +56,8 @@ interface EditorWire {
     chatInput: string;
     /** Null whenever no chat turn is in flight — see sendChat(). */
     chatTurnToken: string | null;
+    /** Unix seconds the in-flight turn was dispatched; null when idle. */
+    chatTurnStartedAt: number | null;
     data?: { block?: Record<string, unknown> };
     mountedActions?: unknown[];
     save(): void;
@@ -100,8 +112,16 @@ interface PageEditorComponent extends AlpineInjected {
     chatPending: string;
     /** The reply as it streams in, owned here rather than by Livewire. */
     chatStream: string;
+    /** What the turn has done so far, one line per tool call. */
+    chatActivity: string[];
+    /** Seconds the turn in flight has been running; 0 when idle. */
+    chatElapsed: number;
+    chatElapsedLabel(): string;
+    chatHint(): string;
     openChatStream(token: string): void;
     closeChatStream(): void;
+    startChatClock(elapsed: number): void;
+    stopChatClock(): void;
     fitLayout(): void;
     onComposerEnter(event: KeyboardEvent): void;
     useSuggestion(text: string): void;
@@ -165,6 +185,15 @@ export function pageEditor(
     /** The SSE connection carrying the reply of the turn in flight. */
     let chatSource: EventSource | null = null;
 
+    /** Drives `chatElapsed` while a turn runs. */
+    let chatClock: ReturnType<typeof setInterval> | null = null;
+
+    /**
+     * Blocks the last assistant turn changed, waiting for the reloaded canvas to
+     * come up so they can be pointed at. Empty at every other moment.
+     */
+    let pendingHighlight: string[] = [];
+
     return {
         device: 'desktop',
         zoom: 1,
@@ -178,6 +207,8 @@ export function pageEditor(
         chatSending: false,
         chatPending: '',
         chatStream: '',
+        chatActivity: [],
+        chatElapsed: 0,
         libraryOpen: false,
 
         /**
@@ -252,8 +283,9 @@ export function pageEditor(
          * The message is passed as an argument rather than read off the bound
          * property so the box can be emptied immediately — a turn is a provider
          * round trip and several tool calls, and leaving the text sitting there
-         * until it returns reads as "my send didn't work". The message is
-         * echoed locally for the same reason.
+         * until it returns reads as "my send didn't work". The message is echoed
+         * locally for the same reason — but only until the response lands, which
+         * is when the server-rendered transcript takes the bubble over.
          *
          * Guarded against the double submit a held Enter key would otherwise
          * cause during that wait: the second turn would run against pre-edit
@@ -268,6 +300,8 @@ export function pageEditor(
 
             this.chatSending = true;
             this.chatPending = message;
+            this.chatActivity = [];
+            this.startChatClock(0);
             this.$wire.set('chatInput', '', false);
             this.$nextTick(() => this.scrollChatToEnd());
 
@@ -286,15 +320,23 @@ export function pageEditor(
                     if (token === null) {
                         this.chatSending = false;
                         this.chatPending = '';
+                        this.stopChatClock();
 
                         return;
                     }
+
+                    // The echo has served its purpose: sendChatMessage() records
+                    // the question, so the render this response carried already
+                    // shows it. Left up, it sat under the real bubble as a
+                    // half-transparent duplicate for the whole turn.
+                    this.chatPending = '';
 
                     this.openChatStream(token);
                 })
                 .catch(() => {
                     this.chatSending = false;
                     this.chatPending = '';
+                    this.stopChatClock();
                 });
         },
 
@@ -324,15 +366,27 @@ export function pageEditor(
             // stream ended. Pinned server-side by PageEditorChatStreamTest.
             source.addEventListener('update', (event: MessageEvent<string>) => {
                 // It closes with a sentinel frame rather than an event of its
-                // own.
-                if (event.data === '</stream>') {
+                // own — and that one is NOT json, so it is matched before the
+                // frame is parsed.
+                if (event.data === STREAM_END) {
                     this.closeChatStream();
                     void this.$wire.pollChatTurn();
 
                     return;
                 }
 
-                this.chatStream += event.data;
+                const frame = readChatFrame(event.data);
+
+                if (frame === null) {
+                    return;
+                }
+
+                if (frame.t === 'activity') {
+                    this.chatActivity.push(frame.v);
+                } else {
+                    this.chatStream += frame.v;
+                }
+
                 this.scrollChatToEnd();
             });
 
@@ -347,6 +401,46 @@ export function pageEditor(
                 chatSource.close();
                 chatSource = null;
             }
+        },
+
+        /**
+         * Run the clock for a turn that started `elapsed` seconds ago — zero for
+         * one being sent now, more for one resumed after a reload.
+         *
+         * Only the elapsed time is shown, never an estimate: a turn is a provider
+         * round trip plus an unknown number of tool calls, so any bar or countdown
+         * would be a number invented to look reassuring.
+         */
+        startChatClock(this: PageEditorComponent, elapsed: number): void {
+            this.stopChatClock();
+
+            this.chatElapsed = Math.max(0, Math.round(elapsed));
+
+            chatClock = setInterval(() => {
+                this.chatElapsed += 1;
+            }, 1000);
+        },
+
+        stopChatClock(this: PageEditorComponent): void {
+            if (chatClock !== null) {
+                clearInterval(chatClock);
+                chatClock = null;
+            }
+
+            this.chatElapsed = 0;
+        },
+
+        /** The clock as `m:ss`. */
+        chatElapsedLabel(this: PageEditorComponent): string {
+            return chatElapsedLabel(this.chatElapsed);
+        },
+
+        /**
+         * The reassurance for how long this has been going, or '' while it is
+         * still short enough not to need one.
+         */
+        chatHint(this: PageEditorComponent): string {
+            return chatHintFor(this.chatElapsed, config.labels);
         },
 
         /**
@@ -365,6 +459,8 @@ export function pageEditor(
             this.chatSending = false;
             this.chatPending = '';
             this.chatStream = '';
+            this.chatActivity = [];
+            this.stopChatClock();
 
             void this.$wire.cancelChatTurn();
         },
@@ -526,6 +622,19 @@ export function pageEditor(
                     key: this.$wire.selectedBlockKey,
                     scroll: false,
                 });
+
+                // "The assistant changed these" — sent once, to the document
+                // that actually contains the new content. A long turn can
+                // rewrite half the page, and without this the operator is told
+                // to review an edit with no indication of where it is.
+                if (pendingHighlight.length > 0) {
+                    this.postToCanvas({
+                        type: 'highlight',
+                        keys: pendingHighlight,
+                    });
+
+                    pendingHighlight = [];
+                }
             }
 
             if (message.type === 'block-clicked') {
@@ -678,6 +787,14 @@ export function pageEditor(
 
             if (resumed !== null) {
                 this.chatSending = true;
+                // From the server's dispatch timestamp, not from now: a turn
+                // resumed 70 seconds in should say so, or the clock restarting at
+                // zero would promise a wait that has mostly already happened.
+                const startedAt = this.$wire.chatTurnStartedAt;
+
+                this.startChatClock(
+                    startedAt === null ? 0 : Date.now() / 1000 - startedAt,
+                );
                 this.openChatStream(resumed);
             }
 
@@ -708,16 +825,30 @@ export function pageEditor(
             // The turn is over — answered, failed, or given up on. This is the
             // only place the sending state clears, because the request that
             // started the turn returned long before it finished.
-            this.$wire.on('page-editor:chat-replied', () => {
-                this.closeChatStream();
+            this.$wire.on(
+                'page-editor:chat-replied',
+                (payload: { changed?: string[] } | undefined) => {
+                    this.closeChatStream();
 
-                this.chatSending = false;
-                this.chatPending = '';
-                // The answer is in the transcript now, so the streaming bubble
-                // has to let go of its copy or it would show twice.
-                this.chatStream = '';
-                this.$nextTick(() => this.scrollChatToEnd());
-            });
+                    this.chatSending = false;
+                    this.chatPending = '';
+                    // The answer is in the transcript now, so the streaming
+                    // bubble has to let go of its copy or it would show twice.
+                    this.chatStream = '';
+                    this.chatActivity = [];
+                    this.stopChatClock();
+                    this.$nextTick(() => this.scrollChatToEnd());
+
+                    // Held rather than sent: applying the answer reloads the
+                    // canvas, and a highlight posted now would land on the
+                    // document about to be replaced. The iframe says 'ready'
+                    // when the new one is up — that is where this is spent.
+                    //
+                    // Optional all the way down because the same event is fired
+                    // by the give-up path, which has no answer to point at.
+                    pendingHighlight = payload?.changed ?? [];
+                },
+            );
 
             // Each poll re-renders the reply bubble in place, which fires no
             // event of its own — so watch the log and keep the newest text in

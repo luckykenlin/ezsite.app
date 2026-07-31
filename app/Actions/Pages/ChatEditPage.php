@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Actions\Pages;
 
 use App\Ai\Agents\PageEditorAgent;
+use App\Ai\ChangedBlocks;
+use App\Ai\ChatActivity;
 use App\Ai\PageDraft;
 use App\Ai\Prompts\PageEditPrompt;
 use App\Enums\ChatRole;
@@ -17,6 +19,7 @@ use Closure;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Laravel\Ai\Streaming\Events\TextDelta;
+use Laravel\Ai\Streaming\Events\ToolCall;
 use RuntimeException;
 use Throwable;
 
@@ -66,6 +69,8 @@ final readonly class ChatEditPage
         // reason BindResolver is `scoped`.
         private BindResolver $bindResolver,
         private RecordPageChatMessage $transcript,
+        private ChatActivity $activity,
+        private ChangedBlocks $changed,
     ) {
         //
     }
@@ -73,21 +78,32 @@ final readonly class ChatEditPage
     /**
      * @param  list<array{key: string, type: string, data: array<string, mixed>}>  $blocks  the editor's current draft
      * @param  (Closure(string): void)|null  $onDelta  called with each chunk of the reply as it arrives
+     * @param  (Closure(string): void)|null  $onActivity  called with one line per tool call, as it is announced
      * @return array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, reply: string, failed: bool}
      */
-    public function handle(Page $page, array $blocks, string $message, ?User $user = null, ?Closure $onDelta = null): array
-    {
+    public function handle(
+        Page $page,
+        array $blocks,
+        string $message,
+        ?User $user = null,
+        ?Closure $onDelta = null,
+        ?Closure $onActivity = null,
+    ): array {
         // Hand the time budget to TURN_BUDGET_SECONDS instead: PHP's own limit
         // can only fail as an uncatchable fatal, and the default 30s is shorter
         // than a single provider round trip, let alone a multi-tool turn.
         set_time_limit(0);
 
-        $this->record($page, $user, ChatRole::User, $message);
+        // Idempotent: the editor already records the question when it dispatches
+        // the turn, so the panel has a single bubble to render rather than a
+        // persisted message plus the local echo of it. This is for callers that
+        // reach the action directly.
+        $this->transcript->question($page, $user, $message);
 
         $draft = new PageDraft($blocks);
 
         try {
-            $reply = $this->ask($page, $draft, $message, $onDelta);
+            $reply = $this->ask($page, $draft, $message, $onDelta, $onActivity);
         } catch (Throwable $throwable) {
             Log::error('page_chat.failed', [
                 'page_id' => $page->id,
@@ -102,7 +118,7 @@ final readonly class ChatEditPage
         }
 
         $edited = $draft->blocks();
-        $changed = $this->changedCount($blocks, $edited);
+        $changed = $this->changed->count($blocks, $edited);
 
         $this->record($page, $user, ChatRole::Assistant, $reply, $changed);
 
@@ -161,8 +177,9 @@ final readonly class ChatEditPage
      * once the loop ends — `$response->text` is likewise only populated then.
      *
      * @param  (Closure(string): void)|null  $onDelta
+     * @param  (Closure(string): void)|null  $onActivity
      */
-    private function ask(Page $page, PageDraft $draft, string $message, ?Closure $onDelta): string
+    private function ask(Page $page, PageDraft $draft, string $message, ?Closure $onDelta, ?Closure $onActivity = null): string
     {
         $prompt = new PageEditPrompt(
             $page,
@@ -191,6 +208,21 @@ final readonly class ChatEditPage
             if ($event instanceof TextDelta && $onDelta instanceof Closure) {
                 $onDelta($event->delta);
             }
+
+            // The tool calls ARE the turn — the prose is written last, once every
+            // edit has been made — so without these the operator watches a
+            // blinking cursor for the whole of a multi-block rewrite.
+            if ($event instanceof ToolCall && $onActivity instanceof Closure) {
+                $line = $this->activity->forToolCall(
+                    $draft,
+                    $event->toolCall->name,
+                    $event->toolCall->arguments,
+                );
+
+                if ($line !== null) {
+                    $onActivity($line);
+                }
+            }
         }
 
         // `text` is only populated once the iteration above completes, and stays
@@ -198,39 +230,6 @@ final readonly class ChatEditPage
         $reply = mb_trim($response->text ?? '');
 
         return $reply === '' ? __('Done.') : $reply;
-    }
-
-    /**
-     * How many blocks the turn actually touched — added, removed, or edited.
-     * Drives the "edited the page" marker, and tells the caller whether to
-     * disturb the editor's state at all.
-     *
-     * @param  list<array{key: string, type: string, data: array<string, mixed>}>  $before
-     * @param  list<array{key: string, type: string, data: array<string, mixed>}>  $after
-     */
-    private function changedCount(array $before, array $after): int
-    {
-        $keyed = array_column($before, null, 'key');
-        $afterKeys = array_column($after, 'key');
-
-        // A block whose key vanished was removed; a new key was added; a shared
-        // key with different data was edited. A pure reorder changes no block,
-        // so it is counted as one change rather than zero.
-        $changed = count(array_diff(array_keys($keyed), $afterKeys));
-
-        foreach ($after as $block) {
-            $previous = $keyed[$block['key']] ?? null;
-
-            if ($previous === null || $previous['data'] !== $block['data']) {
-                $changed++;
-            }
-        }
-
-        if ($changed === 0 && array_column($before, 'key') !== $afterKeys) {
-            return 1;
-        }
-
-        return $changed;
     }
 
     /**

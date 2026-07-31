@@ -18,6 +18,7 @@ import {
     type CanvasMessage,
     type EditorMessage,
     closestFrom,
+    HIGHLIGHT_MS,
     isChromeKey,
     matchShortcut,
     NAMESPACE,
@@ -48,6 +49,7 @@ let inputTimer: ReturnType<typeof setTimeout> | undefined;
 let selectedKey: string | null = null;
 let hoveredKey: string | null = null;
 let clickTimer: ReturnType<typeof setTimeout> | undefined;
+let highlightTimer: ReturnType<typeof setTimeout> | undefined;
 
 /**
  * How long a click on a block waits before it becomes "open the settings
@@ -131,6 +133,55 @@ const mark = (attribute: string, key: string | null): HTMLElement | null => {
     }
 
     return el;
+};
+
+/**
+ * Mark the blocks an assistant turn changed, and scroll the first into view.
+ *
+ * Purely a pointer: it sets an attribute the stylesheet animates and takes it
+ * back again, touching neither the selection nor the parent's state. A turn can
+ * rewrite half a long page, and "edited the page — review and Save" is not much
+ * use if finding the edit means scrolling the whole thing.
+ *
+ * Blocks the assistant ADDED are here too, which is why this cannot be folded
+ * into the patch path — those elements did not exist before the reload.
+ */
+const highlightChanged = (keys: string[]): void => {
+    if (highlightTimer !== undefined) {
+        clearTimeout(highlightTimer);
+    }
+
+    document
+        .querySelectorAll('[data-editor-changed]')
+        .forEach((el) => el.removeAttribute('data-editor-changed'));
+
+    const marked = keys
+        .map((key) =>
+            document.querySelector<HTMLElement>(
+                `[data-block-key="${CSS.escape(key)}"]`,
+            ),
+        )
+        .filter((el): el is HTMLElement => el !== null);
+
+    marked.forEach((el) => el.setAttribute('data-editor-changed', ''));
+
+    // Only when it is off screen: a jump that lands where you already were reads
+    // as the page twitching for no reason.
+    const first = marked[0];
+
+    if (first) {
+        const box = first.getBoundingClientRect();
+
+        if (box.top < 0 || box.top > window.innerHeight) {
+            first.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }
+
+    highlightTimer = setTimeout(() => {
+        document
+            .querySelectorAll('[data-editor-changed]')
+            .forEach((el) => el.removeAttribute('data-editor-changed'));
+    }, HIGHLIGHT_MS);
 };
 
 /**
@@ -542,6 +593,10 @@ window.addEventListener('message', (event: MessageEvent) => {
         if (el && message.scroll) {
             el.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
+    }
+
+    if (message.type === 'highlight') {
+        highlightChanged(message.keys);
     }
 
     if (message.type === 'insert-armed') {

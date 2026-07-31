@@ -1639,6 +1639,44 @@ it('shows both sides of the turn in the panel and marks the one that edited', fu
         ->and($component->get('isDirty'))->toBeFalse();
 });
 
+/*
+ * A long turn can rewrite half a page, and "edited the page — review and Save" is
+ * not much use if finding the edit means scrolling the whole thing. The keys ride
+ * out with the reply event; the canvas paints them once it has reloaded with the
+ * new content (see the 'ready' handler in editor.ts).
+ */
+it('names the blocks the answer changed so the canvas can point at them', function (): void {
+    $page = editorPage([
+        ['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Old headline']],
+        ['type' => 'heading', 'data' => ['content' => 'Untouched', 'level' => 'h2']],
+    ]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
+    $heroKey = $component->get('blocks')[0]['key'];
+
+    PageEditorAgent::fake([
+        new ToolCall('c1', 'UpdateBlockContent', ['key' => $heroKey, 'content' => ['heading' => 'Fresh bread daily']]),
+        'Shortened the headline.',
+    ]);
+
+    $component->call('sendChatMessage', 'Shorten the headline')
+        ->call('pollChatTurn')
+        // Only what actually changed: highlighting the whole page would say
+        // nothing at all.
+        ->assertDispatched('page-editor:chat-replied', changed: [$heroKey]);
+});
+
+it('has nothing to highlight for an answer that changed no blocks', function (): void {
+    PageEditorAgent::fake(['The hero block is the banner at the top.']);
+
+    $page = editorPage([['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']]]);
+
+    Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->call('sendChatMessage', 'What does the hero do?')
+        ->call('pollChatTurn')
+        ->assertDispatched('page-editor:chat-replied', changed: []);
+});
+
 it('resumes the page conversation on the next visit', function (): void {
     PageEditorAgent::fake(['Done.']);
 
@@ -1765,6 +1803,27 @@ it('opens the turn before dispatching, so the stream can connect at once', funct
         ChatEditPageJob::class,
         fn (ChatEditPageJob $job): bool => $job->tenantId === $this->tenant->id,
     );
+});
+
+/*
+ * Regression: the question was recorded by the WORKER, so the panel had nothing
+ * to render until the job started — the composer's local echo covered the gap,
+ * and then the next poll tick drew the persisted message ON TOP of it. The
+ * operator watched their own message sit there twice, one copy half-transparent,
+ * for the whole turn. Recording it here means the response that returns already
+ * carries the bubble, and the echo clears itself (see sendChat() in editor.ts).
+ */
+it('records the question as it dispatches, so the panel renders it once', function (): void {
+    Queue::fake();
+
+    $page = editorPage([['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']]]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->call('sendChatMessage', 'Shorten the headline');
+
+    // Nothing has run the turn — the job is still sitting in the fake queue.
+    expect(array_map(fn (array $message): array => [$message['role'], $message['content']], $component->get('chatMessages')))
+        ->toBe([['user', 'Shorten the headline']]);
 });
 
 it('keeps waiting while the turn is still running', function (): void {

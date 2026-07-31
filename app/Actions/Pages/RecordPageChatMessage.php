@@ -47,4 +47,34 @@ final readonly class RecordPageChatMessage
             'changed_blocks' => $changed,
         ]);
     }
+
+    /**
+     * Record the operator's question unless the newest row already IS it.
+     *
+     * Three paths want the question in the transcript and only one of them can
+     * know whether another got there first: the editor writes it when the turn is
+     * dispatched (so the panel has one bubble to render instead of a persisted
+     * message plus a local echo of it), {@see ChatEditPage::handle()} writes it for
+     * callers that reach the action directly, and
+     * {@see \App\Jobs\ChatEditPageJob::failed()} writes it for a payload that never
+     * reached the action at all — an apology answering nothing reads as a bug.
+     *
+     * Idempotent against the NEWEST row only. Asking the same thing again later is
+     * a legitimate retry and must appear twice — by then the answer to the first
+     * one sits between them, so only a question with no answer yet is treated as
+     * the one already recorded.
+     */
+    public function question(Page $page, ?User $user, string $content): void
+    {
+        $newest = PageChatMessage::query()
+            ->where('page_id', $page->id)
+            ->orderByDesc('id')
+            ->first();
+
+        if ($newest instanceof PageChatMessage && $newest->role === ChatRole::User && $newest->content === $content) {
+            return;
+        }
+
+        $this->handle($page, $user, ChatRole::User, $content);
+    }
 }

@@ -70,7 +70,62 @@ it('forwards each new slice as the worker writes it, then closes on the result',
             // name, so editor.ts listens for 'update' and nothing else. Getting
             // this wrong is silent — the reply simply never types out.
             ->and($content)->toContain('event: update')
-            ->and($content)->toContain('data: Shortening');
+            // And the payload is JSON, which is the other half of that contract.
+            ->and($content)->toContain('data: {"t":"text","v":"Shortening"}');
+    });
+});
+
+/*
+ * eventStream() writes `data: <message>` with no encoding of its own, so a raw
+ * newline used to end the SSE frame early and the browser dropped everything
+ * after it — which is most of a markdown reply, the shape this assistant answers
+ * in. JSON frames are what make the reply survive the trip.
+ */
+it('keeps a reply that contains newlines intact', function (): void {
+    $tenant = Tenant::factory()->withDomain('acme')->create();
+
+    $this->runInTenant($tenant, function (): void {
+        resolve(CacheChatTurn::class)->handle('tok', "Changed two things:\n\n- the headline\n- the button", []);
+
+        $content = chatStreamResponse('tok');
+
+        expect($content)
+            // Escaped inside one frame rather than splitting into several.
+            ->toContain('\n\n- the headline\n- the button')
+            ->and(mb_substr_count($content, 'event: update'))->toBe(2);
+    });
+});
+
+it('forwards each activity line as the turn announces it', function (): void {
+    $tenant = Tenant::factory()->withDomain('acme')->create();
+
+    $this->runInTenant($tenant, function (): void {
+        $turns = resolve(CacheChatTurn::class);
+        $turns->handle('tok', '', activity: ['Rewriting the Hero block…']);
+
+        $writes = [
+            fn () => $turns->handle('tok', '', activity: ['Rewriting the Hero block…', 'Adding a Cta block…']),
+            fn () => $turns->handle('tok', 'Done.', [], activity: ['Rewriting the Hero block…', 'Adding a Cta block…']),
+        ];
+
+        Sleep::whenFakingSleep(function () use (&$writes): void {
+            $write = array_shift($writes);
+
+            if ($write !== null) {
+                $write();
+            }
+        });
+
+        $content = chatStreamResponse('tok');
+
+        // Typed apart from the reply, so the panel can draw them as progress
+        // above the answer rather than as part of it.
+        expect($content)->toContain('{"t":"activity","v":"Rewriting the Hero block…"}')
+            ->toContain('{"t":"activity","v":"Adding a Cta block…"}')
+            ->toContain('{"t":"text","v":"Done."}')
+            // Each line once: they are appended client-side, so a resend would
+            // show the same step twice.
+            ->and(mb_substr_count($content, 'Adding a Cta block'))->toBe(1);
     });
 });
 

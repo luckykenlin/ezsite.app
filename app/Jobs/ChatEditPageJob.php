@@ -115,12 +115,15 @@ final class ChatEditPageJob extends TenantAware
         $reply = '';
         $lastWrite = null;
 
+        /** @var list<string> $activity */
+        $activity = [];
+
         $result = resolve(ChatEditPage::class)->handle(
             $page,
             $this->blocks,
             $this->message,
             $user,
-            function (string $delta) use (&$reply, &$lastWrite, $turns): void {
+            function (string $delta) use (&$reply, &$lastWrite, &$activity, $turns): void {
                 $reply .= $delta;
 
                 if ($lastWrite instanceof CarbonImmutable && $lastWrite->diffInMilliseconds(now()) < self::PROGRESS_INTERVAL_MS) {
@@ -129,21 +132,31 @@ final class ChatEditPageJob extends TenantAware
 
                 $lastWrite = now();
 
-                $turns->handle($this->token, $reply);
+                $turns->handle($this->token, $reply, activity: $activity);
+            },
+            // NOT throttled, unlike the text above: a tool call is a rare event
+            // (a dozen in the longest turn), and it is the only thing moving on
+            // screen while the model works silently — delaying one by even the
+            // 40ms above would be pure loss.
+            function (string $line) use (&$reply, &$activity, $turns): void {
+                $activity[] = $line;
+
+                $turns->handle($this->token, $reply, activity: $activity);
             },
         );
 
-        $turns->handle($this->token, $result['reply'], $result['blocks'], $result['failed']);
+        $turns->handle($this->token, $result['reply'], $result['blocks'], $result['failed'], $activity);
     }
 
     /**
      * Write the failure into the page's transcript.
      *
      * Records the QUESTION first when it is missing: a payload that failed to
-     * deserialise never reached {@see ChatEditPage::handle()}, so nothing recorded
-     * the operator's message, and an apology on its own would read as an answer to
-     * nothing. Checked against the newest row rather than blindly inserted, because
-     * the ordinary failure path already recorded it.
+     * deserialise never reached {@see ChatEditPage::handle()} — and, if it failed
+     * on the way out of the editor, was never recorded there either — so an apology
+     * on its own would read as an answer to nothing. {@see
+     * RecordPageChatMessage::question()} is what makes that safe on the ordinary
+     * failure path, where the question is already in the transcript.
      *
      * The apology is recorded with `changed: 0`, not null — zero says "this answer
      * touched nothing", which keeps {@see PageChatMessage::changedThePage()}
@@ -162,15 +175,7 @@ final class ChatEditPageJob extends TenantAware
         $user = $this->userId === null ? null : User::query()->find($this->userId);
         $transcript = resolve(RecordPageChatMessage::class);
 
-        $newest = PageChatMessage::query()
-            ->where('page_id', $page->id)
-            ->orderByDesc('id')
-            ->first();
-
-        if (! $newest instanceof PageChatMessage || $newest->role !== ChatRole::User || $newest->content !== $this->message) {
-            $transcript->handle($page, $user, ChatRole::User, $this->message);
-        }
-
+        $transcript->question($page, $user, $this->message);
         $transcript->handle($page, $user, ChatRole::Assistant, $apology, 0);
     }
 }

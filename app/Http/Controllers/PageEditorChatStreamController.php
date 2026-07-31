@@ -62,15 +62,24 @@ final class PageEditorChatStreamController extends Controller
     }
 
     /**
-     * Yield each new slice of the reply until the turn finishes, the operator
-     * stops it (the entry is forgotten), or this connection has been open long
-     * enough. Sending only the increment keeps the browser's job to appending.
+     * Yield each new slice of the reply, and each new activity line, until the turn
+     * finishes, the operator stops it (the entry is forgotten), or this connection
+     * has been open long enough. Sending only the increment keeps the browser's job
+     * to appending.
+     *
+     * Frames are JSON, NOT raw text. `eventStream()` writes `data: <message>` with
+     * no encoding of its own, so a newline inside the message ends the SSE frame
+     * early and the browser silently drops everything after it — which is most of
+     * a markdown reply. JSON escapes newlines, and it also gives the two kinds of
+     * frame somewhere to say which they are: `text` appends to the reply bubble,
+     * `activity` appends to the progress list above it.
      *
      * @return Generator<int, string>
      */
     private function tail(string $token, CacheChatTurn $turns): Generator
     {
         $sent = 0;
+        $announced = 0;
 
         // Bounded by reads rather than by a deadline. Between reads this loop
         // does nothing but sleep, so the two are equivalent in production — but
@@ -85,10 +94,20 @@ final class PageEditorChatStreamController extends Controller
                 return;
             }
 
+            // Activity before text, deliberately: the line announcing a tool call
+            // is written before the model narrates what it did, and reversing them
+            // on screen would read as the assistant talking about work it has not
+            // started.
+            foreach (array_slice($turn['activity'], $announced) as $line) {
+                yield $this->frame('activity', $line);
+            }
+
+            $announced = count($turn['activity']);
+
             $reply = $turn['reply'];
 
             if (mb_strlen($reply) > $sent) {
-                yield mb_substr($reply, $sent);
+                yield $this->frame('text', mb_substr($reply, $sent));
 
                 $sent = mb_strlen($reply);
             }
@@ -99,5 +118,18 @@ final class PageEditorChatStreamController extends Controller
 
             Sleep::for(self::TAIL_INTERVAL_MS)->milliseconds();
         }
+    }
+
+    /**
+     * One frame, as the browser parses it — see {@see tail()} for why this is JSON.
+     *
+     * `JSON_THROW_ON_ERROR` is deliberate: a frame that cannot be encoded (invalid
+     * UTF-8 mid-stream from a provider) must break this connection rather than
+     * write a `data: false` the browser would take for a real message. The turn
+     * itself survives — it is on the worker, and the editor's poll still lands it.
+     */
+    private function frame(string $kind, string $value): string
+    {
+        return json_encode(['t' => $kind, 'v' => $value], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
     }
 }
