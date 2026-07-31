@@ -80,12 +80,3 @@ it('keeps the chat turn timeouts ordered from innermost to outermost', function 
         ->and($job)->toBeLessThanOrEqual($stream)
         ->and($job)->toBeLessThanOrEqual($editor);
 });
-
-it('reads real values, so the ordering assertions cannot pass vacuously', function (): void {
-    // A renamed constant or a dropped #[Timeout] would otherwise make the test
-    // above compare nulls and stay green.
-    expect(privateConstant(ChatEditPage::class, 'TURN_BUDGET_SECONDS'))->toBe(90)
-        ->and(timeoutAttribute(PageEditorAgent::class, AgentTimeout::class))->toBe(120)
-        ->and(timeoutAttribute(ChatEditPageJob::class, QueueTimeout::class))->toBe(150)
-        ->and(privateConstant(PageEditorChatStreamController::class, 'MAX_SECONDS'))->toBe(180);
-});

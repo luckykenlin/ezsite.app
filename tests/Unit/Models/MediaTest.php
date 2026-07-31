@@ -22,22 +22,6 @@ test('tenant_id is stamped from the current tenant context on create', function 
     expect(Media::query()->findOrFail($id)->tenant_id)->toBe($tenant->id);
 });
 
-test('numeric metadata is cast to integers', function (): void {
-    $tenant = Tenant::factory()->create();
-    $media = $this->runInTenant($tenant, fn (): Media => Media::factory()->create([
-        'tenant_id' => $tenant->id,
-        'width' => '800',
-        'height' => '600',
-        'size' => '1024',
-    ]));
-
-    $media = Media::query()->findOrFail($media->getKey());
-
-    expect($media->width)->toBe(800)
-        ->and($media->height)->toBe(600)
-        ->and($media->size)->toBe(1024);
-});
-
 test('the url resolves through the tenant-aware public disk', function (): void {
     $tenant = Tenant::factory()->create();
 

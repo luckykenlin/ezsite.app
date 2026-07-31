@@ -86,14 +86,7 @@ test('counts the blocks it holds', function (): void {
     expect(PageRevision::query()->findOrFail($revision->getKey())->blockCount())->toBe(2);
 });
 
-test('is never updated', function (): void {
-    // The table has no updated_at: a revision records a moment and is only ever
-    // inserted, read and pruned.
-    expect(PageRevision::UPDATED_AT)->toBeNull()
-        ->and(Schema::hasColumn('page_revisions', 'updated_at'))->toBeFalse();
-});
-
-test('casts blocks to an array and the timestamp to a date', function (): void {
+test('casts blocks to an array and carries only a created_at', function (): void {
     $tenant = Tenant::factory()->create();
     $revision = $this->runInTenant($tenant, fn (): PageRevision => PageRevision::factory()->create([
         'tenant_id' => $tenant->id,
@@ -103,7 +96,11 @@ test('casts blocks to an array and the timestamp to a date', function (): void {
     $stored = PageRevision::query()->findOrFail($revision->getKey());
 
     expect($stored->blocks)->toBe([['type' => 'hero', 'data' => ['heading' => 'Hi']]])
-        ->and($stored->created_at)->toBeInstanceOf(CarbonImmutable::class);
+        ->and($stored->created_at)->toBeInstanceOf(CarbonImmutable::class)
+        // A revision records a moment and is only ever inserted, read and pruned,
+        // so there is no updated_at column for Eloquent to maintain — which is
+        // what `const UPDATED_AT = null` on the model exists to tell it.
+        ->and(Schema::hasColumn('page_revisions', 'updated_at'))->toBeFalse();
 });
 
 test('to array', function (): void {

@@ -70,16 +70,16 @@ test('a card carries its identity in the markup, which is what the browser reads
     // one of them would strand cards off-screen instead of failing loudly.
     $page = canvasPage(['title' => 'Services', 'slug' => 'services']);
 
-    Livewire::test(PageCanvas::class)
+    $component = Livewire::test(PageCanvas::class)
         ->assertSeeHtml('data-page-id="'.$page->id.'"')
         ->assertSeeHtml('data-index="0"')
         ->assertSeeHtml('data-title="Services"')
         ->assertSeeHtml('data-draft="0"')
         ->assertSeeHtml('data-url="'.e(PageResource::getUrl('edit', ['record' => $page])).'"');
-});
 
-test('the canvas is the index, so it carries no breadcrumb back to itself', function (): void {
-    expect(Livewire::test(PageCanvas::class)->instance()->getBreadcrumbs())->toBeEmpty();
+    // The canvas IS the resource index, and the resource breadcrumb links here,
+    // so the default pair would render as "Pages › Pages".
+    expect($component->instance()->getBreadcrumbs())->toBeEmpty();
 });
 
 test('a draft card is marked as one', function (): void {

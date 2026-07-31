@@ -19,10 +19,6 @@ function draftBlocks(): array
     ];
 }
 
-it('exposes the blocks it was built from', function (): void {
-    expect(new PageDraft(draftBlocks())->blocks())->toBe(draftBlocks());
-});
-
 it('finds a block by key and returns null for an unknown one', function (): void {
     $draft = new PageDraft(draftBlocks());
 
@@ -32,6 +28,10 @@ it('finds a block by key and returns null for an unknown one', function (): void
 
 it('hands the replaced blocks straight back to the next tool in the turn', function (): void {
     $draft = new PageDraft(draftBlocks());
+
+    // What it was built from comes back verbatim, so a tool reading the draft
+    // before any edit sees the real page rather than a normalised copy.
+    expect($draft->blocks())->toBe(draftBlocks());
 
     $draft->replace([draftBlocks()[1]]);
 
