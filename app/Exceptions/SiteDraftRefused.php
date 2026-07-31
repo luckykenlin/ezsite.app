@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Exceptions;
 
 /**
- * The site\'s state forbids generating over it — currently only: the home page is
+ * The site's state forbids generating over it — currently only: the home page is
  * already published, and overwriting a live page is not something a background job
  * gets to decide.
  *

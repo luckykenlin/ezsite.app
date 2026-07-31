@@ -466,17 +466,6 @@ final class PageEditor extends Page
         $this->markDirty();
     }
 
-    /**
-     * One turn of the AI chat. The assistant edits a copy of the draft through
-     * its tools; whatever comes back goes through {@see applyBlocks()}, so its
-     * changes are undoable, visible on the canvas immediately, and unsaved
-     * until the operator hits Save — the same contract as a hand edit.
-     *
-     * The reply is streamed into the panel as it arrives (Livewire's
-     * `wire:stream`), so a turn that rewrites several blocks shows progress
-     * instead of a spinner. The streamed text is transient — the final render
-     * reads the persisted transcript, which is also what a reload shows.
-     */
     public function save(): void
     {
         if (! $this->persistBlocks()) {

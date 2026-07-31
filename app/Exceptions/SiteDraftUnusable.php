@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Exceptions;
 
 /**
- * The model\'s output did not yield a usable page: no structured output at all, or
+ * The model's output did not yield a usable page: no structured output at all, or
  * too little survived sanitization to publish (too few blocks, no hero).
  *
  * RETRYABLE, and deliberately covers both. It is tempting to treat "nothing
