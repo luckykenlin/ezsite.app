@@ -177,10 +177,26 @@ Harness facts, each of which cost something to find:
   Sessions move to the `database` driver, because the browser holds a cookie.
 - **Tenant subdomains work through `*.localhost`**: Chromium resolves it to
   loopback itself, and the server reads the Host header. `VisitsTenantPages`
-  builds those URLs — and also calls `URL::forceRootUrl()`, because routing
-  reads the Host header but `route()` does not, which would otherwise put the
-  preview iframe on a different origin than the editor and fail every check in
-  `protocol.ts`.
+  builds those URLs — and then pins **two** origins, because the plugin rebuilds
+  every request from the server's own `127.0.0.1` address:
+  - `URL::forceRootUrl()` for `url()`/`route()`, without which the preview
+    iframe lands on a different origin than the editor and fails every check in
+    `protocol.ts`.
+  - `URL::useAssetOrigin()` for `asset()`, which does **not** follow the root:
+    `LaravelHttpServer::bootstrap()` sets an asset origin of its own and
+    `asset()` prefers it. Leave it and `@vite` emits the builder's entries
+    cross-origin — harmless for Filament's classic `<script>` tags, fatal for
+    `type="module"`, which is fetched under CORS and silently dropped. Nothing
+    registers `pageCanvas`/`pageEditor`, every `x-data` on the page throws
+    "not defined", and the canvas renders every card stacked at one point.
+- **A browser suite that HANGS means an element is covered, not slow.** The
+  actionability wait behind `hover()`/`drag()` never times out here, so pest
+  sits in `stream_select()` at 0% CPU forever and CI never fails, it just stops.
+  Two things tell you where you are: `pg_stat_activity` on `ezsite_testing`
+  shows a single RLS `GRANT` (one `beforeEach` ran, so it is the first test) and
+  nothing but Filament's notifications poll after it. Progress output is no help
+  — pest writes it only as each test finishes, so a hung run prints nothing;
+  `fwrite(STDERR, ...)` between steps in a scratch test is how you bisect it.
 - **`composer test:browser` wraps pest in `ulimit -n 1024`.** amphp's event loop
   uses `stream_select()`, which cannot see a file descriptor numbered above
   1023; macOS's soft limit is in the millions, so PHP hands out high numbers and

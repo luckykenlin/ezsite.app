@@ -43,6 +43,19 @@ trait VisitsTenantPages
         // protocol.ts. Pinning the root here keeps the whole page same-origin.
         URL::forceRootUrl($origin);
 
+        // Assets need the same treatment and do NOT get it from the line
+        // above: the plugin pins an asset origin of its own
+        // (LaravelHttpServer::bootstrap() calls useAssetOrigin() with the
+        // server's 127.0.0.1 address), and asset() prefers that over the root.
+        // @vite therefore emits the builder's Alpine modules cross-origin, and
+        // `type="module"` — unlike Filament's classic scripts — is fetched
+        // under CORS, so the browser drops them: no `pageCanvas`/`pageEditor`
+        // gets registered, every x-data on the page throws "not defined", and
+        // the cards render stacked with no position. Playwright then waits
+        // forever for a covered element, which is a hung suite rather than a
+        // failing one.
+        URL::useAssetOrigin($origin);
+
         return $origin.'/'.mb_ltrim($path, '/');
     }
 }
