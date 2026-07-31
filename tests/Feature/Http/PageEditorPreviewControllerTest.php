@@ -17,7 +17,11 @@ beforeEach(function (): void {
     // The route requires an authenticated user as well as the token — see the
     // controller. Any user will do: the token, tenant-prefixed in the cache, is
     // what scopes the draft to its tenant.
-    $this->actingAs(User::factory()->create());
+    //
+    // Signed in through the session rather than actingAs(), because the route
+    // has to resolve the user itself — actingAs() hands it one and hides the
+    // difference between a check that reads the session and one that does not.
+    $this->actingAsThroughSession(User::factory()->create());
 });
 
 function cachePreviewFor(Tenant $tenant, Page $page, array $blocks, string $token, ?array $chrome = null): void
@@ -246,7 +250,7 @@ it('serves nobody who is not signed in', function (): void {
     // Defence in depth: the token used to be the only gate, which left the live
     // unpublished draft of a page readable by anyone who obtained a URL. 404 and
     // not 403, so it is indistinguishable from an unknown token.
-    auth()->logout();
+    $this->flushSession();
 
     $tenant = Tenant::factory()->withDomain('acme')->create();
     $page = $this->createTenantPage($tenant, []);

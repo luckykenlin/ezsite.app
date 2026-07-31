@@ -17,7 +17,9 @@ use Illuminate\Support\Sleep;
  * real worker would have appended more text.
  */
 beforeEach(function (): void {
-    $this->actingAs(User::factory()->create());
+    // Through the session, not actingAs(): the route resolves the user itself,
+    // and a pre-resolved guard would hide a check that never reads the session.
+    $this->actingAsThroughSession(User::factory()->create());
 });
 
 function chatStreamResponse(string $token): string
@@ -122,7 +124,7 @@ it('does not resolve a token across tenants', function (): void {
 });
 
 it('streams to nobody who is not signed in', function (): void {
-    auth()->logout();
+    $this->flushSession();
 
     Tenant::factory()->withDomain('acme')->create();
 

@@ -41,7 +41,11 @@ final class PageEditorPreviewController extends Controller
 {
     public function __invoke(Request $request): View
     {
-        abort_unless(auth()->hasUser(), 404);
+        // check(), not hasUser(): this route carries no `auth` middleware, so
+        // nothing upstream has resolved the guard, and hasUser() only reports an
+        // ALREADY resolved user — it never reads the session, so it is false for
+        // every real browser request.
+        abort_unless(auth()->check(), 404);
 
         $payload = Cache::get(CachePageEditorPreview::key((string) $request->query('token')));
 

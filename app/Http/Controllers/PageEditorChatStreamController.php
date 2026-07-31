@@ -50,7 +50,9 @@ final class PageEditorChatStreamController extends Controller
 
     public function __invoke(Request $request, CacheChatTurn $turns): StreamedResponse
     {
-        abort_unless(auth()->hasUser(), 404);
+        // check() rather than hasUser(), for the reason spelled out in
+        // PageEditorPreviewController: nothing here resolves the guard first.
+        abort_unless(auth()->check(), 404);
 
         $token = (string) $request->query('token');
 

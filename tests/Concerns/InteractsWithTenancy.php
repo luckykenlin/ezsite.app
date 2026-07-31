@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Tenancy\RunInTenant;
 use Closure;
 use Filament\Facades\Filament;
+use Illuminate\Auth\SessionGuard;
 
 /**
  * Shared tenancy helpers, mixed into the whole suite by tests/Pest.php, which
@@ -44,6 +45,23 @@ trait InteractsWithTenancy
         Filament::setTenant($tenant);
 
         return $tenant;
+    }
+
+    /**
+     * Sign a user in the way a browser does: through the session, leaving the
+     * guard UNRESOLVED until the request under test asks for the user.
+     *
+     * `actingAs()` puts the user instance straight onto the guard, so a route
+     * that inspects an already-resolved user (`auth()->hasUser()`) passes under
+     * `actingAs()` and 404s for every real request. Use this for routes outside
+     * the panel's `auth` middleware, where nothing resolves the guard first.
+     */
+    protected function actingAsThroughSession(User $user): void
+    {
+        /** @var SessionGuard $guard */
+        $guard = auth()->guard();
+
+        $this->withSession([$guard->getName() => $user->getKey()]);
     }
 
     /**
