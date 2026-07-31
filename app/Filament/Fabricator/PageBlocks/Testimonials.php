@@ -19,6 +19,8 @@ final class Testimonials extends Block
 {
     protected static string $name = 'testimonials';
 
+    protected static string $description = 'What customers said, in their own words, with attribution. Never write these yourself: a quote nobody said is a fabricated fact.';
+
     protected static ?Heroicon $icon = Heroicon::OutlinedChatBubbleLeftRight;
 
     /**

@@ -77,7 +77,7 @@ final readonly class PageEditPrompt implements Stringable
      */
     private function vocabularySection(): string
     {
-        $present = array_unique(array_column($this->draft->blocks(), 'type'));
+        $present = array_values(array_unique(array_column($this->draft->blocks(), 'type')));
         $lines = [];
 
         foreach ($present as $type) {
@@ -88,9 +88,10 @@ final readonly class PageEditPrompt implements Stringable
             }
 
             $lines[] = sprintf(
-                '- %s: %s%s%s',
+                '- %s — %s%s%s%s',
                 $type,
-                $contract->fields === [] ? '(no content fields)' : implode(', ', $contract->fields),
+                $contract->description,
+                "\n  fields: ".($contract->fields === [] ? '(none)' : implode(', ', $contract->fields)),
                 // The layouts this type offers, inline rather than behind a
                 // lookup tool: "make the hero full-width" must not cost a round
                 // trip, and it is ~5 tokens per type actually on the page.
@@ -101,18 +102,48 @@ final readonly class PageEditPrompt implements Stringable
             );
         }
 
-        $addable = array_diff(array_keys($this->vocabulary), $present, ChromeSlot::values());
-
         return "## Block vocabulary\n"
             .'The fields each block type on this page accepts, and the layouts it can be switched '
             .'to. Field names not listed here are discarded — never invent one, and never write '
             ."\"variant\", \"bind\" or a layout name as if it were a content field.\n"
             .($lines === [] ? '(nothing on the page yet)' : implode("\n", $lines))
-            .($addable === [] ? '' : "\nTypes you can add: ".implode(', ', $addable).'.')
+            .$this->addableSection($present)
             ."\nList fields (features, testimonials, images, nav_links) take an array of flat "
             .'objects, e.g. features: [{icon, title, description}]. For links use relative paths '
             .'like "/contact" or anchors like "#contact". The site header and footer are '
             .'site-wide and are not part of this page.';
+    }
+
+    /**
+     * The types that could be ADDED, each with what it is for.
+     *
+     * These used to be bare names on one line, which was fine at seven types and
+     * stops being fine as the vocabulary grows: several blocks present as "a
+     * heading plus a repeater of titled items", so a name alone leaves the model
+     * choosing between them by vibe — and picking the wrong container is a
+     * mistake no later edit fixes, because the fields differ.
+     *
+     * Their FIELDS stay unlisted: `AddBlock` seeds sample content and returns the
+     * new key, so the model reads the real shape from the outline before writing
+     * to it. One line each is what it needs to choose; the full contract is what
+     * it needs to write, and it gets that a moment later.
+     *
+     * @param  list<string>  $present
+     */
+    private function addableSection(array $present): string
+    {
+        $addable = array_diff(array_keys($this->vocabulary), $present, ChromeSlot::values());
+
+        if ($addable === []) {
+            return '';
+        }
+
+        $lines = array_map(
+            fn (string $type): string => sprintf('- %s — %s', $type, $this->vocabulary[$type]->description),
+            $addable,
+        );
+
+        return "\nSections you can add:\n".implode("\n", $lines);
     }
 
     /**

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Filament\Fabricator\PageBlocks;
 
+use App\Filament\Fabricator\Fields\ImageInput;
+use App\Filament\Fabricator\Fields\LinkInput;
 use Filament\Forms\Components\Field;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Textarea;
@@ -17,6 +19,8 @@ use Filament\Support\Icons\Heroicon;
 final class Features extends Block
 {
     protected static string $name = 'features';
+
+    protected static string $description = 'Reasons to choose this business — benefits, selling points or how a service works. For things you can BUY, with prices, this is the wrong block.';
 
     protected static ?Heroicon $icon = Heroicon::OutlinedSquares2x2;
 
@@ -63,6 +67,17 @@ final class Features extends Block
                     Textarea::make('description')
                         ->rows(2)
                         ->maxLength(500),
+                    // A photo instead of (or beside) the glyph, and somewhere for
+                    // the item to lead. Both optional, so every existing block
+                    // renders unchanged; together they turn this from a
+                    // benefits list into the service/product list operators kept
+                    // asking for. The media id resolves per repeater item —
+                    // BlockRegistry::resolveMediaUrls() already descends into
+                    // list values, which is how gallery items work.
+                    ImageInput::make('image_id'),
+                    LinkInput::make('link_url')
+                        ->label('Links to')
+                        ->helperText('Optional — makes the whole item clickable.'),
                 ]),
         ];
     }

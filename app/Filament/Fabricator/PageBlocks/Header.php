@@ -20,6 +20,8 @@ final class Header extends Block
 {
     protected static string $name = 'header';
 
+    protected static string $description = 'The site-wide navigation bar. Shared by every page, so it is edited in site settings rather than here.';
+
     protected static ?Heroicon $icon = Heroicon::OutlinedBars3;
 
     /**

@@ -25,6 +25,12 @@ it('enumerates every block contract in the vocabulary', function (): void {
         ->and($vocabulary['heading']->variants)->toBeEmpty()
         // Every block declares an editor icon.
         ->and(array_filter($vocabulary, fn (BlockType $contract): bool => $contract->icon === null))->toBeEmpty()
+        // …and says what it is FOR. Without it the assistant separates
+        // look-alike containers (features / testimonials / offerings are all
+        // "heading + repeater of titled items") by name alone and quietly picks
+        // wrong — a failure that shows up nowhere else, which is why it is
+        // asserted rather than reviewed.
+        ->and(array_keys(array_filter($vocabulary, fn (BlockType $contract): bool => $contract->description === '')))->toBeEmpty()
         // Every block ships sample content, and its keys stay within the
         // block's declared fields (a typo here would silently drop content).
         ->and(array_filter(

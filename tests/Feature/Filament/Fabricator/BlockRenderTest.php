@@ -86,6 +86,80 @@ it('renders each block variant with its own layout', function (array $block, arr
         ]],
         ['Why choose us', 'Fast turnaround'], 'divide-y', 'none',
     ],
+    // An item that carries a photo and a destination — what turns this block
+    // from a benefits list into the service list operators kept asking for.
+    // The stretched-link overlay is what makes the whole card clickable while
+    // leaving exactly ONE link, named by the title.
+    'features grid with an item image and link' => [
+        ['type' => 'features', 'data' => [
+            'variant' => 'grid',
+            'features' => [[
+                'title' => 'Deep clean',
+                'description' => 'Two hours, whole house.',
+                'image_url' => 'https://example.com/clean.jpg',
+                'link_url' => '/services/deep-clean',
+            ]],
+        ]],
+        ['Deep clean', 'https://example.com/clean.jpg', '/services/deep-clean'], 'after:absolute', 'none',
+    ],
+    'features list with an item image and link' => [
+        ['type' => 'features', 'data' => [
+            'variant' => 'list',
+            'features' => [[
+                'title' => 'Deep clean',
+                'image_url' => 'https://example.com/clean.jpg',
+                'link_url' => '/services/deep-clean',
+            ]],
+        ]],
+        ['Deep clean', 'https://example.com/clean.jpg'], 'after:absolute', 'none',
+    ],
+    // One block for menus, service lists and packages alike — what differs
+    // between those is the content, not the layout.
+    'offerings list' => [
+        ['type' => 'offerings', 'data' => [
+            'variant' => 'list',
+            'heading' => 'Our menu',
+            'items' => [
+                ['group' => 'Starters', 'name' => 'Bruschetta', 'price' => '$9', 'description' => 'Tomato, basil, garlic.'],
+                ['group' => 'Mains', 'name' => 'Margherita', 'price' => '$18'],
+            ],
+        ]],
+        ['Our menu', 'Starters', 'Bruschetta', '$9', 'Mains', 'Margherita'], 'tabular-nums', 'none',
+    ],
+    'offerings cards' => [
+        ['type' => 'offerings', 'data' => [
+            'variant' => 'cards',
+            'heading' => 'Packages',
+            'items' => [
+                ['name' => 'Half day', 'price' => 'from $400', 'image_url' => 'https://example.com/shoot.jpg'],
+            ],
+        ]],
+        ['Packages', 'Half day', 'from $400', 'https://example.com/shoot.jpg'], 'lg:grid-cols-3', 'none',
+    ],
+    // Answers stay visible rather than collapsing: the editor canvas swallows
+    // clicks, so an accordion would hide the copy the assistant just wrote.
+    'faq' => [
+        ['type' => 'faq', 'data' => [
+            'heading' => 'Questions',
+            'intro' => 'The ones we get most.',
+            'questions' => [
+                ['question' => 'Do you deliver?', 'answer' => 'Within five miles, yes.'],
+            ],
+        ]],
+        ['Questions', 'The ones we get most.', 'Do you deliver?', 'Within five miles, yes.'], '<dl', 'none',
+    ],
+    // The only block that holds prose. max-w-3xl is the reading measure, not
+    // the 7xl the grid blocks use.
+    'prose' => [
+        ['type' => 'prose', 'data' => [
+            'heading' => 'About us',
+            'paragraphs' => [
+                ['text' => 'We opened in 1998.'],
+                ['text' => 'We have been here ever since.'],
+            ],
+        ]],
+        ['About us', 'We opened in 1998.', 'We have been here ever since.'], 'max-w-3xl', 'none',
+    ],
     'gallery grid' => [
         ['type' => 'gallery', 'data' => [
             'variant' => 'grid',
@@ -195,6 +269,44 @@ it('renders optional fields and skips malformed repeater items per block view', 
             'cta_label' => 'Label without url',
         ]],
         ['Just a headline'], ['Label without url'], [],
+    ],
+    // A paragraph that is missing, blank or not a string leaves no empty <p>
+    // behind — an operator who clears an entry rather than deleting it must not
+    // get a gap in the rhythm of the page.
+    'prose skips empty and malformed paragraphs' => [
+        ['type' => 'prose', 'data' => [
+            'heading' => 'About us',
+            'paragraphs' => [
+                'a1b2-uuid' => ['text' => 'A real paragraph.'],
+                'blank' => ['text' => '   '],
+                'wrong-shape' => ['text' => ['nested' => 'no']],
+                'not-an-item' => 'not an array',
+            ],
+        ]],
+        ['A real paragraph.'], ['not an array'], [],
+    ],
+    // An ungrouped item renders with no heading above it, so a flat list of
+    // items never grows a stray empty section title.
+    'offerings renders ungrouped items without a group heading' => [
+        ['type' => 'offerings', 'data' => [
+            'variant' => 'list',
+            'heading' => 'Services',
+            'items' => [
+                ['name' => 'Consultation', 'price' => 'Free'],
+                ['group' => '   ', 'name' => 'Follow-up', 'price' => '$50'],
+            ],
+        ]],
+        ['Consultation', 'Follow-up'], ['uppercase tracking-wider'], [],
+    ],
+    'faq skips a question with no text' => [
+        ['type' => 'faq', 'data' => [
+            'questions' => [
+                'a1b2-uuid' => ['question' => 'A real question?', 'answer' => 'A real answer.'],
+                'blank' => ['question' => '  ', 'answer' => 'Orphaned answer.'],
+                'not-an-item' => 'not an array',
+            ],
+        ]],
+        ['A real question?'], ['Orphaned answer.', 'not an array'], [],
     ],
     'features skips a malformed repeater item' => [
         ['type' => 'features', 'data' => [

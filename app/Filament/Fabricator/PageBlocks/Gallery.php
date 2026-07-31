@@ -31,6 +31,8 @@ final class Gallery extends Block
 
     protected static string $name = 'gallery';
 
+    protected static string $description = 'Photographs shown for their own sake — the room, the work, the food. Use it when the images ARE the content, not to decorate a list.';
+
     protected static ?Heroicon $icon = Heroicon::OutlinedPhoto;
 
     /**

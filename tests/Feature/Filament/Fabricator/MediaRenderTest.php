@@ -27,6 +27,17 @@ it('renders media-backed blocks by translating ids into the url props', function
             ['media_id' => $media->id, 'alt' => 'From the library'],
             ['url' => 'https://example.com/external.jpg', 'alt' => 'External'],
         ]]],
+        // A feature item's own photo. Nothing was added to the resolver for
+        // this: resolveMediaUrls() already descends into list values and
+        // injects per item, which is how gallery images work — so the same
+        // `image_id => image_url` mapping the hero uses at the top level works
+        // one level down without a new MEDIA_KEYS entry.
+        ['type' => 'features', 'data' => ['variant' => 'grid', 'features' => [
+            ['title' => 'Deep clean', 'image_id' => $media->id],
+        ]]],
+        ['type' => 'offerings', 'data' => ['variant' => 'cards', 'items' => [
+            ['name' => 'Half day', 'price' => 'from $400', 'image_id' => $media->id],
+        ]]],
     ]);
 
     $this->get(sprintf('http://acme.%s/', $this->centralDomain()))

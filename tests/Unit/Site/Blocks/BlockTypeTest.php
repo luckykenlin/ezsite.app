@@ -9,6 +9,7 @@ function blockType(string $type = 'hero', array $variants = ['a', 'b', 'c']): Bl
 {
     return new BlockType(
         type: $type,
+        description: 'A test double.',
         variants: $variants,
         bind: null,
         icon: null,
@@ -63,6 +64,7 @@ it('carries the bind target as an enum rather than a string', function (): void 
     // re-derived the enum (or compared strings and got it subtly wrong).
     $bound = new BlockType(
         type: 'contact',
+        description: 'A test double.',
         variants: [],
         bind: BindType::Location,
         icon: 'o-map-pin',

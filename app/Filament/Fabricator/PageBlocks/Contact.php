@@ -21,6 +21,8 @@ final class Contact extends Block
 {
     protected static string $name = 'contact';
 
+    protected static string $description = 'How to reach the business, with the enquiry form and the live address and opening hours of a location. The details come from the business profile, so write only the surrounding copy.';
+
     protected static ?Heroicon $icon = Heroicon::OutlinedMapPin;
 
     /**

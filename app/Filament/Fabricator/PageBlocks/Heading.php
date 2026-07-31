@@ -22,6 +22,8 @@ final class Heading extends Block
 {
     protected static string $name = 'heading';
 
+    protected static string $description = 'A bare section title used to break a long page into parts. It holds no body text — for a paragraph, use prose.';
+
     protected static ?Heroicon $icon = Heroicon::OutlinedH1;
 
     /**

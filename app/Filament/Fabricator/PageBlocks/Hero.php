@@ -21,6 +21,8 @@ final class Hero extends Block
 {
     protected static string $name = 'hero';
 
+    protected static string $description = 'The first thing a visitor sees: one headline, a sentence of positioning and a main button. Only ever one per page, at the top.';
+
     protected static ?Heroicon $icon = Heroicon::OutlinedSparkles;
 
     /**

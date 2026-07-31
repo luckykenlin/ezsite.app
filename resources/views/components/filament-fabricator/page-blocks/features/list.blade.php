@@ -20,12 +20,27 @@
         <ul class="mt-10 divide-y divide-base-300">
             @foreach ($items as $item)
                 @continue(! is_array($item))
-                <li class="flex gap-5 py-6">
-                    @if ($item['icon'] ?? null)
+                @php
+                    // Both already resolved and scheme-checked per repeater item
+                    // by BlockRegistry::resolveMediaUrls().
+                    $image = $item['image_url'] ?? null;
+                    $link = $item['link_url'] ?? null;
+                @endphp
+                <li class="relative flex gap-5 py-6">
+                    @if ($image)
+                        <img src="{{ $image }}" alt="" loading="lazy" class="size-16 shrink-0 rounded-box object-cover">
+                    @elseif ($item['icon'] ?? null)
                         <span class="text-2xl" aria-hidden="true">{{ $item['icon'] }}</span>
                     @endif
                     <div>
-                        <h3 class="text-lg font-semibold">{{ $item['title'] ?? '' }}</h3>
+                        <h3 class="text-lg font-semibold">
+                            {{-- Same stretched-link pattern as the grid view. --}}
+                            @if ($link)
+                                <a href="{{ $link }}" class="after:absolute after:inset-0">{{ $item['title'] ?? '' }}</a>
+                            @else
+                                {{ $item['title'] ?? '' }}
+                            @endif
+                        </h3>
                         @if ($item['description'] ?? null)
                             <p class="mt-1 text-base-content/70">{{ $item['description'] }}</p>
                         @endif

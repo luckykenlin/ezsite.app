@@ -114,3 +114,59 @@ it('renders a titled page with no business at all', function (): void {
         ->assertDontSee('og:site_name', false)
         ->assertDontSee('application/ld+json', false);
 });
+
+/*
+ * FAQPage describes the DOCUMENT, not the site, so unlike LocalBusiness it
+ * belongs to whichever page holds the questions — including a sub-page, which
+ * carries no other JSON-LD at all.
+ */
+it('describes an faq block with faqpage json-ld on whatever page holds it', function (): void {
+    $tenant = Tenant::factory()->withDomain('acme')->create();
+    $this->createTenantPage($tenant, [['type' => 'heading', 'data' => ['content' => 'Hi']]]);
+    $this->createTenantPage($tenant, [
+        ['type' => 'faq', 'data' => ['questions' => [
+            ['question' => 'Do you deliver?', 'answer' => 'Within five miles, yes.'],
+            // No answer: rendered as a bare question, but a Question with no
+            // acceptedAnswer is invalid markup, so it must not be claimed here.
+            ['question' => 'Orphan question?'],
+        ]]],
+    ], 'help');
+
+    $this->get(sprintf('http://acme.%s/help', $this->centralDomain()))
+        ->assertOk()
+        ->assertSee('"@type":"FAQPage"', false)
+        ->assertSee('"name":"Do you deliver?"', false)
+        ->assertSee('"@type":"Answer","text":"Within five miles, yes."', false)
+        // Visible on the page…
+        ->assertSee('Orphan question?')
+        // …but absent from the markup.
+        ->assertDontSee('"name":"Orphan question?"', false);
+
+    // The home page has no faq block, and no business either, so it emits no
+    // structured data at all.
+    $this->get(sprintf('http://acme.%s/', $this->centralDomain()))
+        ->assertOk()
+        ->assertDontSee('application/ld+json', false);
+});
+
+/*
+ * A page can legitimately carry both: the site's LocalBusiness node and its own
+ * FAQPage. They are built through different mechanisms — a raw array and the SEO
+ * package's fluent schema — so this pins that the two coexist rather than one
+ * replacing the other.
+ */
+it('emits the business and faq nodes together on a home page with questions', function (): void {
+    $tenant = Tenant::factory()->withDomain('acme')->create();
+    $this->createTenantBusiness($tenant, ['name' => 'QQ Nail'], 0);
+    $this->createTenantPage($tenant, [
+        ['type' => 'faq', 'data' => ['questions' => [
+            ['question' => 'Walk-ins?', 'answer' => 'Always welcome.'],
+        ]]],
+    ]);
+
+    $this->get(sprintf('http://acme.%s/', $this->centralDomain()))
+        ->assertOk()
+        ->assertSee('"@type":"LocalBusiness"', false)
+        ->assertSee('"@type":"FAQPage"', false)
+        ->assertSee('"name":"Walk-ins?"', false);
+});

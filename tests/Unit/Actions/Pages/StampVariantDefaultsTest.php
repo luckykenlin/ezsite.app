@@ -33,7 +33,15 @@ it('gives every type the layout the preset was designed with', function (StylePr
  */
 it('falls back to the first declared layout for a type the preset never named', function (): void {
     $vocabulary = new BlockVocabulary([
-        'novel' => new BlockType('novel', ['first', 'second'], null, null, [], []),
+        'novel' => new BlockType(
+            type: 'novel',
+            description: 'A block type added after the presets were authored.',
+            variants: ['first', 'second'],
+            bind: null,
+            icon: null,
+            fields: [],
+            sample: [],
+        ),
     ]);
 
     expect(new StampVariantDefaults($vocabulary)->variantFor('novel', StylePreset::WarmCraft))->toBe('first');

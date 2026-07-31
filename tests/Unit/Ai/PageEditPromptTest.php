@@ -46,16 +46,32 @@ it('carries the current page outline so the model addresses real keys', function
 /*
  * Only the types actually on the page get their full field list: the vocabulary
  * for every block type is a lot of tokens to spend on sections the operator did
- * not mention, and AddBlock's own schema enumerates the addable types anyway.
+ * not mention, and AddBlock seeds sample content anyway, so the model reads a new
+ * block's real shape off the outline a moment after adding it.
  */
-it('lists the fields of the types on the page and only names the rest', function (): void {
+it('lists the fields of the types on the page and only the purpose of the rest', function (): void {
     $prompt = editPrompt(heroPageDraft());
 
-    expect($prompt)->toContain('- hero: eyebrow, heading, subheading')
-        ->and($prompt)->toContain('Types you can add:')
-        ->and($prompt)->toContain('cta')
-        // A type not on the page must not bring its field list along.
-        ->and($prompt)->not->toContain('- cta: heading, body');
+    expect($prompt)->toContain('fields: eyebrow, heading, subheading')
+        ->and($prompt)->toContain('Sections you can add:')
+        // A type not on the page brings its purpose, never its field list.
+        ->and($prompt)->toContain('- cta — One clear next step')
+        ->and($prompt)->not->toContain('fields: heading, body');
+});
+
+/*
+ * Purpose, not just name. Several containers present as "a heading plus a
+ * repeater of titled items", so a bare name leaves the model choosing between
+ * them by vibe — and the wrong container is a mistake no later edit fixes,
+ * because the fields differ.
+ */
+it('says what each addable section is for', function (): void {
+    $prompt = editPrompt(heroPageDraft());
+
+    expect($prompt)->toContain('- prose — One or more paragraphs of body text')
+        // Where two blocks are easily confused, the description names the
+        // neighbour rather than leaving the model to infer the boundary.
+        ->and($prompt)->toContain('for a paragraph, use prose');
 });
 
 it('flags a bound block so the model only writes its narrative fields', function (): void {
@@ -63,7 +79,7 @@ it('flags a bound block so the model only writes its narrative fields', function
         ['key' => 'k1', 'type' => 'contact', 'data' => ['heading' => 'Visit us']],
     ]));
 
-    expect($prompt)->toContain('- contact: heading, intro, show_form, success_message')
+    expect($prompt)->toContain('fields: heading, intro, show_form, success_message')
         ->toContain('shows live location details automatically');
 });
 
@@ -196,4 +212,23 @@ it('tells the model which page addresses actually exist', function (): void {
 
     expect($prompt)->toContain('## This site')
         ->toContain('/contact (published)');
+});
+
+/*
+ * A page can legitimately use every section type there is. Offering an empty
+ * "Sections you can add:" heading would be a line of prompt that says nothing
+ * and invites an AddBlock call with no legal argument.
+ *
+ * The draft is built from the vocabulary rather than a hand-written list of
+ * types, so a new block type keeps this honest instead of quietly making the
+ * page no-longer-complete.
+ */
+it('offers nothing to add when the page already uses every section type', function (): void {
+    $blocks = [];
+
+    foreach (resolve(BlockVocabulary::class)->pageTypeNames() as $index => $type) {
+        $blocks[] = ['key' => 'k'.$index, 'type' => $type, 'data' => []];
+    }
+
+    expect(editPrompt(new PageDraft($blocks)))->not->toContain('Sections you can add');
 });

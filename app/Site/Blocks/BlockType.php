@@ -24,6 +24,14 @@ use App\Enums\ChromeSlot;
 final readonly class BlockType
 {
     /**
+     * @param  string  $description  when to reach for this type, in one line, for
+     *                               the AI vocabulary. Field NAMES say what a block
+     *                               can hold but not what it is FOR, and the two
+     *                               diverge as the vocabulary grows: `features`,
+     *                               `offerings` and `testimonials` are all
+     *                               "heading + a repeater of titled items". Left to
+     *                               the type name alone, a model picks between them
+     *                               by vibe.
      * @param  list<string>  $variants
      * @param  list<string>  $fields  top-level authorable field names; see the
      *                                nesting caveat on {@see \App\Ai\BlockDataSanitizer}
@@ -31,6 +39,7 @@ final readonly class BlockType
      */
     public function __construct(
         public string $type,
+        public string $description,
         public array $variants,
         public ?BindType $bind,
         public ?string $icon,

@@ -21,6 +21,8 @@ final class Footer extends Block
 {
     protected static string $name = 'footer';
 
+    protected static string $description = 'The site-wide footer. Shared by every page, so it is edited in site settings rather than here.';
+
     protected static ?Heroicon $icon = Heroicon::OutlinedBars3BottomLeft;
 
     /**

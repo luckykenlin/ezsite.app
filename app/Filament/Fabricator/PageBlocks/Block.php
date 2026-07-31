@@ -36,6 +36,21 @@ use Z3d0X\FilamentFabricator\PageBlocks\PageBlock;
 abstract class Block extends PageBlock
 {
     /**
+     * When to reach for this block, in one line, addressed to the AI.
+     *
+     * Not decoration: it is what stops the model choosing between look-alike
+     * types by vibe. `features`, `testimonials` and (later) `offerings` all
+     * present as "a heading plus a repeater of titled items", so field names
+     * cannot separate them — only purpose can. Say what the section is FOR and,
+     * where a neighbour is easily confused with it, name the neighbour.
+     *
+     * Required in practice: an arch test asserts every registered type sets one,
+     * because a silently empty description degrades selection with no failure
+     * anywhere.
+     */
+    protected static string $description = '';
+
+    /**
      * The layout variants this block offers, as `variantKey => human label`.
      * An empty map means the block has a single, non-variant view.
      *
@@ -110,6 +125,7 @@ abstract class Block extends PageBlock
     {
         return new BlockType(
             type: static::getName(),
+            description: static::$description,
             variants: array_keys(static::$variants),
             bind: static::$bindType,
             icon: static::$icon?->value,

@@ -57,3 +57,27 @@ it('only defaults block variants that exist in the vocabulary', function (StyleP
             ->and($vocabulary[$type]->variants)->toContain($variant);
     }
 })->with(StylePreset::cases());
+
+/*
+ * The other direction, and the one that was missing.
+ *
+ * The assertion above only checks the entries that EXIST are valid, so adding a
+ * block type with variants and forgetting to give the six presets a default was
+ * silent: `StampVariantDefaults::variantFor()` falls back to the first declared
+ * variant, so every preset would quietly lay the new section out identically and
+ * "make it more premium" would leave it untouched. Nothing failed, the site just
+ * looked slightly wrong in a way nobody could attribute.
+ */
+it('gives every variant-bearing block type a default', function (StylePreset $preset): void {
+    $defaults = $preset->blockVariantDefaults();
+    $missing = [];
+
+    foreach (resolve(BlockVocabulary::class)->all() as $type => $contract) {
+        if ($contract->variants !== [] && ! array_key_exists($type, $defaults)) {
+            $missing[] = $type;
+        }
+    }
+
+    // Named rather than counted, so the failure says which block to go and fix.
+    expect($missing)->toBeEmpty();
+})->with(StylePreset::cases());

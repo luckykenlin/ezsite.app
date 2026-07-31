@@ -9,6 +9,7 @@ use App\Models\Page;
 use App\Site\BindResolver;
 use App\Site\MediaResolver;
 use Illuminate\Support\Str;
+use RalphJSmit\Laravel\SEO\Schema\FaqPageSchema;
 use RalphJSmit\Laravel\SEO\SchemaCollection;
 use RalphJSmit\Laravel\SEO\Support\SEOData;
 
@@ -29,6 +30,7 @@ final readonly class BuildPageSeoData
         private BindResolver $bindResolver,
         private MediaResolver $mediaResolver,
         private BuildLocalBusinessSchema $buildLocalBusinessSchema,
+        private CollectPageFaqs $collectPageFaqs,
     ) {
         //
     }
@@ -82,23 +84,50 @@ final readonly class BuildPageSeoData
     }
 
     /**
-     * LocalBusiness belongs to the site as a whole, so only the home page
-     * carries it; sub-pages would duplicate the node under a wrong URL.
+     * The page's JSON-LD nodes, or null when it has none to emit.
+     *
+     * Two nodes, scoped differently on purpose. LocalBusiness belongs to the
+     * SITE, so only the home page carries it — sub-pages would duplicate the
+     * node under a wrong URL. FAQPage describes the DOCUMENT, so it belongs to
+     * whichever page actually holds the questions.
+     *
+     * They are also built differently, and that is deliberate rather than
+     * inconsistent: LocalBusiness has no representation in the SEO package, so
+     * {@see BuildLocalBusinessSchema} assembles the array itself; FAQPage does,
+     * so the package keeps ownership of the schema.org shape and
+     * {@see CollectPageFaqs} supplies only the question/answer pairs. One less
+     * copy of a spec we would otherwise have to track.
      *
      * @return SchemaCollection<array-key>|null
      */
     private function schema(Page $page, ?Business $business, ?string $image): ?SchemaCollection
     {
-        if (! $business instanceof Business || ! $page->isHome()) {
+        $localBusiness = $business instanceof Business && $page->isHome()
+            ? $this->buildLocalBusinessSchema->handle($business, $this->bindResolver->location(null), $image)
+            : [];
+
+        $faqs = $this->collectPageFaqs->handle($page);
+
+        if ($localBusiness === [] && $faqs === []) {
             return null;
         }
 
-        $schema = $this->buildLocalBusinessSchema->handle(
-            $business,
-            $this->bindResolver->location(null),
-            $image,
-        );
+        $schema = SchemaCollection::make();
 
-        return SchemaCollection::make()->add(fn (): array => $schema);
+        if ($localBusiness !== []) {
+            $schema->add(fn (): array => $localBusiness);
+        }
+
+        if ($faqs !== []) {
+            $schema->addFaqPage(function (FaqPageSchema $faqPage) use ($faqs): FaqPageSchema {
+                foreach ($faqs as $faq) {
+                    $faqPage->addQuestion($faq['question'], $faq['answer']);
+                }
+
+                return $faqPage;
+            });
+        }
+
+        return $schema;
     }
 }

@@ -18,6 +18,8 @@ final class Cta extends Block
 {
     protected static string $name = 'cta';
 
+    protected static string $description = 'One clear next step near the end of a page: book, call, get a quote. Short, and never more than one idea.';
+
     protected static ?Heroicon $icon = Heroicon::OutlinedMegaphone;
 
     /**
