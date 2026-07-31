@@ -19,7 +19,7 @@ use App\Actions\Pages\CacheBlockHistory;
  * Livewire payload. Only the two depths remain here, which is all the blade ever
  * read.
  *
- * Expects the host to provide `$blocks`, `$selectedBlockKey`, `$previewToken`,
+ * Expects the host to provide `$blocks`, `$selectedBlockKey`, `pageRecord()`,
  * `commitSelectedBlock()`, `fillBlockForm()` and `markDirty()`.
  */
 trait HasBlockHistory
@@ -84,6 +84,18 @@ trait HasBlockHistory
     }
 
     /**
+     * Mirror the stored depths onto the component on mount, so a reload that
+     * restored a draft can still step back behind it.
+     */
+    private function loadHistoryDepths(): void
+    {
+        $stored = $this->historyStacks();
+
+        $this->undoDepth = count($stored['history']);
+        $this->redoDepth = count($stored['future']);
+    }
+
+    /**
      * Record the pre-mutation state on the undo stack (and invalidate the
      * redo stack — a new edit forks history). Callers snapshot AFTER a
      * successful commit, so field edits ride inside the snapshot.
@@ -103,7 +115,7 @@ trait HasBlockHistory
      */
     private function historyStacks(): array
     {
-        return resolve(CacheBlockHistory::class)->read($this->previewToken);
+        return resolve(CacheBlockHistory::class)->read((int) $this->pageRecord()->id);
     }
 
     /**
@@ -115,7 +127,7 @@ trait HasBlockHistory
      */
     private function writeHistory(array $history, array $future): void
     {
-        resolve(CacheBlockHistory::class)->handle($this->previewToken, $history, $future);
+        resolve(CacheBlockHistory::class)->handle((int) $this->pageRecord()->id, $history, $future);
 
         $stored = $this->historyStacks();
         $this->undoDepth = count($stored['history']);

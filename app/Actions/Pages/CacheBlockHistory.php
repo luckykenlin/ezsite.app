@@ -18,15 +18,24 @@ use Illuminate\Support\Facades\Cache;
  * {@see \App\Filament\Tenant\Resources\PageResource\Pages\PageCanvas} documents the
  * same trap — it suppresses the HTML diff, not the snapshot.
  *
- * Keyed off the editor's existing `$previewToken` (a per-mount `Str::random(40)`),
- * so two tabs on the same page keep separate histories and nothing leaks between
- * operators. Same token-through-cache pattern as {@see CacheChatTurn} and
- * {@see CachePageEditorPreview}, and the same plain-array storage so no
- * `cache.serializable_classes` allowlisting is needed.
+ * Keyed by PAGE, not by the editor's per-mount `$previewToken`. The token is a
+ * fresh `Str::random(40)` on every mount, so keying by it meant a reload orphaned
+ * the stacks and the operator came back with "nothing to undo" — which became
+ * incoherent once a reload started restoring the draft itself: unsaved work back
+ * on screen, with no way to step behind it.
  *
- * Losing this cache is a non-event by design: undo depth is convenience state, and
- * an expired entry simply means "nothing to undo" — never a broken editor. That is
- * why it can live in the cache at all, and why the TTL matches the preview's.
+ * The consequence is that two tabs on one page share an undo stack, so tab B's
+ * Undo can pop a snapshot tab A pushed. That is the consistent choice rather than
+ * a regression: the draft those snapshots describe is already shared per page, so
+ * per-tab history would be stepping through a timeline the other tab is rewriting.
+ *
+ * Plain-array storage, so no `cache.serializable_classes` allowlisting is needed —
+ * same as {@see CacheChatTurn} and {@see CachePageEditorPreview}.
+ *
+ * The cache is still the right home, unlike the draft itself: undo depth is
+ * convenience state, and an expired entry simply means "nothing to undo" — never a
+ * broken editor, and never lost work, because "Discard draft" is always a route
+ * back to the saved page.
  */
 final readonly class CacheBlockHistory
 {
@@ -43,18 +52,18 @@ final readonly class CacheBlockHistory
      */
     private const int TTL_HOURS = 2;
 
-    public static function key(string $token): string
+    public static function key(int $pageId): string
     {
-        return 'page-editor-history:'.$token;
+        return 'page-editor-history:page:'.$pageId;
     }
 
     /**
      * @param  list<array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, selectedBlockKey: string|null}>  $history
      * @param  list<array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, selectedBlockKey: string|null}>  $future
      */
-    public function handle(string $token, array $history, array $future): void
+    public function handle(int $pageId, array $history, array $future): void
     {
-        Cache::put(self::key($token), [
+        Cache::put(self::key($pageId), [
             'history' => array_slice($history, -self::LIMIT),
             'future' => array_slice($future, -self::LIMIT),
         ], now()->addHours(self::TTL_HOURS));
@@ -70,9 +79,9 @@ final readonly class CacheBlockHistory
      *
      * @return array{history: list<array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, selectedBlockKey: string|null}>, future: list<array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, selectedBlockKey: string|null}>}
      */
-    public function read(string $token): array
+    public function read(int $pageId): array
     {
-        $stored = Cache::get(self::key($token));
+        $stored = Cache::get(self::key($pageId));
         $stored = is_array($stored) ? $stored : [];
 
         return [

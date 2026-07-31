@@ -159,6 +159,7 @@ final class PageEditor extends Page
             }
         }
 
+        $this->loadHistoryDepths();
         $this->pushPreview();
     }
 

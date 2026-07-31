@@ -687,6 +687,86 @@ it('clears the draft on save, so the next visit is clean', function (): void {
         ->and(array_column($reloaded->get('blocks'), 'type'))->toBe(['hero', 'cta']);
 });
 
+it('does not mark saved chrome dirty just for looking at it', function (): void {
+    // site_settings.header used to be `jsonb`, which alphabetises object keys on
+    // write. hydratedChromeSlot() then read back key-reordered data and compared
+    // it against form-ordered state with !==, so merely selecting the header after
+    // a save flagged chrome dirty and reloaded the canvas.
+    $this->createTenantBusiness($this->tenant, ['name' => 'Corner Cafe']);
+    $page = editorPage([['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']]]);
+
+    // Save some chrome, so there is a stored row to read back. Two fields, not
+    // one: with a single field the stored and form orders coincide by luck and
+    // the bug hides.
+    Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->call('selectBlock', ChromeSlot::Header->editorKey())
+        ->set('data.block.cta_label', 'Call now')
+        ->set('data.block.cta_url', '/contact')
+        ->call('save');
+
+    // A fresh session that only LOOKS at the header must change nothing.
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
+
+    expect($component->get('chromeDirty'))->toBeFalse();
+
+    $component->call('selectBlock', ChromeSlot::Header->editorKey())
+        ->call('deselectBlock');
+
+    expect($component->get('chromeDirty'))->toBeFalse()
+        ->and($component->get('isDirty'))->toBeFalse()
+        // ...and therefore no draft was created for a page nobody edited.
+        ->and(Page::query()->findOrFail($page->id)->draft)->toBeNull();
+});
+
+it('reads site chrome back in the order it was written', function (): void {
+    // The mechanism behind the test above, pinned directly. jsonb stored keys
+    // sorted by length then bytewise, so the round trip came back reordered and
+    // every `!==` against form-ordered state reported a false difference — same
+    // content, different order.
+    $this->createTenantBusiness($this->tenant, ['name' => 'Corner Cafe']);
+    $page = editorPage([['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']]]);
+
+    Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->call('selectBlock', ChromeSlot::Header->editorKey())
+        ->set('data.block.cta_label', 'Call now')
+        ->set('data.block.cta_url', '/contact')
+        ->call('save');
+
+    $stored = SiteSetting::query()->firstOrFail()->header[0]['data'];
+
+    expect(array_keys($stored))->toBe(['variant', 'cta_label', 'cta_url']);
+});
+
+it('can still step back behind a restored draft', function (): void {
+    // Undo history is keyed by page rather than by the per-mount preview token,
+    // so it outlives the reload the draft outlives. Without this a restored draft
+    // arrives with undoDepth 0 — unsaved work on screen and no way behind it.
+    $page = editorPage([
+        ['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']],
+    ]);
+
+    Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->call('addBlock', 'cta')
+        ->call('addBlock', 'features');
+
+    $reloaded = Livewire::test(PageEditor::class, ['record' => $page->id]);
+
+    expect(array_column($reloaded->get('blocks'), 'type'))->toBe(['hero', 'cta', 'features'])
+        ->and($reloaded->get('undoDepth'))->toBe(2);
+
+    $reloaded->call('undo');
+
+    expect(array_column($reloaded->get('blocks'), 'type'))->toBe(['hero', 'cta'])
+        ->and($reloaded->get('redoDepth'))->toBe(1);
+
+    // All the way back to the saved page, then forward again.
+    $reloaded->call('undo');
+    expect(array_column($reloaded->get('blocks'), 'type'))->toBe(['hero']);
+
+    $reloaded->call('redo');
+    expect(array_column($reloaded->get('blocks'), 'type'))->toBe(['hero', 'cta']);
+});
+
 it('discards the draft back to the saved page', function (): void {
     $page = editorPage([['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']]]);
 
