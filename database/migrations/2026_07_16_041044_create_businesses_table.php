@@ -24,6 +24,11 @@ return new class extends Migration
             $table->text('description')->nullable();
             $table->string('logo_path')->nullable();
 
+            // The library-backed logo; legacy logo_path stays as the render
+            // fallback (see Business::logoUrl()). Nulled when the media
+            // entry is deleted, which drops the logo back to the fallback.
+            $table->foreignId('logo_media_id')->nullable()->constrained('curator')->nullOnDelete();
+
             $table->string('brand_primary')->nullable();
             $table->string('brand_secondary')->nullable();
             $table->string('brand_accent')->nullable();

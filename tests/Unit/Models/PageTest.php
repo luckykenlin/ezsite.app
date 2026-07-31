@@ -66,14 +66,14 @@ test('to array', function (): void {
             'blocks',
             'status',
             'parent_id',
-            'created_at',
-            'updated_at',
             'seo_title',
             'seo_description',
             'seo_image_media_id',
             'is_indexable',
             'draft',
             'draft_updated_at',
+            'created_at',
+            'updated_at',
         ]);
 });
 

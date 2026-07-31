@@ -98,6 +98,7 @@ test('to array', function (): void {
             'tagline',
             'description',
             'logo_path',
+            'logo_media_id',
             'brand_primary',
             'brand_secondary',
             'brand_accent',
@@ -112,7 +113,6 @@ test('to array', function (): void {
             'created_at',
             'updated_at',
             'deleted_at',
-            'logo_media_id',
         ]);
 });
 

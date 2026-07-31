@@ -12,6 +12,10 @@ use Illuminate\Support\Facades\Schema;
  * (aimed at Filament panel tenancy), which here would mean NO generated RLS
  * policy at all. Media is tenant-owned, so it follows the single-hop rule:
  * its OWN non-nullable uuid tenant_id with a direct, indexed FK to tenants.
+ *
+ * Deliberately timestamped ahead of `pages` and `businesses`: both create their
+ * media foreign keys (`pages.seo_image_media_id`, `businesses.logo_media_id`)
+ * inline, so this table has to exist first.
  */
 return new class extends Migration
 {

@@ -19,8 +19,20 @@ return new class extends Migration
             // Site chrome, stored in Fabricator's block-entry shape
             // ([{type, data}]) so it renders through the same defensive loop
             // as page bodies. Null = "use the default chrome".
-            $table->jsonb('header')->nullable();
-            $table->jsonb('footer')->nullable();
+            //
+            // `json`, deliberately NOT `jsonb`, same as `pages.blocks` and
+            // `pages.draft`: jsonb does not preserve object key order (it stores
+            // keys sorted by length then bytewise) and the page editor compares
+            // block `data` with `!==`, which in PHP IS key-order sensitive. Under
+            // jsonb the round trip came back reordered, so merely SELECTING the
+            // header in the inspector flagged chrome dirty, reloaded the canvas,
+            // and a later Save rewrote settings nobody had edited — breaking the
+            // "clicking around an unedited page must not flicker" invariant that
+            // `selectBlock()` guards with `$before !== [$blocks, $chrome]`.
+            // Nothing here needs jsonb's indexing or containment operators; these
+            // columns are only ever read whole, by primary key.
+            $table->json('header')->nullable();
+            $table->json('footer')->nullable();
 
             $table->timestamps();
 
