@@ -9,8 +9,10 @@ use App\Actions\Pages\BuildEditorPreviewDraft;
 use App\Actions\Pages\CachePageEditorPreview;
 use App\Actions\Pages\DuplicatePage;
 use App\Actions\Pages\DuplicatePageBlock;
+use App\Actions\Pages\KeyEditorBlocks;
 use App\Actions\Pages\MovePageBlock;
 use App\Actions\Pages\PublishPage;
+use App\Actions\Pages\RecordPageRevision;
 use App\Actions\Pages\RemovePageBlock;
 use App\Actions\Pages\ReorderPageBlocks;
 use App\Actions\Pages\SavePageEditorDraft;
@@ -21,6 +23,7 @@ use App\Filament\Fabricator\BlockRegistry;
 use App\Filament\Fabricator\PageBlocks\Block;
 use App\Filament\Tenant\Resources\PageResource;
 use App\Filament\Tenant\Resources\PageResource\Actions\DesignAction;
+use App\Filament\Tenant\Resources\PageResource\Actions\PageHistoryAction;
 use App\Filament\Tenant\Resources\PageResource\Actions\PageSettingsAction;
 use App\Filament\Tenant\Resources\PageResource\Concerns\HasBlockHistory;
 use App\Filament\Tenant\Resources\PageResource\Concerns\HasSiteChromeDraft;
@@ -28,6 +31,8 @@ use App\Filament\Tenant\Resources\PageResource\Concerns\HostsEditorModals;
 use App\Filament\Tenant\Resources\PageResource\Concerns\InteractsWithPageChat;
 use App\Filament\Tenant\Resources\PageResource\Concerns\RestoresEditorDraft;
 use App\Models\Page as PageModel;
+use App\Models\PageRevision;
+use App\Models\User;
 use App\Site\Blocks\BlockData;
 use App\Site\Blocks\BlockType;
 use App\Site\Blocks\BlockVocabulary;
@@ -594,6 +599,42 @@ final class PageEditor extends Page
     }
 
     /**
+     * Load a saved version into the editor as an UNSAVED draft.
+     *
+     * Deliberately not a write to `pages.blocks`. Going through applyBlocks() puts
+     * the restore on the undo stack, repaints the canvas, and leaves it needing an
+     * explicit Save — so restoring the wrong version is itself one Undo away, and
+     * the operator reviews it on the canvas first. That is the same
+     * review-then-Save contract every other edit in this editor follows, including
+     * the assistant's.
+     */
+    public function restoreRevision(int $revision): void
+    {
+        $stored = PageRevision::query()
+            ->where('page_id', $this->pageRecord()->id)
+            ->whereKey($revision)
+            ->first();
+
+        if (! $stored instanceof PageRevision) {
+            Notification::make()
+                ->title(__('That version is no longer available'))
+                ->body(__('It may have been pruned while this page was open.'))
+                ->warning()
+                ->send();
+
+            return;
+        }
+
+        $this->applyBlocks(resolve(KeyEditorBlocks::class)->handle($stored->blocks));
+
+        Notification::make()
+            ->title(__('Version restored'))
+            ->body(__('Review it on the canvas, then Save — or Undo to go back.'))
+            ->success()
+            ->send();
+    }
+
+    /**
      * @return array<Action>
      */
     protected function getHeaderActions(): array
@@ -627,6 +668,8 @@ final class PageEditor extends Page
             PageSettingsAction::make($this),
 
             DesignAction::make($this),
+
+            PageHistoryAction::make($this),
 
             // The only route back to the saved page. A restored draft carries no
             // undo history behind it, so without this a draft the operator does not
@@ -676,28 +719,9 @@ final class PageEditor extends Page
      */
     private function hydratedBlocks(): array
     {
-        return array_values(array_map(
-            static function (mixed $block): array {
-                $block = is_array($block) ? $block : [];
-                $type = $block['type'] ?? null;
-                $data = $block['data'] ?? null;
-
-                return [
-                    'key' => (string) Str::uuid(),
-                    'type' => is_string($type) ? $type : '',
-                    'data' => is_array($data) ? BlockData::stringKeyed($data) : [],
-                ];
-            },
-            $this->pageRecord()->blocks ?? [],
-        ));
+        return resolve(KeyEditorBlocks::class)->handle($this->pageRecord()->blocks ?? []);
     }
 
-    /**
-     * The right pane's schema for the current selection: the block class's
-     * own composed schema (variant + bind + content fields), made live once
-     * at the section level — every nested field inherits the debounced
-     * binding, which is what drives the canvas auto-refresh.
-     */
     private function selectedBlockSection(): ?Section
     {
         $selected = $this->selectedBlock();
@@ -795,12 +819,23 @@ final class PageEditor extends Page
             return false;
         }
 
-        $this->pageRecord()->update([
-            'blocks' => array_map(
-                static fn (array $block): array => ['type' => $block['type'], 'data' => $block['data']],
-                $this->blocks,
-            ),
-        ]);
+        $persisted = array_map(
+            static fn (array $block): array => ['type' => $block['type'], 'data' => $block['data']],
+            $this->blocks,
+        );
+
+        // Snapshot BEFORE the write, so the action can still see the state it is
+        // replacing and seed it as the first version of a page that has none.
+        // This update is destructive; the revision is the only route back from it.
+        $user = auth()->user();
+
+        resolve(RecordPageRevision::class)->handle(
+            $this->pageRecord(),
+            $persisted,
+            $user instanceof User ? $user : null,
+        );
+
+        $this->pageRecord()->update(['blocks' => $persisted]);
 
         // The chrome draft persists only when it was actually edited — an
         // untouched default header never materializes into site settings.

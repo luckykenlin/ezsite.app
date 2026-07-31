@@ -16,12 +16,14 @@ use App\Models\Business;
 use App\Models\Location;
 use App\Models\Media;
 use App\Models\Page;
+use App\Models\PageRevision;
 use App\Models\SiteSetting;
 use App\Models\Tenant;
 use App\Site\Blocks\BlockVocabulary;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Str;
 use Laravel\Ai\Responses\Data\ToolCall;
 use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
@@ -31,12 +33,12 @@ use Livewire\Livewire;
  * accepts the write), without ending the tenancy context the component
  * under test needs.
  */
-function editorPage(array $blocks): Page
+function editorPage(array $blocks, string $slug = '/'): Page
 {
     return Page::query()->create([
         'tenant_id' => tenant('id'),
-        'title' => 'Home',
-        'slug' => '/',
+        'title' => $slug === '/' ? 'Home' : Str::headline($slug),
+        'slug' => $slug,
         'layout' => 'main',
         'blocks' => $blocks,
     ]);
@@ -797,6 +799,116 @@ it('does not restore an unsaved design-token preview', function (): void {
         ->call('previewDesign', ['palette' => 'ocean']);
 
     expect(Livewire::test(PageEditor::class, ['record' => $page->id])->get('designDraft'))->toBeNull();
+});
+
+/*
+ * Version history. The draft column covers everything BEFORE a Save;
+ * page_revisions covers everything after — persistBlocks() is a destructive
+ * in-place update, so a bad Save had no route back.
+ */
+
+it('records a version on save, including the state it replaced', function (): void {
+    $page = editorPage([
+        ['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Original']],
+    ]);
+
+    Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->call('addBlock', 'cta')
+        ->call('save');
+
+    $history = PageRevision::query()->orderBy('id')->get();
+
+    // Two: the page as it was before this first save, then the save itself. Both
+    // matter — without the first, the original is the one version nobody can
+    // ever get back to.
+    expect($history)->toHaveCount(2)
+        ->and(array_column($history[0]->blocks, 'type'))->toBe(['hero'])
+        ->and(array_column($history[1]->blocks, 'type'))->toBe(['hero', 'cta'])
+        ->and($history[1]->page_id)->toBe($page->id);
+});
+
+it('does not record a version when a save changed no blocks', function (): void {
+    $this->createTenantBusiness($this->tenant, ['name' => 'Corner Cafe']);
+    $page = editorPage([['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']]]);
+
+    // A chrome-only edit still saves, but the page's blocks are untouched.
+    Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->call('selectBlock', ChromeSlot::Header->editorKey())
+        ->set('data.block.cta_label', 'Call now')
+        ->call('save');
+
+    expect(PageRevision::query()->count())->toBe(2);
+
+    // Saving again with nothing changed adds nothing.
+    Livewire::test(PageEditor::class, ['record' => $page->id])->call('save');
+
+    expect(PageRevision::query()->count())->toBe(2);
+});
+
+it('restores a version onto the canvas without saving it', function (): void {
+    // Restoring is an edit like any other: it lands on the undo stack, repaints
+    // the canvas, and still needs an explicit Save. Picking the wrong version is
+    // therefore one Undo away.
+    $page = editorPage([
+        ['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Original']],
+    ]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
+    $component->call('addBlock', 'cta')->call('save');
+
+    // Now wreck it.
+    $component->call('removeBlock', $component->get('blocks')[0]['key'])
+        ->call('removeBlock', $component->get('blocks')[0]['key'])
+        ->call('save');
+
+    expect(Page::query()->findOrFail($page->id)->blocks)->toBeEmpty();
+
+    $original = PageRevision::query()->orderBy('id')->first();
+
+    $component->callAction('pageHistory', ['revision' => $original->id])
+        ->assertNotified('Version restored');
+
+    expect(array_column($component->get('blocks'), 'type'))->toBe(['hero'])
+        ->and($component->get('isDirty'))->toBeTrue()
+        // Restoring did NOT write — the operator reviews it first.
+        ->and(Page::query()->findOrFail($page->id)->blocks)->toBeEmpty();
+
+    // Freshly minted keys, so the canvas can address the restored blocks.
+    expect($component->get('blocks')[0]['key'])->toBeString()->not->toBeEmpty();
+
+    // And it is undoable.
+    $component->call('undo');
+    expect($component->get('blocks'))->toBeEmpty();
+});
+
+it('says so when the chosen version has been pruned away', function (): void {
+    $page = editorPage([['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']]]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
+    $component->call('addBlock', 'cta')->call('save');
+
+    $revision = PageRevision::query()->orderBy('id')->first();
+    $this->runInTenant($this->tenant, fn () => PageRevision::query()->whereKey($revision->id)->delete());
+
+    $component->call('restoreRevision', $revision->id)
+        ->assertNotified('That version is no longer available');
+
+    expect(array_column($component->get('blocks'), 'type'))->toBe(['hero', 'cta']);
+});
+
+it("refuses to restore another page's version", function (): void {
+    $page = editorPage([['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']]]);
+    $other = editorPage([['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Other page']]], 'about');
+
+    Livewire::test(PageEditor::class, ['record' => $other->id])->call('addBlock', 'heading')->call('save');
+
+    $otherRevision = PageRevision::query()->where('page_id', $other->id)->orderBy('id')->firstOrFail();
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
+    $component->call('restoreRevision', $otherRevision->id)
+        ->assertNotified('That version is no longer available');
+
+    expect(array_column($component->get('blocks'), 'type'))->toBe(['hero']);
 });
 
 it('publishes and unpublishes from inside the editor, saving the draft first', function (): void {
