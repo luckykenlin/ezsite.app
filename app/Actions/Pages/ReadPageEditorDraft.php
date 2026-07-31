@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Actions\Pages;
 
+use App\Design\TokenSelection;
 use App\Enums\ChromeSlot;
 use App\Models\Page;
 use App\Site\Blocks\BlockData;
@@ -24,7 +25,7 @@ use Carbon\CarbonImmutable;
 final readonly class ReadPageEditorDraft
 {
     /**
-     * @return array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, chrome: array<string, array{type: string, data: array<string, mixed>}|null>, chrome_dirty: bool, selected_block_key: string|null, inspector: array<string, mixed>|null, sample_hint_shown: bool, chat_edit_awaiting_save: bool, chat_turn: array{token: string, started_at: int}|null, saved_at: CarbonImmutable|null}|null
+     * @return array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, chrome: array<string, array{type: string, data: array<string, mixed>}|null>, chrome_dirty: bool, selected_block_key: string|null, inspector: array<string, mixed>|null, sample_hint_shown: bool, chat_edit_awaiting_save: bool, chat_turn: array{token: string, started_at: int}|null, design: array<string, string|null>|null, saved_at: CarbonImmutable|null}|null
      */
     public function handle(Page $page): ?array
     {
@@ -46,6 +47,10 @@ final readonly class ReadPageEditorDraft
             'sample_hint_shown' => (bool) ($draft['sample_hint_shown'] ?? false),
             'chat_edit_awaiting_save' => (bool) ($draft['chat_edit_awaiting_save'] ?? false),
             'chat_turn' => $this->chatTurn($draft['chat_turn'] ?? null),
+            // Only ever a CHAT-staged style — see the writer for why the modal's
+            // never reaches storage. Normalised like everything else here: it goes
+            // into `$designDraft` and from there into the canvas preview.
+            'design' => TokenSelection::normalise($draft['design'] ?? null),
             'saved_at' => $page->draft_updated_at,
         ];
     }

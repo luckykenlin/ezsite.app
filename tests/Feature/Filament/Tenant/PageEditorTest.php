@@ -788,9 +788,11 @@ it('discards the draft back to the saved page', function (): void {
     expect(Livewire::test(PageEditor::class, ['record' => $page->id])->get('draftRestored'))->toBeFalse();
 });
 
-it('does not restore an unsaved design-token preview', function (): void {
-    // designDraft is scoped to the Design modal's lifetime and Save never writes
-    // it; restoring it would resurrect a theme override with no modal to clear it.
+it('does not restore a design preview the Design modal staged', function (): void {
+    // The modal's draft is scoped to its own fields, and it is not open after a
+    // reload — so its preview should be gone exactly as it would be had the modal
+    // simply been closed. Restoring it would resurrect a theme override with no
+    // modal to clear it.
     $this->createTenantBusiness($this->tenant, ['name' => 'Corner Cafe']);
     $page = editorPage([['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']]]);
 
@@ -799,6 +801,48 @@ it('does not restore an unsaved design-token preview', function (): void {
         ->call('previewDesign', ['palette' => 'ocean']);
 
     expect(Livewire::test(PageEditor::class, ['record' => $page->id])->get('designDraft'))->toBeNull();
+});
+
+/*
+ * The assistant's staged style is the opposite case: an unanswered question, not
+ * transient modal state. Losing it on a reload left the operator with the copy
+ * the turn wrote and no trace of the restyle they were still deciding on.
+ */
+it('brings a chat-staged style back after a reload, with its gate', function (): void {
+    $this->createTenantBusiness($this->tenant, ['name' => 'Corner Cafe']);
+    $page = editorPage([['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']]]);
+
+    // Design ONLY, on an otherwise clean page: such a turn changes no blocks, so
+    // `isDirty` stays false and nothing else in hasUnsavedWork() would have said
+    // there was anything worth keeping.
+    Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->call('applyTurn', null, StylePreset::WarmCraft->tokens()->toArray());
+
+    $reloaded = Livewire::test(PageEditor::class, ['record' => $page->id]);
+
+    expect($reloaded->get('designDraft')['preset'])->toBe('warm-craft')
+        // Back on the canvas...
+        ->and(cachedPreview($reloaded)['design_tokens']['preset'])->toBe('warm-craft')
+        // ...with the way to accept or reject it back too.
+        ->and($reloaded->get('chatDesignAwaitingApply'))->toBeTrue()
+        // And still nowhere near the businesses row.
+        ->and(Business::query()->sole()->design_tokens->preset)->toBeNull();
+});
+
+it('discards a restored style along with the rest of the draft', function (): void {
+    $this->createTenantBusiness($this->tenant, ['name' => 'Corner Cafe']);
+    $page = editorPage([['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']]]);
+
+    Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->call('applyTurn', null, StylePreset::WarmCraft->tokens()->toArray());
+
+    $reloaded = Livewire::test(PageEditor::class, ['record' => $page->id]);
+    $reloaded->call('discardDraft');
+
+    expect($reloaded->get('designDraft'))->toBeNull()
+        ->and($reloaded->get('chatDesignAwaitingApply'))->toBeFalse()
+        ->and(cachedPreview($reloaded)['design_tokens'])->toBeNull()
+        ->and(Page::query()->findOrFail($page->id)->draft)->toBeNull();
 });
 
 /*

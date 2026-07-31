@@ -7,6 +7,7 @@ namespace App\Filament\Tenant\Resources\PageResource\Concerns;
 use App\Actions\Pages\ReadPageEditorDraft;
 use App\Actions\Pages\SavePageEditorDraft;
 use App\Enums\ChromeSlot;
+use App\Enums\DesignDraftSource;
 use App\Site\Blocks\BlockData;
 use Filament\Notifications\Notification;
 use Livewire\Attributes\Locked;
@@ -31,8 +32,9 @@ use Livewire\Attributes\Locked;
  *
  * Expects the host to provide `$blocks`, `$chrome`, `$chromeDirty`, `$isDirty`,
  * `$data`, `$selectedBlockKey`, `$sampleHintShown`, `$chatTurnToken`,
- * `$chatTurnStartedAt`, `$chatEditAwaitingSave`, `pageRecord()`,
- * `hydratedBlocks()`, `fillBlockForm()` and `pushPreview()`.
+ * `$chatTurnStartedAt`, `$chatEditAwaitingSave`, `$designDraft`,
+ * `$designDraftSource`, `pageRecord()`, `hydratedBlocks()`, `fillBlockForm()`
+ * and `pushPreview()`.
  */
 trait RestoresEditorDraft
 {
@@ -64,6 +66,11 @@ trait RestoresEditorDraft
         $this->isDirty = false;
         $this->draftRestored = false;
         $this->chatEditAwaitingSave = false;
+        // A restored style is unsaved work like any other, so "get me out of here"
+        // has to drop it too — the pushPreview() below repaints the canvas in the
+        // saved theme.
+        $this->designDraft = null;
+        $this->designDraftSource = null;
         $this->selectedBlockKey = $this->blocks[0]['key'] ?? null;
 
         $this->fillBlockForm();
@@ -97,6 +104,15 @@ trait RestoresEditorDraft
         $this->chatEditAwaitingSave = $draft['chat_edit_awaiting_save'];
         $this->chatTurnToken = $draft['chat_turn']['token'] ?? null;
         $this->chatTurnStartedAt = $draft['chat_turn']['started_at'] ?? null;
+
+        // A stored style can only be a chat-staged one (see the payload), so the
+        // source is inferred rather than stored — the same inference
+        // {@see HasBlockHistory::restoreSnapshot()} makes for an undo entry. This
+        // is also what brings the rail's "Apply to site" gate back, which is the
+        // point: without it the operator returns to a restyled canvas and no way
+        // to accept or reject it.
+        $this->designDraft = $draft['design'];
+        $this->designDraftSource = $draft['design'] === null ? null : DesignDraftSource::Chat;
 
         // There is unsaved work by definition, so Save must be live immediately —
         // the operator did not get a clean page back.
@@ -140,13 +156,22 @@ trait RestoresEditorDraft
     /**
      * Everything a mount cannot rebuild from `pages.blocks` and `site_settings`.
      *
-     * @return array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, chrome: array<string, array{type: string, data: array<string, mixed>}|null>, chrome_dirty: bool, selected_block_key: string|null, inspector: array<string, mixed>|null, sample_hint_shown: bool, chat_edit_awaiting_save: bool, chat_turn: array{token: string, started_at: int}|null}
+     * @return array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, chrome: array<string, array{type: string, data: array<string, mixed>}|null>, chrome_dirty: bool, selected_block_key: string|null, inspector: array<string, mixed>|null, sample_hint_shown: bool, chat_edit_awaiting_save: bool, chat_turn: array{token: string, started_at: int}|null, design: array<string, string|null>|null}
      */
     private function editorDraftPayload(): array
     {
         $inspector = $this->data['block'] ?? null;
 
         return [
+            // Only the CHAT's staged style is kept, never the modal's. The modal
+            // is not open after a reload, so its preview should be gone exactly as
+            // it would be had the modal simply been closed — which is the rule
+            // {@see HostsEditorModals::unmountAction()} already applies. The
+            // assistant's is the opposite case: an unanswered question, with its
+            // own Apply affordance in the chat rail. Storing only the one kind is
+            // also what lets the reader hand back a bare token array and the
+            // restore below infer its source.
+            'design' => $this->designDraftSource === DesignDraftSource::Chat ? $this->designDraft : null,
             'blocks' => $this->blocks,
             'chrome' => $this->chrome,
             'chrome_dirty' => $this->chromeDirty,
@@ -184,11 +209,20 @@ trait RestoresEditorDraft
      * Whether leaving now would lose something.
      *
      * An in-flight turn counts even on an otherwise clean page: its result lands
-     * through `applyBlocks()` minutes later, and without the pointer persisted
-     * there is nothing left to land it into.
+     * through `applyTurn()` minutes later, and without the pointer persisted there
+     * is nothing left to land it into.
+     *
+     * A chat-staged style counts for the same reason, and it is the case that
+     * would otherwise slip through: a turn that ONLY restyled the site changes no
+     * blocks, so it leaves `$isDirty` false — correctly, since there is nothing to
+     * Save on this page — and every other clause here would answer no while the
+     * operator still has a whole-site decision open in front of them.
      */
     private function hasUnsavedWork(): bool
     {
-        return $this->isDirty || $this->chromeDirty || $this->chatTurnToken !== null;
+        return $this->isDirty
+            || $this->chromeDirty
+            || $this->chatTurnToken !== null
+            || $this->designDraftSource === DesignDraftSource::Chat;
     }
 }

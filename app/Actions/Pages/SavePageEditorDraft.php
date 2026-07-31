@@ -52,7 +52,7 @@ final readonly class SavePageEditorDraft
      * across that boundary. A fresh builder resolves the default connection, which
      * is the RLS-scoped one inside tenancy and the plain one outside it.
      *
-     * @param  array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, chrome: array<string, array{type: string, data: array<string, mixed>}|null>, chrome_dirty: bool, selected_block_key: string|null, inspector: array<string, mixed>|null, sample_hint_shown: bool, chat_edit_awaiting_save: bool, chat_turn: array{token: string, started_at: int}|null}|null  $draft  null clears the draft
+     * @param  array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, chrome: array<string, array{type: string, data: array<string, mixed>}|null>, chrome_dirty: bool, selected_block_key: string|null, inspector: array<string, mixed>|null, sample_hint_shown: bool, chat_edit_awaiting_save: bool, chat_turn: array{token: string, started_at: int}|null, design: array<string, string|null>|null}|null  $draft  null clears the draft
      */
     public function handle(Page $page, ?array $draft): void
     {
