@@ -135,6 +135,12 @@ trait InteractsWithPageChat
             $this->chatTurnToken,
             $this->blocks,
         ));
+
+        // Persist the pointer to this turn. Not via pushPreview() — sending a
+        // message changes no blocks, so nothing else on this path would write it,
+        // and without it a reload before the answer lands leaves the finished
+        // result sitting in the cache addressable by nobody.
+        $this->persistEditorDraft();
     }
 
     /**
@@ -175,6 +181,12 @@ trait InteractsWithPageChat
         // invalid draft would throw the assistant's answer away.
         $this->commitSelectedBlock();
 
+        // The worker's copy is the draft as it was when the turn was DISPATCHED,
+        // so any edit made since — including anything typed after a reload that
+        // resumed this turn — is replaced by it. The commit above is what makes
+        // that survivable: those edits ride into the undo snapshot and are one
+        // Undo away rather than gone.
+        //
         // An answer that changed nothing must not touch the undo stack or the
         // dirty flag — asking "what does this block do?" is not an edit.
         if ($turn['blocks'] !== null && $turn['blocks'] !== $this->blocks) {
@@ -207,10 +219,17 @@ trait InteractsWithPageChat
         $this->endChatTurn();
     }
 
+    /**
+     * The single exit from a turn — reached by completion, by the stop button and
+     * by the give-up timeout alike, which is why clearing the persisted pointer
+     * only needs to happen here.
+     */
     private function endChatTurn(): void
     {
         $this->chatTurnToken = null;
         $this->chatTurnStartedAt = null;
+
+        $this->persistEditorDraft();
     }
 
     /**

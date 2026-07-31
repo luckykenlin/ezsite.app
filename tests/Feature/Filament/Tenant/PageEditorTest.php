@@ -582,6 +582,143 @@ it('keeps the undo history out of the Livewire payload however deep it gets', fu
         ->and($snapshot)->not->toContain('"chatMessages"');
 });
 
+/*
+ * Surviving a reload. A second Livewire::test() mount of the same page IS the
+ * refresh these cover: the component is rebuilt from scratch exactly as it is
+ * after F5, a crash, or a 419.
+ */
+
+it('brings unsaved blocks back after a reload, without having touched the page', function (): void {
+    $page = editorPage([
+        ['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']],
+    ]);
+
+    Livewire::test(PageEditor::class, ['record' => $page->id])->call('addBlock', 'cta');
+
+    $reloaded = Livewire::test(PageEditor::class, ['record' => $page->id]);
+
+    expect(array_column($reloaded->get('blocks'), 'type'))->toBe(['hero', 'cta'])
+        ->and($reloaded->get('isDirty'))->toBeTrue()
+        ->and($reloaded->get('draftRestored'))->toBeTrue()
+        // Still unsaved: restoring is not saving.
+        ->and(Page::query()->findOrFail($page->id)->blocks)->toHaveCount(1);
+
+    $reloaded->assertNotified();
+});
+
+it('still restores a draft whose timestamp is missing', function (): void {
+    // The columns are written together, so this only arises from a hand-edited or
+    // older-version row — the same "do not trust the store" case the read action
+    // normalises everything else for. It must restore, just without the age.
+    $page = editorPage([['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']]]);
+
+    Page::query()->whereKey($page->id)->toBase()->update([
+        'draft' => json_encode([
+            'blocks' => [['key' => 'k1', 'type' => 'heading', 'data' => ['content' => 'Recovered', 'level' => 'h2']]],
+        ], JSON_THROW_ON_ERROR),
+        'draft_updated_at' => null,
+    ]);
+
+    $reloaded = Livewire::test(PageEditor::class, ['record' => $page->id]);
+
+    expect(array_column($reloaded->get('blocks'), 'type'))->toBe(['heading'])
+        ->and($reloaded->get('draftRestored'))->toBeTrue();
+
+    $reloaded->assertNotified('Restored your unsaved changes');
+});
+
+it('brings back the field that was being typed into, not just the last commit', function (): void {
+    // The most commonly lost thing: bindings are debounced, so this text lives
+    // only in $data['block'] until some verb commits it.
+    $page = editorPage([
+        ['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']],
+    ]);
+
+    Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->set('data.block.heading', 'Half typed');
+
+    $reloaded = Livewire::test(PageEditor::class, ['record' => $page->id]);
+
+    expect($reloaded->get('data')['block']['heading'])->toBe('Half typed');
+});
+
+it('leaves an untouched chrome slot untouched across a reload', function (): void {
+    // The regression a lossy restore would cause: materialising a default entry
+    // turns "this tenant relies on the default header" into "this tenant has an
+    // explicit header draft", which Save would then write to site settings.
+    $this->createTenantBusiness($this->tenant, ['name' => 'Corner Cafe']);
+    $page = editorPage([['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']]]);
+
+    Livewire::test(PageEditor::class, ['record' => $page->id])->call('addBlock', 'cta');
+
+    $reloaded = Livewire::test(PageEditor::class, ['record' => $page->id]);
+
+    expect($reloaded->get('chrome'))->toBe(['header' => null, 'footer' => null])
+        ->and($reloaded->get('chromeDirty'))->toBeFalse();
+});
+
+it('stores no draft for an editor nobody changed', function (): void {
+    $page = editorPage([['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']]]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
+
+    expect(Page::query()->findOrFail($page->id)->draft)->toBeNull()
+        ->and($component->get('draftRestored'))->toBeFalse();
+
+    // Merely clicking around does not create one either.
+    $component->call('selectBlock', $component->get('blocks')[0]['key']);
+
+    expect(Page::query()->findOrFail($page->id)->draft)->toBeNull();
+});
+
+it('clears the draft on save, so the next visit is clean', function (): void {
+    $page = editorPage([['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']]]);
+
+    Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->call('addBlock', 'cta')
+        ->call('save');
+
+    expect(Page::query()->findOrFail($page->id)->draft)->toBeNull();
+
+    $reloaded = Livewire::test(PageEditor::class, ['record' => $page->id]);
+
+    expect($reloaded->get('draftRestored'))->toBeFalse()
+        ->and($reloaded->get('isDirty'))->toBeFalse()
+        ->and(array_column($reloaded->get('blocks'), 'type'))->toBe(['hero', 'cta']);
+});
+
+it('discards the draft back to the saved page', function (): void {
+    $page = editorPage([['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']]]);
+
+    Livewire::test(PageEditor::class, ['record' => $page->id])->call('addBlock', 'cta');
+
+    $reloaded = Livewire::test(PageEditor::class, ['record' => $page->id]);
+    expect($reloaded->get('draftRestored'))->toBeTrue();
+
+    $reloaded->call('discardDraft');
+
+    expect(array_column($reloaded->get('blocks'), 'type'))->toBe(['hero'])
+        ->and($reloaded->get('isDirty'))->toBeFalse()
+        ->and($reloaded->get('draftRestored'))->toBeFalse()
+        ->and(Page::query()->findOrFail($page->id)->draft)->toBeNull();
+
+    // And it stays discarded.
+    expect(Livewire::test(PageEditor::class, ['record' => $page->id])->get('draftRestored'))->toBeFalse();
+});
+
+it('does not restore an unsaved design-token preview', function (): void {
+    // designDraft is scoped to the Design modal's lifetime and Save never writes
+    // it; restoring it would resurrect a theme override with no modal to clear it.
+    $this->createTenantBusiness($this->tenant, ['name' => 'Corner Cafe']);
+    $page = editorPage([['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']]]);
+
+    Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->call('addBlock', 'cta')
+        ->call('previewDesign', ['palette' => 'ocean']);
+
+    expect(Livewire::test(PageEditor::class, ['record' => $page->id])->get('designDraft'))->toBeNull();
+});
+
 it('publishes and unpublishes from inside the editor, saving the draft first', function (): void {
     $page = editorPage([
         ['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']],
@@ -1209,6 +1346,79 @@ it('does not ask for a review when the assistant only explained something', func
 
     expect($component->get('chatEditAwaitingSave'))->toBeFalse();
     $component->assertDontSee('review and Save');
+});
+
+it('picks a finished turn back up after a reload and lands its edits', function (): void {
+    // The worst of the reported symptoms. The job completes on the queue whatever
+    // the browser does and its result is durable in the cache — but applyBlocks()
+    // is only reachable from pollChatTurn(), which the blade only renders while a
+    // token exists. Losing the token stranded the result, and the operator came
+    // back to the old canvas beside a reply describing edits it had made.
+    $page = editorPage([
+        ['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Old headline']],
+    ]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
+    $key = $component->get('blocks')[0]['key'];
+
+    PageEditorAgent::fake([
+        new ToolCall('c1', 'UpdateBlockContent', ['key' => $key, 'content' => ['heading' => 'Fresh bread daily']]),
+        'Shortened the headline.',
+    ]);
+
+    // Sent, but never polled — the operator reloads while it is still running.
+    $component->set('chatInput', 'Shorten the headline')->call('sendChatMessage');
+
+    $reloaded = Livewire::test(PageEditor::class, ['record' => $page->id]);
+
+    expect($reloaded->get('chatTurnToken'))->not->toBeNull();
+
+    $reloaded->call('pollChatTurn');
+
+    expect($reloaded->get('blocks')[0]['data']['heading'])->toBe('Fresh bread daily')
+        ->and($reloaded->get('chatTurnToken'))->toBeNull()
+        ->and($reloaded->get('chatEditAwaitingSave'))->toBeTrue();
+});
+
+it('forgets the turn pointer once the turn is over', function (): void {
+    PageEditorAgent::fake(['The hero block is the banner at the top.']);
+
+    $page = editorPage([['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']]]);
+
+    Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->set('chatInput', 'What does the hero do?')
+        ->call('sendChatMessage')
+        ->call('pollChatTurn');
+
+    // An explanatory turn on a clean page leaves nothing unsaved at all, so the
+    // whole draft goes with it.
+    expect(Page::query()->findOrFail($page->id)->draft)->toBeNull()
+        ->and(Livewire::test(PageEditor::class, ['record' => $page->id])->get('chatTurnToken'))->toBeNull();
+});
+
+it('stops waiting for a resumed turn whose result did not survive', function (): void {
+    $page = editorPage([['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']]]);
+
+    PageEditorAgent::fake(['Done.']);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
+    $component->set('chatInput', 'Do something')->call('sendChatMessage');
+
+    // The turn's cache entry is gone — flushed by a deploy, or simply expired.
+    $token = $component->get('chatTurnToken');
+    $this->runInTenant($this->tenant, fn () => resolve(CacheChatTurn::class)->forget($token));
+
+    $reloaded = Livewire::test(PageEditor::class, ['record' => $page->id]);
+    expect($reloaded->get('chatTurnToken'))->toBe($token);
+
+    // Still inside the timeout: keep waiting rather than giving up early.
+    $reloaded->call('pollChatTurn');
+    expect($reloaded->get('chatTurnToken'))->toBe($token);
+
+    $this->travel(4)->minutes();
+    $reloaded->call('pollChatTurn')->assertNotified("The assistant's changes could not be recovered");
+
+    expect($reloaded->get('chatTurnToken'))->toBeNull();
 });
 
 it('shows both sides of the turn in the panel and marks the one that edited', function (): void {

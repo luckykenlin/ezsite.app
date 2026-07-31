@@ -13,6 +13,7 @@ use App\Actions\Pages\MovePageBlock;
 use App\Actions\Pages\PublishPage;
 use App\Actions\Pages\RemovePageBlock;
 use App\Actions\Pages\ReorderPageBlocks;
+use App\Actions\Pages\SavePageEditorDraft;
 use App\Actions\SaveSiteChrome;
 use App\Enums\BindType;
 use App\Enums\ChromeSlot;
@@ -25,6 +26,7 @@ use App\Filament\Tenant\Resources\PageResource\Concerns\HasBlockHistory;
 use App\Filament\Tenant\Resources\PageResource\Concerns\HasSiteChromeDraft;
 use App\Filament\Tenant\Resources\PageResource\Concerns\HostsEditorModals;
 use App\Filament\Tenant\Resources\PageResource\Concerns\InteractsWithPageChat;
+use App\Filament\Tenant\Resources\PageResource\Concerns\RestoresEditorDraft;
 use App\Models\Page as PageModel;
 use App\Site\Blocks\BlockData;
 use App\Site\Blocks\BlockType;
@@ -77,6 +79,7 @@ final class PageEditor extends Page
     use HostsEditorModals;
     use InteractsWithPageChat;
     use InteractsWithRecord;
+    use RestoresEditorDraft;
 
     /**
      * The block library's `<x-filament::modal>` id. A constant rather than a
@@ -144,11 +147,16 @@ final class PageEditor extends Page
             ChromeSlot::Footer->value => $this->hydratedChromeSlot(ChromeSlot::Footer),
         ];
 
-        $first = $this->blocks[0]['key'] ?? null;
+        // An earlier session's unsaved work wins over the stored page — that is
+        // the whole point. It carries its own selection and inspector state, so
+        // the fresh-page path below is skipped entirely.
+        if (! $this->restoreEditorDraft()) {
+            $first = $this->blocks[0]['key'] ?? null;
 
-        if ($first !== null) {
-            $this->selectedBlockKey = $first;
-            $this->fillBlockForm();
+            if ($first !== null) {
+                $this->selectedBlockKey = $first;
+                $this->fillBlockForm();
+            }
         }
 
         $this->pushPreview();
@@ -619,6 +627,17 @@ final class PageEditor extends Page
 
             DesignAction::make($this),
 
+            // The only route back to the saved page. A restored draft carries no
+            // undo history behind it, so without this a draft the operator does not
+            // want is sticky — every mount would adopt it again.
+            Action::make('discardDraft')
+                ->label('Discard draft')
+                ->color('danger')
+                ->requiresConfirmation()
+                ->modalDescription('Throws away every unsaved change and reloads the last saved version of this page.')
+                ->visible(fn (): bool => $this->draftRestored || $this->isDirty)
+                ->action(fn () => $this->discardDraft()),
+
             Action::make('duplicatePage')
                 ->label('Duplicate page')
                 ->color('gray')
@@ -795,6 +814,11 @@ final class PageEditor extends Page
 
         $this->isDirty = false;
         $this->chatEditAwaitingSave = false;
+        $this->draftRestored = false;
+
+        // Saved state and draft state are mutually exclusive by definition: what
+        // was unsaved is now in `pages.blocks`.
+        resolve(SavePageEditorDraft::class)->handle($this->pageRecord(), null);
 
         return true;
     }
@@ -826,6 +850,13 @@ final class PageEditor extends Page
         );
 
         resolve(CachePageEditorPreview::class)->handle($this->pageRecord(), $blocks, $this->previewToken, $chrome, $this->designDraft);
+
+        // The single place the draft is persisted, because this method's call set
+        // already IS the set of moments it changes: mount, markDirty() (every
+        // structural verb, and restoreSnapshot()), selectBlock/deselectBlock when
+        // the commit changed something, updated() per debounced keystroke, and
+        // previewDesign(). Eight separate call sites would drift apart.
+        $this->persistEditorDraft();
 
         $this->previewVersion++;
 

@@ -669,6 +669,18 @@ export function pageEditor(
         init(this: PageEditorComponent): void {
             this.$nextTick(() => this.fitLayout());
 
+            // A turn the server restored from the draft: the page was reloaded
+            // while the assistant was still answering. Reconnect to the stream so
+            // the reply resumes typing instead of appearing all at once whenever
+            // the 5s poll next fires. `chatPending` stays empty on purpose — the
+            // question is already in the persisted transcript below.
+            const resumed = this.$wire.chatTurnToken;
+
+            if (resumed !== null) {
+                this.chatSending = true;
+                this.openChatStream(resumed);
+            }
+
             this.$wire.on(
                 'page-editor:refresh-canvas',
                 ({ url }: { url: string }) => this.reload(url),
