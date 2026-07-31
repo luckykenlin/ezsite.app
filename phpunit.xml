@@ -14,6 +14,15 @@
         <testsuite name="Arch">
             <directory>tests/Arch</directory>
         </testsuite>
+        <!--
+            Run on its own (composer test:browser), never as part of the
+            coverage run: it drives a real Chromium, so it is slow, and it
+            executes app/ out of band where the exact-100 coverage gate cannot
+            account for it. composer test:unit excludes it explicitly.
+        -->
+        <testsuite name="Browser">
+            <directory>tests/Browser</directory>
+        </testsuite>
     </testsuites>
     <source>
         <include>

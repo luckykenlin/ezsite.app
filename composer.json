@@ -106,13 +106,14 @@
             "pint --parallel",
             "npm run lint"
         ],
-        "test:type-coverage": "pest --type-coverage --min=100",
+        "test:type-coverage": "pest --type-coverage --min=100 --exclude-testsuite=Browser",
         "test:lint": [
             "pint --parallel --test",
             "rector --dry-run",
             "npm run test:lint"
         ],
-        "test:unit": "XDEBUG_MODE=\"coverage\" pest --parallel --processes=8 --coverage --exactly=100.0 --tia",
+        "test:unit": "XDEBUG_MODE=\"coverage\" pest --parallel --processes=8 --coverage --exactly=100.0 --tia --exclude-testsuite=Browser",
+        "test:browser": "sh -c 'ulimit -n 1024; pest --testsuite=Browser'",
         "test:types": [
             "phpstan --memory-limit=-1",
             "npm run test:types"
@@ -121,7 +122,13 @@
             "@test:lint",
             "@test:type-coverage",
             "@test:types",
+            "npm run test:unit",
             "@test:unit"
+        ],
+        "test:all": [
+            "@test",
+            "npm run build",
+            "@test:browser"
         ]
     },
     "extra": {

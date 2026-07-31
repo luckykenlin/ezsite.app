@@ -135,8 +135,10 @@ test('the builder Alpine modules are loaded panel-wide, never scoped to their pa
     // load. The panel navigates with wire:navigate, which swaps the body and
     // calls Alpine.initTree() WITHOUT firing that event again, so a module
     // scoped to one page arrives too late to ever register and every x-data on
-    // it dies with "… is not defined". Nothing at runtime can catch that here:
-    // withoutVite() hides the script tag, and there is no JS test runner.
+    // it dies with "… is not defined". No PHP test can catch that — withoutVite()
+    // hides the script tag — so this guards the wiring statically. The browser
+    // suite (tests/Browser) does exercise the modules for real, but only on a
+    // first load, which is exactly the case that works either way.
     $provider = file_get_contents(dirname(__DIR__, 2).'/app/Providers/FilamentServiceProvider.php');
 
     expect($provider)

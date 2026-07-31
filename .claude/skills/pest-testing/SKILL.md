@@ -29,6 +29,10 @@ documents *why* it exists (see the rollback guard in `RlsPolicyTest`).
   `XDEBUG_MODE=coverage pest --parallel --coverage --exactly=100.0`.
 - `php artisan test --compact {path|--filter=...}` — fast iteration on specific
   tests. Prefer a path or `--filter` over the whole suite.
+- `composer test:browser` — the browser suite (see below). Excluded from
+  `test:unit` and `test:type-coverage` with `--exclude-testsuite=Browser`;
+  keep it that way.
+- `npm run test:unit` — vitest over `resources/js/**/*.test.ts`.
 - After editing PHP, run `vendor/bin/pint --dirty --format agent`.
 
 When the coverage run fails it prints `File .. <uncovered lines> / <pct>%` for
@@ -132,6 +136,55 @@ DB setup (arch expectations need no app/DB).
   `it(...)->with('tenant_domains')` yields `[$domain, $isCustom]`.
 - **Factory states** cut boilerplate: `User::factory()->superAdmin()`,
   `User::factory()->memberOf($tenant)`, `Tenant::factory()->withDomain('acme')`.
+
+## The browser suite (`tests/Browser`)
+
+A real Chromium over the compiled bundle, for the editor's TypeScript. Small on
+purpose — it covers only what PHP structurally cannot reach (the iframe
+postMessage round trips, native drag-and-drop, Alpine surviving a Livewire
+morph, the canvas's localStorage layout). Never re-assert there what
+`PageEditorTest` already asserts server-side.
+
+Two tiers sit below it: `tsc`/eslint, and vitest (`npm run test:unit`) for the
+pure functions — `protocol.ts`'s shortcut table and origin check,
+`page-canvas/view-state.ts`'s storage fallbacks. Anything testable without a
+document belongs in vitest, not here. There is deliberately no jsdom: a DOM-less
+`environment: 'node'` plus a hand-written stub is what keeps the two tiers from
+blurring.
+
+**The one rule that matters when writing these: assert on the PARENT window.**
+The canvas mutates its own DOM optimistically — dragover reorders blocks before
+any message is sent, and typing into a `contenteditable` changes the text
+whether or not the edit is committed. Reading either back out of the iframe
+passes even when the bridge is severed. Assert something only the editor could
+know: the inspector's field value, the Save button going dirty, a notification.
+Both bridge tests were verified by cutting the `post()` call and watching them
+go red.
+
+Harness facts, each of which cost something to find:
+
+- **`pest()->extend(...)->in('Browser')` lives in the root `tests/Pest.php`**,
+  next to the Feature/Unit binding, sharing one `$prepareDatabase` closure. A
+  nested `tests/Browser/Pest.php` does not bind (same rule as everywhere else
+  here).
+- **The plugin's HTTP server is in-process** — it builds a Symfony request and
+  hands it to this very application instance, so the browser shares the test's
+  database, config and container. `actingAs()` therefore works.
+- **Four things the Feature/Unit binding does are omitted**: `withoutVite()`
+  (these tests need the real `public/build/manifest.json` — `npm run build`
+  first), `freezeTime()`/`Sleep::fake()` (they hang polling and SSE), and the
+  stray request/process guards (Playwright is a real process on a socket).
+  Sessions move to the `database` driver, because the browser holds a cookie.
+- **Tenant subdomains work through `*.localhost`**: Chromium resolves it to
+  loopback itself, and the server reads the Host header. `VisitsTenantPages`
+  builds those URLs — and also calls `URL::forceRootUrl()`, because routing
+  reads the Host header but `route()` does not, which would otherwise put the
+  preview iframe on a different origin than the editor and fail every check in
+  `protocol.ts`.
+- **`composer test:browser` wraps pest in `ulimit -n 1024`.** amphp's event loop
+  uses `stream_select()`, which cannot see a file descriptor numbered above
+  1023; macOS's soft limit is in the millions, so PHP hands out high numbers and
+  the server dies on its first request. Linux CI's default is already 1024.
 
 ## Architecture tests
 
