@@ -1992,7 +1992,11 @@ it('reverts the blocks and the staged style together on undo', function (): void
     expect($component->get('blocks')[0]['data']['heading'])->toBe('Before')
         ->and($component->get('designDraft'))->toBeNull()
         // The canvas is repainted without the rejected theme in the same trip.
-        ->and(cachedPreview($component)['design_tokens'])->toBeNull();
+        ->and(cachedPreview($component)['design_tokens'])->toBeNull()
+        // And the gate goes with it. It used to be a stored flag that Undo never
+        // touched, so the rail kept offering to apply a preview that was no
+        // longer there, over a button that silently did nothing.
+        ->and($component->get('chatDesignAwaitingApply'))->toBeFalse();
 });
 
 /*

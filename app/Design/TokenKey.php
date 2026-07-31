@@ -13,10 +13,11 @@ use BackedEnum;
  * writer's allow-list, the preset-vs-custom comparison, the option maps, both
  * design surfaces' field lists, and the editor's canvas-preview payload. Five of
  * those merely duplicated each other; the sixth was a live bug waiting to happen:
- * {@see \App\Filament\Tenant\Resources\PageResource\Concerns\HostsEditorModals::previewDesign()}
- * built a literal array and DROPPED every key not in it, so a token added
- * anywhere else would have been invisible on the canvas — the assistant would
- * describe a change the operator could not see.
+ * the canvas preview built a literal array and DROPPED every key not in it, so a
+ * token added anywhere else would have been invisible on the canvas — the
+ * assistant would describe a change the operator could not see. Everything that
+ * reads a raw selection now goes through {@see TokenSelection}, which loops these
+ * cases.
  *
  * Deliberately NOT a `Token` interface over the four enums. It would not fit:
  * {@see ColorPalette::colors()} needs the Business for its Brand case, and

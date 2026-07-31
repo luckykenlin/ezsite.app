@@ -148,7 +148,14 @@ final class ChatEditPageJob extends TenantAware
             },
         );
 
-        $turns->handle($this->token, $result['reply'], $result['blocks'], $result['failed'], $activity, $result['design']);
+        $turns->handle(
+            $this->token,
+            $result['reply'],
+            $result['blocks'],
+            failed: $result['failed'],
+            activity: $activity,
+            design: $result['design'],
+        );
     }
 
     /**

@@ -116,10 +116,13 @@ final readonly class PageEditPrompt implements Stringable
     }
 
     /**
-     * The rest of the site: who the business is, what the saved look is, and
-     * which pages exist. That last one closes a real gap — the vocabulary
-     * section tells the model to write relative links like "/contact" without
-     * ever saying which addresses are real.
+     * The rest of the site: which pages exist. It closes a real gap — the
+     * vocabulary section tells the model to write relative links like
+     * "/contact" without ever saying which addresses are real.
+     *
+     * The business and the current style are NOT here; {@see businessSection()}
+     * and {@see styleSection()} own them, and a second shorter version of either
+     * would only give the model two answers to one question.
      */
     private function siteSection(): ?string
     {

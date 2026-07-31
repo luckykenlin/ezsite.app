@@ -6,6 +6,7 @@ use App\Design\Contrast;
 use App\Design\DesignTokens;
 use App\Design\ThemeVariables;
 use App\Design\TokenOptions;
+use App\Design\TokenSelection;
 use App\Filament\Fabricator\BlockRegistry;
 use App\Filament\Fabricator\PageBlocks\Block;
 
@@ -53,6 +54,7 @@ arch('the design module and block registry classes are final')
         DesignTokens::class,
         ThemeVariables::class,
         TokenOptions::class,
+        TokenSelection::class,
     ])
     ->toBeFinal();
 

@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Filament\Tenant\Resources\PageResource\Concerns;
 
-use App\Design\TokenKey;
+use App\Design\TokenSelection;
+use App\Enums\DesignDraftSource;
 use App\Filament\Tenant\Pages\BusinessProfile;
 use App\Models\Business;
 use App\Site\Blocks\BlockData;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Livewire\Attributes\Locked;
 
 /**
  * The callbacks the editor's modal builders reach back into.
@@ -38,21 +40,27 @@ trait HostsEditorModals
      * the Design modal is open; cleared on apply or close). Never persisted
      * by Save — "Apply to site" in the modal is the only write path.
      *
+     * `#[Locked]` because {@see previewDesign()} and {@see clearDesignDraft()}
+     * are the only writers: this is the input
+     * {@see InteractsWithPageChat::applyChatDesign()}
+     * hands to `SaveDesignSelection`, so a client-writable copy would be a POST
+     * straight into the `businesses` row.
+     *
      * @var array<string, string|null>|null
      */
+    #[Locked]
     public ?array $designDraft = null;
 
     /**
-     * Who staged the current draft: `'modal'` for the Design modal's live
-     * fields, `'chat'` for the assistant. Null whenever there is no draft.
+     * Who staged the current draft. Null whenever there is no draft.
      *
-     * The distinction is load-bearing, not bookkeeping. {@see unmountAction()}
-     * discards the draft on ANY modal close, which is right for the modal's own
-     * transient state and catastrophic for the assistant's: opening Page
-     * settings would silently throw away a restyle the operator was still
-     * reviewing, with nothing on screen to say it had gone.
+     * Also locked, and for a sharper reason than the draft itself: the browser
+     * choosing its own source would let a modal draft claim to be a chat one and
+     * so outlive the modal that produced it — {@see unmountAction()} below is
+     * the code that decision reaches.
      */
-    public ?string $designDraftSource = null;
+    #[Locked]
+    public ?DesignDraftSource $designDraftSource = null;
 
     private ?Business $businessRecord = null;
 
@@ -64,23 +72,16 @@ trait HostsEditorModals
      * one; "Apply to site" is still the only write path.
      *
      * Two producers now: the Design modal's live fields, and
-     * {@see \App\Ai\Tools\SetSiteStyle} by way of the chat turn. The key list
-     * is derived from {@see TokenKey} rather than written out, because a
-     * literal list silently DROPS any token not named in it — the assistant
+     * {@see \App\Ai\Tools\SetSiteStyle} by way of the chat turn. Both go through
+     * {@see TokenSelection::normalise()} rather than a literal key list, because
+     * a literal list silently DROPS any token not named in it — the assistant
      * would describe a change the canvas never shows.
      *
      * @param  array<string, mixed>  $draft
-     * @param  'modal'|'chat'  $source
      */
-    public function previewDesign(array $draft, string $source = 'modal'): void
+    public function previewDesign(array $draft, DesignDraftSource $source = DesignDraftSource::Modal): void
     {
-        $staged = ['preset' => is_string($draft['preset'] ?? null) ? $draft['preset'] : null];
-
-        foreach (TokenKey::values() as $key) {
-            $staged[$key] = is_string($draft[$key] ?? null) ? $draft[$key] : null;
-        }
-
-        $this->designDraft = $staged;
+        $this->designDraft = TokenSelection::normalise($draft);
         $this->designDraftSource = $source;
 
         $this->pushPreview();
@@ -108,7 +109,7 @@ trait HostsEditorModals
     {
         parent::unmountAction($cancelParentActions);
 
-        if ($this->designDraftSource === 'chat') {
+        if ($this->designDraftSource === DesignDraftSource::Chat) {
             return;
         }
 

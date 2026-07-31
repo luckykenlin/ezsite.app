@@ -10,6 +10,7 @@ use App\Ai\SiteStyleDraft;
 use App\Design\StylePreset;
 use App\Design\TokenKey;
 use App\Design\TokenOptions;
+use App\Design\TokenSelection;
 use App\Site\Blocks\BlockShape;
 use BackedEnum;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
@@ -99,7 +100,7 @@ final readonly class SetSiteStyle implements Tool
             );
         }
 
-        $changes = $this->tokenChanges($arguments);
+        $changes = TokenSelection::changes($arguments);
         $rejected = $this->rejectedTokens($changes);
 
         if ($rejected !== null) {
@@ -154,27 +155,6 @@ final readonly class SetSiteStyle implements Tool
         }
 
         return $blocks;
-    }
-
-    /**
-     * The fine-tune values the model actually supplied, as raw enum values.
-     *
-     * @param  array<array-key, mixed>  $arguments
-     * @return array<string, string>
-     */
-    private function tokenChanges(array $arguments): array
-    {
-        $changes = [];
-
-        foreach (TokenKey::values() as $key) {
-            $value = $arguments[$key] ?? null;
-
-            if (is_string($value)) {
-                $changes[$key] = $value;
-            }
-        }
-
-        return $changes;
     }
 
     /**

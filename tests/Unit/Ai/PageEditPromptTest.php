@@ -9,7 +9,6 @@ use App\Design\StylePreset;
 use App\Models\Business;
 use App\Models\Page;
 use App\Models\Tenant;
-use App\Site\BindResolver;
 use App\Site\Blocks\BlockVocabulary;
 use App\Site\SiteContext;
 
@@ -192,7 +191,7 @@ it('tells the model which page addresses actually exist', function (): void {
         resolve(BlockVocabulary::class)->all(),
         null,
         'link to the contact page',
-        new SiteContext(new BindResolver),
+        new SiteContext,
     );
 
     expect($prompt)->toContain('## This site')

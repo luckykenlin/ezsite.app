@@ -4,14 +4,19 @@ declare(strict_types=1);
 
 namespace App\Site;
 
-use App\Design\DesignTokens;
-use App\Models\Business;
 use App\Models\Page;
 
 /**
  * What the assistant needs to know about the SITE, as opposed to the page in
- * front of it: who the business is, what the current look is, and what other
- * pages exist to link to.
+ * front of it: which other pages exist to link to.
+ *
+ * Only that, deliberately. The prompt's other sections already own the rest —
+ * {@see \App\Ai\Prompts\PageEditPrompt} states the business facts as the
+ * authoritative "these are the only facts you may state" block, and the style
+ * section states the current look next to the styles that can replace it. An
+ * earlier version of this digest restated both a few hundred tokens earlier,
+ * which spends tokens to give the model two versions of one fact and invites it
+ * to treat the shorter one as the fact list.
  *
  * Scoped in the container beside {@see BindResolver}, {@see SiteChrome} and
  * {@see Blocks\BlockVocabulary}, for the reason those are: memoization that
@@ -32,78 +37,37 @@ use App\Models\Page;
  */
 final class SiteContext
 {
-    /** @var list<array{slug: string, title: string, status: string}>|null */
+    /** @var list<array{slug: string, status: string}>|null */
     private ?array $pages = null;
 
-    public function __construct(private readonly BindResolver $bind)
-    {
-        //
-    }
-
-    public function business(): ?Business
-    {
-        return $this->bind->business();
-    }
-
     /**
-     * The site's SAVED tokens. A chat turn reads its own staged style from
-     * {@see \App\Ai\SiteStyleDraft} instead, which starts from this.
-     */
-    public function tokens(): DesignTokens
-    {
-        $business = $this->business();
-
-        return $business instanceof Business ? $business->design_tokens : DesignTokens::default();
-    }
-
-    /**
-     * Every page's address, title and status, memoized.
+     * Every page's address and status, memoized.
      *
-     * Lazy and only four columns: this is one small select per turn, and it
-     * fixes a real gap — the prompt tells the model to write relative links
-     * like "/contact" without ever telling it which pages exist.
+     * Lazy and only the two columns the prompt prints: this is one small select
+     * per turn, and it fixes a real gap — the vocabulary section tells the model
+     * to write relative links like "/contact" without ever telling it which
+     * pages exist.
      *
-     * @return list<array{slug: string, title: string, status: string}>
+     * @return list<array{slug: string, status: string}>
      */
     public function pages(): array
     {
         return $this->pages ??= array_values(Page::query()
             ->orderBy('slug')
-            ->get(['id', 'slug', 'title', 'status'])
+            ->get(['slug', 'status'])
             ->map(static fn (Page $page): array => [
                 'slug' => (string) $page->slug,
-                'title' => (string) $page->title,
                 'status' => $page->isDraft() ? 'draft' : 'published',
             ])
             ->all());
     }
 
     /**
-     * The always-in-prompt site block. Every line is omitted when it has
-     * nothing to say, so a tenant with no business profile contributes no
-     * empty headings for the model to reason about.
+     * The site block for the prompt, or null when there is nothing to say — a
+     * tenant whose only page is the open one contributes no heading for the
+     * model to reason about rather than an empty one.
      */
-    public function digest(): string
-    {
-        $business = $this->business();
-
-        $lines = array_filter([
-            $business instanceof Business ? 'Business: '.$this->businessLine($business) : null,
-            'Style: '.$this->tokens()->describe(),
-            $this->pagesLine(),
-        ]);
-
-        return "## This site\n".implode("\n", $lines);
-    }
-
-    private function businessLine(Business $business): string
-    {
-        return $business->category === null
-            ? $business->name
-            : $business->name.' — '.$business->category;
-    }
-
-    private function pagesLine(): ?string
+    public function digest(): ?string
     {
         $pages = $this->pages();
 
@@ -111,7 +75,7 @@ final class SiteContext
             return null;
         }
 
-        return 'Pages: '.implode(', ', array_map(
+        return "## This site\nPages: ".implode(', ', array_map(
             static fn (array $page): string => $page['slug'].' ('.$page['status'].')',
             $pages,
         ));

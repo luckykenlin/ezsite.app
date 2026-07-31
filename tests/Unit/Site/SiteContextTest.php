@@ -2,39 +2,15 @@
 
 declare(strict_types=1);
 
-use App\Design\DesignTokens;
-use App\Design\StylePreset;
 use App\Enums\PageStatus;
 use App\Models\Tenant;
-use App\Site\BindResolver;
 use App\Site\SiteContext;
 use Illuminate\Support\Facades\DB;
 
 function siteContext(): SiteContext
 {
-    return new SiteContext(new BindResolver);
+    return new SiteContext;
 }
-
-it('falls back to the default style when there is no business', function (): void {
-    Tenant::factory()->create();
-
-    expect(siteContext()->business())->toBeNull()
-        ->and(siteContext()->tokens())->toEqual(DesignTokens::default());
-});
-
-it('reads the tenant business and its saved style', function (): void {
-    $tenant = Tenant::factory()->create();
-    $this->createTenantBusiness($tenant, [
-        'name' => 'Bella Vista',
-        'category' => 'Italian restaurant',
-        'design_tokens' => StylePreset::WarmCraft->tokens(),
-    ], 0);
-
-    $context = siteContext();
-
-    expect($context->business()->name)->toBe('Bella Vista')
-        ->and($context->tokens()->preset)->toBe(StylePreset::WarmCraft);
-});
 
 it('marks a draft page as not live', function (): void {
     $tenant = Tenant::factory()->create();
@@ -42,53 +18,31 @@ it('marks a draft page as not live', function (): void {
     $this->runInTenant($tenant, fn () => $page->update(['status' => PageStatus::Draft]));
 
     expect(siteContext()->pages())->toBe([
-        ['slug' => '/menu', 'title' => $page->title, 'status' => 'draft'],
+        ['slug' => '/menu', 'status' => 'draft'],
     ]);
 });
 
 /*
  * The digest is what actually reaches the model, so it is the thing worth
- * pinning: the style line answers "warmer than what", and the page list closes
- * a real gap — the vocabulary section tells the model to write relative links
- * like "/contact" without ever saying which addresses exist.
+ * pinning. It carries the page list and nothing else: the business facts and the
+ * current style are stated by PageEditPrompt's own sections, and a second
+ * shorter version of either would give the model two answers to one question.
  */
-it('digests the business, the style and the real page addresses', function (): void {
+it('digests the real page addresses', function (): void {
     $tenant = Tenant::factory()->create();
-    $this->createTenantBusiness($tenant, [
-        'name' => 'Bella Vista',
-        'category' => 'Italian restaurant',
-        'design_tokens' => StylePreset::WarmCraft->tokens(),
-    ], 0);
     $this->createTenantPage($tenant, [], '/');
     $this->createTenantPage($tenant, [], '/contact');
 
-    $digest = siteContext()->digest();
-
-    expect($digest)->toContain('Business: Bella Vista — Italian restaurant')
-        ->toContain('Style: warm-craft — warm-sand')
+    expect(siteContext()->digest())
+        ->toContain('## This site')
         ->toContain('/ (published)')
         ->toContain('/contact (published)');
 });
 
-it('omits the business line rather than heading an empty one', function (): void {
+it('says nothing at all rather than heading an empty list', function (): void {
     Tenant::factory()->create();
 
-    expect(siteContext()->digest())->not->toContain('Business:')
-        ->and(siteContext()->digest())->toContain('Style:');
-});
-
-it('names a business that has no category', function (): void {
-    $tenant = Tenant::factory()->create();
-    $this->createTenantBusiness($tenant, ['name' => 'Solo', 'category' => null], 0);
-
-    expect(siteContext()->digest())->toContain('Business: Solo')
-        ->not->toContain('Solo —');
-});
-
-it('omits the page line when the site has no pages', function (): void {
-    Tenant::factory()->create();
-
-    expect(siteContext()->digest())->not->toContain('Pages:');
+    expect(siteContext()->digest())->toBeNull();
 });
 
 /*

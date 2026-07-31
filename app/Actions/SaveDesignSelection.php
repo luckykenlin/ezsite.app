@@ -6,6 +6,7 @@ namespace App\Actions;
 
 use App\Design\StylePreset;
 use App\Design\TokenKey;
+use App\Design\TokenSelection;
 use App\Models\Business;
 
 /**
@@ -40,7 +41,7 @@ final readonly class SaveDesignSelection
             return $this->applyStylePreset->handle($business, $preset);
         }
 
-        return $this->updateDesignTokens->handle($business, $this->tokenChanges($selection));
+        return $this->updateDesignTokens->handle($business, TokenSelection::changes($selection));
     }
 
     /**
@@ -64,27 +65,5 @@ final readonly class SaveDesignSelection
             TokenKey::cases(),
             fn (TokenKey $key): bool => ($selection[$key->value] ?? null) === $key->valueOn($tokens),
         );
-    }
-
-    /**
-     * Every token key, keeping only the ones the form actually supplied — an
-     * absent (e.g. hidden) field must not be written as null.
-     *
-     * @param  array<array-key, mixed>  $selection
-     * @return array<string, string>
-     */
-    private function tokenChanges(array $selection): array
-    {
-        $changes = [];
-
-        foreach (TokenKey::values() as $key) {
-            $value = $selection[$key] ?? null;
-
-            if (is_string($value)) {
-                $changes[$key] = $value;
-            }
-        }
-
-        return $changes;
     }
 }

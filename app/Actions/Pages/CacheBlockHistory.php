@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Actions\Pages;
 
-use App\Design\TokenKey;
+use App\Design\TokenSelection;
 use App\Site\Blocks\BlockData;
 use Illuminate\Support\Facades\Cache;
 
@@ -135,33 +135,12 @@ final readonly class CacheBlockHistory
             $normalised[] = [
                 'blocks' => $this->normalisedBlocks($entry['blocks']),
                 'selectedBlockKey' => is_string($selected) ? $selected : null,
-                'design' => $this->normalisedDesign($entry['design'] ?? null),
+                // Null both when the snapshot predates this key and when the edit
+                // simply had no staged style — the two are indistinguishable and
+                // mean the same thing to HasBlockHistory::restoreSnapshot(), which
+                // is why an already-cached stack survives the change inertly.
+                'design' => TokenSelection::normalise($entry['design'] ?? null),
             ];
-        }
-
-        return $normalised;
-    }
-
-    /**
-     * The staged site style a snapshot carried, reduced to known keys.
-     *
-     * Null both when the snapshot predates this key and when the edit simply
-     * had no staged style — the two are indistinguishable and mean the same
-     * thing to {@see \App\Filament\Tenant\Resources\PageResource\Concerns\HasBlockHistory::restoreSnapshot()},
-     * which is why an already-cached stack survives the change inertly.
-     *
-     * @return array<string, string|null>|null
-     */
-    private function normalisedDesign(mixed $design): ?array
-    {
-        if (! is_array($design)) {
-            return null;
-        }
-
-        $normalised = ['preset' => is_string($design['preset'] ?? null) ? $design['preset'] : null];
-
-        foreach (TokenKey::values() as $key) {
-            $normalised[$key] = is_string($design[$key] ?? null) ? $design[$key] : null;
         }
 
         return $normalised;

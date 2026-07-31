@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Tenant\Resources\PageResource\Concerns;
 
 use App\Actions\Pages\CacheBlockHistory;
+use App\Enums\DesignDraftSource;
 use Livewire\Attributes\Locked;
 
 /**
@@ -20,8 +21,9 @@ use Livewire\Attributes\Locked;
  * Livewire payload. Only the two depths remain here, which is all the blade ever
  * read.
  *
- * Expects the host to provide `$blocks`, `$selectedBlockKey`, `pageRecord()`,
- * `commitSelectedBlock()`, `fillBlockForm()` and `markDirty()`.
+ * Expects the host to provide `$blocks`, `$selectedBlockKey`, `$designDraft`,
+ * `$designDraftSource`, `pageRecord()`, `commitSelectedBlock()`,
+ * `fillBlockForm()` and `markDirty()`.
  */
 trait HasBlockHistory
 {
@@ -168,9 +170,12 @@ trait HasBlockHistory
 
         // Before markDirty(), which pushes the preview — pushPreview() reads
         // `$designDraft`, so restoring it here is what repaints the canvas in the
-        // right theme without a second round trip.
+        // right theme without a second round trip. Restoring the SOURCE with it
+        // also settles the chat rail's Apply gate, which is derived from it: a
+        // stack entry only ever carries a chat-staged style, because the modal
+        // discards its own on close.
         $this->designDraft = $entry['design'];
-        $this->designDraftSource = $entry['design'] === null ? null : 'chat';
+        $this->designDraftSource = $entry['design'] === null ? null : DesignDraftSource::Chat;
 
         $this->fillBlockForm();
         $this->markDirty();

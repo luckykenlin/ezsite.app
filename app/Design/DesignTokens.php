@@ -69,9 +69,9 @@ final readonly class DesignTokens
      * For the chat assistant, which needs to know where the site currently
      * stands before it can act on "make it warmer" — warmer than what is not
      * answerable from the request alone. Lives here rather than on either
-     * consumer ({@see \App\Site\SiteContext::digest()} describes the SAVED
-     * tokens, {@see \App\Ai\SiteStyleDraft} the staged ones) so the two can
-     * never drift into describing the same tokens differently.
+     * consumer ({@see \App\Ai\Prompts\PageEditPrompt} describes the tokens the
+     * turn started from, {@see \App\Ai\Tools\SetSiteStyle} the ones it staged)
+     * so the two can never drift into describing the same tokens differently.
      */
     public function describe(): string
     {

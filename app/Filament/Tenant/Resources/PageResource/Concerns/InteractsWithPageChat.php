@@ -9,6 +9,7 @@ use App\Actions\Pages\ChatEditPage;
 use App\Actions\Pages\RecordPageChatMessage;
 use App\Actions\SaveDesignSelection;
 use App\Ai\ChangedBlocks;
+use App\Enums\DesignDraftSource;
 use App\Jobs\ChatEditPageJob;
 use App\Models\User;
 use Filament\Notifications\Notification;
@@ -31,9 +32,10 @@ use Livewire\Attributes\Locked;
  * settle or give up) and its own failure modes, and reading the block/undo state
  * machine was harder with it interleaved.
  *
- * Expects the host to provide `$blocks`, `$designDraft`, `applyTurn()`,
- * `commitSelectedBlock()`, `clearDesignDraft()`, `hasBusinessProfile()`,
- * `businessOrFail()`, `pageRecord()` and `openBlockLibrary()`.
+ * Expects the host to provide `$blocks`, `$designDraft`, `$designDraftSource`,
+ * `applyTurn()`, `commitSelectedBlock()`, `clearDesignDraft()`,
+ * `hasBusinessProfile()`, `businessOrFail()`, `pageRecord()` and
+ * `openBlockLibrary()`.
  */
 trait InteractsWithPageChat
 {
@@ -57,23 +59,6 @@ trait InteractsWithPageChat
      */
     #[Locked]
     public bool $chatEditAwaitingSave = false;
-
-    /**
-     * Whether the assistant's last turn staged a SITE style the operator has not
-     * applied yet.
-     *
-     * Separate from {@see $chatEditAwaitingSave} because the two settle through
-     * different gates: blocks are committed by Save, a site style by "Apply to
-     * site" — which writes the `businesses` row and therefore reaches every page,
-     * published ones included. One button cannot mean both.
-     *
-     * Transient turn state for the same reason the block flag is: it must stop
-     * claiming there is something to review the moment there isn't. A design-only
-     * turn also records `changed_blocks = 0`, correctly — it did not edit the
-     * page — so nothing durable could drive this even if we wanted it to.
-     */
-    #[Locked]
-    public bool $chatDesignAwaitingApply = false;
 
     public string $chatInput = '';
 
@@ -107,6 +92,31 @@ trait InteractsWithPageChat
     public function chatMessages(): array
     {
         return resolve(ChatEditPage::class)->transcript($this->pageRecord());
+    }
+
+    /**
+     * Whether the assistant's last turn staged a SITE style the operator has not
+     * answered yet — the chat rail's "Apply to site" gate.
+     *
+     * Separate from {@see $chatEditAwaitingSave} because the two settle through
+     * different gates: blocks are committed by Save, a site style by "Apply to
+     * site" — which writes the `businesses` row and therefore reaches every page,
+     * published ones included. One button cannot mean both.
+     *
+     * DERIVED rather than a flag of its own, for the same reason
+     * {@see chatMessages()} is, plus one this concern learned the hard way: a
+     * stored bool duplicated `$designDraftSource` and the two drifted. Undo
+     * restores the draft and its source together
+     * ({@see HasBlockHistory::restoreSnapshot()})
+     * but knew nothing about the bool, so undoing a restyle left the gate on
+     * screen describing a preview that was no longer there, over an Apply button
+     * that silently did nothing. There is only one fact here, so there is now
+     * only one place it is written.
+     */
+    #[Computed]
+    public function chatDesignAwaitingApply(): bool
+    {
+        return $this->designDraftSource === DesignDraftSource::Chat;
     }
 
     /**
@@ -276,11 +286,10 @@ trait InteractsWithPageChat
 
         resolve(SaveDesignSelection::class)->handle($this->businessOrFail(), $this->designDraft);
 
-        $this->chatDesignAwaitingApply = false;
-
-        // Clearing the draft re-pushes the preview; the canvas then renders the
-        // now-SAVED tokens through the ordinary head hook instead of the draft
-        // override, which looks identical and is the point.
+        // Clearing the draft re-pushes the preview AND closes the gate, since
+        // {@see chatDesignAwaitingApply()} reads the draft's source. The canvas
+        // then renders the now-SAVED tokens through the ordinary head hook
+        // instead of the draft override, which looks identical and is the point.
         $this->clearDesignDraft();
 
         Notification::make()
@@ -297,7 +306,6 @@ trait InteractsWithPageChat
      */
     public function discardChatDesign(): void
     {
-        $this->chatDesignAwaitingApply = false;
         $this->clearDesignDraft();
     }
 

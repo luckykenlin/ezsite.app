@@ -19,6 +19,7 @@ use App\Actions\Pages\SavePageEditorDraft;
 use App\Actions\SaveSiteChrome;
 use App\Enums\BindType;
 use App\Enums\ChromeSlot;
+use App\Enums\DesignDraftSource;
 use App\Filament\Fabricator\BlockRegistry;
 use App\Filament\Fabricator\PageBlocks\Block;
 use App\Filament\Tenant\Resources\PageResource;
@@ -505,9 +506,11 @@ final class PageEditor extends Page
             $this->replaceBlocks($blocks);
         }
 
+        // Staging under the chat source is also what raises the rail's "Apply to
+        // site" gate — {@see InteractsWithPageChat::chatDesignAwaitingApply()}
+        // reads it, so there is no second flag to keep in step.
         if ($design !== null) {
-            $this->previewDesign($design, source: 'chat');
-            $this->chatDesignAwaitingApply = true;
+            $this->previewDesign($design, source: DesignDraftSource::Chat);
         }
     }
 

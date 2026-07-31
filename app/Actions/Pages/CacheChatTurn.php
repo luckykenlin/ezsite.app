@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Actions\Pages;
 
-use App\Design\TokenKey;
+use App\Design\TokenSelection;
 use Illuminate\Support\Facades\Cache;
 
 /**
@@ -93,7 +93,11 @@ final readonly class CacheChatTurn
             'blocks' => $this->normalisedBlocks($turn['blocks'] ?? null),
             'failed' => (bool) ($turn['failed'] ?? false),
             'activity' => $this->normalisedActivity($turn['activity'] ?? null),
-            'design' => $this->normalisedDesign($turn['design'] ?? null),
+            // Normalised for the same reason the blocks are: it arrives from an
+            // external store and goes straight into the editor's `$designDraft`,
+            // from which ThemeVariables compiles a <style> tag. Null doubles as
+            // the "this turn left the style alone" signal.
+            'design' => TokenSelection::normalise($turn['design'] ?? null),
         ];
     }
 
@@ -115,36 +119,6 @@ final readonly class CacheChatTurn
         }
 
         return array_values(array_filter($activity, is_string(...)));
-    }
-
-    /**
-     * The staged style, reduced to the keys the editor's preview understands.
-     *
-     * Normalised for the same reason the blocks are: this arrives from an
-     * external store and goes straight into `$designDraft`, from which
-     * {@see \App\Design\ThemeVariables::styleFor()} compiles a `<style>` tag.
-     * Every value there is re-resolved against a token enum, so a junk value
-     * cannot reach CSS — but an unexpected KEY would ride along into the
-     * editor's state, so only known ones survive.
-     *
-     * Returns null for anything that is not an array, which is also the
-     * "this turn left the style alone" signal.
-     *
-     * @return array<string, string|null>|null
-     */
-    private function normalisedDesign(mixed $design): ?array
-    {
-        if (! is_array($design)) {
-            return null;
-        }
-
-        $normalised = ['preset' => is_string($design['preset'] ?? null) ? $design['preset'] : null];
-
-        foreach (TokenKey::values() as $key) {
-            $normalised[$key] = is_string($design[$key] ?? null) ? $design[$key] : null;
-        }
-
-        return $normalised;
     }
 
     /**
