@@ -794,6 +794,7 @@ final class PageEditor extends Page
         }
 
         $this->isDirty = false;
+        $this->chatEditAwaitingSave = false;
 
         return true;
     }

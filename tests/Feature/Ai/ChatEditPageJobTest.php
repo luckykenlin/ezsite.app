@@ -3,7 +3,9 @@
 declare(strict_types=1);
 
 use App\Actions\Pages\CacheChatTurn;
+use App\Actions\Pages\RecordPageChatMessage;
 use App\Ai\Agents\PageEditorAgent;
+use App\Enums\ChatRole;
 use App\Jobs\ChatEditPageJob;
 use App\Models\Page;
 use App\Models\PageChatMessage;
@@ -108,6 +110,56 @@ it('reports a dead job to the editor with the page unchanged', function (): void
         ->withArgs(fn (string $message, array $context): bool => $message === 'page_chat.job_failed'
             && $context['exception'] === 'worker killed mid-turn')
         ->once();
+});
+
+it('leaves the apology in the transcript, so a reload still sees an answer', function (): void {
+    // The cache entry only reaches an editor still polling this token. A reload
+    // drops it, and the operator used to be left with their own question and no
+    // answer at all — permanently.
+    Log::spy();
+
+    chatJob(jobBlocks())->failed(new RuntimeException('worker killed mid-turn'));
+
+    $transcript = PageChatMessage::query()->orderBy('id')->get();
+
+    expect($transcript)->toHaveCount(2)
+        ->and($transcript[0]->role)->toBe(ChatRole::User)
+        ->and($transcript[0]->content)->toBe('Shorten the headline')
+        ->and($transcript[1]->role)->toBe(ChatRole::Assistant)
+        ->and($transcript[1]->content)->toContain("couldn't finish that")
+        // Zero, not null: the apology must not draw the "edited the page" badge.
+        ->and($transcript[1]->changed_blocks)->toBe(0)
+        ->and($transcript[1]->changedThePage())->toBeFalse();
+});
+
+it('does not record the question twice when the turn already recorded it', function (): void {
+    // The ordinary failure path (a provider blowing up inside ChatEditPage) has
+    // already written the question; only an undeserialisable payload has not.
+    Log::spy();
+
+    $this->runInTenant($this->tenant, function (): void {
+        resolve(RecordPageChatMessage::class)
+            ->handle($this->page, null, ChatRole::User, 'Shorten the headline');
+    });
+
+    chatJob(jobBlocks())->failed(new RuntimeException('died later'));
+
+    expect(PageChatMessage::query()->where('role', ChatRole::User)->count())->toBe(1)
+        ->and(PageChatMessage::query()->count())->toBe(2);
+});
+
+it('records nothing when the page was deleted while the turn was in flight', function (): void {
+    Log::spy();
+
+    $pageId = (int) $this->page->id;
+    $this->runInTenant($this->tenant, fn () => Page::query()->whereKey($pageId)->delete());
+
+    chatJob(jobBlocks())->failed(new RuntimeException('worker killed mid-turn'));
+
+    expect(PageChatMessage::query()->count())->toBe(0)
+        // The cache write still happens; it is harmless with no editor to read it.
+        ->and($this->runInTenant($this->tenant, fn (): ?array => resolve(CacheChatTurn::class)->read('tok'))['failed'])
+        ->toBeTrue();
 });
 
 it('keeps an answer that landed just before the job died', function (): void {

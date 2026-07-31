@@ -40,6 +40,18 @@ trait InteractsWithPageChat
      */
     private const int CHAT_TURN_TIMEOUT_SECONDS = 180;
 
+    /**
+     * Whether the assistant's LAST turn changed blocks that are still unsaved.
+     *
+     * Drives the "edited the page — review and Save" badge. It has to be transient
+     * turn state rather than a property of the transcript: the badge used to be
+     * driven by `page_chat_messages.changed_blocks > 0`, which is a permanent
+     * historical fact, so it kept claiming there was something to review after the
+     * operator had saved, on every later visit to the page, and — worst — for a
+     * turn whose result never reached the canvas at all.
+     */
+    public bool $chatEditAwaitingSave = false;
+
     public string $chatInput = '';
 
     /**
@@ -167,6 +179,10 @@ trait InteractsWithPageChat
         // dirty flag — asking "what does this block do?" is not an edit.
         if ($turn['blocks'] !== null && $turn['blocks'] !== $this->blocks) {
             $this->applyBlocks($turn['blocks']);
+
+            // Only here: an answer that explained something rather than changing
+            // it must not ask the operator to review and save nothing.
+            $this->chatEditAwaitingSave = true;
         }
 
         // The turn added messages, so the memoized transcript is stale.
@@ -211,9 +227,13 @@ trait InteractsWithPageChat
 
         $this->endChatTurn();
 
+        // Deliberately not "the assistant did not answer": once a turn can be
+        // resumed after a reload, this also fires for a turn that DID answer but
+        // whose result outlived its cache entry — and that answer is sitting in
+        // the transcript right next to this notification.
         Notification::make()
-            ->title(__('The assistant did not answer'))
-            ->body(__('Your page is unchanged. Please try again.'))
+            ->title(__("The assistant's changes could not be recovered"))
+            ->body(__('Your page is unchanged. Please ask again.'))
             ->warning()
             ->send();
 

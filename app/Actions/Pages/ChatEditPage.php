@@ -65,6 +65,7 @@ final readonly class ChatEditPage
         // that follows, through every bound block. Memoizing it is the whole
         // reason BindResolver is `scoped`.
         private BindResolver $bindResolver,
+        private RecordPageChatMessage $transcript,
     ) {
         //
     }
@@ -251,13 +252,6 @@ final readonly class ChatEditPage
 
     private function record(Page $page, ?User $user, ChatRole $role, string $content, ?int $changed = null): void
     {
-        PageChatMessage::query()->create([
-            'tenant_id' => $page->tenant_id,
-            'page_id' => $page->id,
-            'user_id' => $user?->id,
-            'role' => $role,
-            'content' => $content,
-            'changed_blocks' => $changed,
-        ]);
+        $this->transcript->handle($page, $user, $role, $content, $changed);
     }
 }

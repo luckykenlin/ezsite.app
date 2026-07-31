@@ -62,13 +62,21 @@
                         {{-- The assistant answers in light markdown, rendered to
                              HTML by ChatEditPage::transcript() with raw HTML
                              stripped and unsafe links refused. The operator's own
-                             turns stay escaped text — see the action. --}}
+                             turns stay escaped text — see the action.
+
+                             The "review and Save" badge needs all three conditions.
+                             `changed` alone is a permanent fact about history, so on
+                             its own it kept nagging after the operator had saved and
+                             on every later visit; `$loop->last` scopes it to the
+                             current turn, and `chatEditAwaitingSave` is what proves
+                             the edit actually reached this canvas — a turn whose
+                             result was lost must not claim otherwise. --}}
                         @if ($message['html'] !== null)
                             <div
                                 wire:key="chat-{{ $index }}"
                                 class="pe-chat-message pe-chat-prose"
                                 data-role="{{ $message['role'] }}"
-                            >{!! $message['html'] !!}@if ($message['changed'])<span class="pe-chat-edited">{{ __('Edited the page — review and Save') }}</span>@endif</div>
+                            >{!! $message['html'] !!}@if ($message['changed'] && $loop->last && $this->chatEditAwaitingSave)<span class="pe-chat-edited">{{ __('Edited the page — review and Save') }}</span>@endif</div>
                         @else
                             <div
                                 wire:key="chat-{{ $index }}"

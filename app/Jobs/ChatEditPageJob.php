@@ -6,7 +6,10 @@ namespace App\Jobs;
 
 use App\Actions\Pages\CacheChatTurn;
 use App\Actions\Pages\ChatEditPage;
+use App\Actions\Pages\RecordPageChatMessage;
+use App\Enums\ChatRole;
 use App\Models\Page;
+use App\Models\PageChatMessage;
 use App\Models\User;
 use App\Tenancy\RunInTenant;
 use Carbon\CarbonImmutable;
@@ -72,6 +75,11 @@ final class ChatEditPageJob extends TenantAware
      * polling a token nobody will ever finish and only give up minutes later, so
      * the result is written here instead — with the blocks unchanged, because a
      * turn that did not finish must not land a half-applied edit.
+     *
+     * The apology goes to the TRANSCRIPT as well as the cache. The cache entry only
+     * reaches an editor that is still polling this token; a reload drops it, and
+     * the operator was then left staring at their own question with no answer and
+     * no explanation, permanently — the transcript is the only durable half.
      */
     public function failed(?Throwable $throwable): void
     {
@@ -90,12 +98,11 @@ final class ChatEditPageJob extends TenantAware
                 'exception' => $throwable?->getMessage(),
             ]);
 
-            $turns->handle(
-                $this->token,
-                __("Sorry — I couldn't finish that just then. Your page is unchanged; please try again."),
-                $this->blocks,
-                failed: true,
-            );
+            $apology = __("Sorry — I couldn't finish that just then. Your page is unchanged; please try again.");
+
+            $this->recordFailure($apology);
+
+            $turns->handle($this->token, $apology, $this->blocks, failed: true);
         });
     }
 
@@ -127,5 +134,43 @@ final class ChatEditPageJob extends TenantAware
         );
 
         $turns->handle($this->token, $result['reply'], $result['blocks'], $result['failed']);
+    }
+
+    /**
+     * Write the failure into the page's transcript.
+     *
+     * Records the QUESTION first when it is missing: a payload that failed to
+     * deserialise never reached {@see ChatEditPage::handle()}, so nothing recorded
+     * the operator's message, and an apology on its own would read as an answer to
+     * nothing. Checked against the newest row rather than blindly inserted, because
+     * the ordinary failure path already recorded it.
+     *
+     * The apology is recorded with `changed: 0`, not null — zero says "this answer
+     * touched nothing", which keeps {@see PageChatMessage::changedThePage()}
+     * false so no "edited the page" badge is drawn next to it.
+     */
+    private function recordFailure(string $apology): void
+    {
+        $page = Page::query()->find($this->pageId);
+
+        // The page was deleted while the turn was in flight; there is no transcript
+        // left to append to, and the cache write below is harmless on its own.
+        if (! $page instanceof Page) {
+            return;
+        }
+
+        $user = $this->userId === null ? null : User::query()->find($this->userId);
+        $transcript = resolve(RecordPageChatMessage::class);
+
+        $newest = PageChatMessage::query()
+            ->where('page_id', $page->id)
+            ->orderByDesc('id')
+            ->first();
+
+        if (! $newest instanceof PageChatMessage || $newest->role !== ChatRole::User || $newest->content !== $this->message) {
+            $transcript->handle($page, $user, ChatRole::User, $this->message);
+        }
+
+        $transcript->handle($page, $user, ChatRole::Assistant, $apology, 0);
     }
 }

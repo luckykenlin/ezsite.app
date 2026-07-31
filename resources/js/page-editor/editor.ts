@@ -123,6 +123,8 @@ interface PageEditorComponent extends AlpineInjected {
     onModalClosed(event: CustomEvent): void;
     onMessage(event: MessageEvent): void;
     onKeydown(event: KeyboardEvent): void;
+    /** Whether leaving now would throw something away. */
+    hasUnsavedWork(): boolean;
     onBeforeUnload(event: BeforeUnloadEvent): void;
     onNavigate(event: Event): void;
     patch(url: string, fallbackUrl: string, key: string): void;
@@ -618,18 +620,30 @@ export function pageEditor(
             this.runShortcut(shortcut.name);
         },
 
+        /**
+         * An in-flight chat turn counts as unsaved work, not just a dirty draft.
+         *
+         * A turn never sets `isDirty` — only applying its result does — so asking
+         * the assistant for a change on an otherwise clean page and then reloading
+         * used to produce NO warning at all, while the turn's edits were dropped on
+         * the floor.
+         */
+        hasUnsavedWork(this: PageEditorComponent): boolean {
+            return this.$wire.isDirty || this.$wire.chatTurnToken !== null;
+        },
+
         onBeforeUnload(
             this: PageEditorComponent,
             event: BeforeUnloadEvent,
         ): void {
-            if (this.$wire.isDirty) {
+            if (this.hasUnsavedWork()) {
                 event.preventDefault();
                 event.returnValue = '';
             }
         },
 
         onNavigate(this: PageEditorComponent, event: Event): void {
-            if (this.$wire.isDirty && !confirm(config.labels.confirmLeave)) {
+            if (this.hasUnsavedWork() && !confirm(config.labels.confirmLeave)) {
                 event.preventDefault();
             }
         },

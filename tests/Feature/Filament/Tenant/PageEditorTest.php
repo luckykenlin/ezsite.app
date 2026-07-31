@@ -1163,6 +1163,54 @@ it('keeps an edit made while a turn was in flight recoverable by undo', function
         ->and($component->get('blocks')[0]['data']['heading'])->toBe('Old headline');
 });
 
+it('asks for a review only while the assistant edit is genuinely unsaved', function (): void {
+    // The badge is transient turn state, not a fact about the transcript. Driven
+    // by changed_blocks alone it kept nagging after the operator had saved, and on
+    // every later visit to the page.
+    $page = editorPage([
+        ['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Old headline']],
+    ]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
+    $key = $component->get('blocks')[0]['key'];
+
+    PageEditorAgent::fake([
+        new ToolCall('c1', 'UpdateBlockContent', ['key' => $key, 'content' => ['heading' => 'Fresh bread daily']]),
+        'Shortened the headline.',
+    ]);
+
+    expect($component->get('chatEditAwaitingSave'))->toBeFalse();
+
+    $component->set('chatInput', 'Shorten the headline')
+        ->call('sendChatMessage')
+        ->call('pollChatTurn')
+        ->assertSee('review and Save');
+
+    expect($component->get('chatEditAwaitingSave'))->toBeTrue();
+
+    $component->call('save');
+
+    expect($component->get('chatEditAwaitingSave'))->toBeFalse();
+    $component->assertDontSee('review and Save');
+
+    // And a fresh visit to the same page does not resurrect it from history.
+    Livewire::test(PageEditor::class, ['record' => $page->id])->assertDontSee('review and Save');
+});
+
+it('does not ask for a review when the assistant only explained something', function (): void {
+    PageEditorAgent::fake(['The hero block is the banner at the top.']);
+
+    $page = editorPage([['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']]]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->set('chatInput', 'What does the hero do?')
+        ->call('sendChatMessage')
+        ->call('pollChatTurn');
+
+    expect($component->get('chatEditAwaitingSave'))->toBeFalse();
+    $component->assertDontSee('review and Save');
+});
+
 it('shows both sides of the turn in the panel and marks the one that edited', function (): void {
     PageEditorAgent::fake(['The hero block is the banner at the top.']);
 
