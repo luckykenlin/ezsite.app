@@ -26,17 +26,13 @@ use Laravel\Ai\Tools\Request;
  * routine copy edit must never silently restyle a section, and every restyle
  * must pass through one place that validates it.
  *
- * Reach matters, and this tool sits at the small end of three levers. A site
- * style ({@see SetSiteStyle}) changes every page; a variant re-lays one block;
- * this tunes one block's rhythm against its neighbours. That is why the schema
- * descriptions warn against overuse rather than just listing values — a page
- * where every section claims a different background is worse than one where
+ * The schema descriptions warn against overuse rather than just listing values:
+ * a page where every section claims its own background is worse than one where
  * none do.
  *
- * Writes into `data`'s existing `appearance` slot when there is one, so key
- * order survives: `pages.blocks` is `json` (not `jsonb`) precisely to preserve
- * it, and {@see \App\Actions\Pages\RecordPageRevision} compares with `===`, so
- * reordering keys would manufacture a spurious revision on the next Save.
+ * Writes into `data`'s existing `appearance` slot when there is one, rather than
+ * rebuilding the array — key order is load-bearing, for the reason spelled out on
+ * {@see SetBlockVariant}.
  */
 final readonly class SetBlockAppearance implements Tool
 {

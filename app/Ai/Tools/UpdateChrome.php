@@ -18,12 +18,6 @@ use Laravel\Ai\Tools\Request;
  * Edits the site-wide header or footer: the navigation links, its button, the
  * footer note.
  *
- * Closes the most-hit gap in what the assistant could reach. "Add Services to the
- * menu" is among the most natural requests in a website builder, and until now the
- * prompt told the model outright that header and footer were not part of the page
- * — so it correctly refused a request the editor had been able to satisfy since
- * the chrome inspector landed.
- *
  * ONE tool for content and layout, unlike page blocks, where {@see UpdateBlockContent}
  * and {@see SetBlockVariant} are separate doors. The split exists there because a
  * page has many blocks and a copy edit must never silently re-lay one; here there
@@ -34,10 +28,9 @@ use Laravel\Ai\Tools\Request;
  * {@see BlockDataSanitizer}, which strips the reserved keys — so the model still
  * cannot write a layout by pretending it is a content field.
  *
- * Site-wide, and the tool says so in its own description as well as in the answer
- * it returns: a header edit shows up on every page, including published ones, and
- * an operator who asked for a change to "this page" needs to be told that is not
- * what they got.
+ * Both the description and the answer say the change is site-wide: a header edit
+ * shows up on every page, published ones included, so an operator who asked about
+ * "this page" needs telling that is not what they changed.
  */
 final readonly class UpdateChrome implements Tool
 {
@@ -151,9 +144,9 @@ final readonly class UpdateChrome implements Tool
     }
 
     /**
-     * A requested layout resolved against THIS slot's own options, or null when
-     * the slot does not offer it. Same rule as {@see SetBlockVariant}: the schema
-     * enum narrows the model's guesses, and this is the check that matters.
+     * Same rule as {@see SetBlockVariant}: the schema enum narrows the model's
+     * guesses, and this — checked against THIS slot's own options — is the check
+     * that matters.
      */
     private function resolveVariant(ChromeSlot $slot, string $variant): ?string
     {

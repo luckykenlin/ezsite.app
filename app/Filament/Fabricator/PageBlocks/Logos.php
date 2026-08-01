@@ -18,7 +18,7 @@ use Filament\Support\Icons\Heroicon;
  * the difference is what the images ARE. A gallery shows the work, for its own
  * sake, at full size. These are marks of legitimacy shown small, greyed and in a
  * row, and the reason to keep them separate is that the CLAIM matters more than
- * the picture — which is why the description spends itself on a prohibition.
+ * the picture.
  *
  * `name` is required even though it renders only as `alt` text: a logo is an
  * image of a word, so a screen reader gets nothing at all without it, and an

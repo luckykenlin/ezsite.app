@@ -14,10 +14,6 @@ namespace App\Site\Blocks;
  * follows whatever palette the site's design tokens set — a section that is
  * "dark" stays dark and legible in all six style presets, which a literal colour
  * could not promise.
- *
- * Why this exists at all: before it, every block view hard-coded
- * `bg-base-100 text-base-content`, so an eight-section page was eight identical
- * white bands stacked, and "make that section stand out" had nowhere to land.
  */
 enum SectionTone: string
 {

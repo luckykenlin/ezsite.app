@@ -20,18 +20,13 @@ final class CreatePage extends FabricatorCreatePage
 
         // Normalise the block JSON exactly as the page editor's commit does.
         //
-        // This is the OTHER write path into `pages.blocks`, and until now it was
-        // the only one that skipped {@see BlockData}: Fabricator's create form
-        // dehydrates every field in a block's schema, empty ones included, while
-        // PageEditor prunes. Two shapes for the same untouched block is not
-        // cosmetic — RecordPageRevision compares stored blocks with `===`, so a
-        // page created here and then merely opened and saved would record a
-        // revision the operator never made.
-        //
-        // The appearance selects are what surfaced it (they are the first
-        // optional fields sharing a parent key, so an untouched block arrived
-        // carrying `appearance: {}`), but the fix belongs to the path, not to
-        // them: any future optional field would have done the same.
+        // This is the OTHER write path into `pages.blocks`, and it was the only
+        // one that skipped BlockData: Fabricator's create form dehydrates every
+        // field in a block's schema, empty ones included, while PageEditor prunes.
+        // Why two shapes for one untouched block is harmful is spelled out on
+        // Block::appearanceField(), whose selects surfaced it — but the fix
+        // belongs to the path, not to them, since any future optional field
+        // would have done the same.
         if (is_array($data['blocks'] ?? null)) {
             $data['blocks'] = BlockData::pruned($data['blocks']);
         }

@@ -39,12 +39,6 @@ use App\Site\Blocks\SectionTone;
  *    it is why the render loop is defensive — and a restyle must not be the
  *    thing that throws on one.
  *  - Blocks may carry the editor's transient `key`, which is preserved.
- *
- * Assigns into `data`'s existing `variant` slot rather than rebuilding the
- * array: `AddPageBlock` writes the variant FIRST, `pages.blocks` is `json` (not
- * `jsonb`) precisely to preserve key order, and `RecordPageRevision` compares
- * with `===` — so reordering keys would manufacture a spurious revision on
- * every Save.
  */
 final readonly class StampPresetDefaults
 {
@@ -55,15 +49,8 @@ final readonly class StampPresetDefaults
 
     /**
      * Restamp a whole list. Used by {@see \App\Actions\GenerateSiteDraft}, whose
-     * blocks are freshly validated `{type, data}` with no editor key yet.
-     *
-     * The chat path calls {@see variantFor()} in its own loop instead. That is
-     * not duplication for its own sake: PHPStan's array shapes are sealed, so
-     * `{key, type, data}` is not a subtype of `{type, data}` and no single
-     * signature accepts both without erasing the key that
-     * {@see \App\Ai\PageDraft} requires back. The RULE — which variant, and what
-     * to fall back to — has one implementation either way, which is the part
-     * that was worth sharing.
+     * blocks are freshly validated `{type, data}` with no editor key yet; the chat
+     * path iterates {@see stamp()} itself, for the reason given there.
      *
      * @param  list<array{type: string, data: array<string, mixed>}>  $blocks
      * @return list<array{type: string, data: array<string, mixed>}>
@@ -85,11 +72,8 @@ final readonly class StampPresetDefaults
      * and its blocks carry the editor's transient `key`. The RULE lives here once;
      * only the iteration differs.
      *
-     * Assigns into the existing slots rather than rebuilding `data`:
-     * `AddPageBlock` writes the variant FIRST, `pages.blocks` is `json` (not
-     * `jsonb`) precisely to preserve key order, and `RecordPageRevision` compares
-     * with `===` — so reordering keys would manufacture a spurious revision on
-     * every Save.
+     * Assigns into the existing slots rather than rebuilding `data`, because key
+     * order is load-bearing — see {@see \App\Ai\Tools\SetBlockVariant}.
      *
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>

@@ -15,10 +15,8 @@ use Laravel\Ai\Tools\Request;
  * Copies the open page into a new DRAFT page — "make a roofing page like this
  * one".
  *
- * Shares every safety property with {@see CreatePage}, for the same reasons: it
- * writes (a page cannot be staged), the copy is always a draft and therefore
- * invisible, it is reversible with one click, and it does not navigate away from
- * whatever the operator has unsaved.
+ * Shares {@see CreatePage}'s safety properties — always a draft, reversible, and
+ * no navigation — for the reasons stated there.
  *
  * What it copies is the WORKING DRAFT, not the stored page. "Make another one like
  * this" means the page on screen — including edits the operator has not saved, and

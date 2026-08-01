@@ -20,18 +20,16 @@ use Illuminate\Support\Str;
  * calling {@see \App\Actions\SaveSiteChrome} from the queue worker would rewrite
  * the navigation of a live website while its owner was still reading the reply.
  *
- * So a tool mutates this instead and nothing here touches the database. What it
- * holds rides back to the editor, lands in the same `$chrome` draft the
- * inspector edits, and `SaveSiteChrome` behind the operator's Save stays the
- * single write path.
+ * So a tool mutates this instead, and what it holds rides back into the same
+ * `$chrome` draft the inspector edits — `SaveSiteChrome` behind the operator's
+ * Save stays the single write path.
  *
  * The one asymmetry with the style draft is deliberate: chrome edits are NOT
  * undoable, because chrome has never been on the undo stack — structure-level
  * history covers page blocks only (see
  * {@see \App\Filament\Tenant\Resources\PageResource\Concerns\HasSiteChromeDraft}).
- * An AI chrome edit is therefore exactly as reversible as a hand one: visible on
- * the canvas, and unsaved until Save. Making only the AI path undoable would mean
- * two histories for one piece of state.
+ * Making only the AI path undoable would mean two histories for one piece of
+ * state.
  *
  * Mutable and therefore not `readonly`: several tools in one turn have to see
  * each other's work, exactly as with the other two drafts.
@@ -51,10 +49,9 @@ final class SiteChromeDraft
 
     /**
      * @param  array<string, array{type: string, data: array<string, mixed>}>  $saved  the
-     *                                                                                 EFFECTIVE entry per slot value — stored settings, or the default
-     *                                                                                 chrome. Resolved by the caller rather than here so this stays a
-     *                                                                                 plain value object with no vocabulary or settings lookup of its
-     *                                                                                 own, exactly like SiteStyleDraft taking already-loaded tokens.
+     *                                                                                 EFFECTIVE entry per slot — stored settings, or the default chrome.
+     *                                                                                 Resolved by the caller so this stays a plain value object with no
+     *                                                                                 settings lookup of its own.
      */
     public function __construct(private readonly array $saved)
     {
@@ -62,9 +59,6 @@ final class SiteChromeDraft
     }
 
     /**
-     * A slot's entry as it now stands: this turn's version if a tool has touched
-     * it, otherwise the effective saved one.
-     *
      * @return array{type: string, data: array<string, mixed>}
      */
     public function current(ChromeSlot $slot): array
@@ -75,8 +69,6 @@ final class SiteChromeDraft
     }
 
     /**
-     * Replace a slot's `data`, keeping its type.
-     *
      * @param  array<string, mixed>  $data
      */
     public function stage(ChromeSlot $slot, array $data): void
@@ -85,9 +77,7 @@ final class SiteChromeDraft
     }
 
     /**
-     * What the editor should apply, or null when this turn left chrome alone.
-     *
-     * Only CHANGED slots are included: the editor merges rather than replaces, so
+     * Only CHANGED slots are handed back: the editor merges rather than replaces, so
      * a turn that edited the header must not also hand back a footer it never
      * looked at — that would overwrite an operator's in-flight footer edit with a
      * stale copy read when the turn was dispatched.

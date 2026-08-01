@@ -12,12 +12,11 @@ use Filament\Support\Icons\Heroicon;
 /**
  * A row of proof numbers: years in business, customers served, average rating.
  *
- * The second block after {@see Testimonials} whose description spends itself on a
- * prohibition rather than on guidance, and for a sharper reason. Vague invented
- * copy ("friendly service") is merely unhelpful; an invented NUMBER is
- * falsifiable. "Serving 500 customers since 2010" is a claim a visitor can check
- * and a competitor can complain about, and the business — not the assistant —
- * carries that.
+ * Invented copy here is worse than elsewhere, which is why the description is a
+ * prohibition: vague invented copy ("friendly service") is merely unhelpful, but
+ * an invented NUMBER is falsifiable. "Serving 500 customers since 2010" is a claim
+ * a visitor can check and a competitor can complain about, and the business — not
+ * the assistant — carries that.
  *
  * `value` is a string, for the same reason {@see Offerings}'s `price` is: the real
  * ones are "500+", "15", "4.9★", "under 24h". The framing carries the meaning,
