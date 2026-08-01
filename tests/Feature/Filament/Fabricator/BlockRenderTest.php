@@ -113,6 +113,42 @@ it('renders each block variant with its own layout', function (array $block, arr
         ]],
         ['Deep clean', 'https://example.com/clean.jpg'], 'after:absolute', 'none',
     ],
+    // prose and faq each gained a second COMPOSITION (not a second style): the
+    // heading beside the text, and questions in two columns. Both keep every
+    // word visible — an accordion is ruled out for faq at any variant, because
+    // the editor canvas intercepts clicks and <details> would never open.
+    'prose stacked' => [
+        ['type' => 'prose', 'data' => [
+            'variant' => 'stacked',
+            'heading' => 'About us',
+            'paragraphs' => [['text' => 'We opened in 2010.']],
+        ]],
+        ['About us', 'We opened in 2010.'], 'max-w-3xl', 'none',
+    ],
+    'prose side-heading' => [
+        ['type' => 'prose', 'data' => [
+            'variant' => 'side-heading',
+            'heading' => 'About us',
+            'paragraphs' => [['text' => 'We opened in 2010.']],
+        ]],
+        ['About us', 'We opened in 2010.'], 'md:sticky', 'none',
+    ],
+    'faq list' => [
+        ['type' => 'faq', 'data' => [
+            'variant' => 'list',
+            'heading' => 'Questions',
+            'questions' => [['question' => 'Do you deliver?', 'answer' => 'Within five miles.']],
+        ]],
+        ['Questions', 'Do you deliver?', 'Within five miles.'], 'divide-y', 'none',
+    ],
+    'faq grid' => [
+        ['type' => 'faq', 'data' => [
+            'variant' => 'grid',
+            'heading' => 'Questions',
+            'questions' => [['question' => 'Do you deliver?', 'answer' => 'Within five miles.']],
+        ]],
+        ['Questions', 'Do you deliver?', 'Within five miles.'], 'md:grid-cols-2', 'none',
+    ],
     // The five types added to widen what the assistant can reach for. Each is a
     // shape the library genuinely lacked, not a variation on one it had — see
     // each block class's description for the line that separates it from its

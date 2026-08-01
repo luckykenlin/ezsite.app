@@ -27,11 +27,11 @@ use Filament\Support\Icons\Heroicon;
  * writes into it under the same "plain text only" rule as every other field,
  * and no sanitiser has to be trusted.
  *
- * One layout, deliberately. A variant is for the same content arranged
- * differently, and nobody has yet asked for prose arranged differently — the
- * cost of a second view, its render test and six preset defaults is real, and
- * `variantFor()` already returns null for a variantless type, so nothing
- * downstream needs to know.
+ * Two layouts, added once there was a second COMPOSITION to offer rather than a
+ * second style: `side-heading` puts the title in a sticky left column beside the
+ * paragraphs, which is the editorial about-page arrangement and reads as a
+ * different page, not a different colour. Same content, same fields, same props —
+ * which is the test a variant has to pass.
  */
 final class Prose extends Block
 {
@@ -40,6 +40,14 @@ final class Prose extends Block
     protected static string $description = 'One or more paragraphs of body text — an about section, a story, an explanation. This is the only block that holds prose; use it whenever the answer is sentences rather than a list of short items.';
 
     protected static ?Heroicon $icon = Heroicon::OutlinedBars3BottomLeft;
+
+    /**
+     * @var array<string, string>
+     */
+    protected static array $variants = [
+        'stacked' => 'Heading above the text',
+        'side-heading' => 'Heading beside the text',
+    ];
 
     /**
      * @var array<string, mixed>

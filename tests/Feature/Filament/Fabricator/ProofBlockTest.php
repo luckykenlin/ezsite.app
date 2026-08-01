@@ -142,3 +142,31 @@ it('strips an executable scheme from the new blocks url fields', function (): vo
         ]],
     ])->assertDontSeeHtml('javascript:');
 });
+
+/*
+ * The side-heading prose variant spans the text across all three columns when
+ * there is no heading beside it — otherwise an untitled prose block hugs the left
+ * third of a wide section with two empty columns next to it.
+ */
+it('lets untitled prose fill the width in the side-heading variant', function (): void {
+    renderProofBlock('prose', [
+        'variant' => 'side-heading',
+        'paragraphs' => [['text' => 'A paragraph with no heading above it.']],
+    ])
+        ->assertSee('A paragraph with no heading above it.')
+        ->assertSeeHtml('md:col-span-3')
+        ->assertDontSeeHtml('md:col-span-2');
+});
+
+it('keeps the heading column beside the text when there is one', function (): void {
+    renderProofBlock('prose', [
+        'variant' => 'side-heading',
+        'heading' => 'Our story',
+        'paragraphs' => [['text' => 'It began in 2010.']],
+    ])
+        ->assertSee('Our story')
+        ->assertSeeHtml('md:col-span-2')
+        // Sticky only from the md breakpoint: on a phone the grid collapses and
+        // the heading simply sits above the text.
+        ->assertSeeHtml('md:sticky');
+});
