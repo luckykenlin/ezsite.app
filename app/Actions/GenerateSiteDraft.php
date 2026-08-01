@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Actions;
 
-use App\Actions\Pages\StampVariantDefaults;
+use App\Actions\Pages\StampPresetDefaults;
 use App\Ai\Agents\SiteDraftAgent;
 use App\Ai\Prompts\SiteDraftPrompt;
 use App\Ai\SiteDraftValidator;
@@ -36,7 +36,7 @@ final readonly class GenerateSiteDraft
         private SiteDraftValidator $validator,
         private ApplyStylePreset $applyStylePreset,
         private BlockVocabulary $vocabulary,
-        private StampVariantDefaults $stampVariantDefaults,
+        private StampPresetDefaults $stampPresetDefaults,
     ) {
         //
     }
@@ -66,7 +66,7 @@ final readonly class GenerateSiteDraft
             'The home page is already published; refusing to overwrite it.',
         );
 
-        $blocks = $this->stampVariantDefaults->handle($draft['blocks'], $draft['preset']);
+        $blocks = $this->stampPresetDefaults->handle($draft['blocks'], $draft['preset']);
 
         return DB::transaction(function () use ($business, $existing, $draft, $blocks): Page {
             $this->applyStylePreset->handle($business, $draft['preset']);

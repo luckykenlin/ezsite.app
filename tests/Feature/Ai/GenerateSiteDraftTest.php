@@ -65,6 +65,12 @@ it('persists a draft home page with preset-stamped variants and no AI-authored r
         ->and($page->blocks[2]['data']['variant'])->toBe('split')
         // The AI-authored bind was stripped; omission = primary location.
         ->and($page->blocks[2]['data'])->not->toHaveKey('bind')
+        // A preset has two per-block halves, and a first draft gets both:
+        // WarmCraft shades its features and gives them room, and says nothing
+        // about a hero because the variant already decides its weight.
+        ->and($page->blocks[1]['data']['appearance'])->toBe(['tone' => 'muted', 'spacing' => 'airy'])
+        ->and($page->blocks[2]['data']['appearance'])->toBe(['tone' => 'muted', 'spacing' => 'airy'])
+        ->and($page->blocks[0]['data'])->not->toHaveKey('appearance')
         ->and(Business::query()->sole()->design_tokens->preset)->toBe(StylePreset::WarmCraft);
 
     SiteDraftAgent::assertPrompted(fn (AgentPrompt $prompt): bool => $prompt->contains('Corner Cafe'));

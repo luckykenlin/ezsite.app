@@ -4,14 +4,13 @@ declare(strict_types=1);
 
 namespace App\Ai\Tools;
 
-use App\Actions\Pages\StampVariantDefaults;
+use App\Actions\Pages\StampPresetDefaults;
 use App\Ai\PageDraft;
 use App\Ai\SiteStyleDraft;
 use App\Design\StylePreset;
 use App\Design\TokenKey;
 use App\Design\TokenOptions;
 use App\Design\TokenSelection;
-use App\Site\Blocks\BlockShape;
 use BackedEnum;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Ai\Contracts\Tool;
@@ -47,7 +46,7 @@ final readonly class SetSiteStyle implements Tool
     public function __construct(
         private SiteStyleDraft $style,
         private PageDraft $draft,
-        private StampVariantDefaults $stampVariantDefaults,
+        private StampPresetDefaults $stampPresetDefaults,
     ) {
         //
     }
@@ -71,8 +70,10 @@ final readonly class SetSiteStyle implements Tool
                     .' Omit to keep the current look and only fine-tune.')
                 ->enum(array_map(static fn (StylePreset $preset): string => $preset->value, StylePreset::cases())),
             'align_layouts' => $schema->boolean()
-                ->description('Re-lay every section on this page to the layouts the chosen style was designed with. '
-                    .'Prefer this over changing sections one at a time. Ignored when no style is given.'),
+                ->description('Re-lay every section on this page to the layouts AND section backgrounds the chosen '
+                    .'style was designed with. Prefer this over changing sections one at a time — a style whose '
+                    .'layouts are applied but whose backgrounds are not looks worse than either alone. '
+                    .'Ignored when no style is given.'),
         ];
 
         foreach (TokenKey::cases() as $key) {
@@ -128,17 +129,19 @@ final readonly class SetSiteStyle implements Tool
         return sprintf(
             "The site style is now %s%s. It is staged on the canvas only — tell the operator it affects every page and that they need to apply it.\n\n%s",
             $this->style->current()->describe(),
-            $aligned ? ", and this page's section layouts were aligned to it" : '',
+            $aligned ? ", and this page's section layouts and backgrounds were aligned to it" : '',
             $this->draft->outline(),
         );
     }
 
     /**
-     * Every block re-laid to the preset's layouts, keeping the editor's keys.
+     * Every block re-laid to the preset's layouts AND section backgrounds,
+     * keeping the editor's keys.
      *
-     * Assigns into `data`'s existing `variant` slot rather than rebuilding the
-     * array — `AddPageBlock` writes the variant first, `pages.blocks` is `json`
-     * so key order survives, and `RecordPageRevision` compares with `===`.
+     * The per-block rule lives in {@see StampPresetDefaults::stamp()}; only the
+     * iteration is here, because PHPStan's array shapes are sealed and the draft's
+     * `{key, type, data}` is not a subtype of the `{type, data}` that action's
+     * `handle()` takes.
      *
      * @return list<array{key: string, type: string, data: array<string, mixed>}>
      */
@@ -147,11 +150,11 @@ final readonly class SetSiteStyle implements Tool
         $blocks = $this->draft->blocks();
 
         foreach ($blocks as $index => $block) {
-            $variant = $this->stampVariantDefaults->variantFor($block['type'], $preset);
-
-            if ($variant !== null) {
-                $blocks[$index]['data'][BlockShape::VARIANT_KEY] = $variant;
-            }
+            $blocks[$index]['data'] = $this->stampPresetDefaults->stamp(
+                $block['data'],
+                $block['type'],
+                $preset,
+            );
         }
 
         return $blocks;

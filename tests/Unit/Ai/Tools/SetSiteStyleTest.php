@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use App\Actions\Pages\StampVariantDefaults;
+use App\Actions\Pages\StampPresetDefaults;
 use App\Ai\PageDraft;
 use App\Ai\SiteStyleDraft;
 use App\Ai\Tools\SetSiteStyle;
@@ -21,7 +21,7 @@ function styleDraft(): SiteStyleDraft
 
 function styleTool(SiteStyleDraft $style, PageDraft $draft): SetSiteStyle
 {
-    return new SetSiteStyle($style, $draft, resolve(StampVariantDefaults::class));
+    return new SetSiteStyle($style, $draft, resolve(StampPresetDefaults::class));
 }
 
 function styleableDraft(): PageDraft
@@ -72,7 +72,27 @@ it('re-lays the page to the preset when asked to align layouts', function (): vo
         ->and($draft->blocks()[1]['data']['variant'])->toBe($expected['features'])
         // Copy is never collateral damage of a restyle.
         ->and($draft->blocks()[0]['data']['heading'])->toBe('Hi')
-        ->and($result)->toContain('section layouts were aligned');
+        ->and($result)->toContain('section layouts and backgrounds were aligned');
+});
+
+/*
+ * A preset has two per-block halves, and aligning only one of them is the
+ * failure this pins: layouts set to bold-editorial while the backgrounds still
+ * say calm-coastal looks broken in a way neither setting explains.
+ */
+it('aligns section backgrounds in the same call, and leaves the hero to its variant', function (): void {
+    $draft = styleableDraft();
+
+    styleTool(styleDraft(), $draft)->handle(new Request([
+        'preset' => 'bold-editorial',
+        'align_layouts' => true,
+    ]));
+
+    expect($draft->blocks()[1]['data']['appearance'])
+        ->toBe(StylePreset::BoldEditorial->blockAppearanceDefaults()['features'])
+        // No preset says anything about a hero: its variant already decides its
+        // weight, and full-bleed-overlay is dark by construction.
+        ->and($draft->blocks()[0]['data'])->not->toHaveKey('appearance');
 });
 
 it('preserves the stored key order when it re-lays a block', function (): void {

@@ -8,9 +8,19 @@ use App\Design\StylePreset;
 use App\Site\Blocks\BlockShape;
 use App\Site\Blocks\BlockType;
 use App\Site\Blocks\BlockVocabulary;
+use App\Site\Blocks\SectionAppearance;
+use App\Site\Blocks\SectionSpacing;
+use App\Site\Blocks\SectionTone;
 
 /**
- * Re-lays every block to the layout variants a style preset was designed with.
+ * Re-lays every block to the layout variants AND section appearances a style
+ * preset was designed with.
+ *
+ * Named for the preset rather than for variants (it was `StampVariantDefaults`)
+ * because a preset now has two per-block halves, and applying only one of them
+ * is what a whole-site restyle must never do: layouts aligned to
+ * `bold-editorial` while the backgrounds still say `calm-coastal` is a page that
+ * looks broken in a way neither setting explains.
  *
  * Extracted from {@see \App\Actions\GenerateSiteDraft}, which had this as a
  * private method and now calls it — so this removes a duplicate rather than
@@ -36,7 +46,7 @@ use App\Site\Blocks\BlockVocabulary;
  * with `===` — so reordering keys would manufacture a spurious revision on
  * every Save.
  */
-final readonly class StampVariantDefaults
+final readonly class StampPresetDefaults
 {
     public function __construct(private BlockVocabulary $vocabulary)
     {
@@ -61,14 +71,74 @@ final readonly class StampVariantDefaults
     public function handle(array $blocks, StylePreset $preset): array
     {
         return array_map(function (array $block) use ($preset): array {
-            $variant = $this->variantFor($block['type'], $preset);
-
-            if ($variant !== null) {
-                $block['data'][BlockShape::VARIANT_KEY] = $variant;
-            }
+            $block['data'] = $this->stamp($block['data'], $block['type'], $preset);
 
             return $block;
         }, $blocks);
+    }
+
+    /**
+     * Apply both halves of a preset to one block's `data`.
+     *
+     * Shared by this action's own loop and by {@see \App\Ai\Tools\SetSiteStyle},
+     * which cannot call {@see handle()} because PHPStan's array shapes are sealed
+     * and its blocks carry the editor's transient `key`. The RULE lives here once;
+     * only the iteration differs.
+     *
+     * Assigns into the existing slots rather than rebuilding `data`:
+     * `AddPageBlock` writes the variant FIRST, `pages.blocks` is `json` (not
+     * `jsonb`) precisely to preserve key order, and `RecordPageRevision` compares
+     * with `===` — so reordering keys would manufacture a spurious revision on
+     * every Save.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    public function stamp(array $data, string $type, StylePreset $preset): array
+    {
+        $variant = $this->variantFor($type, $preset);
+
+        if ($variant !== null) {
+            $data[BlockShape::VARIANT_KEY] = $variant;
+        }
+
+        $appearance = $this->appearanceFor($type, $preset);
+
+        // Absent means "this preset has no opinion about this section", which is
+        // NOT the same as "reset it": the operator may have set a background by
+        // hand, and a preset that lists nothing for the type should not be the
+        // thing that silently discards it. Only an explicit entry writes.
+        if ($appearance !== null) {
+            $data[BlockShape::APPEARANCE_KEY] = $appearance;
+        }
+
+        return $data;
+    }
+
+    /**
+     * The appearance one block type should carry under this preset, or null when
+     * the preset says nothing about it — in which case the block keeps whatever
+     * it has, and an untouched block keeps its view's own default.
+     *
+     * Values are validated against the enums rather than trusted: a preset is
+     * hand-authored PHP, so a typo here would otherwise reach a `class`
+     * attribute. An entry that survives validation empty (every key misspelled)
+     * answers null, so it cannot blank an operator's choice either.
+     *
+     * @return array<string, string>|null
+     */
+    public function appearanceFor(string $type, StylePreset $preset): ?array
+    {
+        $declared = $preset->blockAppearanceDefaults()[$type] ?? null;
+
+        if ($declared === null) {
+            return null;
+        }
+
+        return SectionAppearance::store(
+            SectionTone::tryFrom($declared[BlockShape::TONE_KEY] ?? ''),
+            SectionSpacing::tryFrom($declared[BlockShape::SPACING_KEY] ?? ''),
+        );
     }
 
     /**

@@ -54,6 +54,117 @@ enum StylePreset: string
     }
 
     /**
+     * The background and vertical rhythm each block type should carry under this
+     * preset — the per-SECTION half of a preset, where
+     * {@see blockVariantDefaults()} is the per-LAYOUT half.
+     *
+     * This is what makes six presets look like six websites rather than six
+     * colour swatches. Tokens explain maybe a quarter of the difference between
+     * two designs (PLAN.md says as much) and layout variants most of the rest,
+     * but until a preset could say "photographs go on black here, and every
+     * section breathes there", every preset produced the same flat stack of
+     * bands in a different hue.
+     *
+     * Deliberately NOT total, and that is the opposite of the rule for variants:
+     * a missing variant makes every preset fall back to the type's first layout,
+     * so `StylePresetTest` requires all of them. A missing APPEARANCE falls back
+     * to the value the block's own view declares — a considered default, not a
+     * degradation — so listing a type here means "this preset overrides the
+     * layout's instinct", and most types under most presets should not.
+     *
+     * Two types are absent from every preset, by design and pinned by test:
+     *  - `hero`, because its variant already decides its weight: the preset that
+     *    wants a dramatic opening picks `full-bleed-overlay`, which is dark by
+     *    construction. A tone here would fight the variant it was chosen with.
+     *  - `heading`, because it is a divider inside the page's flow rather than a
+     *    band of its own. Giving it a background turns a section title into a
+     *    section.
+     *
+     * KNOWN LIMIT — these are per TYPE, not per POSITION, so two `features`
+     * blocks on one page get the same background instead of alternating. Genuine
+     * odd/even alternation needs PHP to know the default tone of every
+     * type×variant pair, and those defaults live in the eighteen Blade views;
+     * promoting them to a queryable contract is its own change. Hand-picked
+     * tones already express a rhythm (plain features, dark testimonials, shaded
+     * FAQ) — it just does not adapt to how many blocks the page has.
+     *
+     * @return array<string, array{tone?: string, spacing?: string}>
+     */
+    public function blockAppearanceDefaults(): array
+    {
+        return match ($this) {
+            // Earthy and unhurried: shaded bands rather than dark ones, because
+            // near-black reads as cold against warm sand, and the generous
+            // spacing token wants generous sections to match.
+            self::WarmCraft => [
+                'features' => ['tone' => 'muted', 'spacing' => 'airy'],
+                'offerings' => ['tone' => 'base', 'spacing' => 'airy'],
+                'gallery' => ['tone' => 'base', 'spacing' => 'airy'],
+                'testimonials' => ['tone' => 'muted'],
+                'prose' => ['spacing' => 'airy'],
+                'faq' => ['tone' => 'muted'],
+                'contact' => ['tone' => 'muted', 'spacing' => 'airy'],
+                'cta' => ['tone' => 'muted'],
+            ],
+            // Sells trust, so it spends nothing on decoration: almost every
+            // section sits on the page background, including testimonials, whose
+            // view shades itself by default. The restraint IS the look.
+            self::ProfessionalMinimal => [
+                'features' => ['tone' => 'base'],
+                'offerings' => ['tone' => 'base'],
+                'gallery' => ['tone' => 'base'],
+                'testimonials' => ['tone' => 'base'],
+                'faq' => ['tone' => 'base'],
+                'contact' => ['tone' => 'base'],
+            ],
+            // Alternating shade gives it pace without weight — the closest of the
+            // six to a conventional SaaS page.
+            self::FreshModern => [
+                'features' => ['tone' => 'muted'],
+                'offerings' => ['tone' => 'base'],
+                'gallery' => ['tone' => 'muted'],
+                'testimonials' => ['tone' => 'base'],
+                'faq' => ['tone' => 'muted'],
+                'contact' => ['tone' => 'base'],
+            ],
+            // The one preset that uses the dark tone as a design element:
+            // photographs and quotes go on black, and the compact spacing token
+            // is echoed section by section. Magazine, not brochure.
+            self::BoldEditorial => [
+                'gallery' => ['tone' => 'inverted', 'spacing' => 'tight'],
+                'testimonials' => ['tone' => 'inverted'],
+                'features' => ['tone' => 'base', 'spacing' => 'tight'],
+                'offerings' => ['tone' => 'muted', 'spacing' => 'tight'],
+                'prose' => ['spacing' => 'tight'],
+                'faq' => ['tone' => 'base', 'spacing' => 'tight'],
+                'contact' => ['tone' => 'inverted'],
+            ],
+            // Air is the whole point: every content section gets the roomiest
+            // step, and nothing is ever dark — wellness and care do not shout.
+            self::CalmCoastal => [
+                'features' => ['tone' => 'base', 'spacing' => 'airy'],
+                'offerings' => ['tone' => 'muted', 'spacing' => 'airy'],
+                'gallery' => ['tone' => 'base', 'spacing' => 'airy'],
+                'testimonials' => ['tone' => 'muted', 'spacing' => 'airy'],
+                'prose' => ['spacing' => 'airy'],
+                'faq' => ['tone' => 'base', 'spacing' => 'airy'],
+                'contact' => ['tone' => 'muted', 'spacing' => 'airy'],
+            ],
+            // Colour-forward and busy on purpose: the brand tone shows up on the
+            // call to action, and shaded bands keep the page lively.
+            self::PlayfulFriendly => [
+                'features' => ['tone' => 'muted'],
+                'offerings' => ['tone' => 'base'],
+                'gallery' => ['tone' => 'muted'],
+                'testimonials' => ['tone' => 'muted'],
+                'faq' => ['tone' => 'base'],
+                'contact' => ['tone' => 'muted'],
+                'cta' => ['tone' => 'accent'],
+            ],
+        };
+    }
+
+    /**
      * The adjectives an operator actually reaches for when they want this look
      * — the words "make it more premium" has to land on.
      *
