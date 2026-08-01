@@ -38,6 +38,7 @@ final readonly class GenerateSiteDraft
         private ApplyStylePreset $applyStylePreset,
         private BlockVocabulary $vocabulary,
         private StampPresetDefaults $stampPresetDefaults,
+        private SaveSiteChrome $saveSiteChrome,
     ) {
         //
     }
@@ -170,7 +171,7 @@ final readonly class GenerateSiteDraft
             'url' => $page['slug'],
         ], $pages);
 
-        resolve(SaveSiteChrome::class)->handle(
+        $this->saveSiteChrome->handle(
             [['type' => 'header', 'data' => ['nav_links' => $links]]],
             $settings?->footer,
         );
