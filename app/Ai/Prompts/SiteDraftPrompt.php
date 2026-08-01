@@ -110,6 +110,10 @@ final readonly class SiteDraftPrompt implements Stringable
             ."\"features\" list, gallery uses an \"images\" list, testimonials uses a \"testimonials\" list.\n"
             .'- List fields (features, testimonials, images, nav_links) take an array of flat '
             ."objects whose keys are also exact field names (e.g. features: [{icon, title, description}]).\n"
+            .'- An "icon" is ONE emoji character (e.g. "✂️", "⭐"), never a word — a word renders '
+            ."as literal text where a pictogram belongs.\n"
+            .'- prose body copy goes in "paragraphs": a list of {text} objects. A prose block '
+            ."with only a heading renders as an empty section — always include paragraphs.\n"
             ."- heading.level must be one of \"h1\"–\"h6\" (e.g. \"h2\"), never a bare number.\n"
             .'- For internal links (cta_url, nav urls) use relative paths like "/contact" or '
             ."anchors like \"#contact\"; never bare \"#\".\n"

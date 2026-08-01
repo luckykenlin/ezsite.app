@@ -47,6 +47,10 @@ it('assembles the profile, locations, vocabulary, presets and language sections'
         // authors chrome" (schema enum in SiteDraftAgentTest, server-side drop in
         // SiteDraftValidatorTest). Rewording the instruction should be deliberate.
         ->toContain('do NOT include them')
+        // Two fidelity rules earned by real DeepSeek output: icon fields came
+        // back as words ("scissors") and prose came back heading-only.
+        ->toContain('ONE emoji character')
+        ->toContain('always include paragraphs')
         // The design guidance teaches rhythm from the enums' own descriptions.
         ->toContain('## Design guidance')
         ->toContain('no rhythm at all')
