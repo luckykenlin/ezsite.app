@@ -42,6 +42,10 @@
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>
+        <!-- force: the suite's baseline is pipeline-off (tests opt in via
+             config()->set), and a developer's .env toggle must not flip it. -->
+        <env name="STOCK_PHOTOS_ENABLED" value="false" force="true"/>
+        <env name="PEXELS_API_KEY" value="" force="true"/>
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>

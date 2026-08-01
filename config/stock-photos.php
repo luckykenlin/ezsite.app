@@ -24,7 +24,10 @@ return [
     |
     */
 
-    'enabled' => env('STOCK_PHOTOS_ENABLED', false),
+    // filter_var: phpunit's <env> overrides arrive as the literal string
+    // "false", which env() alone would pass through into a config()->boolean()
+    // read and throw. Normalising here keeps the flag readable strictly.
+    'enabled' => filter_var(env('STOCK_PHOTOS_ENABLED', false), FILTER_VALIDATE_BOOL),
 
     'max_photos_per_site' => 12,
 
