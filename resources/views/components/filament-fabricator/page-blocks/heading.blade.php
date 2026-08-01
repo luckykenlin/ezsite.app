@@ -19,6 +19,6 @@
 @endphp
 <x-site.section :appearance="$appearance" tone="plain" spacing="flush" class="px-4">
     <div class="mx-auto max-w-7xl">
-        <{{ $tag }} class="text-balance tracking-tight text-base-content {{ $scale[$tag] }}">{{ $content }}</{{ $tag }}>
+        <{{ $tag }} data-editor-field="content" class="text-balance tracking-tight text-base-content {{ $scale[$tag] }}">{{ $content }}</{{ $tag }}>
     </div>
 </x-site.section>

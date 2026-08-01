@@ -6,6 +6,7 @@ namespace App\Filament\Fabricator\PageBlocks;
 
 use App\Filament\Fabricator\Fields\ImageInput;
 use App\Filament\Fabricator\Fields\LinkInput;
+use App\Site\Blocks\BlockIntent;
 use Filament\Forms\Components\Field;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Textarea;
@@ -23,6 +24,8 @@ final class Features extends Block
     protected static string $description = 'Reasons to choose this business — benefits, selling points or how a service works. For things you can BUY, with prices, this is the wrong block.';
 
     protected static ?Heroicon $icon = Heroicon::OutlinedSquares2x2;
+
+    protected static ?BlockIntent $intent = BlockIntent::Showcase;
 
     /**
      * @var array<string, mixed>

@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Actions\Pages\AddPageBlock;
 use App\Actions\Pages\CachePageEditorPreview;
 use App\Design\DesignTokens;
 use App\Design\ThemeVariables;
 use App\Enums\ChromeSlot;
 use App\Models\Page;
 use App\Site\BindResolver;
+use App\Site\Blocks\BlockVocabulary;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -61,6 +63,16 @@ final class PageEditorPreviewController extends Controller
         $layout = FilamentFabricator::getLayoutFromName(is_string($layoutName) && $layoutName !== '' ? $layoutName : 'main');
 
         abort_if($layout === null, 404);
+
+        // The block library's thumbnails: one block type's sample content,
+        // rendered through the same theme the canvas shows. Behind the same
+        // two gates as the canvas itself — the type name is public knowledge,
+        // the session token is not.
+        $sample = $request->query('sample');
+
+        if (is_string($sample) && $sample !== '') {
+            return $this->sampleDocument($sample, $payload);
+        }
 
         $page = (new Page)->forceFill([
             'id' => $attributes['id'] ?? null,
@@ -117,6 +129,45 @@ final class PageEditorPreviewController extends Controller
         return view('filament.tenant.pages.page-editor-preview-block', [
             'blocks' => [$blocks[$index]],
             'editorKeys' => [$blockKey],
+        ]);
+    }
+
+    /**
+     * One block type's ready-to-render sample, as a standalone themed document
+     * — the block library renders these in scaled-down iframes, so choosing a
+     * section means seeing it in the site's own palette and type instead of
+     * decoding an icon.
+     *
+     * Seeded through {@see AddPageBlock} rather than the raw contract sample,
+     * so the thumbnail is byte-for-byte the block that clicking the card adds
+     * (default variant stamped, same normalisation). No chrome and no editor
+     * keys: a thumbnail is a picture of ONE section, and it is inert — the
+     * parent styles the iframe `pointer-events: none`.
+     *
+     * @param  array<array-key, mixed>  $payload
+     */
+    private function sampleDocument(string $type, array $payload): View
+    {
+        // Page types only: a chrome type here would 404 out of AddPageBlock
+        // anyway, but a clean 404 beats an exception page in an iframe.
+        abort_unless(
+            array_key_exists($type, resolve(BlockVocabulary::class)->pageTypes()),
+            404,
+        );
+
+        ['blocks' => $blocks] = resolve(AddPageBlock::class)->handle([], $type);
+
+        $page = (new Page)->forceFill([
+            'title' => $type,
+            'blocks' => array_map(
+                static fn (array $block): array => ['type' => $block['type'], 'data' => $block['data']],
+                $blocks,
+            ),
+        ]);
+
+        return view('filament.tenant.pages.page-editor-preview-sample', [
+            'page' => $page,
+            'themeDraft' => $this->themeDraftStyle($payload['design_tokens'] ?? null),
         ]);
     }
 

@@ -116,6 +116,7 @@ test('to array', function (): void {
             'page_id',
             'user_id',
             'blocks',
+            'label',
             'created_at',
         ]);
 });

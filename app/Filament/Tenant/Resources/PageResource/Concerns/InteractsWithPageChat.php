@@ -6,11 +6,16 @@ namespace App\Filament\Tenant\Resources\PageResource\Concerns;
 
 use App\Actions\Pages\CacheChatTurn;
 use App\Actions\Pages\ChatEditPage;
+use App\Actions\Pages\KeyEditorBlocks;
+use App\Actions\Pages\RecordChatRevertPoint;
 use App\Actions\Pages\RecordPageChatMessage;
 use App\Actions\SaveDesignSelection;
 use App\Ai\ChangedBlocks;
+use App\Enums\ChatMode;
+use App\Enums\ChatRole;
 use App\Enums\DesignDraftSource;
 use App\Jobs\ChatEditPageJob;
+use App\Models\PageChatMessage;
 use App\Models\User;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Str;
@@ -32,10 +37,10 @@ use Livewire\Attributes\Locked;
  * settle or give up) and its own failure modes, and reading the block/undo state
  * machine was harder with it interleaved.
  *
- * Expects the host to provide `$blocks`, `$designDraft`, `$designDraftSource`,
- * `applyTurn()`, `commitSelectedBlock()`, `clearDesignDraft()`,
- * `hasBusinessProfile()`, `businessOrFail()`, `pageRecord()` and
- * `openBlockLibrary()`.
+ * Expects the host to provide `$blocks`, `$selectedBlockKey`, `$previewToken`,
+ * `$designDraft`, `$designDraftSource`, `applyTurn()`, `commitSelectedBlock()`,
+ * `clearDesignDraft()`, `hasBusinessProfile()`, `businessOrFail()`,
+ * `pageRecord()`, `pushPreview()`, `chromeSlot()` and `openBlockLibrary()`.
  */
 trait InteractsWithPageChat
 {
@@ -63,6 +68,13 @@ trait InteractsWithPageChat
     public string $chatInput = '';
 
     /**
+     * The composer's Edit/Ask toggle, as its raw wire value. A string rather
+     * than the enum because the browser writes it; {@see chatModeEnum()} is
+     * the one place it is trusted, and anything unrecognised reads as Edit.
+     */
+    public string $chatMode = ChatMode::Edit->value;
+
+    /**
      * The turn in flight, or null when the assistant is idle. Doubles as the
      * poll switch: the blade only renders `wire:poll` while this is set, so an
      * idle editor makes no requests at all.
@@ -81,17 +93,36 @@ trait InteractsWithPageChat
      * This page's chat transcript, oldest first, as the panel renders it.
      *
      * Computed rather than a public array: it is derived state (persisted per page
-     * in {@see \App\Models\PageChatMessage}), so holding it on the component
+     * in {@see PageChatMessage}), so holding it on the component
      * shipped every rendered message up and down on every roundtrip, including the
      * 5-second poll ticks. `#[Computed]` memoizes it for the request, so a render
      * that reads it twice still costs one query.
      *
-     * @return list<array{role: string, content: string, html: string|null, changed: bool}>
+     * @return list<array{id: int, role: string, content: string, html: string|null, changed: bool, failed: bool, revertible: bool}>
      */
     #[Computed]
     public function chatMessages(): array
     {
         return resolve(ChatEditPage::class)->transcript($this->pageRecord());
+    }
+
+    /**
+     * The composer's context chip: the selected block's headline label, or null
+     * when nothing rides with the next message. What the operator sees is
+     * exactly what {@see chatContextKey()} sends — one derivation, two readers.
+     */
+    #[Computed]
+    public function chatContextLabel(): ?string
+    {
+        $key = $this->chatContextKey();
+
+        if ($key === null) {
+            return null;
+        }
+
+        $index = array_search($key, array_column($this->blocks, 'key'), true);
+
+        return $index === false ? null : Str::headline($this->blocks[$index]['type']);
     }
 
     /**
@@ -180,6 +211,14 @@ trait InteractsWithPageChat
             $message,
             $this->chatTurnToken,
             $this->blocks,
+            // Captured at dispatch, not read by the worker: the operator may
+            // select something else while the turn runs, and "this" meant what
+            // they were looking at when they hit send.
+            $this->chatContextKey(),
+            // The canvas repaints edit by edit while the turn runs — the worker
+            // swaps this preview entry's blocks after every tool call.
+            $this->previewToken,
+            $this->chatModeEnum(),
         ));
 
         // Persist the pointer to this turn. Not via pushPreview() — sending a
@@ -244,6 +283,11 @@ trait InteractsWithPageChat
             // turn was dispatched, which an edit made mid-turn has since moved on
             // from.
             $changed = resolve(ChangedBlocks::class)->keys($this->blocks, $turn['blocks']);
+
+            // And the revert point, pinned from the same pre-apply draft — the
+            // transcript's "Revert this edit" restores exactly this. Only when
+            // blocks moved: reverting a style-only turn is the design gate's job.
+            resolve(RecordChatRevertPoint::class)->handle($this->pageRecord(), $this->blocks);
         }
 
         // Both halves through ONE applyTurn(), so a turn that rewrote copy AND
@@ -252,6 +296,12 @@ trait InteractsWithPageChat
         // the undo stack, the dirty flag or the canvas theme.
         if ($editedBlocks || $turn['design'] !== null || $turn['chrome'] !== null) {
             $this->applyTurn($editedBlocks ? $turn['blocks'] : null, $turn['design'], $turn['chrome']);
+        } elseif ($turn['preview'] > 0) {
+            // The turn painted mid-flight but its result is NOT being applied —
+            // it failed, or edited nothing the editor recognises. The canvas is
+            // showing a draft that no longer exists anywhere; repaint it from
+            // the editor's own state. (The applied path repaints via markDirty.)
+            $this->pushPreview();
         }
 
         if ($editedBlocks) {
@@ -266,6 +316,86 @@ trait InteractsWithPageChat
         // The keys ride along so the canvas can point at them once it has
         // reloaded with the new content — see the 'ready' handler in editor.ts.
         $this->dispatch('page-editor:chat-replied', changed: $changed);
+    }
+
+    /**
+     * Restore the page to what it was before one assistant turn's edits — the
+     * transcript's "Revert this edit", Base44's per-prompt Revert.
+     *
+     * Git-revert semantics, never history rewriting: the pre-turn blocks land
+     * through {@see \App\Filament\Tenant\Resources\PageResource\Pages\PageEditor::applyBlocks()}
+     * as a NEW undoable, unsaved change — so a revert is reviewed on the
+     * canvas, needs its own Save, and is itself one Undo away. That also makes
+     * reverting an OLD turn safe to offer: it discards later edits, but
+     * recoverably.
+     */
+    public function revertChatTurn(int $messageId): void
+    {
+        // Not while a turn runs: its result would land right on top of the
+        // revert and silently re-apply what was just removed.
+        if ($this->chatTurnToken !== null) {
+            return;
+        }
+
+        // Scoped to THIS page — a message id from another page (stale DOM, a
+        // crafted call) must not restore another page's blocks here.
+        $message = PageChatMessage::query()
+            ->where('page_id', $this->pageRecord()->id)
+            ->whereKey($messageId)
+            ->first();
+
+        if (! $message instanceof PageChatMessage || $message->blocks_before === null) {
+            return;
+        }
+
+        // Commit first, upholding snapshot()'s invariant — an uncommitted
+        // inspector edit rides INTO the undo entry, so undoing the revert
+        // brings it back instead of silently discarding it. An invalid draft
+        // aborts with its errors visible, like every other structural verb.
+        if (! $this->commitSelectedBlock()) {
+            return;
+        }
+
+        $this->applyBlocks(resolve(KeyEditorBlocks::class)->handle($message->blocks_before));
+
+        Notification::make()
+            ->title(__('Edit reverted'))
+            ->body(__('Review the page on the canvas, then Save — or Undo to bring the edit back.'))
+            ->success()
+            ->send();
+    }
+
+    /**
+     * Re-run the question a failed turn never answered — the "Try again"
+     * button on the apology bubble, so recovering from a provider blip is one
+     * click instead of retyping.
+     *
+     * Re-sent through {@see sendChatMessage()} rather than a private path, so
+     * a retry is indistinguishable from asking again by hand: same guards,
+     * same dispatch, same draft persistence. The question appearing twice in
+     * the transcript is the documented contract of
+     * {@see RecordPageChatMessage::question()} — "a
+     * legitimate retry ... must appear twice".
+     */
+    public function retryChatTurn(): void
+    {
+        if ($this->chatTurnToken !== null) {
+            return;
+        }
+
+        // The newest question, not "the one before the apology": by the time
+        // the button is clickable the apology is the newest assistant row, so
+        // these are the same message — and the simpler query has no
+        // off-by-one to defend when the job's failure path recorded both rows.
+        $question = PageChatMessage::query()
+            ->where('page_id', $this->pageRecord()->id)
+            ->where('role', ChatRole::User)
+            ->orderByDesc('id')
+            ->first();
+
+        if ($question instanceof PageChatMessage) {
+            $this->sendChatMessage($question->content);
+        }
     }
 
     /**
@@ -321,8 +451,48 @@ trait InteractsWithPageChat
             return;
         }
 
-        resolve(CacheChatTurn::class)->forget($this->chatTurnToken);
+        $turns = resolve(CacheChatTurn::class);
+
+        // Read before forgetting: a turn that already painted the canvas
+        // mid-flight left it showing a draft that is now being discarded.
+        $painted = ($turns->read($this->chatTurnToken)['preview'] ?? 0) > 0;
+
+        $turns->forget($this->chatTurnToken);
         $this->endChatTurn();
+
+        if ($painted) {
+            $this->pushPreview();
+        }
+    }
+
+    /**
+     * The toggle's value as the enum, defaulting anything unrecognised to
+     * Edit — `$chatMode` is browser-writable, and an invented mode must not
+     * become an exception out of a Livewire call.
+     */
+    private function chatModeEnum(): ChatMode
+    {
+        return ChatMode::tryFrom($this->chatMode) ?? ChatMode::Edit;
+    }
+
+    /**
+     * The block the next turn should treat as "this one": the canvas selection,
+     * when it is a real page block.
+     *
+     * Chrome pseudo-selections are deliberately excluded — the prompt already
+     * carries the full chrome section, and a chrome key matches nothing in the
+     * draft the model addresses. A selection that no longer resolves to a block
+     * (deleted since) is excluded for the same reason.
+     */
+    private function chatContextKey(): ?string
+    {
+        $key = $this->selectedBlockKey;
+
+        if ($key === null || $this->chromeSlot($key) !== null) {
+            return null;
+        }
+
+        return in_array($key, array_column($this->blocks, 'key'), true) ? $key : null;
     }
 
     /**
@@ -351,6 +521,11 @@ trait InteractsWithPageChat
         }
 
         $this->endChatTurn();
+
+        // Unconditional, unlike the poll and cancel paths: the turn's entry is
+        // gone or unreadable, so whether it painted mid-flight is unknowable —
+        // and a wrong canvas here costs more than a redundant reload.
+        $this->pushPreview();
 
         // Deliberately not "the assistant did not answer": once a turn can be
         // resumed after a reload, this also fires for a turn that DID answer but

@@ -16,6 +16,25 @@ return [
     */
 
     'default' => env('AI_PROVIDER', 'openai'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Text Failover Chain
+    |--------------------------------------------------------------------------
+    |
+    | The providers a text agent tries, in order. With no fallback configured
+    | this is a one-entry list and behaves exactly like calling the default
+    | provider directly. Failover only happens when a provider refuses to
+    | START answering (down, rate-limited, bad key) — a stream that already
+    | emitted output is never silently switched mid-reply.
+    |
+    */
+
+    'failover' => array_values(array_filter([
+        env('AI_PROVIDER', 'openai'),
+        env('AI_FAILOVER_PROVIDER'),
+    ])),
+
     'default_for_images' => 'gemini',
     'default_for_audio' => 'openai',
     'default_for_transcription' => 'openai',

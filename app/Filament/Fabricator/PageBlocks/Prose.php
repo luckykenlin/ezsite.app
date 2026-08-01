@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Fabricator\PageBlocks;
 
+use App\Site\Blocks\BlockIntent;
 use Filament\Forms\Components\Field;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Textarea;
@@ -40,6 +41,8 @@ final class Prose extends Block
     protected static string $description = 'One or more paragraphs of body text — an about section, a story, an explanation. This is the only block that holds prose; use it whenever the answer is sentences rather than a list of short items.';
 
     protected static ?Heroicon $icon = Heroicon::OutlinedBars3BottomLeft;
+
+    protected static ?BlockIntent $intent = BlockIntent::Introduce;
 
     /**
      * @var array<string, string>

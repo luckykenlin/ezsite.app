@@ -19,8 +19,11 @@
             modals: @js([
                 'library' => \App\Filament\Tenant\Resources\PageResource\Pages\PageEditor::BLOCK_LIBRARY_MODAL,
             ]),
+            {{-- confirmLeave stays a native confirm(): a navigation guard
+                 needs a SYNCHRONOUS answer, which no Filament modal can give.
+                 Block removal confirms through the mounted removeBlock action
+                 instead — see PageEditor::removeBlockAction(). --}}
             labels: @js([
-                'confirmRemove' => __('Remove this block?'),
                 'confirmLeave' => __('You have unsaved changes. Leave this page?'),
                 'chatLeaveHint' => __('You can carry on elsewhere — the turn keeps running and picks up where it left off.'),
                 'chatSlow' => __('Bigger edits take a minute: the assistant rewrites one block at a time.'),
@@ -86,6 +89,41 @@
                                 class="pe-chat-message"
                                 data-role="{{ $message['role'] }}"
                             >{{ $message['content'] }}</div>
+                        @endif
+                        {{-- Every turn that edited the page carries its own way
+                             back: the pre-turn blocks land as a NEW undoable,
+                             unsaved change (git-revert semantics), so reverting
+                             an old turn is safe — later edits are discarded,
+                             but recoverably. Hidden while a turn runs; its
+                             result would land on top of the revert. --}}
+                        @if ($message['revertible'] && $this->chatTurnToken === null)
+                            <div class="pe-chat-revert" wire:key="chat-revert-{{ $message['id'] }}">
+                                <button
+                                    type="button"
+                                    class="pe-chat-chip"
+                                    wire:click="revertChatTurn({{ $message['id'] }})"
+                                    wire:loading.attr="disabled"
+                                >{{ __('Revert this edit') }}</button>
+                            </div>
+                        @endif
+                        {{-- A failed turn's apology carries its own way out: one
+                             click re-sends the question that never got answered,
+                             free of retyping. Only on the LAST message — a failure
+                             mid-history was already retried or moved past — and
+                             only while no turn is running, since retryChatTurn()
+                             refuses to stack turns anyway. --}}
+                        @if ($loop->last && $message['failed'] && $this->chatTurnToken === null)
+                            <div class="pe-chat-retry" wire:key="chat-retry">
+                                <x-filament::button
+                                    size="xs"
+                                    color="gray"
+                                    icon="heroicon-m-arrow-path"
+                                    wire:click="retryChatTurn"
+                                    wire:loading.attr="disabled"
+                                >
+                                    {{ __('Try again') }}
+                                </x-filament::button>
+                            </div>
                         @endif
                         {{-- The site style the last turn staged.
 
@@ -187,13 +225,18 @@
                         <span></span><span></span><span></span>
                     </div>
 
+                    {{-- x-html is safe HERE and only here: chatStreamHtml()
+                         escapes every character of the model's output first
+                         and the only tags are the renderer's own — the same
+                         strip-then-format policy the server applies to the
+                         persisted transcript. --}}
                     <div
-                        class="pe-chat-message pe-chat-cursor"
+                        class="pe-chat-message pe-chat-prose pe-chat-cursor"
                         data-role="assistant"
                         x-show="chatSending && chatStream !== ''"
                         x-cloak
                         wire:ignore
-                        x-text="chatStream"
+                        x-html="chatStreamHtml()"
                     ></div>
 
                     {{-- How long this has been going, and — past the marks in
@@ -216,6 +259,57 @@
                      and the send button becomes a stop button rather than
                      going dead. --}}
                 <div class="pe-chat-composer">
+                    {{-- The selection, riding with the next message. Mirrors
+                         chatContextKey(): what this chip names is exactly the
+                         block the turn's prompt will treat as "this one". The ×
+                         clears the SELECTION itself (the same deselect as Esc),
+                         not some chip-only state — one fact, one control. --}}
+                    @if ($this->chatContextLabel !== null)
+                        <div class="pe-chat-context" wire:key="chat-context">
+                            <x-filament::icon icon="heroicon-m-cursor-arrow-rays" class="pe-chat-context-icon" />
+                            <span class="pe-chat-context-label">{{ __('Editing') }}: {{ $this->chatContextLabel }}</span>
+                            <button
+                                type="button"
+                                class="pe-chat-context-clear"
+                                title="{{ __('Clear selection') }}"
+                                wire:click="deselectBlock"
+                            >
+                                <x-filament::icon icon="heroicon-m-x-mark" />
+                            </button>
+                        </div>
+
+                        {{-- One-tap refinements for the selected block. The
+                             copy chips fire pre-templated turns through the
+                             normal send path (block-scoped via the selection);
+                             "Try another layout" is deliberately NOT an AI
+                             turn — cycling a variant is deterministic, so it
+                             is instant, free, and one Undo away. --}}
+                        <div class="pe-chat-chips" wire:key="chat-chips">
+                            @foreach ([
+                                __('Make it shorter') => __("Make this section's copy shorter and punchier."),
+                                __('Improve wording') => __('Improve the wording of this section.'),
+                                __('Friendlier tone') => __('Rewrite this section in a friendlier tone.'),
+                            ] as $label => $message)
+                                <button
+                                    type="button"
+                                    class="pe-chat-chip"
+                                    x-bind:disabled="chatSending"
+                                    x-on:click="sendChip(@js($message))"
+                                >{{ $label }}</button>
+                            @endforeach
+
+                            @if ($this->selectedBlockHasVariants())
+                                <button
+                                    type="button"
+                                    class="pe-chat-chip pe-chat-chip-free"
+                                    title="{{ __('Instant — no assistant involved') }}"
+                                    wire:click="cycleBlockVariant('{{ $this->selectedBlockKey }}')"
+                                    wire:loading.attr="disabled"
+                                >{{ __('Try another layout') }}</button>
+                            @endif
+                        </div>
+                    @endif
+
                     <textarea
                         class="pe-chat-input"
                         rows="3"
@@ -239,6 +333,26 @@
                         >
                             <x-filament::icon icon="heroicon-m-plus" />
                         </button>
+
+                        {{-- Edit acts, Ask only answers — in Ask the tool
+                             roster is withheld server-side, so "changes
+                             nothing" is structural. Written deferred
+                             ($wire.set live:false): the mode only matters at
+                             send time, and it rides with that request. --}}
+                        <div class="pe-chat-mode" role="group" aria-label="{{ __('Assistant mode') }}">
+                            <button
+                                type="button"
+                                class="pe-chat-mode-option"
+                                x-bind:data-active="$wire.chatMode === 'edit' || undefined"
+                                x-on:click="$wire.set('chatMode', 'edit', false)"
+                            >{{ __('Edit') }}</button>
+                            <button
+                                type="button"
+                                class="pe-chat-mode-option"
+                                x-bind:data-active="$wire.chatMode === 'ask' || undefined"
+                                x-on:click="$wire.set('chatMode', 'ask', false)"
+                            >{{ __('Ask') }}</button>
+                        </div>
 
                         <button
                             type="button"
@@ -358,6 +472,58 @@
              an inspector that disappears is the problem, an inspector with
              nothing to say is just a missed opportunity. --}}
         <div class="pe-pane pe-inspector">
+            {{-- The page's structure at a glance — Wix's "layers" lesson,
+                 sized to a flat block list. Click selects (same verb as the
+                 canvas); the arrows are the reorder path that works from a
+                 keyboard or a touchscreen, which the canvas's native HTML5
+                 drag never will. A <details>, so collapsing it is free and
+                 keyboard-accessible without any script. --}}
+            @if ($this->blocks !== [])
+                <details class="pe-outline" open>
+                    <summary class="pe-outline-summary">{{ __('Page structure') }}</summary>
+
+                    <ol class="pe-outline-list">
+                        @foreach ($this->blockOutline() as $entry)
+                            <li
+                                class="pe-outline-row"
+                                wire:key="outline-{{ $entry['key'] }}"
+                                @if ($entry['key'] === $this->selectedBlockKey) data-active @endif
+                            >
+                                <button
+                                    type="button"
+                                    class="pe-outline-select"
+                                    wire:click="selectBlock('{{ $entry['key'] }}')"
+                                >
+                                    <span class="pe-outline-label">{{ $entry['label'] }}</span>
+                                    @if ($entry['snippet'] !== null)
+                                        <span class="pe-outline-snippet">{{ $entry['snippet'] }}</span>
+                                    @endif
+                                </button>
+
+                                <span class="pe-outline-verbs">
+                                    <button
+                                        type="button"
+                                        class="pe-outline-verb"
+                                        title="{{ __('Move up') }}"
+                                        wire:click="moveBlock('{{ $entry['key'] }}', -1)"
+                                        wire:loading.attr="disabled"
+                                        @disabled($loop->first)
+                                    >↑</button>
+                                    <button
+                                        type="button"
+                                        class="pe-outline-verb"
+                                        title="{{ __('Move down') }}"
+                                        wire:click="moveBlock('{{ $entry['key'] }}', 1)"
+                                        wire:loading.attr="disabled"
+                                        @disabled($loop->last)
+                                    >↓</button>
+                                </span>
+                            </li>
+                        @endforeach
+                    </ol>
+                </details>
+            @endif
+
             @if ($this->selectedBlock() === null)
                 <p class="pe-heading">{{ __('Page') }}</p>
 
@@ -422,26 +588,67 @@
         </div>{{-- /.pe-layout --}}
 
         {{-- The block library. Opened either by the chat composer's "+" (no
-             position — appends) or by a canvas insert line (inserts there). --}}
+             position — appends) or by a canvas insert line (inserts there).
+
+             Grouped by intent (BlockIntent) with a live thumbnail per type:
+             each card's iframe renders that block's sample content through the
+             site's own theme, so choosing a section means seeing it in the
+             site's palette rather than decoding an icon. The iframes mount
+             only once the modal has been opened (`libraryLoaded`, a one-way
+             latch in editor.ts) — fifteen documents must not load behind a
+             modal nobody has asked for. --}}
         <x-filament::modal
             :id="\App\Filament\Tenant\Resources\PageResource\Pages\PageEditor::BLOCK_LIBRARY_MODAL"
-            width="2xl"
+            width="4xl"
             :heading="__('Add a block')"
             :description="$this->pendingInsertPosition === null
                 ? __('It is added at the end of the page.')
                 : __('It is inserted where you clicked on the page.')"
         >
             <div class="pe-library">
-                @foreach ($this->blockLibrary() as $type => $entry)
-                    <x-filament::button
-                        color="gray"
-                        size="sm"
-                        :icon="$entry['icon'] === null ? null : 'heroicon-' . $entry['icon']"
-                        wire:loading.attr="disabled"
-                        :wire:click="'addBlock(\'' . $type . '\')'"
-                    >
-                        {{ $entry['label'] }}
-                    </x-filament::button>
+                @foreach ($this->blockLibraryGroups() as $intent => $group)
+                    <section class="pe-library-group" wire:key="library-{{ $intent }}">
+                        <h3 class="pe-library-group-title">{{ $group['label'] }}</h3>
+
+                        <div class="pe-library-grid">
+                            @foreach ($group['types'] as $type => $entry)
+                                <button
+                                    type="button"
+                                    class="pe-library-card"
+                                    wire:key="library-card-{{ $type }}"
+                                    wire:loading.attr="disabled"
+                                    wire:click="addBlock('{{ $type }}')"
+                                >
+                                    {{-- Inert picture: no keyboard stop, no
+                                         announcement — the card button is the
+                                         control, the title names it. The URL
+                                         deliberately omits the preview version:
+                                         the sample does not change as the page
+                                         is edited, and carrying `v` reloaded
+                                         every thumbnail on every keystroke. --}}
+                                    <span class="pe-library-thumb">
+                                        <template x-if="libraryLoaded">
+                                            <iframe
+                                                src="{{ route('page-editor.preview', ['token' => $this->previewToken, 'sample' => $type]) }}"
+                                                loading="lazy"
+                                                tabindex="-1"
+                                                aria-hidden="true"
+                                            ></iframe>
+                                        </template>
+                                    </span>
+
+                                    <span class="pe-library-card-title">
+                                        @if ($entry['icon'] !== null)
+                                            <x-filament::icon :icon="'heroicon-' . $entry['icon']" class="pe-library-card-icon" />
+                                        @endif
+                                        {{ $entry['label'] }}
+                                    </span>
+
+                                    <span class="pe-library-card-desc">{{ $entry['description'] }}</span>
+                                </button>
+                            @endforeach
+                        </div>
+                    </section>
                 @endforeach
             </div>
         </x-filament::modal>

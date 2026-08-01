@@ -23,6 +23,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property ChatRole $role
  * @property string $content
  * @property int|null $changed_blocks
+ * @property bool $failed
+ * @property array<int, array{type: string, data: array<string, mixed>}>|null $blocks_before
+ * @property list<string>|null $activity
  *
  * @method static PageChatMessageFactory factory($count = null, $state = [])
  */
@@ -74,6 +77,9 @@ final class PageChatMessage extends Model
     {
         return [
             'role' => ChatRole::class,
+            'failed' => 'boolean',
+            'blocks_before' => 'array',
+            'activity' => 'array',
         ];
     }
 }

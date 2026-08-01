@@ -11,6 +11,7 @@ use App\Ai\PageDraft;
 use App\Ai\Prompts\PageEditPrompt;
 use App\Ai\SiteChromeDraft;
 use App\Ai\SiteStyleDraft;
+use App\Enums\ChatMode;
 use App\Enums\ChatRole;
 use App\Enums\ChromeSlot;
 use App\Models\Business;
@@ -27,6 +28,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Laravel\Ai\Streaming\Events\TextDelta;
 use Laravel\Ai\Streaming\Events\ToolCall;
+use Laravel\Ai\Streaming\Events\ToolResult;
 use RuntimeException;
 use Throwable;
 
@@ -91,6 +93,15 @@ final readonly class ChatEditPage
      * @param  list<array{key: string, type: string, data: array<string, mixed>}>  $blocks  the editor's current draft
      * @param  (Closure(string): void)|null  $onDelta  called with each chunk of the reply as it arrives
      * @param  (Closure(string): void)|null  $onActivity  called with one line per tool call, as it is announced
+     * @param  string|null  $selectedBlockKey  the block selected on the canvas when the turn
+     *                                         was dispatched — the referent for requests that
+     *                                         name no section (see PageEditPrompt)
+     * @param  (Closure(list<array{key: string, type: string, data: array<string, mixed>}>): void)|null  $onEdit  called with the draft's current blocks after
+     *                                                                                                            each tool finishes — what lets the canvas
+     *                                                                                                            repaint edit by edit instead of once at the end
+     * @param  ChatMode  $mode  Ask runs the turn with no tools at all, so it can
+     *                          answer questions with a structural guarantee of
+     *                          changing nothing
      * @return array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, reply: string, failed: bool, design: array<string, string|null>|null, chrome: array<string, array{type: string, data: array<string, mixed>}>|null}
      */
     public function handle(
@@ -100,6 +111,9 @@ final readonly class ChatEditPage
         ?User $user = null,
         ?Closure $onDelta = null,
         ?Closure $onActivity = null,
+        ?string $selectedBlockKey = null,
+        ?Closure $onEdit = null,
+        ChatMode $mode = ChatMode::Edit,
     ): array {
         // Hand the time budget to TURN_BUDGET_SECONDS instead: PHP's own limit
         // can only fail as an uncatchable fatal, and the default 30s is shorter
@@ -125,8 +139,22 @@ final readonly class ChatEditPage
         // edit to appear in.
         $chrome = $business instanceof Business ? new SiteChromeDraft($this->savedChrome()) : null;
 
+        // Captured here as well as forwarded: the lines land on the reply row,
+        // so the agent's conversation memory carries WHAT it changed — its
+        // prose routinely under-describes its own edits.
+        /** @var list<string> $activity */
+        $activity = [];
+
+        $captureActivity = function (string $line) use (&$activity, $onActivity): void {
+            $activity[] = $line;
+
+            if ($onActivity instanceof Closure) {
+                $onActivity($line);
+            }
+        };
+
         try {
-            $reply = $this->ask($page, $draft, $style, $chrome, $message, $onDelta, $onActivity);
+            $reply = $this->ask($page, $draft, $style, $chrome, $message, $onDelta, $captureActivity, $selectedBlockKey, $onEdit, $mode);
         } catch (Throwable $throwable) {
             Log::error('page_chat.failed', [
                 'page_id' => $page->id,
@@ -135,7 +163,7 @@ final readonly class ChatEditPage
 
             $reply = __("Sorry — I couldn't reach the assistant just then. Your page is unchanged; please try again.");
 
-            $this->record($page, $user, ChatRole::Assistant, $reply);
+            $this->record($page, $user, ChatRole::Assistant, $reply, failed: true);
 
             // `design` and `chrome` are explicitly null, not merely absent: a turn
             // that chose a palette or rewrote the navigation and then died must not
@@ -147,7 +175,10 @@ final readonly class ChatEditPage
         $edited = $draft->blocks();
         $changed = $this->changed->count($blocks, $edited);
 
-        $this->record($page, $user, ChatRole::Assistant, $reply, $changed);
+        // The apology path above deliberately records NO activity: a failed
+        // turn's edits were discarded, and "edits you made" lines describing
+        // them would feed the model a memory of changes that never landed.
+        $this->record($page, $user, ChatRole::Assistant, $reply, $changed, activity: $activity);
 
         return [
             'blocks' => $edited,
@@ -169,7 +200,7 @@ final readonly class ChatEditPage
      * operator's own turns are NOT rendered — their text is theirs, shown
      * verbatim and escaped.
      *
-     * @return list<array{role: string, content: string, html: string|null, changed: bool}>
+     * @return list<array{id: int, role: string, content: string, html: string|null, changed: bool, failed: bool, revertible: bool}>
      */
     public function transcript(Page $page): array
     {
@@ -189,10 +220,15 @@ final readonly class ChatEditPage
 
         foreach ($entries as $entry) {
             $transcript[] = [
+                // The id is what the revert button addresses; harmless on
+                // every other row.
+                'id' => (int) $entry->id,
                 'role' => $entry->role->value,
                 'content' => $entry->content,
                 'html' => $entry->role === ChatRole::Assistant ? $this->markdown($entry->content) : null,
                 'changed' => $entry->changedThePage(),
+                'failed' => $entry->failed,
+                'revertible' => $entry->blocks_before !== null,
             ];
         }
 
@@ -250,7 +286,7 @@ final readonly class ChatEditPage
      * @param  (Closure(string): void)|null  $onDelta
      * @param  (Closure(string): void)|null  $onActivity
      */
-    private function ask(Page $page, PageDraft $draft, ?SiteStyleDraft $style, ?SiteChromeDraft $chrome, string $message, ?Closure $onDelta, ?Closure $onActivity = null): string
+    private function ask(Page $page, PageDraft $draft, ?SiteStyleDraft $style, ?SiteChromeDraft $chrome, string $message, ?Closure $onDelta, ?Closure $onActivity = null, ?string $selectedBlockKey = null, ?Closure $onEdit = null, ChatMode $mode = ChatMode::Edit): string
     {
         $prompt = new PageEditPrompt(
             $page,
@@ -261,13 +297,20 @@ final readonly class ChatEditPage
             $this->site,
             $style,
             $chrome,
+            $selectedBlockKey,
         );
 
         // Started before the first request, not after: the slowest turns are the
         // ones where step one already takes too long.
         $deadline = now()->addSeconds(self::TURN_BUDGET_SECONDS);
 
-        $response = new PageEditorAgent($draft, $page, $style, $chrome)->stream((string) $prompt);
+        // The failover chain (ai.failover): with a fallback provider configured,
+        // a turn whose PRIMARY refuses to even start (down, rate-limited, bad
+        // key) silently retries there instead of costing the operator the whole
+        // turn. A stream that has already emitted cannot fail over — the SDK
+        // rethrows then, and the catch in handle() apologises as before.
+        $response = new PageEditorAgent($draft, $page, $style, $chrome, $mode)
+            ->stream((string) $prompt, provider: config()->array('ai.failover'));
 
         foreach ($response as $event) {
             // Between events is the only place a turn can be stopped: tools run
@@ -297,6 +340,13 @@ final readonly class ChatEditPage
                     $onActivity($line);
                 }
             }
+
+            // On the RESULT, not the call: ToolCall is announced before the tool
+            // runs, so the draft only holds the edit once its result comes back —
+            // painting on the call would show the state from one edit ago.
+            if ($event instanceof ToolResult && $onEdit instanceof Closure) {
+                $onEdit($draft->blocks());
+            }
         }
 
         // `text` is only populated once the iteration above completes, and stays
@@ -323,8 +373,11 @@ final readonly class ChatEditPage
         ]);
     }
 
-    private function record(Page $page, ?User $user, ChatRole $role, string $content, ?int $changed = null): void
+    /**
+     * @param  list<string>|null  $activity
+     */
+    private function record(Page $page, ?User $user, ChatRole $role, string $content, ?int $changed = null, bool $failed = false, ?array $activity = null): void
     {
-        $this->transcript->handle($page, $user, $role, $content, $changed);
+        $this->transcript->handle($page, $user, $role, $content, $changed, $failed, $activity);
     }
 }

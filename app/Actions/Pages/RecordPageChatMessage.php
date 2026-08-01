@@ -35,8 +35,15 @@ final readonly class RecordPageChatMessage
      *                             "this answer touched nothing", which is what keeps
      *                             {@see PageChatMessage::changedThePage()} false and
      *                             the "edited the page" badge undrawn.
+     * @param  bool  $failed  whether this assistant turn is the apology for a turn
+     *                        that never finished — what the transcript's retry
+     *                        button renders from
+     * @param  list<string>|null  $activity  the turn's tool-call summary lines, so the
+     *                                       agent's memory carries what it changed;
+     *                                       an empty list stores as null — "made no
+     *                                       edits" needs no annotation
      */
-    public function handle(Page $page, ?User $user, ChatRole $role, string $content, ?int $changed = null): PageChatMessage
+    public function handle(Page $page, ?User $user, ChatRole $role, string $content, ?int $changed = null, bool $failed = false, ?array $activity = null): PageChatMessage
     {
         return PageChatMessage::query()->create([
             'tenant_id' => $page->tenant_id,
@@ -45,6 +52,8 @@ final readonly class RecordPageChatMessage
             'role' => $role,
             'content' => $content,
             'changed_blocks' => $changed,
+            'failed' => $failed,
+            'activity' => $activity === [] ? null : $activity,
         ]);
     }
 

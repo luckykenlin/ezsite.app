@@ -12,13 +12,13 @@
     <div class="mx-auto grid max-w-7xl items-center gap-12 px-6 md:grid-cols-2">
         <div>
             @if ($eyebrow)
-                <p class="mb-4 text-sm font-semibold uppercase tracking-widest text-primary">{{ $eyebrow }}</p>
+                <p data-editor-field="eyebrow" class="mb-4 text-sm font-semibold uppercase tracking-widest text-primary">{{ $eyebrow }}</p>
             @endif
 
-            <h1 class="text-balance text-4xl font-bold tracking-tight md:text-5xl">{{ $heading }}</h1>
+            <h1 data-editor-field="heading" class="text-balance text-4xl font-bold tracking-tight md:text-5xl">{{ $heading }}</h1>
 
             @if ($subheading)
-                <p class="mt-6 text-lg text-base-content/70">{{ $subheading }}</p>
+                <p data-editor-field="subheading" class="mt-6 text-lg text-base-content/70">{{ $subheading }}</p>
             @endif
 
             @if ($cta_label && $cta_url)

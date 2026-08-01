@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Fabricator\PageBlocks;
 
 use App\Filament\Fabricator\Fields\ImageInput;
+use App\Site\Blocks\BlockIntent;
 use Filament\Forms\Components\Field;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Textarea;
@@ -22,6 +23,8 @@ final class Testimonials extends Block
     protected static string $description = 'What customers said, in their own words, with attribution. Never write these yourself: a quote nobody said is a fabricated fact.';
 
     protected static ?Heroicon $icon = Heroicon::OutlinedChatBubbleLeftRight;
+
+    protected static ?BlockIntent $intent = BlockIntent::Trust;
 
     /**
      * @var array<string, mixed>

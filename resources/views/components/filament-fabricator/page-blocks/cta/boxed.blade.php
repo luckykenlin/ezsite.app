@@ -12,10 +12,10 @@
     <div class="mx-auto max-w-5xl px-6">
         <div class="card bg-base-200">
             <div class="card-body items-center gap-4 py-12 text-center">
-                <h2 class="card-title text-balance text-3xl tracking-tight md:text-4xl">{{ $heading }}</h2>
+                <h2 data-editor-field="heading" class="card-title text-balance text-3xl tracking-tight md:text-4xl">{{ $heading }}</h2>
 
                 @if ($body)
-                    <p class="max-w-2xl text-lg text-base-content/70">{{ $body }}</p>
+                    <p data-editor-field="body" class="max-w-2xl text-lg text-base-content/70">{{ $body }}</p>
                 @endif
 
                 <div class="card-actions mt-4 justify-center">

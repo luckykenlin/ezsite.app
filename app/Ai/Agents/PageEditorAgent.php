@@ -25,6 +25,7 @@ use App\Ai\Tools\SetBlockVariant;
 use App\Ai\Tools\SetSiteStyle;
 use App\Ai\Tools\UpdateBlockContent;
 use App\Ai\Tools\UpdateChrome;
+use App\Enums\ChatMode;
 use App\Enums\ChatRole;
 use App\Models\Page;
 use App\Models\PageChatMessage;
@@ -32,6 +33,7 @@ use App\Site\Blocks\BlockVocabulary;
 use Laravel\Ai\Attributes\MaxSteps;
 use Laravel\Ai\Attributes\Temperature;
 use Laravel\Ai\Attributes\Timeout;
+use Laravel\Ai\Attributes\UseCheapestModel;
 use Laravel\Ai\Contracts\Agent;
 use Laravel\Ai\Contracts\Conversational;
 use Laravel\Ai\Contracts\HasTools;
@@ -59,10 +61,19 @@ use Laravel\Ai\Promptable;
  * fans out into a tool call per block, but a model looping on a rejected
  * argument must terminate. Low temperature for the same reason as the draft
  * agent — tool arguments must be exact field names, not creative ones.
+ *
+ * `UseCheapestModel` because a chat turn is the latency-sensitive tier: the
+ * operator watches it run, and its hard part is exact tool arguments (which
+ * temperature and the vocabulary already pin down), not deep reasoning —
+ * contrast {@see SiteDraftAgent}, which composes a whole site once and gets
+ * the smartest tier. Which model "cheapest" means stays a per-provider
+ * config concern (`ai.providers.*.models.text.cheapest`), so swapping
+ * providers remains a .env change.
  */
 #[Temperature(0.2)]
 #[MaxSteps(12)]
 #[Timeout(120)]
+#[UseCheapestModel]
 final readonly class PageEditorAgent implements Agent, Conversational, HasTools
 {
     use Promptable;
@@ -146,6 +157,18 @@ final readonly class PageEditorAgent implements Agent, Conversational, HasTools
         .'sentence naming what you are about to do before your first tool call, then do it.';
 
     /**
+     * The Ask-mode overlay on the base instructions. An overlay rather than a
+     * separate persona: everything about scope, facts and tone still applies —
+     * what changes is only that this turn ANSWERS instead of acting.
+     */
+    private const string ASK_INSTRUCTIONS = "\n\n"
+        .'THIS TURN IS ADVISORY. The operator switched you to Ask mode: you have no tools, and '
+        .'you must not change anything or claim to have changed anything. Answer their question '
+        .'about this page, suggest concrete improvements they could ask for, and where a '
+        .'suggestion is actionable, say they can switch back to Edit mode and ask you to do it. '
+        .'Everything else above still applies — the scope, the facts you may state, the tone.';
+
+    /**
      * @param  PageDraft  $draft  the shared working copy every tool mutates
      * @param  SiteStyleDraft|null  $style  the turn's staged site style; null when
      *                                      the tenant has no Business profile, which
@@ -153,24 +176,35 @@ final readonly class PageEditorAgent implements Agent, Conversational, HasTools
      * @param  SiteChromeDraft|null  $chrome  the turn's staged header/footer; null on
      *                                        the same condition, since a tenant with
      *                                        no Business renders no chrome at all
+     * @param  ChatMode  $mode  Ask withholds the whole tool roster, so a turn in
+     *                          that mode structurally cannot change the page
      */
     public function __construct(
         private PageDraft $draft,
         private Page $page,
         private ?SiteStyleDraft $style = null,
         private ?SiteChromeDraft $chrome = null,
+        private ChatMode $mode = ChatMode::Edit,
     ) {
         //
     }
 
     public function instructions(): string
     {
-        return self::INSTRUCTIONS;
+        return $this->mode->edits()
+            ? self::INSTRUCTIONS
+            : self::INSTRUCTIONS.self::ASK_INSTRUCTIONS;
     }
 
     /**
      * The page's transcript, oldest first. RLS scopes the query to the current
      * tenant; the page id scopes it to this thread.
+     *
+     * Assistant turns that edited the page carry their tool-call summary lines
+     * appended in a bracketed footer: the prose alone routinely under-describes
+     * the edits ("Done." after a three-block rewrite), and a model that cannot
+     * recall removing a section is a model that re-adds it. The footer is
+     * memory-only — the panel renders the stored content, never this.
      *
      * @return iterable<int, Message>
      */
@@ -182,10 +216,18 @@ final readonly class PageEditorAgent implements Agent, Conversational, HasTools
             ->limit(self::HISTORY_LIMIT)
             ->get()
             ->reverse()
-            ->map(fn (PageChatMessage $message): Message => new Message(
-                $message->role === ChatRole::User ? 'user' : 'assistant',
-                $message->content,
-            ))
+            ->map(function (PageChatMessage $message): Message {
+                $content = $message->content;
+
+                if ($message->role === ChatRole::Assistant && $message->activity !== null && $message->activity !== []) {
+                    $content .= "\n[Edits you made that turn: ".implode('; ', $message->activity).']';
+                }
+
+                return new Message(
+                    $message->role === ChatRole::User ? 'user' : 'assistant',
+                    $content,
+                );
+            })
             ->values()
             ->all();
     }
@@ -201,6 +243,13 @@ final readonly class PageEditorAgent implements Agent, Conversational, HasTools
      */
     public function tools(): iterable
     {
+        // Ask mode: no tools at all. "This turn changes nothing" is enforced
+        // by the roster, not requested by the prompt — a model cannot call a
+        // verb it was never given.
+        if (! $this->mode->edits()) {
+            return [];
+        }
+
         $sanitizer = resolve(BlockDataSanitizer::class);
         $vocabulary = resolve(BlockVocabulary::class);
         $update = resolve(UpdatePageBlock::class);

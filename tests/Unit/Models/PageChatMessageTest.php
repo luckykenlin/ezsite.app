@@ -56,6 +56,24 @@ it('casts the role to the enum', function (): void {
     expect(chatMessage(['role' => ChatRole::Assistant])->role)->toBe(ChatRole::Assistant);
 });
 
+it('casts failure to a boolean, defaulting to a turn that succeeded', function (): void {
+    expect(chatMessage(['failed' => true])->failed)->toBeTrue()
+        ->and(chatMessage()->failed)->toBeFalse();
+});
+
+it('casts the revert point to an array, defaulting to none', function (): void {
+    $pinned = [['type' => 'hero', 'data' => ['heading' => 'Before']]];
+
+    expect(chatMessage(['blocks_before' => $pinned])->blocks_before)->toBe($pinned)
+        ->and(chatMessage()->blocks_before)->toBeNull();
+});
+
+it('casts the tool-call summary to an array, defaulting to none', function (): void {
+    expect(chatMessage(['activity' => ['Rewriting the Hero block…']])->activity)
+        ->toBe(['Rewriting the Hero block…'])
+        ->and(chatMessage()->activity)->toBeNull();
+});
+
 it('knows whether the turn changed the page', function (?int $changed, bool $expected): void {
     expect(chatMessage(['changed_blocks' => $changed])->changedThePage())->toBe($expected);
 })->with([
@@ -103,6 +121,9 @@ it('to array', function (): void {
         'role',
         'content',
         'changed_blocks',
+        'failed',
+        'blocks_before',
+        'activity',
         'created_at',
         'updated_at',
     ]);

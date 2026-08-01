@@ -20,6 +20,7 @@ import {
     readChatFrame,
     STREAM_END,
 } from './chat';
+import { renderStreamingMarkdown } from './markdown';
 import {
     type CanvasMessage,
     type EditorMessage,
@@ -37,7 +38,6 @@ interface PageEditorConfig {
         library: string;
     };
     labels: {
-        confirmRemove: string;
         confirmLeave: string;
         /** Shown in the order they are declared, as the turn passes each mark. */
         chatLeaveHint: string;
@@ -66,6 +66,7 @@ interface EditorWire {
     selectBlock(key: string): Promise<unknown>;
     deselectBlock(): void;
     removeBlock(key: string): void;
+    mountAction(name: string, args?: Record<string, unknown>): Promise<unknown>;
     moveBlock(key: string, offset: number): void;
     duplicateBlock(key: string): void;
     reorderBlocks(keys: string[]): void;
@@ -112,6 +113,8 @@ interface PageEditorComponent extends AlpineInjected {
     chatPending: string;
     /** The reply as it streams in, owned here rather than by Livewire. */
     chatStream: string;
+    /** The streaming reply as sanitised HTML — see markdown.ts. */
+    chatStreamHtml(): string;
     /** What the turn has done so far, one line per tool call. */
     chatActivity: string[];
     /** Seconds the turn in flight has been running; 0 when idle. */
@@ -120,12 +123,14 @@ interface PageEditorComponent extends AlpineInjected {
     chatHint(): string;
     openChatStream(token: string): void;
     closeChatStream(): void;
+    refreshCanvasStep(step: string): void;
     startChatClock(elapsed: number): void;
     stopChatClock(): void;
     fitLayout(): void;
     onComposerEnter(event: KeyboardEvent): void;
     useSuggestion(text: string): void;
     sendChat(): void;
+    sendChip(text: string): void;
     stopChat(): void;
     scrollChatToEnd(): void;
     reload(url: string): void;
@@ -137,8 +142,15 @@ interface PageEditorComponent extends AlpineInjected {
     inField(target: EventTarget | null): boolean;
     /** Whether the block library is over the canvas, swallowing key verbs. */
     libraryOpen: boolean;
+    /**
+     * One-way latch: true once the library has been opened, never reset. The
+     * thumbnail iframes mount off it, so fifteen documents load on the first
+     * open — not at page load behind a closed modal, and not again on every
+     * reopen.
+     */
+    libraryLoaded: boolean;
     modalOpen(): boolean;
-    grantInlineEdit(text: string): void;
+    grantInlineEdit(text: string, preferred?: string): void;
     onModalOpened(event: CustomEvent): void;
     onModalClosed(event: CustomEvent): void;
     onMessage(event: MessageEvent): void;
@@ -194,6 +206,15 @@ export function pageEditor(
      */
     let pendingHighlight: string[] = [];
 
+    /**
+     * Monotonic ticket for patch(): only the NEWEST in-flight fragment fetch
+     * may paint or trigger the fallback reload. Debounced field edits can put
+     * two fetches for the same block in flight, and without this the slower
+     * (staler) response painted last — which reads as typed text un-typing
+     * itself.
+     */
+    let patchTicket = 0;
+
     return {
         device: 'desktop',
         zoom: 1,
@@ -210,6 +231,7 @@ export function pageEditor(
         chatActivity: [],
         chatElapsed: 0,
         libraryOpen: false,
+        libraryLoaded: false,
 
         /**
          * The chat is the surface you reach for occasionally, so it is the one
@@ -275,6 +297,27 @@ export function pageEditor(
         useSuggestion(this: PageEditorComponent, text: string): void {
             this.$wire.set('chatInput', text, false);
             this.$refs.chatInput.focus();
+        },
+
+        /**
+         * Fire a refinement chip: a pre-templated, block-scoped turn, sent as
+         * if typed. Unlike useSuggestion() this SENDS — a chip is a decision,
+         * not a draft — and it goes through sendChat() so the stream opens and
+         * the sending state runs exactly like a hand-written turn.
+         *
+         * The mode is forced to Edit in the same deferred write: every chip
+         * asks for a change, and honouring an Ask toggle here would produce a
+         * turn that describes the edit instead of making it. The toggle
+         * visibly flips, which is the honest half of overriding it.
+         */
+        sendChip(this: PageEditorComponent, text: string): void {
+            if (this.chatSending) {
+                return;
+            }
+
+            this.$wire.set('chatMode', 'edit', false);
+            this.$wire.set('chatInput', text, false);
+            this.sendChat();
         },
 
         /**
@@ -381,6 +424,15 @@ export function pageEditor(
                     return;
                 }
 
+                // The turn repainted the preview: reload the iframe so the
+                // operator watches the page assemble edit by edit. Nothing to
+                // scroll — this frame owns no chat bubble.
+                if (frame.t === 'canvas') {
+                    this.refreshCanvasStep(frame.v);
+
+                    return;
+                }
+
                 if (frame.t === 'activity') {
                     this.chatActivity.push(frame.v);
                 } else {
@@ -401,6 +453,26 @@ export function pageEditor(
                 chatSource.close();
                 chatSource = null;
             }
+        },
+
+        /**
+         * Reload the canvas with a mid-turn paint. The content already sits in
+         * the preview cache (the worker swapped it in); the step only busts the
+         * iframe's cache so the reload actually fetches. reload() keeps the
+         * scroll position, so successive paints read as the page updating in
+         * place rather than jumping to the top.
+         */
+        refreshCanvasStep(this: PageEditorComponent, step: string): void {
+            const src = this.$refs.canvas.src;
+
+            if (!src) {
+                return;
+            }
+
+            const url = new URL(src, window.location.href);
+
+            url.searchParams.set('live', step);
+            this.reload(url.toString());
         },
 
         /**
@@ -433,6 +505,16 @@ export function pageEditor(
         /** The clock as `m:ss`. */
         chatElapsedLabel(this: PageEditorComponent): string {
             return chatElapsedLabel(this.chatElapsed);
+        },
+
+        /**
+         * The streaming reply with its markdown applied, so formatting appears
+         * while the answer types instead of snapping in when the final
+         * server-rendered transcript replaces this bubble. Everything is
+         * escaped first — the only tags are the renderer's own.
+         */
+        chatStreamHtml(this: PageEditorComponent): string {
+            return renderStreamingMarkdown(this.chatStream);
         },
 
         /**
@@ -526,11 +608,16 @@ export function pageEditor(
             return key && !isChromeKey(key) ? key : null;
         },
 
+        /**
+         * Removal confirms through a mounted Filament action, not a native
+         * confirm(): same dialog chrome as the rest of the panel, and while it
+         * is mounted the canvas keyboard verbs are gated by modalOpen().
+         */
         removeSelected(this: PageEditorComponent): void {
             const key = this.selectedPageBlockKey();
 
-            if (key && confirm(config.labels.confirmRemove)) {
-                this.$wire.removeBlock(key);
+            if (key) {
+                void this.$wire.mountAction('removeBlock', { key });
             }
         },
 
@@ -565,14 +652,41 @@ export function pageEditor(
         },
 
         /**
-         * Hand the canvas the field to make editable — but only when the
-         * double-clicked text EXACTLY matches one of the selected block's
-         * string draft fields, so the edit always writes back to a known
-         * field rather than to whatever the click happened to land on.
+         * Hand the canvas the field to make editable, or tell it the request
+         * cannot be honoured (so it can say so — a double-click that silently
+         * does nothing reads as broken).
+         *
+         * Two resolution paths, in order of trust: a `data-editor-field`
+         * annotation from the block's own view is deterministic and wins;
+         * otherwise the clicked text is matched against the selected block's
+         * string draft fields — whitespace-NORMALISED on both sides, because
+         * the rendered text and the stored value legitimately differ in
+         * wrapping (`text-balance`, a template's indentation) without
+         * differing in content.
          */
-        grantInlineEdit(this: PageEditorComponent, text: string): void {
+        grantInlineEdit(
+            this: PageEditorComponent,
+            text: string,
+            preferred?: string,
+        ): void {
             const draft = this.$wire.data?.block ?? {};
-            const needle = text.trim();
+
+            if (
+                preferred !== undefined &&
+                isFieldName(preferred) &&
+                typeof draft[preferred] === 'string'
+            ) {
+                this.postToCanvas({
+                    type: 'inline-edit-grant',
+                    field: preferred,
+                });
+
+                return;
+            }
+
+            const normalise = (value: string): string =>
+                value.replace(/\s+/g, ' ').trim();
+            const needle = normalise(text);
 
             const match =
                 needle === ''
@@ -580,7 +694,7 @@ export function pageEditor(
                     : Object.entries(draft).find(
                           ([, value]) =>
                               typeof value === 'string' &&
-                              value.trim() === needle,
+                              normalise(value) === needle,
                       );
 
             if (match) {
@@ -588,13 +702,18 @@ export function pageEditor(
                     type: 'inline-edit-grant',
                     field: match[0],
                 });
+            } else {
+                this.postToCanvas({ type: 'inline-edit-deny' });
             }
         },
 
         onModalOpened(this: PageEditorComponent, event: CustomEvent): void {
             const id = modalId(event);
 
-            if (id === config.modals.library) this.libraryOpen = true;
+            if (id === config.modals.library) {
+                this.libraryOpen = true;
+                this.libraryLoaded = true;
+            }
         },
 
         onModalClosed(this: PageEditorComponent, event: CustomEvent): void {
@@ -648,11 +767,10 @@ export function pageEditor(
                     this.$wire.moveBlock(message.key, 1);
                 if (message.action === 'duplicate')
                     this.$wire.duplicateBlock(message.key);
-                if (
-                    message.action === 'remove' &&
-                    confirm(config.labels.confirmRemove)
-                ) {
-                    this.$wire.removeBlock(message.key);
+                if (message.action === 'remove') {
+                    void this.$wire.mountAction('removeBlock', {
+                        key: message.key,
+                    });
                 }
             }
 
@@ -678,16 +796,16 @@ export function pageEditor(
             }
 
             if (message.type === 'inline-edit-request') {
-                const { key, text } = message;
+                const { key, text, field } = message;
 
                 // The block has to be selected for its draft to be readable,
                 // but a double-click may land on one that is not.
                 if (key === this.$wire.selectedBlockKey) {
-                    this.grantInlineEdit(text);
+                    this.grantInlineEdit(text, field);
                 } else {
                     void this.$wire
                         .selectBlock(key)
-                        .then(() => this.grantInlineEdit(text));
+                        .then(() => this.grantInlineEdit(text, field));
                 }
             }
 
@@ -703,6 +821,22 @@ export function pageEditor(
             if (message.type === 'inline-commit') {
                 // Sync the right pane (skipRender left it stale while typing).
                 this.$wire.$refresh();
+            }
+
+            if (message.type === 'ask-ai') {
+                // The button lives on the selected block's toolbar, so this is
+                // normally a no-op — but selection is re-asserted rather than
+                // assumed, since the context chip and the prompt injection both
+                // read the server-side selection.
+                if (this.$wire.selectedBlockKey !== message.key) {
+                    void this.$wire.selectBlock(message.key);
+                }
+
+                if (!this.chatOpen) {
+                    this.toggleChat();
+                }
+
+                this.$nextTick(() => this.$refs.chatInput.focus());
             }
 
             if (message.type === 'shortcut') {
@@ -763,6 +897,8 @@ export function pageEditor(
             fallbackUrl: string,
             key: string,
         ): void {
+            const ticket = ++patchTicket;
+
             fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
                 .then((response) => {
                     if (!response.ok) {
@@ -771,8 +907,18 @@ export function pageEditor(
 
                     return response.text();
                 })
-                .then((html) => this.postToCanvas({ type: 'patch', key, html }))
-                .catch(() => this.reload(fallbackUrl));
+                .then((html) => {
+                    // A newer patch is in flight (or landed): this response is
+                    // stale — painting it would replace newer text with older.
+                    if (ticket === patchTicket) {
+                        this.postToCanvas({ type: 'patch', key, html });
+                    }
+                })
+                .catch(() => {
+                    if (ticket === patchTicket) {
+                        this.reload(fallbackUrl);
+                    }
+                });
         },
 
         init(this: PageEditorComponent): void {
@@ -822,6 +968,19 @@ export function pageEditor(
                     this.postToCanvas({ type: 'select', key, scroll });
                 },
             );
+            // "Share preview": the server mints the signed URL, the browser
+            // owns the clipboard. The prompt() fallback covers a denied
+            // clipboard permission — the link is still handed over, just less
+            // gracefully.
+            this.$wire.on(
+                'page-editor:copy-link',
+                ({ url }: { url: string }) => {
+                    void navigator.clipboard.writeText(url).catch(() => {
+                        window.prompt('Copy this link:', url);
+                    });
+                },
+            );
+
             // The turn is over — answered, failed, or given up on. This is the
             // only place the sending state clears, because the request that
             // started the turn returned long before it finished.

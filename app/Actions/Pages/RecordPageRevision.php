@@ -118,7 +118,10 @@ final readonly class RecordPageRevision
     }
 
     /**
-     * Drop everything past the limit, oldest first.
+     * Drop everything past the limit, oldest first — except NAMED versions,
+     * which the operator explicitly protected: the audit's pruning race ("a
+     * busy page can silently lose the version an operator meant to return to")
+     * is exactly what naming one is for.
      *
      * A delete driven by a subquery of the ids to KEEP, rather than an offset
      * delete: Postgres has no LIMIT on DELETE, and this is one statement.
@@ -134,6 +137,7 @@ final readonly class RecordPageRevision
         PageRevision::query()
             ->where('page_id', $page->id)
             ->whereNotIn('id', $keep)
+            ->whereNull('label')
             ->delete();
     }
 }

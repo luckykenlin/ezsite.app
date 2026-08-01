@@ -130,15 +130,23 @@ final readonly class SiteDraftPrompt implements Stringable
     private function briefSection(): string
     {
         return "## Brief\n"
-            .'Compose ONE home page for this business: a hero first, then 2–7 supporting '
+            .'Compose the HOME page (slug "/") for this business: a hero first, then 2–7 supporting '
             .'sections in a persuasive order (e.g. features, gallery, testimonials, contact, cta). '
             .'Include a contact section when the business has a location. '
             .'Use testimonials only if the profile provides real quotes — never fabricate them. '
             .'If the profile is sparse, STILL compose the full page: write neutral, '
             .'category-appropriate copy that makes no specific factual claims. '
             .'Never return an empty blocks list. '
-            .'Also write meta_description: one plain sentence (max 160 characters, no '
-            .'marketing punctuation runs) naming the business, what it does and its city '
+            ."\n\n"
+            .'Then, ONLY where the profile gives real material for one, add supporting pages from '
+            .'this fixed menu: "/about" (the story and the people), "/services" (what is offered, '
+            .'in depth), "/contact" (how to reach and find the business). Each needs at least 3 '
+            .'sections of substance — a page you would have to pad does not belong in the draft; '
+            .'a sparse profile means the home page alone, and that is a good draft too. Do not '
+            .'repeat the home page: a supporting page goes DEEPER on its one topic. '
+            ."\n\n"
+            .'For every page also write meta_description: one plain sentence (max 160 characters, no '
+            .'marketing punctuation runs) naming the business, what that page covers and its city '
             .'— this is the summary Google shows under the search result.';
     }
 

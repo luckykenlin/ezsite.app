@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Fabricator\PageBlocks;
 
+use App\Site\Blocks\BlockIntent;
 use Filament\Forms\Components\Field;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Textarea;
@@ -38,6 +39,8 @@ final class Faq extends Block
     protected static string $description = 'Questions customers actually ask, each with a short answer — delivery, parking, cancellations, what is included. Answer only from the business profile; an invented answer here is a promise the business has to keep.';
 
     protected static ?Heroicon $icon = Heroicon::OutlinedQuestionMarkCircle;
+
+    protected static ?BlockIntent $intent = BlockIntent::Trust;
 
     /**
      * @var array<string, string>

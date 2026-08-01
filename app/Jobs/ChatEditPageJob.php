@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Jobs;
 
 use App\Actions\Pages\CacheChatTurn;
+use App\Actions\Pages\CachePageEditorPreview;
 use App\Actions\Pages\ChatEditPage;
 use App\Actions\Pages\RecordPageChatMessage;
+use App\Enums\ChatMode;
 use App\Enums\ChatRole;
 use App\Models\Page;
 use App\Models\PageChatMessage;
@@ -54,6 +56,18 @@ final class ChatEditPageJob extends TenantAware
      *                                                                                      the payload: the page's stored blocks are
      *                                                                                      the last saved state and would discard
      *                                                                                      whatever is open on the canvas
+     * @param  string|null  $selectedBlockKey  the canvas selection at dispatch, so "make it
+     *                                         shorter" can mean the block the operator is
+     *                                         looking at. Public readonly like $tenantId,
+     *                                         because tests assert on the dispatched payload.
+     * @param  string|null  $previewToken  the editor session's canvas preview token. Carried so
+     *                                     the turn can repaint the canvas after every tool call
+     *                                     — the "watch it edit" half of the chat — by swapping
+     *                                     the blocks of the preview entry the editor already
+     *                                     published. Null keeps the old repaint-at-the-end
+     *                                     behaviour for callers with no canvas.
+     * @param  ChatMode  $mode  Ask withholds the tool roster — an advisory turn that
+     *                          structurally cannot change the page
      */
     public function __construct(
         string $tenantId,
@@ -62,6 +76,9 @@ final class ChatEditPageJob extends TenantAware
         private readonly string $message,
         private readonly string $token,
         private readonly array $blocks,
+        public readonly ?string $selectedBlockKey = null,
+        public readonly ?string $previewToken = null,
+        public readonly ChatMode $mode = ChatMode::Edit,
     ) {
         parent::__construct($tenantId);
     }
@@ -118,6 +135,7 @@ final class ChatEditPageJob extends TenantAware
 
         $reply = '';
         $lastWrite = null;
+        $painted = 0;
 
         /** @var list<string> $activity */
         $activity = [];
@@ -127,7 +145,7 @@ final class ChatEditPageJob extends TenantAware
             $this->blocks,
             $this->message,
             $user,
-            function (string $delta) use (&$reply, &$lastWrite, &$activity, $turns): void {
+            function (string $delta) use (&$reply, &$lastWrite, &$activity, &$painted, $turns): void {
                 $reply .= $delta;
 
                 if ($lastWrite instanceof CarbonImmutable && $lastWrite->diffInMilliseconds(now()) < self::PROGRESS_INTERVAL_MS) {
@@ -136,17 +154,39 @@ final class ChatEditPageJob extends TenantAware
 
                 $lastWrite = now();
 
-                $turns->handle($this->token, $reply, activity: $activity);
+                $turns->handle($this->token, $reply, activity: $activity, preview: $painted);
             },
             // NOT throttled, unlike the text above: a tool call is a rare event
             // (a dozen in the longest turn), and it is the only thing moving on
             // screen while the model works silently — delaying one by even the
             // 40ms above would be pure loss.
-            function (string $line) use (&$reply, &$activity, $turns): void {
+            function (string $line) use (&$reply, &$activity, &$painted, $turns): void {
                 $activity[] = $line;
 
-                $turns->handle($this->token, $reply, activity: $activity);
+                $turns->handle($this->token, $reply, activity: $activity, preview: $painted);
             },
+            $this->selectedBlockKey,
+            // After every tool: swap the canvas preview's blocks for the draft
+            // as it now stands and bump the paint counter, which the SSE tail
+            // turns into a "reload the canvas" frame. The editor's own state is
+            // untouched — the result still lands through applyTurn() as one
+            // undoable, unsaved transaction; this only moves the PICTURE.
+            function (array $blocks) use (&$reply, &$activity, &$painted, $turns): void {
+                if ($this->previewToken === null) {
+                    return;
+                }
+
+                // False = the editor never published a preview under this token
+                // (or it expired): nothing is on screen, so nothing to repaint.
+                if (! resolve(CachePageEditorPreview::class)->replaceBlocks($this->previewToken, $blocks)) {
+                    return;
+                }
+
+                $painted++;
+
+                $turns->handle($this->token, $reply, activity: $activity, preview: $painted);
+            },
+            $this->mode,
         );
 
         $turns->handle(
@@ -157,6 +197,7 @@ final class ChatEditPageJob extends TenantAware
             activity: $activity,
             design: $result['design'],
             chrome: $result['chrome'],
+            preview: $painted,
         );
     }
 
@@ -188,6 +229,6 @@ final class ChatEditPageJob extends TenantAware
         $transcript = resolve(RecordPageChatMessage::class);
 
         $transcript->question($page, $user, $this->message);
-        $transcript->handle($page, $user, ChatRole::Assistant, $apology, 0);
+        $transcript->handle($page, $user, ChatRole::Assistant, $apology, 0, failed: true);
     }
 }

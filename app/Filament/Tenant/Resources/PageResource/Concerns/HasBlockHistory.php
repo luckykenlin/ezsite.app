@@ -22,8 +22,8 @@ use Livewire\Attributes\Locked;
  * read.
  *
  * Expects the host to provide `$blocks`, `$selectedBlockKey`, `$designDraft`,
- * `$designDraftSource`, `pageRecord()`, `commitSelectedBlock()`,
- * `fillBlockForm()` and `markDirty()`.
+ * `$designDraftSource`, `$chrome`, `$chromeDirty`, `pageRecord()`,
+ * `commitSelectedBlock()`, `fillBlockForm()` and `markDirty()`.
  */
 trait HasBlockHistory
 {
@@ -125,7 +125,13 @@ trait HasBlockHistory
      * operator has just rejected, which is a state that never existed. It is
      * null for every hand edit, and reading a null back out is a no-op.
      *
-     * @return array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, selectedBlockKey: string|null, design: array<string, string|null>|null}
+     * `chrome` rides for the same reason it took years of one-way doors to
+     * earn: a bad header edit used to have NO undo — only "Discard draft",
+     * which also threw away every block edit. Snapshotting the whole chrome
+     * draft gives it exactly the semantics block FIELD edits have: they ride
+     * inside the next structural snapshot and step back with it.
+     *
+     * @return array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, selectedBlockKey: string|null, design: array<string, string|null>|null, chrome: array<string, array{type: string, data: array<string, mixed>}|null>, chromeDirty: bool}
      */
     private function currentSnapshot(): array
     {
@@ -133,11 +139,13 @@ trait HasBlockHistory
             'blocks' => $this->blocks,
             'selectedBlockKey' => $this->selectedBlockKey,
             'design' => $this->designDraft,
+            'chrome' => $this->chrome,
+            'chromeDirty' => $this->chromeDirty,
         ];
     }
 
     /**
-     * @return array{history: list<array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, selectedBlockKey: string|null, design: array<string, string|null>|null}>, future: list<array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, selectedBlockKey: string|null, design: array<string, string|null>|null}>}
+     * @return array{history: list<array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, selectedBlockKey: string|null, design: array<string, string|null>|null, chrome: array<string, array{type: string, data: array<string, mixed>}|null>|null, chromeDirty: bool}>, future: list<array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, selectedBlockKey: string|null, design: array<string, string|null>|null, chrome: array<string, array{type: string, data: array<string, mixed>}|null>|null, chromeDirty: bool}>}
      */
     private function historyStacks(): array
     {
@@ -148,8 +156,8 @@ trait HasBlockHistory
      * Persist both stacks and mirror their depths onto the component, which is the
      * only part of them the blade ever needed.
      *
-     * @param  list<array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, selectedBlockKey: string|null, design: array<string, string|null>|null}>  $history
-     * @param  list<array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, selectedBlockKey: string|null, design: array<string, string|null>|null}>  $future
+     * @param  list<array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, selectedBlockKey: string|null, design: array<string, string|null>|null, chrome: array<string, array{type: string, data: array<string, mixed>}|null>|null, chromeDirty: bool}>  $history
+     * @param  list<array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, selectedBlockKey: string|null, design: array<string, string|null>|null, chrome: array<string, array{type: string, data: array<string, mixed>}|null>|null, chromeDirty: bool}>  $future
      */
     private function writeHistory(array $history, array $future): void
     {
@@ -161,12 +169,20 @@ trait HasBlockHistory
     }
 
     /**
-     * @param  array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, selectedBlockKey: string|null, design: array<string, string|null>|null}  $entry
+     * @param  array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, selectedBlockKey: string|null, design: array<string, string|null>|null, chrome: array<string, array{type: string, data: array<string, mixed>}|null>|null, chromeDirty: bool}  $entry
      */
     private function restoreSnapshot(array $entry): void
     {
         $this->blocks = $entry['blocks'];
         $this->selectedBlockKey = $entry['selectedBlockKey'];
+
+        // Null only for a snapshot cached before chrome joined the shape (the
+        // normaliser's signal): restoring nothing beats inventing a default
+        // header the operator never had.
+        if ($entry['chrome'] !== null) {
+            $this->chrome = $entry['chrome'];
+            $this->chromeDirty = $entry['chromeDirty'];
+        }
 
         // Before markDirty(), which pushes the preview — pushPreview() reads
         // `$designDraft`, so restoring it here is what repaints the canvas in the

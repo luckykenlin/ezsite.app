@@ -19,7 +19,7 @@ const HINTS = {
  * which is most of a markdown reply.
  */
 describe('readChatFrame', () => {
-    it('reads both kinds of frame', () => {
+    it('reads all three kinds of frame', () => {
         expect(readChatFrame('{"t":"text","v":"Shortened it."}')).toEqual({
             t: 'text',
             v: 'Shortened it.',
@@ -28,6 +28,12 @@ describe('readChatFrame', () => {
         expect(
             readChatFrame('{"t":"activity","v":"Rewriting the Hero block…"}'),
         ).toEqual({ t: 'activity', v: 'Rewriting the Hero block…' });
+
+        // The mid-turn repaint signal; v is the paint counter, a cache-buster.
+        expect(readChatFrame('{"t":"canvas","v":"3"}')).toEqual({
+            t: 'canvas',
+            v: '3',
+        });
     });
 
     it('keeps newlines inside a frame', () => {

@@ -8,6 +8,7 @@ use App\Filament\Fabricator\BlockRegistry;
 use App\Models\Business;
 use App\Models\Location;
 use App\Models\Tenant;
+use App\Site\Blocks\BlockIntent;
 use App\Site\Blocks\BlockType;
 use App\Site\Blocks\BlockVocabulary;
 
@@ -45,6 +46,23 @@ it('enumerates every block contract in the vocabulary', function (): void {
         // is content-only and must declare no bind.
         ->and(array_keys(array_filter($vocabulary, fn (BlockType $contract): bool => $contract->bind instanceof BindType)))
         ->toEqualCanonicalizing(['header', 'contact', 'footer']);
+});
+
+/*
+ * The library groups by intent, and a page type without one is silently
+ * dropped from the modal — a block that quietly cannot be added, with no
+ * failure anywhere else. Chrome is the opposite: it is never in the library,
+ * so an intent there would suggest a grouping that does not exist.
+ */
+it('gives every page block a library intent, and chrome none', function (): void {
+    $vocabulary = resolve(BlockVocabulary::class);
+
+    expect(array_keys(array_filter(
+        $vocabulary->pageTypes(),
+        fn (BlockType $contract): bool => ! $contract->intent instanceof BlockIntent,
+    )))->toBeEmpty()
+        ->and($vocabulary->get('header')?->intent)->toBeNull()
+        ->and($vocabulary->get('footer')?->intent)->toBeNull();
 });
 
 it('separates the page-level types from site chrome', function (): void {

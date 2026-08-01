@@ -36,6 +36,8 @@ final readonly class BlockType
      * @param  list<string>  $fields  top-level authorable field names; see the
      *                                nesting caveat on {@see \App\Ai\BlockDataSanitizer}
      * @param  array<string, mixed>  $sample  ready-to-render placeholder content
+     * @param  BlockIntent|null  $intent  the block library group; null only for
+     *                                    chrome, which the library never offers
      */
     public function __construct(
         public string $type,
@@ -45,6 +47,7 @@ final readonly class BlockType
         public ?string $icon,
         public array $fields,
         public array $sample,
+        public ?BlockIntent $intent = null,
     ) {
         //
     }

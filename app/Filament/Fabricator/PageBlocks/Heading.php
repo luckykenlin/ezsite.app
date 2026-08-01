@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Fabricator\PageBlocks;
 
+use App\Site\Blocks\BlockIntent;
 use Filament\Forms\Components\Field;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -25,6 +26,8 @@ final class Heading extends Block
     protected static string $description = 'A bare section title used to break a long page into parts. It holds no body text — for a paragraph, use prose.';
 
     protected static ?Heroicon $icon = Heroicon::OutlinedH1;
+
+    protected static ?BlockIntent $intent = BlockIntent::Introduce;
 
     /**
      * @var array<string, mixed>

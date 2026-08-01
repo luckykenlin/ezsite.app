@@ -8,6 +8,7 @@ use App\Design\StylePreset;
 use App\Exceptions\SiteDraftUnusable;
 use App\Site\Blocks\BlockVocabulary;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 /**
  * The server-side gate between the AI's structured output and persistence.
@@ -19,6 +20,14 @@ use Illuminate\Support\Facades\Log;
  */
 final readonly class SiteDraftValidator
 {
+    /**
+     * The slugs a generated site may use beyond the home page. A fixed menu
+     * rather than model-invented paths: these are the pages a small-business
+     * brochure site actually has, and a closed set keeps slugs collision-free
+     * and linkable before anything exists.
+     */
+    public const array EXTRA_SLUGS = ['/about', '/services', '/contact'];
+
     private const int MIN_BLOCKS = 3;
 
     /**
@@ -35,34 +44,100 @@ final readonly class SiteDraftValidator
     }
 
     /**
+     * Two tiers of strictness, deliberately: the HOME page is the product
+     * moment, so a home that does not survive sanitization fails the whole
+     * draft (retryable, {@see SiteDraftUnusable}); an extra page that does not
+     * survive is simply dropped with a log — a thin /about must not cost the
+     * operator the home page the model already composed.
+     *
      * @param  array<array-key, mixed>  $draft  the agent's decoded structured output
-     * @return array{preset: StylePreset, title: string, metaDescription: string|null, blocks: list<array{type: string, data: array<string, mixed>}>}
+     * @return array{preset: StylePreset, pages: non-empty-list<array{slug: string, title: string, metaDescription: string|null, blocks: list<array{type: string, data: array<string, mixed>}>}>}
      */
     public function handle(array $draft, string $fallbackTitle): array
     {
         $preset = $this->preset($draft);
-        $page = $this->page($draft);
+        $rawPages = is_array($draft['pages'] ?? null) ? array_values($draft['pages']) : [];
 
-        $title = is_string($page['title'] ?? null) && mb_trim($page['title']) !== ''
-            ? strip_tags(mb_trim($page['title']))
-            : $fallbackTitle;
+        // Home held apart from the extras: it re-assembles as [$home, ...] so
+        // the result ALWAYS leads with home — the order navigation and the
+        // site canvas show — whatever order the model answered in.
+        $home = null;
+        $extras = [];
+        $seen = [];
 
-        $blocks = $this->blocks(is_array($page['blocks'] ?? null) ? $page['blocks'] : []);
+        foreach ($rawPages as $index => $page) {
+            if (! is_array($page)) {
+                Log::warning('site_draft.page_dropped', ['reason' => 'not_a_page', 'index' => $index]);
 
-        if (count($blocks) < self::MIN_BLOCKS || ! in_array('hero', array_column($blocks, 'type'), true)) {
-            throw new SiteDraftUnusable(sprintf(
-                'Draft not viable after sanitization: %d block(s) survived%s.',
-                count($blocks),
-                in_array('hero', array_column($blocks, 'type'), true) ? '' : ', no hero',
-            ));
+                continue;
+            }
+
+            $slug = is_string($page['slug'] ?? null) ? $page['slug'] : null;
+
+            if ($slug !== '/' && ! in_array($slug, self::EXTRA_SLUGS, true)) {
+                Log::warning('site_draft.page_dropped', ['reason' => 'unknown_slug', 'slug' => $slug, 'index' => $index]);
+
+                continue;
+            }
+
+            if (in_array($slug, $seen, true)) {
+                Log::warning('site_draft.page_dropped', ['reason' => 'duplicate_slug', 'slug' => $slug, 'index' => $index]);
+
+                continue;
+            }
+
+            $blocks = $this->blocks(is_array($page['blocks'] ?? null) ? $page['blocks'] : []);
+
+            if ($slug === '/') {
+                // The home page carries the old whole-draft bar: enough blocks
+                // AND a hero, or the generation is not worth landing at all.
+                if (count($blocks) < self::MIN_BLOCKS || ! in_array('hero', array_column($blocks, 'type'), true)) {
+                    throw new SiteDraftUnusable(sprintf(
+                        'Draft not viable after sanitization: %d block(s) survived%s.',
+                        count($blocks),
+                        in_array('hero', array_column($blocks, 'type'), true) ? '' : ', no hero',
+                    ));
+                }
+            } elseif (count($blocks) < self::MIN_BLOCKS) {
+                Log::warning('site_draft.page_dropped', ['reason' => 'too_few_blocks', 'slug' => $slug, 'count' => count($blocks)]);
+
+                continue;
+            }
+
+            $seen[] = $slug;
+            $validated = [
+                'slug' => $slug,
+                'title' => $this->title($page, $slug === '/' ? $fallbackTitle : Str::headline(mb_trim($slug, '/'))),
+                'metaDescription' => $this->metaDescription($page),
+                'blocks' => $blocks,
+            ];
+
+            if ($slug === '/') {
+                $home = $validated;
+            } else {
+                $extras[] = $validated;
+            }
         }
 
-        return [
-            'preset' => $preset,
-            'title' => $title,
-            'metaDescription' => $this->metaDescription($page),
-            'blocks' => $blocks,
-        ];
+        // No home page is the one multi-page failure that cannot be shrugged
+        // off — there is nothing to land.
+        throw_if(
+            $home === null,
+            SiteDraftUnusable::class,
+            'The draft contains no home page.',
+        );
+
+        return ['preset' => $preset, 'pages' => [$home, ...$extras]];
+    }
+
+    /**
+     * @param  array<array-key, mixed>  $page
+     */
+    private function title(array $page, string $fallback): string
+    {
+        return is_string($page['title'] ?? null) && mb_trim($page['title']) !== ''
+            ? strip_tags(mb_trim($page['title']))
+            : $fallback;
     }
 
     /**
@@ -97,18 +172,6 @@ final readonly class SiteDraftValidator
         }
 
         return $preset;
-    }
-
-    /**
-     * @param  array<array-key, mixed>  $draft
-     * @return array<array-key, mixed>
-     */
-    private function page(array $draft): array
-    {
-        $pages = is_array($draft['pages'] ?? null) ? array_values($draft['pages']) : [];
-        $page = $pages[0] ?? null;
-
-        return is_array($page) ? $page : [];
     }
 
     /**

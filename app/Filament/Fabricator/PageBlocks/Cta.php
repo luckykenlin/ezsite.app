@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Fabricator\PageBlocks;
 
 use App\Filament\Fabricator\Fields\LinkInput;
+use App\Site\Blocks\BlockIntent;
 use Filament\Forms\Components\Field;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -21,6 +22,8 @@ final class Cta extends Block
     protected static string $description = 'One clear next step near the end of a page: book, call, get a quote. Short, and never more than one idea.';
 
     protected static ?Heroicon $icon = Heroicon::OutlinedMegaphone;
+
+    protected static ?BlockIntent $intent = BlockIntent::Convert;
 
     /**
      * @var array<string, mixed>

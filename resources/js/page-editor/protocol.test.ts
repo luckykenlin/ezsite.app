@@ -75,6 +75,25 @@ describe('matchShortcut', () => {
         ).toEqual({ name: 'redo', preventDefault: true });
     });
 
+    it('matches the character the browser actually reports for shift+z', () => {
+        // A real Shift+Z keydown carries key 'Z', not 'z' — the synthesised
+        // lowercase event above would mask a case-sensitive comparison, which
+        // is exactly the bug that made redo unreachable from the keyboard.
+        expect(
+            matchShortcut(keydown({ key: 'Z', metaKey: true, shiftKey: true })),
+        ).toEqual({ name: 'redo', preventDefault: true });
+    });
+
+    it.each([
+        ['S', 'save'],
+        ['Z', 'undo'],
+    ])('matches %s under Caps Lock as %s', (key: string, name: string) => {
+        expect(matchShortcut(keydown({ key, metaKey: true }))).toEqual({
+            name,
+            preventDefault: true,
+        });
+    });
+
     it('accepts ctrl in place of meta', () => {
         expect(matchShortcut(keydown({ key: 's', ctrlKey: true }))).toEqual({
             name: 'save',

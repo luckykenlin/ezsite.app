@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Actions\Pages\CacheChatTurn;
+use App\Actions\Pages\CachePageEditorPreview;
 use App\Actions\Pages\RecordPageChatMessage;
 use App\Ai\Agents\PageEditorAgent;
 use App\Design\StylePreset;
@@ -13,6 +14,7 @@ use App\Models\Page;
 use App\Models\PageChatMessage;
 use App\Models\Tenant;
 use App\Models\User;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Laravel\Ai\Responses\Data\ToolCall;
 
@@ -29,7 +31,7 @@ beforeEach(function (): void {
     $this->page = $this->createTenantPage($this->tenant, []);
 });
 
-function chatJob(array $blocks, string $token = 'tok', ?int $userId = null): ChatEditPageJob
+function chatJob(array $blocks, string $token = 'tok', ?int $userId = null, ?string $previewToken = null): ChatEditPageJob
 {
     return new ChatEditPageJob(
         (string) test()->tenant->id,
@@ -38,6 +40,8 @@ function chatJob(array $blocks, string $token = 'tok', ?int $userId = null): Cha
         'Shorten the headline',
         $token,
         $blocks,
+        null,
+        $previewToken,
     );
 }
 
@@ -95,6 +99,53 @@ it('publishes what the turn is doing, not only what it has said', function (): v
         'Rewriting the Hero block…',
         'Adding a Cta block…',
     ]);
+});
+
+/*
+ * The "watch it edit" half of the chat: after every tool the worker swaps the
+ * canvas preview's blocks for the draft as it now stands and bumps the turn's
+ * paint counter, which the SSE route turns into a reload-the-canvas frame. The
+ * editor's own state is untouched — the result still lands through applyTurn().
+ */
+it('repaints the canvas preview after each tool call', function (): void {
+    PageEditorAgent::fake([
+        new ToolCall('c1', 'UpdateBlockContent', ['key' => 'k1', 'content' => ['heading' => 'Fresh bread daily']]),
+        'Shortened the headline.',
+    ]);
+
+    $this->runInTenant($this->tenant, function (): void {
+        // The entry the editor published when it last pushed a preview — what
+        // the worker's paints splice into.
+        resolve(CachePageEditorPreview::class)->handle($this->page, jobBlocks(), 'ptok');
+    });
+
+    chatJob(jobBlocks(), previewToken: 'ptok')->handle();
+
+    [$entry, $turn] = $this->runInTenant($this->tenant, fn (): array => [
+        Cache::get(CachePageEditorPreview::key('ptok')),
+        resolve(CacheChatTurn::class)->read('tok'),
+    ]);
+
+    expect($entry['blocks'][0]['data']['heading'])->toBe('Fresh bread daily')
+        // Keys move with the blocks — the canvas addresses blocks by key.
+        ->and($entry['keys'])->toBe(['k1'])
+        ->and($turn['preview'])->toBe(1);
+});
+
+it('paints nothing when the editor never published a preview to paint into', function (): void {
+    PageEditorAgent::fake([
+        new ToolCall('c1', 'UpdateBlockContent', ['key' => 'k1', 'content' => ['heading' => 'Fresh bread daily']]),
+        'Done.',
+    ]);
+
+    chatJob(jobBlocks(), previewToken: 'expired')->handle();
+
+    $turn = $this->runInTenant($this->tenant, fn (): ?array => resolve(CacheChatTurn::class)->read('tok'));
+
+    // No entry to splice into means nothing is on screen to go stale — the
+    // counter never moves, so the browser is never told to reload.
+    expect($turn['preview'])->toBe(0)
+        ->and($turn['blocks'][0]['data']['heading'])->toBe('Fresh bread daily');
 });
 
 it('attributes the turn to the user who asked', function (): void {

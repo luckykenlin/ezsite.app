@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Fabricator\PageBlocks;
 
+use App\Site\Blocks\BlockIntent;
 use Filament\Forms\Components\Field;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Textarea;
@@ -30,6 +31,8 @@ final class Steps extends Block
     protected static string $description = 'What happens next, in order — how an enquiry becomes a booking, how a job gets done, what a first visit is like. Use it only when the ORDER matters; for unordered reasons to choose the business, use features instead.';
 
     protected static ?Heroicon $icon = Heroicon::OutlinedNumberedList;
+
+    protected static ?BlockIntent $intent = BlockIntent::Showcase;
 
     /**
      * @var array<string, mixed>

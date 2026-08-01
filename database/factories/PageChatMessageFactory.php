@@ -43,4 +43,18 @@ final class PageChatMessageFactory extends Factory
             'changed_blocks' => $changedBlocks,
         ]);
     }
+
+    /**
+     * The apology recorded for a turn that never finished — what the chat
+     * rail's "Try again" button renders from.
+     */
+    public function failed(): self
+    {
+        return $this->state(fn (): array => [
+            'role' => ChatRole::Assistant,
+            'content' => "Sorry — I couldn't finish that just then.",
+            'changed_blocks' => 0,
+            'failed' => true,
+        ]);
+    }
 }

@@ -7,6 +7,8 @@ use App\Actions\Pages\CacheChatTurn;
 use App\Actions\Pages\CachePageEditorPreview;
 use App\Ai\Agents\PageEditorAgent;
 use App\Design\StylePreset;
+use App\Enums\ChatMode;
+use App\Enums\ChatRole;
 use App\Enums\ChromeSlot;
 use App\Enums\PageStatus;
 use App\Filament\Tenant\Resources\PageResource\Actions\PageIdentityFields;
@@ -16,12 +18,14 @@ use App\Models\Business;
 use App\Models\Location;
 use App\Models\Media;
 use App\Models\Page;
+use App\Models\PageChatMessage;
 use App\Models\PageRevision;
 use App\Models\SiteSetting;
 use App\Models\Tenant;
 use App\Site\Blocks\BlockVocabulary;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
 use Laravel\Ai\Responses\Data\ToolCall;
@@ -1029,6 +1033,37 @@ it('offers every page-level block type in the library, with its icon', function 
         ->and(array_keys($library))->not->toContain(...ChromeSlot::values());
 });
 
+it('groups the library by intent, in top-of-page-first order, covering every type', function (): void {
+    $page = editorPage([]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
+    $groups = $component->instance()->blockLibraryGroups();
+
+    // Enum order is display order: the order sections tend to appear on a page.
+    expect(array_keys($groups))->toBe(['introduce', 'showcase', 'trust', 'convert'])
+        ->and(array_keys($groups['introduce']['types']))->toContain('hero')
+        ->and(array_keys($groups['convert']['types']))->toContain('cta', 'contact')
+        ->and($groups['introduce']['label'])->toBe('Tell your story')
+        // Each card carries the purpose line, not just a name — it is what
+        // separates the look-alike repeater blocks for a human browser too.
+        ->and($groups['showcase']['types']['features']['description'])->not->toBeEmpty();
+
+    // Nothing falls between the groups: every addable type is exactly once in
+    // exactly one group. (The arch test pins that every type HAS an intent;
+    // this pins that the grouping loses none of them.)
+    $grouped = array_merge(...array_map(
+        static fn (array $group): array => array_keys($group['types']),
+        array_values($groups),
+    ));
+
+    expect($grouped)->toEqualCanonicalizing(resolve(BlockVocabulary::class)->pageTypeNames());
+
+    // And the modal renders the group headings and thumbnail cards.
+    $component->assertSee('Tell your story')
+        ->assertSee('Build trust')
+        ->assertSee(sprintf('token=%s&amp;sample=hero', $component->get('previewToken')), false);
+});
+
 it('refuses to add site chrome as a page block, however it is called', function (string $type): void {
     // The library filter is a suggestion, not a boundary — wire:click-able
     // methods are callable from the browser with any argument.
@@ -1657,6 +1692,565 @@ it('stops waiting for a resumed turn whose result did not survive', function ():
     expect($reloaded->get('chatTurnToken'))->toBeNull();
 });
 
+/*
+ * The retry affordance: a failed turn's apology carries a one-click "Try again"
+ * that re-sends the question, so recovering from a provider blip never means
+ * retyping it. The retry goes through sendChatMessage() itself, so it obeys the
+ * same guards as asking by hand — including never stacking onto a running turn.
+ */
+it('offers a retry on a failed turn and re-runs the question with one click', function (): void {
+    Log::spy();
+
+    $page = editorPage([
+        ['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Old headline']],
+    ]);
+
+    PageEditorAgent::fake(fn () => throw new RuntimeException('provider exploded'));
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->set('chatInput', 'Shorten the headline')
+        ->call('sendChatMessage')
+        ->call('pollChatTurn')
+        ->assertSee('Try again');
+
+    // The provider recovered; the click re-runs the SAME question.
+    $key = $component->get('blocks')[0]['key'];
+
+    PageEditorAgent::fake([
+        new ToolCall('c1', 'UpdateBlockContent', ['key' => $key, 'content' => ['heading' => 'Fresh bread daily']]),
+        'Shortened the headline.',
+    ]);
+
+    $component->call('retryChatTurn')->call('pollChatTurn');
+
+    expect($component->get('blocks')[0]['data']['heading'])->toBe('Fresh bread daily');
+
+    // The question appears twice by design — RecordPageChatMessage::question()'s
+    // documented retry contract — and the retry's answer is not a failure, so
+    // the button is gone.
+    $questions = PageChatMessage::query()->where('role', ChatRole::User)->get();
+
+    expect($questions)->toHaveCount(2)
+        ->and($questions->pluck('content')->unique()->all())->toBe(['Shorten the headline']);
+
+    $component->assertDontSee('Try again');
+});
+
+it('refuses to stack a retry onto a running turn', function (): void {
+    Queue::fake();
+
+    $page = editorPage([['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']]]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->call('sendChatMessage', 'Shorten the headline');
+
+    expect($component->get('chatTurnToken'))->not->toBeNull();
+
+    $component->call('retryChatTurn');
+
+    Queue::assertPushed(ChatEditPageJob::class, 1);
+});
+
+it('retries nothing on a page that was never asked anything', function (): void {
+    Queue::fake();
+
+    $page = editorPage([['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']]]);
+
+    Livewire::test(PageEditor::class, ['record' => $page->id])->call('retryChatTurn');
+
+    Queue::assertNothingPushed();
+});
+
+/*
+ * The inspector's outline panel: the selection and reorder path that works
+ * from a keyboard or touchscreen, which the canvas's native HTML5 drag never
+ * will. Same verbs as the canvas (selectBlock / moveBlock), new surface.
+ */
+it('outlines the page with a label and the first line of real content', function (): void {
+    $page = editorPage([
+        ['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Fresh bread daily']],
+        // Variant is presentation, not content — never the snippet.
+        ['type' => 'cta', 'data' => ['variant' => 'banner']],
+        ['type' => '', 'data' => []],
+    ]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->assertSee('Page structure');
+
+    expect($component->instance()->blockOutline())->toBe([
+        ['key' => $component->get('blocks')[0]['key'], 'label' => 'Hero', 'snippet' => 'Fresh bread daily'],
+        ['key' => $component->get('blocks')[1]['key'], 'label' => 'Cta', 'snippet' => null],
+        // A broken stored entry stays listed (and thus reachable/removable).
+        ['key' => $component->get('blocks')[2]['key'], 'label' => 'Broken', 'snippet' => null],
+    ]);
+});
+
+it('reorders from the outline with the same undoable verb as the canvas', function (): void {
+    $page = editorPage([
+        ['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']],
+        ['type' => 'heading', 'data' => ['content' => 'Section', 'level' => 'h2']],
+    ]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
+    $heroKey = $component->get('blocks')[0]['key'];
+
+    $component->call('moveBlock', $heroKey, 1);
+
+    expect(array_column($component->get('blocks'), 'type'))->toBe(['heading', 'hero'])
+        ->and($component->get('isDirty'))->toBeTrue();
+
+    $component->call('undo');
+
+    expect(array_column($component->get('blocks'), 'type'))->toBe(['hero', 'heading']);
+});
+
+/*
+ * Version history v2: naming protects a version from pruning, and "Publish
+ * this version" ships a PAST version live without costing the operator the
+ * draft on their canvas. All three verbs share the history modal's one form,
+ * split by action arguments.
+ */
+it('names and un-names a version through the history modal', function (): void {
+    $page = editorPage([['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']]]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
+    $component->call('save');
+
+    $revision = PageRevision::query()->orderByDesc('id')->first();
+
+    $component->callAction('pageHistory', ['revision' => $revision->id, 'label' => '  Launch version  '], arguments: ['name' => true])
+        ->assertNotified('Version named');
+
+    // Trimmed. Re-mounting the modal rebuilds the option list, which now
+    // leads with the operator's name (the starred label branch).
+    expect($revision->refresh()->label)->toBe('Launch version');
+
+    Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->mountAction('pageHistory')
+        ->assertActionMounted('pageHistory');
+
+    $component->callAction('pageHistory', ['revision' => $revision->id, 'label' => ''], arguments: ['name' => true])
+        ->assertNotified('Version name removed');
+
+    expect($revision->refresh()->label)->toBeNull();
+
+    // Naming a version that was pruned meanwhile names nothing, quietly.
+    $component->call('nameRevision', 999999, 'Ghost');
+
+    expect(PageRevision::query()->whereNotNull('label')->count())->toBe(0);
+});
+
+it('publishes a past version without touching the canvas draft', function (): void {
+    $page = editorPage([['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Version one']]]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
+
+    // Save twice, so history holds two distinct versions.
+    $component->call('save');
+    $component->call('selectBlock', $component->get('blocks')[0]['key'])
+        ->set('data.block.heading', 'Version two')
+        ->call('save');
+
+    $first = PageRevision::query()->orderBy('id')->first();
+
+    // The operator keeps working — an unsaved draft sits on the canvas.
+    $component->set('data.block.heading', 'Half-typed draft');
+
+    $component->callAction('pageHistory', ['revision' => $first->id], arguments: ['publish' => true])
+        ->assertNotified('Version published');
+
+    $stored = Page::query()->findOrFail($page->id);
+
+    // The PAST version is live…
+    expect($stored->blocks[0]['data']['heading'])->toBe('Version one')
+        ->and($stored->isDraft())->toBeFalse()
+        // …the canvas draft is untouched…
+        ->and($component->get('data')['block']['heading'])->toBe('Half-typed draft')
+        // …and history's newest row mirrors what is now saved.
+        ->and(PageRevision::query()->orderByDesc('id')->first()->blocks[0]['data']['heading'])->toBe('Version one');
+});
+
+it('warns when publishing a version that was pruned meanwhile', function (): void {
+    $page = editorPage([['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']]]);
+
+    Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->call('publishRevision', 999999)
+        ->assertNotified('That version is no longer available');
+
+    // Nothing was written — the saved blocks are exactly what mount found.
+    expect(Page::query()->findOrFail($page->id)->blocks[0]['data']['heading'])->toBe('Welcome')
+        ->and(PageRevision::query()->count())->toBe(0);
+});
+
+it('removes a block through the confirmation action the canvas mounts', function (): void {
+    // The canvas's remove button and the Delete shortcut both mount this
+    // Filament action instead of a native confirm() — the key rides in the
+    // action arguments, per mount.
+    $page = editorPage([
+        ['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']],
+        ['type' => 'heading', 'data' => ['content' => 'Section', 'level' => 'h2']],
+    ]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
+    $key = $component->get('blocks')[0]['key'];
+
+    $component->callAction('removeBlock', arguments: ['key' => $key]);
+
+    expect(array_column($component->get('blocks'), 'type'))->toBe(['heading'])
+        ->and($component->get('isDirty'))->toBeTrue();
+
+    // A mount with no key confirms nothing away.
+    $component->callAction('removeBlock');
+
+    expect(array_column($component->get('blocks'), 'type'))->toBe(['heading']);
+});
+
+it('mints a signed stakeholder preview link and hands it to the clipboard', function (): void {
+    $page = editorPage([['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']]]);
+
+    Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->callAction('sharePreview')
+        ->assertNotified('Preview link copied')
+        // The browser owns the clipboard; the event carries a link that is
+        // signed and aimed at THIS page. SharedPagePreviewTest proves what
+        // the link actually renders.
+        ->assertDispatched(
+            'page-editor:copy-link',
+            fn (string $event, array $params): bool => str_contains((string) $params['url'], '/_preview/'.$page->id)
+                && str_contains((string) $params['url'], 'signature='),
+        );
+});
+
+/*
+ * Per-turn revert: every assistant turn that edited the page pins the
+ * PRE-APPLY draft on its reply row, and the transcript's "Revert this edit"
+ * restores it as a NEW undoable change — git-revert semantics, so an old
+ * revert discards later edits recoverably and history is never rewritten.
+ */
+it('reverts one assistant edit from the transcript, undoably, even after later edits', function (): void {
+    $page = editorPage([
+        ['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Old headline']],
+    ]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
+    $key = $component->get('blocks')[0]['key'];
+
+    PageEditorAgent::fake([
+        new ToolCall('c1', 'UpdateBlockContent', ['key' => $key, 'content' => ['heading' => 'Fresh bread daily']]),
+        'Shortened the headline.',
+    ]);
+
+    $component->call('sendChatMessage', 'Shorten the headline')
+        ->call('pollChatTurn')
+        ->assertSee('Revert this edit');
+
+    // The operator keeps editing AFTER the turn — the revert must still return
+    // to the pre-turn draft, not merely pop the newest undo entry.
+    $component->call('selectBlock', $component->get('blocks')[0]['key'])
+        ->set('data.block.heading', 'Hand-edited after');
+
+    $reply = PageChatMessage::query()->where('role', ChatRole::Assistant)->sole();
+
+    expect($reply->blocks_before)->toBe([
+        ['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Old headline']],
+    ]);
+
+    $component->call('revertChatTurn', $reply->id)->assertNotified('Edit reverted');
+
+    expect($component->get('blocks')[0]['data']['heading'])->toBe('Old headline')
+        ->and($component->get('isDirty'))->toBeTrue()
+        // Nothing persisted: the revert is reviewed and saved like any edit.
+        ->and(Page::query()->findOrFail($page->id)->blocks[0]['data']['heading'])->toBe('Old headline');
+
+    // And the revert is itself one Undo away — history was not rewritten.
+    $component->call('undo');
+
+    expect($component->get('blocks')[0]['data']['heading'])->toBe('Hand-edited after');
+});
+
+it('pins no revert point on an answer that changed nothing', function (): void {
+    PageEditorAgent::fake(['The hero block is the banner at the top.']);
+
+    $page = editorPage([['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']]]);
+
+    Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->call('sendChatMessage', 'What does the hero do?')
+        ->call('pollChatTurn')
+        ->assertDontSee('Revert this edit');
+
+    expect(PageChatMessage::query()->where('role', ChatRole::Assistant)->sole()->blocks_before)->toBeNull();
+});
+
+it('refuses to revert over an invalid open draft, keeping the errors visible', function (): void {
+    // Same contract as every structural verb: the revert must not silently
+    // discard (or sneak past) an inspector draft that cannot commit.
+    $page = editorPage([['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']]]);
+
+    $message = PageChatMessage::factory()->assistant()->create([
+        'tenant_id' => tenant('id'),
+        'page_id' => $page->id,
+        'blocks_before' => [['type' => 'cta', 'data' => ['heading' => 'Before']]],
+    ]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->set('data.block.heading', '')
+        ->call('revertChatTurn', $message->id)
+        ->assertNotified('Fix the highlighted fields first');
+
+    expect(array_column($component->get('blocks'), 'type'))->toBe(['hero']);
+});
+
+it('reverts nothing for a foreign or unrevertible message, or while a turn runs', function (): void {
+    $page = editorPage([['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']]]);
+
+    // A revertible message on a DIFFERENT page of the same tenant — a stale
+    // DOM or crafted call must not restore another page's blocks here.
+    $other = editorPage([], '/other');
+    $foreign = PageChatMessage::factory()->assistant()->create([
+        'tenant_id' => tenant('id'),
+        'page_id' => $other->id,
+        'blocks_before' => [['type' => 'cta', 'data' => ['heading' => 'Other page']]],
+    ]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
+    $before = $component->get('blocks');
+
+    $component->call('revertChatTurn', $foreign->id)
+        ->call('revertChatTurn', 999999);
+
+    expect($component->get('blocks'))->toBe($before)
+        ->and($component->get('isDirty'))->toBeFalse();
+
+    // While a turn is in flight the entry point refuses outright.
+    Queue::fake();
+    $component->call('sendChatMessage', 'Do something');
+
+    $mine = PageChatMessage::factory()->assistant()->create([
+        'tenant_id' => tenant('id'),
+        'page_id' => $page->id,
+        'blocks_before' => [['type' => 'cta', 'data' => ['heading' => 'Mid-turn']]],
+    ]);
+
+    $component->call('revertChatTurn', $mine->id);
+
+    expect($component->get('blocks'))->toBe($before);
+});
+
+/*
+ * Mid-turn canvas paints move only the PICTURE — the preview cache — never the
+ * editor's state. So every turn ending that does NOT apply a result has to
+ * repaint the canvas from the editor's own draft, or it is left showing blocks
+ * that exist nowhere.
+ */
+it('repaints the canvas from the editor state when a painted turn fails', function (): void {
+    Log::spy();
+
+    $page = editorPage([
+        ['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Old headline']],
+    ]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
+    $key = $component->get('blocks')[0]['key'];
+
+    // One real edit lands on the preview (a paint), then the provider dies —
+    // so the turn comes back failed with the blocks unchanged, while the
+    // canvas is still showing the painted draft.
+    PageEditorAgent::fake([
+        new ToolCall('c1', 'UpdateBlockContent', ['key' => $key, 'content' => ['heading' => 'Fresh bread daily']]),
+        fn () => throw new RuntimeException('provider exploded'),
+    ]);
+
+    $component->call('sendChatMessage', 'Shorten the headline')
+        ->call('pollChatTurn')
+        ->assertDispatched('page-editor:refresh-canvas');
+
+    // The editor's own draft never moved.
+    expect($component->get('blocks')[0]['data']['heading'])->toBe('Old headline');
+});
+
+it('repaints the canvas when a painted turn is stopped', function (): void {
+    Queue::fake();
+
+    $page = editorPage([['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']]]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->call('sendChatMessage', 'Rewrite everything');
+
+    // The worker has painted the canvas once by the time the operator stops
+    // the turn (Queue::fake() holds the job, so the write is simulated).
+    $token = $component->get('chatTurnToken');
+    $this->runInTenant($this->tenant, fn () => resolve(CacheChatTurn::class)->handle($token, 'Working…', preview: 1));
+
+    $component->call('cancelChatTurn')->assertDispatched('page-editor:refresh-canvas');
+});
+
+it('leaves the canvas alone when a stopped turn never painted it', function (): void {
+    Queue::fake();
+
+    $page = editorPage([['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']]]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->call('sendChatMessage', 'Rewrite everything');
+
+    $component->call('cancelChatTurn')->assertNotDispatched('page-editor:refresh-canvas');
+});
+
+/*
+ * The canvas selection rides with the turn — "make it shorter" means the block
+ * the operator is looking at — and the composer chip shows exactly what will be
+ * sent, since both read chatContextKey().
+ */
+it('sends the canvas selection with the turn and names it on the composer', function (): void {
+    Queue::fake();
+
+    $page = editorPage([
+        ['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']],
+    ]);
+
+    // Mounting selects the first block, so the chip is already up.
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->assertSee('Editing: Hero');
+
+    $key = $component->get('blocks')[0]['key'];
+
+    $component->call('sendChatMessage', 'Make it shorter');
+
+    Queue::assertPushed(
+        ChatEditPageJob::class,
+        fn (ChatEditPageJob $job): bool => $job->selectedBlockKey === $key,
+    );
+});
+
+it('sends no selection when nothing is selected', function (): void {
+    Queue::fake();
+
+    $page = editorPage([['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']]]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->call('deselectBlock');
+
+    $component->assertDontSee('Editing: Hero')
+        ->call('sendChatMessage', 'Improve the wording');
+
+    Queue::assertPushed(
+        ChatEditPageJob::class,
+        fn (ChatEditPageJob $job): bool => $job->selectedBlockKey === null,
+    );
+});
+
+/*
+ * The "try another layout" chip: deterministic variant cycling, no AI. Wix's
+ * Switch Layouts insight — variants re-render the same content, so trying the
+ * next look must be instant, free and one Undo away.
+ */
+it('cycles the selected block through its layouts, wrapping, one undo per step', function (): void {
+    $page = editorPage([
+        ['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']],
+    ]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
+    $key = $component->get('blocks')[0]['key'];
+
+    // The chip renders for a multi-variant selection…
+    $component->assertSee('Try another layout');
+
+    $component->call('cycleBlockVariant', $key);
+
+    expect($component->get('blocks')[0]['data']['variant'])->toBe('left-text-right-image')
+        ->and($component->get('isDirty'))->toBeTrue();
+
+    // …wraps past the last declared variant…
+    $component->call('cycleBlockVariant', $key)->call('cycleBlockVariant', $key);
+
+    expect($component->get('blocks')[0]['data']['variant'])->toBe('centered-minimal');
+
+    // …and each step is its own Undo.
+    $component->call('undo');
+
+    expect($component->get('blocks')[0]['data']['variant'])->toBe('full-bleed-overlay');
+});
+
+it('repairs an unrecognised stored variant by cycling to the first declared one', function (): void {
+    // The broken block must NOT be the selection: a selected block's invalid
+    // variant fails the inspector's own validation, and commitSelectedBlock()
+    // correctly refuses every verb until the fields are fixed. Cycling an
+    // UNSELECTED broken block is the repair path.
+    $page = editorPage([
+        ['type' => 'heading', 'data' => ['content' => 'Section', 'level' => 'h2']],
+        ['type' => 'hero', 'data' => ['variant' => 'retired-look', 'heading' => 'Welcome']],
+    ]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
+
+    $component->call('cycleBlockVariant', $component->get('blocks')[1]['key']);
+
+    expect($component->get('blocks')[1]['data']['variant'])->toBe('centered-minimal');
+});
+
+it('refuses to cycle a block with nothing to cycle, and offers no chip for it', function (): void {
+    $page = editorPage([
+        ['type' => 'heading', 'data' => ['content' => 'Section', 'level' => 'h2']],
+    ]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
+    $before = $component->get('blocks');
+
+    $component->assertDontSee('Try another layout')
+        ->call('cycleBlockVariant', $before[0]['key'])
+        // Chrome is refused on the same guard, and an unknown key (a stale
+        // wire:click after a removal) cycles nothing rather than throwing.
+        ->call('cycleBlockVariant', ChromeSlot::Header->editorKey())
+        ->call('cycleBlockVariant', 'gone');
+
+    expect($component->get('blocks'))->toBe($before)
+        ->and($component->get('isDirty'))->toBeFalse();
+
+    // The chip gate answers false for chrome and for no selection at all.
+    $component->call('selectBlock', ChromeSlot::Header->editorKey());
+    expect($component->instance()->selectedBlockHasVariants())->toBeFalse();
+
+    $component->call('deselectBlock');
+    expect($component->instance()->selectedBlockHasVariants())->toBeFalse();
+});
+
+it('sends the composer mode with the turn, coercing junk to Edit', function (string $set, string $expected): void {
+    // $chatMode is browser-writable; an invented mode must dispatch as Edit
+    // rather than throw out of a Livewire call.
+    Queue::fake();
+
+    $page = editorPage([['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']]]);
+
+    Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->set('chatMode', $set)
+        ->call('sendChatMessage', 'What should this page say?');
+
+    Queue::assertPushed(
+        ChatEditPageJob::class,
+        fn (ChatEditPageJob $job): bool => $job->mode === ChatMode::from($expected),
+    );
+})->with([
+    'ask' => ['ask', 'ask'],
+    'edit' => ['edit', 'edit'],
+    'junk falls back to edit' => ['yolo', 'edit'],
+]);
+
+it('sends no selection for a chrome pseudo-block', function (): void {
+    Queue::fake();
+
+    $page = editorPage([['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']]]);
+
+    // The prompt already carries the whole chrome section, and a chrome key
+    // matches nothing in the draft the model addresses.
+    Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->call('selectBlock', ChromeSlot::Header->editorKey())
+        ->call('sendChatMessage', 'Add a menu link');
+
+    Queue::assertPushed(
+        ChatEditPageJob::class,
+        fn (ChatEditPageJob $job): bool => $job->selectedBlockKey === null,
+    );
+});
+
 it('shows both sides of the turn in the panel and marks the one that edited', function (): void {
     PageEditorAgent::fake(['The hero block is the banner at the top.']);
 
@@ -2115,12 +2709,12 @@ it('lands an assistant chrome edit on the draft, unsaved', function (): void {
 });
 
 /*
- * The one place an AI chrome edit differs from an AI block edit. Chrome has never
- * been on the undo stack — structure-level history covers page blocks only — so
- * making just this path undoable would give one piece of state two histories.
- * Pinned so the asymmetry stays a decision rather than a surprise.
+ * Chrome rides in the undo snapshot since E6: a chat turn that edits the
+ * header/footer is one Undo away like everything else it does — the old
+ * asymmetry left a bad header edit with no route back except "Discard draft",
+ * which also threw away every block edit.
  */
-it('leaves an assistant chrome edit outside the undo stack, like a hand one', function (): void {
+it('takes an assistant chrome edit back with one undo, and forward with redo', function (): void {
     $this->createTenantBusiness($this->tenant, ['name' => 'Corner Cafe']);
     $page = editorPage([['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']]]);
 
@@ -2132,6 +2726,41 @@ it('leaves an assistant chrome edit outside the undo stack, like a hand one', fu
 
     expect($component->get('chrome')['footer']['data']['note'])->toBe('Closed Sundays.');
 
+    $component->call('undo');
+
+    expect($component->get('chrome')['footer'])->toBeNull();
+
+    $component->call('redo');
+
+    expect($component->get('chrome')['footer']['data']['note'])->toBe('Closed Sundays.');
+});
+
+it('takes a hand chrome edit back with the snapshot it rode into', function (): void {
+    // Chrome field edits get exactly the block-field-edit semantics: committed
+    // on the next verb, they ride INSIDE that verb's snapshot and step back
+    // with it.
+    $this->createTenantBusiness($this->tenant, ['name' => 'Corner Cafe']);
+    $page = editorPage([['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']]]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
+
+    // Edit the footer, then take a structural step (which commits + snapshots).
+    $component->call('selectBlock', 'chrome:footer')
+        ->set('data.block.note', 'Closed Sundays.')
+        ->call('addBlock', 'cta');
+
+    expect($component->get('chrome')['footer']['data']['note'])->toBe('Closed Sundays.');
+
+    // Undoing the add restores the snapshot — which carries the chrome as it
+    // was WHEN the add happened, i.e. with the committed footer edit.
+    $component->call('undo');
+
+    expect($component->get('chrome')['footer']['data']['note'])->toBe('Closed Sundays.')
+        ->and(array_column($component->get('blocks'), 'type'))->toBe(['hero']);
+
+    // One more step back reaches the state before the footer edit landed…
+    // there is no earlier snapshot, so the footer edit itself stays — the
+    // documented field-edit semantics, now shared by chrome.
     $component->call('undo');
 
     expect($component->get('chrome')['footer']['data']['note'])->toBe('Closed Sundays.');

@@ -6,6 +6,7 @@ namespace App\Filament\Fabricator\PageBlocks;
 
 use App\Filament\Fabricator\Fields\ImageInput;
 use App\Filament\Fabricator\Fields\LinkInput;
+use App\Site\Blocks\BlockIntent;
 use Filament\Forms\Components\Field;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -24,6 +25,8 @@ final class Hero extends Block
     protected static string $description = 'The first thing a visitor sees: one headline, a sentence of positioning and a main button. Only ever one per page, at the top.';
 
     protected static ?Heroicon $icon = Heroicon::OutlinedSparkles;
+
+    protected static ?BlockIntent $intent = BlockIntent::Introduce;
 
     /**
      * @var array<string, mixed>

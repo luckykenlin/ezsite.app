@@ -13,11 +13,12 @@
 export const STREAM_END = '</stream>';
 
 /**
- * One frame: a slice of the reply, or a line describing what the assistant is
- * doing right now.
+ * One frame: a slice of the reply, a line describing what the assistant is
+ * doing right now, or a signal that the turn repainted the canvas preview
+ * (`v` = the paint counter, used only as a cache-buster on the iframe URL).
  */
 export interface ChatFrame {
-    t: 'text' | 'activity';
+    t: 'text' | 'activity' | 'canvas';
     v: string;
 }
 
@@ -45,7 +46,8 @@ export function readChatFrame(data: string): ChatFrame | null {
 
     const { t, v } = parsed as { t?: unknown; v?: unknown };
 
-    return (t === 'text' || t === 'activity') && typeof v === 'string'
+    return (t === 'text' || t === 'activity' || t === 'canvas') &&
+        typeof v === 'string'
         ? { t, v }
         : null;
 }

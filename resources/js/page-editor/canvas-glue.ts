@@ -43,6 +43,13 @@ const post = (payload: CanvasMessage): void =>
 
 let dragging: HTMLElement | null = null;
 let dragStartOrder = '';
+/**
+ * Where the dragged block came from, so a cancelled drag can put it back.
+ * Only the dragged element ever moves during dragover (insertBefore relocates
+ * it alone), so restoring one element restores the whole page.
+ */
+let dragStartParent: ParentNode | null = null;
+let dragStartNext: Node | null = null;
 let pendingEdit: PendingEdit | null = null;
 let editing: ActiveEdit | null = null;
 let inputTimer: ReturnType<typeof setTimeout> | undefined;
@@ -97,6 +104,16 @@ const toolbar = (): HTMLElement => {
     const el = document.createElement('div');
     el.setAttribute('data-editor-toolbar', '');
     el.appendChild(dragHandle());
+
+    // Not a BlockAction: the structural verbs mutate the page, this one aims
+    // the chat at the block. First in the row so it reads as "do something
+    // with this block" rather than as a fifth way to rearrange it.
+    const ask = document.createElement('button');
+    ask.type = 'button';
+    ask.setAttribute('data-editor-ask', '');
+    ask.title = 'Ask AI about this section';
+    ask.textContent = '✦';
+    el.appendChild(ask);
 
     const buttons: [BlockAction, string, string][] = [
         ['move-up', '↑', 'Move up'],
@@ -291,6 +308,21 @@ document.addEventListener(
             return;
         }
 
+        // Before the generic toolbar-button branch, which would otherwise
+        // swallow it: the ask button lives in the same toolbar but posts its
+        // own message type.
+        if (closestFrom(event.target, '[data-editor-ask]')) {
+            const key = blockKeyOf(
+                closestFrom(event.target, '[data-block-key]'),
+            );
+
+            if (key !== null) {
+                post({ type: 'ask-ai', key });
+            }
+
+            return;
+        }
+
         const toolbarButton = closestFrom(
             event.target,
             '[data-editor-toolbar] button',
@@ -389,9 +421,36 @@ document.addEventListener('dblclick', (event) => {
         return;
     }
 
+    // A view-declared annotation makes the grant deterministic; without one
+    // the parent falls back to matching the text against the block's draft.
+    const annotated = el.closest<HTMLElement>('[data-editor-field]');
+    const field =
+        annotated && el.closest('[data-block-key]')?.contains(annotated)
+            ? annotated.dataset.editorField
+            : undefined;
+
     pendingEdit = { el, key };
-    post({ type: 'inline-edit-request', key, text });
+    post({ type: 'inline-edit-request', key, text, field });
 });
+
+/**
+ * Tell the operator why nothing happened: the double-clicked text maps to no
+ * editable field (a list item, bound business data, rich content). Transient
+ * and self-removing — it answers the click, it is not a state.
+ */
+const showEditHint = (el: HTMLElement): void => {
+    document
+        .querySelectorAll('[data-editor-hint]')
+        .forEach((hint) => hint.remove());
+
+    const hint = document.createElement('div');
+
+    hint.setAttribute('data-editor-hint', '');
+    hint.textContent = 'Edit this in the panel on the right';
+    el.closest<HTMLElement>('[data-block-key]')?.appendChild(hint);
+
+    setTimeout(() => hint.remove(), 2200);
+};
 
 // --- drag-and-drop reorder (toolbar ⠿ handle) ---
 
@@ -413,6 +472,8 @@ document.addEventListener('dragstart', (event) => {
 
     dragging = block;
     dragStartOrder = pageBlockKeys().join('|');
+    dragStartParent = block.parentNode;
+    dragStartNext = block.nextSibling;
     block.setAttribute('data-editor-dragging', '');
 
     if (event.dataTransfer) {
@@ -466,7 +527,7 @@ document.addEventListener('dragover', (event) => {
     over.parentNode?.insertBefore(dragging, before ? over : over.nextSibling);
 });
 
-document.addEventListener('dragend', () => {
+document.addEventListener('dragend', (event) => {
     if (!dragging) {
         return;
     }
@@ -477,6 +538,17 @@ document.addEventListener('dragend', () => {
     dragging.removeAttribute('data-editor-dragging');
     dragging.removeAttribute('draggable');
     dragging = null;
+
+    // Escape (and dragging out of the window) ends the native drag with
+    // dropEffect 'none'. dragover has already moved the block by then, so
+    // "cancelled" has to be an explicit restore — without it the abandoned
+    // order was diffed below and posted as if it were a deliberate drop.
+    if (event.dataTransfer?.dropEffect === 'none' && dragStartParent) {
+        dragStartParent.insertBefore(dropped, dragStartNext);
+    }
+
+    dragStartParent = null;
+    dragStartNext = null;
 
     dropped.scrollIntoView({ block: 'center' });
 
@@ -605,6 +677,13 @@ window.addEventListener('message', (event: MessageEvent) => {
 
     if (message.type === 'inline-edit-grant') {
         beginInlineEdit(message.field);
+    }
+
+    if (message.type === 'inline-edit-deny') {
+        if (pendingEdit) {
+            showEditHint(pendingEdit.el);
+            pendingEdit = null;
+        }
     }
 
     // Swap one block's HTML in place (debounced field edits) — no

@@ -8,6 +8,7 @@ use App\Filament\Tenant\Resources\PageResource\Pages\PageEditor;
 use App\Models\PageRevision;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Radio;
+use Filament\Forms\Components\TextInput;
 use Filament\Support\Icons\Heroicon;
 
 /**
@@ -38,7 +39,7 @@ final readonly class PageHistoryAction
             ->color('gray')
             ->icon(Heroicon::OutlinedClock)
             ->modalHeading('Version history')
-            ->modalDescription('Each save of this page. Restoring loads that version onto the canvas as an unsaved change — review it, then Save.')
+            ->modalDescription('Each save of this page. Restoring loads that version onto the canvas as an unsaved change — review it, then Save. Publishing puts it live directly, leaving the canvas alone.')
             ->modalSubmitActionLabel('Restore')
             // Nothing to show until the page has been saved at least once.
             ->visible(fn (): bool => self::options($editor) !== [])
@@ -47,14 +48,37 @@ final readonly class PageHistoryAction
                     ->label('Versions')
                     ->options(fn (): array => self::options($editor))
                     ->required(),
+                TextInput::make('label')
+                    ->label('Name the selected version')
+                    ->placeholder(__('e.g. Launch version'))
+                    ->helperText(__('Optional. A named version is never pruned from this list; leave empty and press "Name version" to un-name one.'))
+                    ->maxLength(60),
             ])
-            ->action(function (array $data) use ($editor): void {
+            // Three verbs on one picked version. Restore is the default submit;
+            // the footer actions reach the SAME action closure with their own
+            // argument flag — Filament's documented pattern for a modal with
+            // several outcomes over one form.
+            ->extraModalFooterActions(fn (Action $action): array => [
+                $action->makeModalSubmitAction('nameVersion', arguments: ['name' => true])
+                    ->label(__('Name version'))
+                    ->color('gray'),
+                $action->makeModalSubmitAction('publishVersion', arguments: ['publish' => true])
+                    ->label(__('Publish this version'))
+                    ->color('warning'),
+            ])
+            ->action(function (array $data, array $arguments) use ($editor): void {
                 $revision = $data['revision'] ?? null;
 
                 // The Radio is ->required() and its options are ids, but the
                 // submitted value is still untrusted form state.
                 if (is_numeric($revision)) {
-                    $editor->restoreRevision((int) $revision);
+                    $label = $data['label'] ?? '';
+
+                    match (true) {
+                        (bool) ($arguments['name'] ?? false) => $editor->nameRevision((int) $revision, is_string($label) ? $label : ''),
+                        (bool) ($arguments['publish'] ?? false) => $editor->publishRevision((int) $revision),
+                        default => $editor->restoreRevision((int) $revision),
+                    };
                 }
             });
     }
@@ -83,7 +107,7 @@ final readonly class PageHistoryAction
     {
         $saved = $revision->created_at;
 
-        return sprintf(
+        $line = sprintf(
             '%s — %s (%s)',
             $saved === null ? __('Unknown time') : $saved->format('j M Y, H:i'),
             trans_choice('{0} empty page|{1} :count block|[2,*] :count blocks', $revision->blockCount(), [
@@ -91,5 +115,8 @@ final readonly class PageHistoryAction
             ]),
             $revision->user->name ?? __('unknown'),
         );
+
+        // The operator's name leads — it is what they will scan for.
+        return $revision->label === null ? $line : sprintf('★ %s — %s', $revision->label, $line);
     }
 }

@@ -15,6 +15,7 @@ use App\Ai\Tools\SetBlockVariant;
 use App\Ai\Tools\SetSiteStyle;
 use App\Ai\Tools\UpdateBlockContent;
 use App\Design\DesignTokens;
+use App\Enums\ChatMode;
 use App\Enums\ChatRole;
 use App\Models\Page;
 use App\Models\PageChatMessage;
@@ -43,6 +44,30 @@ it('offers the page-editing verbs, without the site style when there is no busin
         CreatePage::class,
         DuplicatePage::class,
     ]);
+});
+
+/*
+ * Ask mode's whole guarantee: with the roster withheld there is no verb to
+ * call, so "this turn changes nothing" is structural rather than a promise in
+ * the prompt. The instructions gain the advisory overlay on top of the base
+ * persona — scope and fact rules still apply.
+ */
+it('withholds every tool in Ask mode and overlays the advisory instructions', function (): void {
+    $agent = new PageEditorAgent(
+        new PageDraft([]),
+        Page::factory()->make(['id' => 1]),
+        new SiteStyleDraft(DesignTokens::default()),
+        mode: ChatMode::Ask,
+    );
+
+    expect($agent->tools())->toBeEmpty()
+        ->and($agent->instructions())->toContain('THIS TURN IS ADVISORY')
+        // The overlay is an addition, not a replacement — the base rules ride
+        // along.
+        ->and($agent->instructions())->toContain('never invent facts');
+
+    // And Edit mode carries no advisory overlay.
+    expect(editorAgent(new PageDraft([]))->instructions())->not->toContain('THIS TURN IS ADVISORY');
 });
 
 /*
@@ -103,6 +128,35 @@ it('remembers this page conversation oldest first, and ignores other pages', fun
 
     expect($messages->pluck('content')->all())->toBe(['Shorten the headline', 'Done.'])
         ->and($messages->pluck('role.value')->all())->toBe(['user', 'assistant']);
+});
+
+it('appends what a turn actually changed to its remembered reply', function (): void {
+    // The prose under-describes edits ("Done." after a rewrite); the memory
+    // footer is what stops the model re-adding a section it just removed. The
+    // footer is memory-only — the panel renders the stored content.
+    $tenant = Tenant::factory()->create();
+    $page = $this->createTenantPage($tenant, []);
+
+    $this->runInTenant($tenant, function () use ($tenant, $page): void {
+        PageChatMessage::factory()->assistant()->create([
+            'tenant_id' => $tenant->id,
+            'page_id' => $page->id,
+            'content' => 'Done.',
+            'activity' => ['Rewriting the Hero block…', 'Removing a Cta block…'],
+        ]);
+        PageChatMessage::factory()->assistant()->create([
+            'tenant_id' => $tenant->id,
+            'page_id' => $page->id,
+            'content' => 'The hero is the banner.',
+        ]);
+    });
+
+    $messages = collect(editorAgent(new PageDraft([]), (int) $page->id)->messages());
+
+    expect($messages->first()->content)
+        ->toBe("Done.\n[Edits you made that turn: Rewriting the Hero block…; Removing a Cta block…]")
+        // A tool-less answer stays exactly as spoken.
+        ->and($messages->last()->content)->toBe('The hero is the banner.');
 });
 
 it('caps how far back it remembers', function (): void {

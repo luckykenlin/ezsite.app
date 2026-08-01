@@ -79,6 +79,24 @@ it('keeps only the most recent versions', function (): void {
         ->and($history->last()->blocks[0]['data']['heading'])->toBe('v'.(RecordPageRevision::LIMIT + 5));
 });
 
+it('never prunes a named version, however busy the session', function (): void {
+    // The pruning race the audit flagged: thirty saves used to silently push
+    // out the version the operator meant to return to. Naming one is the fix.
+    $tenant = Tenant::factory()->create();
+    $page = $this->createTenantPage($tenant, revisionBlocks('start'));
+
+    $named = recordRevision($tenant, $page, revisionBlocks('launch version'));
+    $this->runInTenant($tenant, fn () => $named->update(['label' => 'Launch']));
+
+    foreach (range(1, RecordPageRevision::LIMIT + 5) as $i) {
+        recordRevision($tenant, $page, revisionBlocks('v'.$i));
+    }
+
+    expect(PageRevision::query()->whereKey($named->id)->exists())->toBeTrue()
+        // The window still holds its LIMIT of unnamed versions besides it.
+        ->and(PageRevision::query()->whereNull('label')->count())->toBe(RecordPageRevision::LIMIT);
+});
+
 it('keeps each page history separate', function (): void {
     $tenant = Tenant::factory()->create();
     $home = $this->createTenantPage($tenant, revisionBlocks('home'));

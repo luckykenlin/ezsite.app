@@ -52,6 +52,39 @@ final readonly class CachePageEditorPreview
     }
 
     /**
+     * Swap only the BLOCKS of an existing preview entry — the chat worker's
+     * write path, which lets the canvas repaint after every tool call while a
+     * turn is still running.
+     *
+     * Everything else in the entry (page, chrome, design tokens) is preserved
+     * exactly as the editor last pushed it: the worker knows nothing about the
+     * inspector's chrome draft or a staged style, and overwriting them with
+     * defaults would repaint the canvas in a state the operator never had.
+     * False when no entry exists (never pushed, or expired) — the caller skips
+     * its repaint signal, since there is nothing on screen to go stale.
+     *
+     * @param  list<array{key: string, type: string, data: array<string, mixed>}>  $blocks
+     */
+    public function replaceBlocks(string $token, array $blocks): bool
+    {
+        $entry = Cache::get(self::key($token));
+
+        if (! is_array($entry)) {
+            return false;
+        }
+
+        $entry['blocks'] = array_map(
+            static fn (array $block): array => ['type' => $block['type'], 'data' => $block['data']],
+            $blocks,
+        );
+        $entry['keys'] = array_column($blocks, 'key');
+
+        Cache::put(self::key($token), $entry, now()->addHours(2));
+
+        return true;
+    }
+
+    /**
      * Every slot as a (possibly empty) entry list — the shape the preview
      * view's block loop consumes directly.
      *

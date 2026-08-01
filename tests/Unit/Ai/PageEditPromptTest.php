@@ -44,6 +44,43 @@ it('carries the current page outline so the model addresses real keys', function
 });
 
 /*
+ * The canvas selection rides with the turn: "make it shorter" must mean the
+ * block the operator is looking at, not a guess across ten blocks.
+ */
+it('names the selected section as the referent for unaddressed requests', function (): void {
+    $page = Page::factory()->make(['title' => 'Home', 'slug' => '/', 'status' => 'draft']);
+
+    $prompt = (string) new PageEditPrompt(
+        $page,
+        heroPageDraft(),
+        resolve(BlockVocabulary::class)->all(),
+        null,
+        'Make it shorter',
+        selectedBlockKey: 'k1',
+    );
+
+    expect($prompt)->toContain('## The selected section')
+        ->toContain('the hero section selected on the canvas — key k1');
+});
+
+it('drops a selection that no longer resolves to a block', function (?string $key): void {
+    // A key deleted mid-session (or no selection at all) must vanish rather
+    // than point the model at a block the outline does not contain.
+    $page = Page::factory()->make(['title' => 'Home', 'slug' => '/', 'status' => 'draft']);
+
+    $prompt = (string) new PageEditPrompt(
+        $page,
+        heroPageDraft(),
+        resolve(BlockVocabulary::class)->all(),
+        null,
+        'Make it shorter',
+        selectedBlockKey: $key,
+    );
+
+    expect($prompt)->not->toContain('## The selected section');
+})->with(['a deleted block' => 'gone', 'no selection' => null]);
+
+/*
  * Only the types actually on the page get their full field list: the vocabulary
  * for every block type is a lot of tokens to spend on sections the operator did
  * not mention, and AddBlock seeds sample content anyway, so the model reads a new

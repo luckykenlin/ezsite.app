@@ -16,6 +16,7 @@ use App\Actions\Pages\RecordPageRevision;
 use App\Actions\Pages\RemovePageBlock;
 use App\Actions\Pages\ReorderPageBlocks;
 use App\Actions\Pages\SavePageEditorDraft;
+use App\Actions\Pages\UpdatePageBlock;
 use App\Actions\SaveSiteChrome;
 use App\Enums\BindType;
 use App\Enums\ChromeSlot;
@@ -35,6 +36,8 @@ use App\Models\Page as PageModel;
 use App\Models\PageRevision;
 use App\Models\User;
 use App\Site\Blocks\BlockData;
+use App\Site\Blocks\BlockIntent;
+use App\Site\Blocks\BlockShape;
 use App\Site\Blocks\BlockType;
 use App\Site\Blocks\BlockVocabulary;
 use Filament\Actions\Action;
@@ -45,6 +48,8 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Locked;
@@ -258,6 +263,77 @@ final class PageEditor extends Page
     }
 
     /**
+     * The library grouped the way an operator shops for a section — by what it
+     * is FOR ({@see BlockIntent}), in the enum's top-of-page-first order. Each
+     * entry carries the AI description too: it was written to separate
+     * look-alike types ("features" vs "offerings"), which is exactly the
+     * question a human browser has.
+     *
+     * A type with no intent would be dropped here, which is why the arch test
+     * "every page block declares a library intent" exists — the failure mode
+     * is a block that silently cannot be added, not an error anyone sees.
+     *
+     * @return array<string, array{label: string, types: array<string, array{label: string, icon: string|null, description: string}>}>
+     */
+    public function blockLibraryGroups(): array
+    {
+        $contracts = resolve(BlockVocabulary::class)->pageTypes();
+        $groups = [];
+
+        foreach (BlockIntent::cases() as $intent) {
+            $types = [];
+
+            foreach ($contracts as $type => $contract) {
+                if ($contract->intent === $intent) {
+                    $types[$type] = [
+                        'label' => Str::headline($type),
+                        'icon' => $contract->icon,
+                        'description' => $contract->description,
+                    ];
+                }
+            }
+
+            if ($types !== []) {
+                $groups[$intent->value] = ['label' => $intent->label(), 'types' => $types];
+            }
+        }
+
+        return $groups;
+    }
+
+    /**
+     * The page's blocks as the inspector's outline panel lists them: a type
+     * label and the first line of real content, so a row is recognisable
+     * without the canvas. The panel is the keyboard/touch path the canvas
+     * cannot offer — its reorder rides native HTML5 drag, which touch never
+     * fires — and Wix's lesson that redundant selection paths ARE the polish.
+     *
+     * @return list<array{key: string, label: string, snippet: string|null}>
+     */
+    public function blockOutline(): array
+    {
+        return array_map(static function (array $block): array {
+            $snippet = null;
+
+            foreach ($block['data'] as $field => $value) {
+                // The first authored string names the block better than any
+                // field label; reserved keys (variant) are presentation.
+                if (is_string($value) && mb_trim($value) !== '' && ! in_array($field, BlockShape::reservedKeys(), true)) {
+                    $snippet = Str::limit(mb_trim($value), 40);
+
+                    break;
+                }
+            }
+
+            return [
+                'key' => $block['key'],
+                'label' => Str::headline($block['type'] === '' ? 'broken' : $block['type']),
+                'snippet' => $snippet,
+            ];
+        }, $this->blocks);
+    }
+
+    /**
      * The selected block's bind target, if any — drives the right pane's
      * "this data comes from your Business profile" hint.
      */
@@ -434,6 +510,76 @@ final class PageEditor extends Page
         $this->markDirty();
     }
 
+    /**
+     * Switch the block to its NEXT layout variant, wrapping — the "try another
+     * layout" chip. Wix's Switch Layouts, minus the AI: variants re-render the
+     * same content, so restructuring never re-enters it, and cycling is
+     * deterministic — no reason to spend a model turn (or its latency) on it.
+     *
+     * Undoable like every structural verb; refuses chrome (no variants worth
+     * cycling site-wide from here) and single-variant types (a no-op chip
+     * would read as broken).
+     */
+    public function cycleBlockVariant(string $key): void
+    {
+        if ($this->chromeSlot($key) instanceof ChromeSlot || ! $this->commitSelectedBlock()) {
+            return;
+        }
+
+        $index = $this->blockIndexOrNull($key);
+
+        if ($index === null) {
+            return;
+        }
+
+        $block = $this->blocks[$index];
+        $contract = resolve(BlockVocabulary::class)->get($block['type']);
+
+        if (! $contract instanceof BlockType || count($contract->variants) < 2) {
+            return;
+        }
+
+        // An unrecognised stored variant resolves to null; -1 wraps it to the
+        // first declared variant, which doubles as the repair path.
+        $current = $contract->resolveVariant($block['data'][BlockShape::VARIANT_KEY] ?? null);
+        $position = $current === null ? -1 : (int) array_search($current, $contract->variants, true);
+
+        $this->snapshot();
+
+        $data = $block['data'];
+        $data[BlockShape::VARIANT_KEY] = $contract->variants[($position + 1) % count($contract->variants)];
+
+        $this->blocks = resolve(UpdatePageBlock::class)->handle($this->blocks, $key, $data);
+
+        if ($key === $this->selectedBlockKey) {
+            $this->fillBlockForm();
+        }
+
+        $this->markDirty();
+    }
+
+    /**
+     * Whether the selection is a page block with layouts to cycle — gates the
+     * "try another layout" chip, so it never renders as a button that does
+     * nothing.
+     */
+    public function selectedBlockHasVariants(): bool
+    {
+        if ($this->chromeSlot($this->selectedBlockKey) instanceof ChromeSlot) {
+            return false;
+        }
+
+        $selected = $this->selectedBlock();
+
+        if ($selected === null) {
+            return false;
+        }
+
+        $contract = resolve(BlockVocabulary::class)->get($selected['type']);
+
+        return $contract instanceof BlockType && count($contract->variants) > 1;
+    }
+
     public function moveBlock(string $key, int $offset): void
     {
         if ($this->chromeSlot($key) instanceof ChromeSlot || ! $this->commitSelectedBlock()) {
@@ -495,10 +641,10 @@ final class PageEditor extends Page
      * site" stays the only path to the `businesses` row. Tokens reach every page
      * including published ones, so that separation is the whole safety story.
      *
-     * Chrome is the exception to the one-snapshot rule, and deliberately: it has
-     * never been on the undo stack, so it is applied outside the snapshot and
-     * settles through Save like a hand edit to the header would. See
-     * {@see HasSiteChromeDraft::applyChromeDraft()}.
+     * Chrome rides under the SAME snapshot since it joined the undo shape
+     * ({@see HasBlockHistory::currentSnapshot()}): the snapshot above captures
+     * the pre-turn chrome, so undoing the turn takes the header edit back with
+     * the copy — one answer, one Undo, all three kinds of state.
      *
      * @param  array<array{key: string, type: string, data: array<string, mixed>}>|null  $blocks
      * @param  array<string, string|null>|null  $design
@@ -682,6 +828,115 @@ final class PageEditor extends Page
     }
 
     /**
+     * The remove confirmation, as a mountable Filament action rather than a
+     * native `window.confirm()`: it matches the rest of the panel's chrome,
+     * and while it is mounted `mountedActions` gates the canvas keyboard verbs
+     * — so a held Delete key cannot stack removals behind the dialog. The key
+     * travels in the action ARGUMENTS (per mount), since the button lives on
+     * the canvas and addresses whichever block asked.
+     */
+    public function removeBlockAction(): Action
+    {
+        return Action::make('removeBlock')
+            ->requiresConfirmation()
+            ->modalHeading(__('Remove this block?'))
+            ->modalDescription(__('You can bring it back with Undo.'))
+            ->action(function (array $arguments): void {
+                $key = $arguments['key'] ?? null;
+
+                if (is_string($key) && $key !== '') {
+                    $this->removeBlock($key);
+                }
+            });
+    }
+
+    /**
+     * Name a saved version — which also EXEMPTS it from pruning (see
+     * {@see RecordPageRevision::prune()}): the point of naming one is that a
+     * busy session's thirty saves cannot silently push it out of the window.
+     * An empty label un-names it, returning it to the ordinary window.
+     */
+    public function nameRevision(int $revision, string $label): void
+    {
+        $stored = PageRevision::query()
+            ->where('page_id', $this->pageRecord()->id)
+            ->whereKey($revision)
+            ->first();
+
+        if (! $stored instanceof PageRevision) {
+            return;
+        }
+
+        $label = mb_trim($label);
+        $stored->update(['label' => $label === '' ? null : Str::limit($label, 60, '')]);
+
+        Notification::make()
+            ->title($label === '' ? __('Version name removed') : __('Version named'))
+            ->body($label === ''
+                ? __('It ages out of the history window like any other save.')
+                : __('Named versions are never pruned from the history.'))
+            ->success()
+            ->send();
+    }
+
+    /**
+     * Put a PAST version live, without touching the canvas.
+     *
+     * The other half of {@see restoreRevision()}'s contract: restore loads a
+     * version INTO the editor for review, this ships one PAST the editor —
+     * "roll the live site back to Tuesday" must not cost the operator the
+     * draft they are halfway through. The version becomes the saved state
+     * (recorded in history like any save) and the page goes live; the editor's
+     * unsaved draft stays exactly where it was.
+     */
+    public function publishRevision(int $revision): void
+    {
+        $stored = PageRevision::query()
+            ->where('page_id', $this->pageRecord()->id)
+            ->whereKey($revision)
+            ->first();
+
+        if (! $stored instanceof PageRevision) {
+            Notification::make()
+                ->title(__('That version is no longer available'))
+                ->body(__('It may have been pruned while this page was open.'))
+                ->warning()
+                ->send();
+
+            return;
+        }
+
+        $page = $this->pageRecord();
+        $user = auth()->user();
+
+        DB::transaction(function () use ($page, $stored, $user): void {
+            // Recorded first, so the newest history row mirrors what is now
+            // saved — the same order persistBlocks() keeps.
+            resolve(RecordPageRevision::class)->handle(
+                $page,
+                $stored->blocks,
+                $user instanceof User ? $user : null,
+            );
+
+            $page->update(['blocks' => $stored->blocks]);
+
+            resolve(PublishPage::class)->handle($page, true);
+        });
+
+        Notification::make()
+            ->title(__('Version published'))
+            ->body(__('The live page now shows that version. Your unsaved work on the canvas is untouched.'))
+            ->success()
+            ->actions([
+                Action::make('viewLive')
+                    ->label(__('View live'))
+                    ->button()
+                    ->url($page->getUrl(), shouldOpenInNewTab: true),
+            ])
+            ->send();
+    }
+
+    /**
      * @return array<Action>
      */
     protected function getHeaderActions(): array
@@ -711,6 +966,32 @@ final class PageEditor extends Page
                 ->url(fn (): string => $this->pageRecord()->getUrl())
                 ->openUrlInNewTab()
                 ->visible(fn (): bool => ! $this->pageRecord()->isDraft()),
+
+            // A stakeholder link to the SAVED page, draft status included —
+            // signed and expiring, so it needs no account and dies on its own.
+            // The copy itself happens in the browser (editor.ts), which is why
+            // this dispatches rather than notifying with the URL to hand-copy.
+            Action::make('sharePreview')
+                ->label('Share preview')
+                ->color('gray')
+                ->icon(Heroicon::OutlinedLink)
+                ->action(function (): void {
+                    // Signed relative (matching the route's `signed:relative`),
+                    // then absolutised against the host the operator is on —
+                    // so the link survives a later move to a custom domain.
+                    $this->dispatch('page-editor:copy-link', url: url(URL::temporarySignedRoute(
+                        'page.shared-preview',
+                        now()->addDays(7),
+                        ['page' => $this->pageRecord()->id],
+                        absolute: false,
+                    )));
+
+                    Notification::make()
+                        ->title(__('Preview link copied'))
+                        ->body(__('Anyone with the link can view the saved page for 7 days — no account needed.'))
+                        ->success()
+                        ->send();
+                }),
 
             PageSettingsAction::make($this),
 

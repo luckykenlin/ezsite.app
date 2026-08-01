@@ -70,11 +70,17 @@ export function matchShortcut(
         };
     }
 
-    if (event.key === 's') {
+    // Lowercased because the browser reports the PRODUCED character, not the
+    // physical key: Shift+z arrives as 'Z', so comparing against 'z' made
+    // Cmd/Ctrl+Shift+Z (redo) unreachable — and Caps Lock did the same to
+    // plain undo and save.
+    const letter = event.key.toLowerCase();
+
+    if (letter === 's') {
         return { name: 'save', preventDefault: true };
     }
 
-    if (event.key === 'z') {
+    if (letter === 'z') {
         return {
             name: event.shiftKey ? 'redo' : 'undo',
             preventDefault: true,
@@ -110,9 +116,20 @@ export type CanvasMessage =
     | { type: 'action'; action: BlockAction; key: string }
     | { type: 'reorder'; keys: string[] }
     | { type: 'insert-at'; position: number }
-    | { type: 'inline-edit-request'; key: string; text: string }
+    /**
+     * `field` rides along when the double-clicked element (or an ancestor
+     * inside the block) carries a `data-editor-field` annotation — the
+     * deterministic path; the parent falls back to text-matching without it.
+     */
+    | { type: 'inline-edit-request'; key: string; text: string; field?: string }
     | { type: 'inline-input'; key: string; field: string; value: string }
     | { type: 'inline-commit' }
+    /**
+     * The selected block's toolbar "Ask AI" button: focus the chat composer
+     * with this block as the turn's context. Separate from {@see BlockAction}
+     * because it is not a structural verb — it changes no state, it aims one.
+     */
+    | { type: 'ask-ai'; key: string }
     | { type: 'shortcut'; name: ShortcutName };
 
 /** Editor → canvas. */
@@ -121,6 +138,12 @@ export type EditorMessage =
     | { type: 'patch'; key: string; html: string }
     | { type: 'insert-armed'; position: number | null }
     | { type: 'inline-edit-grant'; field: string }
+    /**
+     * The request could not be matched to an editable field. The canvas shows
+     * a "use the panel" hint — a double-click that silently does nothing reads
+     * as a broken feature, not a limitation.
+     */
+    | { type: 'inline-edit-deny' }
     /**
      * Point at what the assistant just changed. Transient and purely visual —
      * it marks blocks, it does not select them, so the inspector keeps whatever

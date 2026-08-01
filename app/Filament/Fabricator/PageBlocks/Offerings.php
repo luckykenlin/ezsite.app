@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Fabricator\PageBlocks;
 
 use App\Filament\Fabricator\Fields\ImageInput;
+use App\Site\Blocks\BlockIntent;
 use Filament\Forms\Components\Field;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Textarea;
@@ -52,6 +53,8 @@ final class Offerings extends Block
     protected static string $description = 'Things the business sells, with prices — menu dishes, salon or clinic services, packages, products. Use this whenever an item has a price; for reasons to choose the business, with no price, use features instead. Optionally group items (e.g. "Starters", "Colour") and they render under those headings.';
 
     protected static ?Heroicon $icon = Heroicon::OutlinedTag;
+
+    protected static ?BlockIntent $intent = BlockIntent::Showcase;
 
     /**
      * @var array<string, mixed>

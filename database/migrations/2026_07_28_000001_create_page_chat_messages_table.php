@@ -49,6 +49,28 @@ return new class extends Migration
             // blocks changed" affordance in the UI. Null for user messages.
             $table->unsignedSmallInteger('changed_blocks')->nullable();
 
+            // Whether this assistant turn is an apology for a turn that never
+            // finished (provider failure, dead worker). Persisted because the
+            // retry affordance renders from the TRANSCRIPT — the cache entry
+            // carrying the same fact dies with the poll, but the apology
+            // bubble survives a reload and must still offer the retry.
+            $table->boolean('failed')->default(false);
+
+            // The editor's on-screen blocks at the moment this turn's edits
+            // were APPLIED (key-stripped, persisted shape) — what "Revert this
+            // edit" restores. Captured editor-side rather than from the job
+            // payload, because the operator may have edited mid-turn and a
+            // revert must return to what they were actually looking at. Null
+            // for user turns and for answers that changed nothing.
+            $table->json('blocks_before')->nullable();
+
+            // The turn's tool-call summary lines (ChatActivity), so the agent's
+            // conversation memory carries WHAT it changed, not only what it
+            // said about it — its prose routinely under-describes its edits,
+            // and a model that cannot recall removing a block re-adds it.
+            // Null for user turns and tool-less answers.
+            $table->json('activity')->nullable();
+
             $table->timestamps();
 
             // The only read pattern: one page's thread in chronological order.

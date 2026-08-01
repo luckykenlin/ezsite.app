@@ -27,13 +27,13 @@
 
     <div class="mx-auto flex max-w-4xl flex-col items-start px-6">
         @if ($eyebrow)
-            <p class="mb-4 text-sm font-semibold uppercase tracking-widest">{{ $eyebrow }}</p>
+            <p data-editor-field="eyebrow" class="mb-4 text-sm font-semibold uppercase tracking-widest">{{ $eyebrow }}</p>
         @endif
 
-        <h1 class="text-balance text-5xl font-bold tracking-tight md:text-7xl">{{ $heading }}</h1>
+        <h1 data-editor-field="heading" class="text-balance text-5xl font-bold tracking-tight md:text-7xl">{{ $heading }}</h1>
 
         @if ($subheading)
-            <p class="mt-6 max-w-2xl text-lg opacity-80">{{ $subheading }}</p>
+            <p data-editor-field="subheading" class="mt-6 max-w-2xl text-lg opacity-80">{{ $subheading }}</p>
         @endif
 
         @if ($cta_label && $cta_url)

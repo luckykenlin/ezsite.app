@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Fabricator\PageBlocks;
 
 use App\Filament\Fabricator\Fields\LinkInput;
+use App\Site\Blocks\BlockIntent;
 use Filament\Forms\Components\Field;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Textarea;
@@ -45,6 +46,8 @@ final class Pricing extends Block
     protected static string $description = 'A few plans side by side to compare and pick between — packages, tiers, memberships, retainers. Two to four at most, and only when they are ALTERNATIVES to one another; for a long list of separately priced things (a menu, a service list) use offerings instead.';
 
     protected static ?Heroicon $icon = Heroicon::OutlinedCreditCard;
+
+    protected static ?BlockIntent $intent = BlockIntent::Showcase;
 
     /**
      * @var array<string, mixed>

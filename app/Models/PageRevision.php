@@ -23,6 +23,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $page_id
  * @property int|null $user_id
  * @property list<array{type: string, data: array<string, mixed>}> $blocks
+ * @property string|null $label
  * @property CarbonImmutable|null $created_at
  *
  * @method static PageRevisionFactory factory($count = null, $state = [])

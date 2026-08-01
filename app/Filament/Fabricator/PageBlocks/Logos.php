@@ -6,6 +6,7 @@ namespace App\Filament\Fabricator\PageBlocks;
 
 use App\Filament\Fabricator\Fields\ImageInput;
 use App\Filament\Fabricator\Fields\LinkInput;
+use App\Site\Blocks\BlockIntent;
 use Filament\Forms\Components\Field;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\TextInput;
@@ -35,6 +36,8 @@ final class Logos extends Block
     protected static string $description = 'Logos the business can legitimately show — clients served, partners, accreditations, press it appeared in. Never add one the operator did not name: claiming an association that does not exist is a legal problem, not a copy problem.';
 
     protected static ?Heroicon $icon = Heroicon::OutlinedShieldCheck;
+
+    protected static ?BlockIntent $intent = BlockIntent::Trust;
 
     /**
      * @var array<string, mixed>

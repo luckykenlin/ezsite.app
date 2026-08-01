@@ -7,6 +7,7 @@ namespace App\Filament\Fabricator\PageBlocks;
 use App\Enums\BindType;
 use App\Enums\ChromeSlot;
 use App\Models\Location;
+use App\Site\Blocks\BlockIntent;
 use App\Site\Blocks\BlockShape;
 use App\Site\Blocks\BlockType;
 use App\Site\Blocks\SectionSpacing;
@@ -75,6 +76,14 @@ abstract class Block extends PageBlock
     protected static ?Heroicon $icon = null;
 
     /**
+     * Which block-library group this type is browsed under — see
+     * {@see BlockIntent}. Null only on chrome (never in the library); every
+     * page block must declare one, arch-test enforced, because a null here
+     * silently drops the type from the library.
+     */
+    protected static ?BlockIntent $intent = null;
+
+    /**
      * Ready-to-render sample content for a freshly added block: it must
      * satisfy the block's own validation (required fields, repeater item
      * rules), and the copy should read as an obvious, friendly placeholder
@@ -137,6 +146,7 @@ abstract class Block extends PageBlock
                 static::fields(),
             )),
             sample: self::sample(),
+            intent: static::$intent,
         );
     }
 

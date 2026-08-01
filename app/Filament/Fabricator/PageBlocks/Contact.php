@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Fabricator\PageBlocks;
 
 use App\Enums\BindType;
+use App\Site\Blocks\BlockIntent;
 use Filament\Forms\Components\Field;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -24,6 +25,8 @@ final class Contact extends Block
     protected static string $description = 'How to reach the business, with the enquiry form and the live address and opening hours of a location. The details come from the business profile, so write only the surrounding copy.';
 
     protected static ?Heroicon $icon = Heroicon::OutlinedMapPin;
+
+    protected static ?BlockIntent $intent = BlockIntent::Convert;
 
     /**
      * @var array<string, mixed>

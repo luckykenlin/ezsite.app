@@ -28,6 +28,7 @@ it('reports a turn that is still streaming as running, with no result to apply',
         'activity' => [],
         'design' => null,
         'chrome' => null,
+        'preview' => 0,
     ]);
 });
 
@@ -44,6 +45,7 @@ it('reports a finished turn with its blocks', function (): void {
         'activity' => [],
         'design' => null,
         'chrome' => null,
+        'preview' => 0,
     ]);
 });
 
@@ -67,6 +69,20 @@ it('drops activity entries that are not lines of text', function (): void {
     ]);
 
     expect(chatTurns()->read('tok')['activity'])->toBe(['Rewriting the Hero block…']);
+});
+
+it('carries the paint counter, reading junk as never-painted', function (): void {
+    // The counter tells the SSE tail the canvas preview moved; anything but a
+    // non-negative int reads as zero, which only costs a repaint not needed.
+    chatTurns()->handle('tok', '', preview: 3);
+
+    expect(chatTurns()->read('tok')['preview'])->toBe(3);
+
+    Cache::put(CacheChatTurn::key('junk'), ['preview' => -2]);
+    Cache::put(CacheChatTurn::key('junk2'), ['preview' => 'three']);
+
+    expect(chatTurns()->read('junk')['preview'])->toBe(0)
+        ->and(chatTurns()->read('junk2')['preview'])->toBe(0);
 });
 
 it('carries the unchanged blocks of a failed turn', function (): void {
@@ -122,6 +138,7 @@ it('reads a structurally broken payload as nothing rather than throwing', functi
         'activity' => [],
         'design' => null,
         'chrome' => null,
+        'preview' => 0,
     ]],
     'a non-string reply' => [['reply' => 42, 'blocks' => 'oops', 'activity' => 'not a list'], [
         'status' => 'running',
@@ -131,6 +148,7 @@ it('reads a structurally broken payload as nothing rather than throwing', functi
         'activity' => [],
         'design' => null,
         'chrome' => null,
+        'preview' => 0,
     ]],
 ]);
 

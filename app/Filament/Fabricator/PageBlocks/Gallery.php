@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Fabricator\PageBlocks;
 
 use App\Filament\Fabricator\Fields\ImageInput;
+use App\Site\Blocks\BlockIntent;
 use Filament\Forms\Components\Field;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\TextInput;
@@ -34,6 +35,8 @@ final class Gallery extends Block
     protected static string $description = 'Photographs shown for their own sake — the room, the work, the food. Use it when the images ARE the content, not to decorate a list.';
 
     protected static ?Heroicon $icon = Heroicon::OutlinedPhoto;
+
+    protected static ?BlockIntent $intent = BlockIntent::Showcase;
 
     /**
      * @var array<string, mixed>

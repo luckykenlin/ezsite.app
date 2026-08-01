@@ -129,6 +129,36 @@ it('forwards each activity line as the turn announces it', function (): void {
     });
 });
 
+it('tells the browser to reload the canvas when the turn repaints it', function (): void {
+    $tenant = Tenant::factory()->withDomain('acme')->create();
+
+    $this->runInTenant($tenant, function (): void {
+        $turns = resolve(CacheChatTurn::class);
+        $turns->handle('tok', '');
+
+        $writes = [
+            // The worker painted the preview once (its counter moved), then
+            // finished. The same counter value must not be forwarded twice —
+            // each reload costs the iframe a full fetch.
+            fn () => $turns->handle('tok', '', preview: 1),
+            fn () => $turns->handle('tok', 'Done.', [], preview: 1),
+        ];
+
+        Sleep::whenFakingSleep(function () use (&$writes): void {
+            $write = array_shift($writes);
+
+            if ($write !== null) {
+                $write();
+            }
+        });
+
+        $content = chatStreamResponse('tok');
+
+        expect($content)->toContain('{"t":"canvas","v":"1"}')
+            ->and(mb_substr_count($content, '"t":"canvas"'))->toBe(1);
+    });
+});
+
 it('closes immediately when the turn is already finished', function (): void {
     $tenant = Tenant::factory()->withDomain('acme')->create();
 

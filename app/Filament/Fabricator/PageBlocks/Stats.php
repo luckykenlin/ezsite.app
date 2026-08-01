@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Fabricator\PageBlocks;
 
+use App\Site\Blocks\BlockIntent;
 use Filament\Forms\Components\Field;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\TextInput;
@@ -29,6 +30,8 @@ final class Stats extends Block
     protected static string $description = 'A few numbers that build confidence — years in business, jobs completed, customers served, average rating. NEVER invent one: unlike vague copy, a number is checkable, and a wrong one is a claim the business has to defend.';
 
     protected static ?Heroicon $icon = Heroicon::OutlinedChartBar;
+
+    protected static ?BlockIntent $intent = BlockIntent::Trust;
 
     /**
      * @var array<string, mixed>

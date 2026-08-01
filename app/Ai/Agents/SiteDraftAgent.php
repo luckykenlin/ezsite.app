@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Ai\Agents;
 
+use App\Ai\SiteDraftValidator;
 use App\Design\StylePreset;
 use App\Site\Blocks\BlockVocabulary;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Ai\Attributes\Temperature;
 use Laravel\Ai\Attributes\Timeout;
+use Laravel\Ai\Attributes\UseSmartestModel;
 use Laravel\Ai\Contracts\Agent;
 use Laravel\Ai\Contracts\HasStructuredOutput;
 use Laravel\Ai\Promptable;
@@ -19,11 +21,19 @@ use Laravel\Ai\Promptable;
  * variants are stamped server-side from the preset and bind targets resolve
  * at render time, so neither appears in the schema; header/footer are site
  * chrome and are excluded from the block type enum. The server-side gate is
- * {@see \App\Ai\SiteDraftValidator}.
+ * {@see SiteDraftValidator}.
  *
- * Provider/model follow `config('ai.default')` (the AI_PROVIDER env) and the
- * provider's default text model — e.g. DeepSeek → deepseek-v4-pro — so
- * swapping providers is a .env change, not a code change.
+ * A draft is the home page plus, when the profile gives real material, up to
+ * three supporting pages from a FIXED slug menu — a closed set, so slugs are
+ * collision-free and the header navigation can be stamped before anything
+ * renders.
+ *
+ * Provider follows `config('ai.default')` (the AI_PROVIDER env); the model is
+ * the provider's SMARTEST text tier (`ai.providers.*.models.text.smartest`) —
+ * this runs once per site, unwatched, and its output quality is the whole
+ * product moment, so it gets the deep tier while the interactive
+ * {@see PageEditorAgent} gets the cheap one. Swapping providers remains a
+ * .env change, not a code change.
  *
  * Low temperature: providers whose structured output is prompt-enforced
  * (DeepSeek's json_object mode) drift off-schema at default temperature.
@@ -32,6 +42,7 @@ use Laravel\Ai\Promptable;
  */
 #[Temperature(0.2)]
 #[Timeout(150)]
+#[UseSmartestModel]
 final readonly class SiteDraftAgent implements Agent, HasStructuredOutput
 {
     use Promptable;
@@ -74,10 +85,11 @@ final readonly class SiteDraftAgent implements Agent, HasStructuredOutput
                 ->required(),
             'pages' => $schema->array()
                 ->min(1)
-                ->max(1)
+                ->max(1 + count(SiteDraftValidator::EXTRA_SLUGS))
+                ->description('The home page (slug "/") first — required — then optional pages from the allowed slugs, only where the profile gives real material.')
                 ->items($schema->object([
                     'title' => $schema->string()->min(1)->max(120)->required(),
-                    'slug' => $schema->string()->enum(['/'])->required(),
+                    'slug' => $schema->string()->enum(['/', ...SiteDraftValidator::EXTRA_SLUGS])->required(),
                     'meta_description' => $schema->string()
                         ->min(1)
                         ->max(160)

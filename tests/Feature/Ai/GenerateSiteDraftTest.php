@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Actions\GenerateSiteDraft;
+use App\Actions\SaveSiteChrome;
 use App\Ai\Agents\SiteDraftAgent;
 use App\Design\StylePreset;
 use App\Enums\PageStatus;
@@ -10,6 +11,7 @@ use App\Exceptions\SiteDraftRefused;
 use App\Exceptions\SiteDraftUnusable;
 use App\Models\Business;
 use App\Models\Page;
+use App\Models\SiteSetting;
 use App\Models\Tenant;
 use App\Tenancy\RunInTenant;
 use Laravel\Ai\Prompts\AgentPrompt;
@@ -182,4 +184,88 @@ it('rejects a response without structured output after the retry also fails', fu
 
     expect(fn (): Page => generateFor($tenant))
         ->toThrow(SiteDraftUnusable::class, 'no structured output');
+});
+
+/*
+ * Multi-page generation: the draft may carry /about, /services and /contact
+ * beside the home page, and the header navigation is stamped with links to
+ * everything that landed — the "pages, navigation, copy in under a minute"
+ * first-run moment.
+ */
+function fakeMultiPageResponse(): array
+{
+    $draft = fakeDraftResponse();
+    $draft['pages'][] = [
+        'title' => 'Our Story',
+        'slug' => '/about',
+        'meta_description' => 'How Corner Cafe came to be.',
+        'blocks' => [
+            ['type' => 'heading', 'data' => ['content' => 'Our story', 'level' => 'h2']],
+            ['type' => 'prose', 'data' => ['body' => 'We bake.']],
+            ['type' => 'cta', 'data' => ['heading' => 'Come by', 'cta_label' => 'Visit', 'cta_url' => '/contact']],
+        ],
+    ];
+
+    return $draft;
+}
+
+it('lands every generated page as a draft and stamps the navigation', function (): void {
+    SiteDraftAgent::fake([fakeMultiPageResponse()]);
+
+    $tenant = Tenant::factory()->create();
+    $this->createTenantBusiness($tenant, ['name' => 'Corner Cafe'], 1);
+
+    $home = generateFor($tenant);
+
+    $about = Page::query()->where('slug', '/about')->sole();
+
+    expect($home->slug)->toBe('/')
+        ->and($about->status)->toBe(PageStatus::Draft)
+        ->and($about->title)->toBe('Our Story')
+        ->and($about->seo_description)->toBe('How Corner Cafe came to be.')
+        // Extra pages get the same preset stamping as the home page.
+        ->and($about->blocks[2]['data']['variant'])->toBe('boxed');
+
+    // The header nav names every landed page, home first.
+    $header = SiteSetting::query()->sole()->header;
+
+    expect($header[0]['type'])->toBe('header')
+        ->and($header[0]['data']['nav_links'])->toBe([
+            ['label' => 'Home', 'url' => '/'],
+            ['label' => 'Our Story', 'url' => '/about'],
+        ]);
+});
+
+it('never overwrites a published extra page, and never a hand-shaped navigation', function (): void {
+    SiteDraftAgent::fake([fakeMultiPageResponse()]);
+
+    $tenant = Tenant::factory()->create();
+    $this->createTenantBusiness($tenant, ['name' => 'Corner Cafe'], 1);
+
+    $this->runInTenant($tenant, function () use ($tenant): void {
+        Page::query()->create([
+            'tenant_id' => $tenant->id,
+            'title' => 'Hand-written About',
+            'slug' => '/about',
+            'layout' => 'main',
+            'blocks' => [['type' => 'prose', 'data' => ['body' => 'Precious copy.']]],
+            'status' => PageStatus::Published,
+        ]);
+
+        resolve(SaveSiteChrome::class)->handle(
+            [['type' => 'header', 'data' => ['nav_links' => [['label' => 'Mine', 'url' => '/']]]]],
+            null,
+        );
+    });
+
+    generateFor($tenant);
+
+    $about = Page::query()->where('slug', '/about')->sole();
+
+    // The live /about someone wrote by hand outranks the generation…
+    expect($about->title)->toBe('Hand-written About')
+        ->and($about->status)->toBe(PageStatus::Published)
+        // …and so does their navigation.
+        ->and(SiteSetting::query()->sole()->header[0]['data']['nav_links'])
+        ->toBe([['label' => 'Mine', 'url' => '/']]);
 });

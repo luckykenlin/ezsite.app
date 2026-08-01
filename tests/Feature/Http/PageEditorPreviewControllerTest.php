@@ -109,6 +109,36 @@ it('404s on a missing or unknown token', function (?string $query): void {
     'unknown token' => ['?token=bogus'],
 ]);
 
+/*
+ * The block library's thumbnails: ?sample=<type> renders that type's sample
+ * content as a standalone themed document — the exact block clicking the card
+ * would add, with none of the editor's canvas glue.
+ */
+it('serves a block type sample as an inert themed thumbnail document', function (): void {
+    $tenant = Tenant::factory()->withDomain('acme')->create();
+    $page = $this->createTenantPage($tenant, []);
+
+    cachePreviewFor($tenant, $page, [], 'valid-token');
+
+    $this->get(sprintf('http://acme.%s/_editor/preview?token=valid-token&sample=hero', $this->centralDomain()))
+        ->assertOk()
+        // The hero's sample copy, through the real base layout.
+        ->assertSee('filament-fabricator-body', false)
+        // No editor affordances: a thumbnail is a picture, not a canvas.
+        ->assertDontSee('data-editor-insert', false)
+        ->assertDontSee('data-block-key', false);
+});
+
+it('404s a sample of a type the library does not offer', function (string $type): void {
+    $tenant = Tenant::factory()->withDomain('acme')->create();
+    $page = $this->createTenantPage($tenant, []);
+
+    cachePreviewFor($tenant, $page, [], 'valid-token');
+
+    $this->get(sprintf('http://acme.%s/_editor/preview?token=valid-token&sample=%s', $this->centralDomain(), $type))
+        ->assertNotFound();
+})->with(['unknown type' => 'carousel', 'site chrome' => 'header']);
+
 it('404s on an unknown layout', function (): void {
     $tenant = Tenant::factory()->withDomain('acme')->create();
     $page = $this->createTenantPage($tenant, []);

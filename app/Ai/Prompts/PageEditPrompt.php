@@ -46,6 +46,7 @@ final readonly class PageEditPrompt implements Stringable
         private ?SiteContext $site = null,
         private ?SiteStyleDraft $style = null,
         private ?SiteChromeDraft $chrome = null,
+        private ?string $selectedBlockKey = null,
     ) {
         //
     }
@@ -55,6 +56,7 @@ final readonly class PageEditPrompt implements Stringable
         return implode("\n\n", array_filter([
             $this->pageSection(),
             $this->draft->outline(),
+            $this->selectionSection(),
             $this->vocabularySection(),
             $this->chromeSection(),
             $this->siteSection(),
@@ -62,6 +64,41 @@ final readonly class PageEditPrompt implements Stringable
             $this->businessSection(),
             $this->requestSection(),
         ]));
+    }
+
+    /**
+     * The block the operator has selected on the canvas, as the referent for
+     * requests that name no section — Lovable/Base44's "selection rides with
+     * the prompt", which is what turns "make it shorter" from a guess across
+     * ten blocks into an instruction about one.
+     *
+     * Resolved against the DRAFT rather than trusted: the selection is
+     * captured when the turn is dispatched, and a key that no longer exists
+     * (the operator deleted the block, an older tab) must vanish rather than
+     * point the model at nothing. Directly under the outline, so "key %s"
+     * reads against the list it indexes.
+     */
+    private function selectionSection(): ?string
+    {
+        if ($this->selectedBlockKey === null) {
+            return null;
+        }
+
+        $block = $this->draft->find($this->selectedBlockKey);
+
+        if ($block === null) {
+            return null;
+        }
+
+        return "## The selected section\n"
+            .sprintf(
+                'The operator has the %s section selected on the canvas — key %s in the outline above. ',
+                $block['type'],
+                $block['key'],
+            )
+            .'A request that names no section ("make it shorter", "change this", an instruction '
+            .'with no subject) refers to THIS section. A request that clearly names or describes '
+            .'a different section overrides the selection.';
     }
 
     private function pageSection(): string

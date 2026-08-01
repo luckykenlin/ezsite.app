@@ -49,8 +49,15 @@ return new class extends Migration
 
             $table->json('blocks');
 
-            // No updated_at: a revision is a fact about a moment and is never
-            // edited. Only ever inserted, read, and pruned.
+            // An operator-given name ("Launch version", "Before the rewrite").
+            // Named versions are EXEMPT from pruning — the whole point of
+            // naming one is that a busy session's thirty saves cannot silently
+            // push it out of the window.
+            $table->string('label', 60)->nullable();
+
+            // No updated_at: a revision's BLOCKS are a fact about a moment and
+            // are never edited. The label may be set later, but it is
+            // presentation, not history.
             $table->timestamp('created_at')->nullable();
 
             // The only read pattern: one page's history, newest first.

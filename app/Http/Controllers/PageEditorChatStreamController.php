@@ -80,6 +80,7 @@ final class PageEditorChatStreamController extends Controller
     {
         $sent = 0;
         $announced = 0;
+        $painted = 0;
 
         // Bounded by reads rather than by a deadline. Between reads this loop
         // does nothing but sleep, so the two are equivalent in production — but
@@ -110,6 +111,16 @@ final class PageEditorChatStreamController extends Controller
                 yield $this->frame('text', mb_substr($reply, $sent));
 
                 $sent = mb_strlen($reply);
+            }
+
+            // The turn repainted the canvas preview since the last read: tell
+            // the browser to reload the iframe. The frame carries the counter
+            // only as a cache-buster — the paint itself already sits in the
+            // preview cache the iframe reads.
+            if ($turn['preview'] > $painted) {
+                yield $this->frame('canvas', (string) $turn['preview']);
+
+                $painted = $turn['preview'];
             }
 
             if ($turn['status'] === 'done') {

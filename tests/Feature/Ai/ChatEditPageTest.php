@@ -109,6 +109,27 @@ it('records both sides of the turn, attributed and counted', function (): void {
         ->and($transcript[1]->tenant_id)->toBe($this->tenant->id);
 });
 
+it('records the tool-call summary on the reply, and none for a tool-less answer', function (): void {
+    // What feeds the agent's memory of its own edits — the prose routinely
+    // under-describes them ("Done." after a three-block rewrite).
+    PageEditorAgent::fake([
+        toolCall('UpdateBlockContent', ['key' => 'k1', 'content' => ['heading' => 'Fresh bread daily']]),
+        'Done.',
+    ]);
+
+    chatTurn(chatBlocks());
+
+    expect(PageChatMessage::query()->where('role', ChatRole::Assistant)->sole()->activity)
+        ->toBe(['Rewriting the Hero block…']);
+
+    PageEditorAgent::fake(['The hero is the banner at the top.']);
+
+    chatTurn(chatBlocks(), 'What is the hero?');
+
+    expect(PageChatMessage::query()->where('role', ChatRole::Assistant)->orderByDesc('id')->first()?->activity)
+        ->toBeNull();
+});
+
 it('counts an answer that changed nothing as no edit', function (): void {
     PageEditorAgent::fake(['The hero block is the big banner at the top of your page.']);
 
@@ -169,10 +190,15 @@ it('keeps the page unchanged and apologizes when the provider fails', function (
 
     $result = chatTurn(chatBlocks());
 
+    $apology = PageChatMessage::query()->where('role', ChatRole::Assistant)->sole();
+
     expect($result['blocks'])->toBe(chatBlocks())
         ->and($result['failed'])->toBeTrue()
         ->and($result['reply'])->toContain("couldn't reach the assistant")
-        ->and(PageChatMessage::query()->where('role', ChatRole::Assistant)->sole()->changed_blocks)->toBeNull();
+        ->and($apology->changed_blocks)->toBeNull()
+        // Persisted, not just returned: the retry button renders from the
+        // transcript, which is the only half that survives a reload.
+        ->and($apology->failed)->toBeTrue();
 
     Log::shouldHaveReceived('error')
         ->withArgs(fn (string $message, array $context): bool => $message === 'page_chat.failed'
@@ -226,7 +252,10 @@ it('reads a page transcript back oldest first', function (): void {
 
     expect(array_column($transcript, 'content'))->toBe([
         'First question', 'First answer.', 'Second question', 'Second answer.',
-    ])->and(array_column($transcript, 'role'))->toBe(['user', 'assistant', 'user', 'assistant']);
+    ])->and(array_column($transcript, 'role'))->toBe(['user', 'assistant', 'user', 'assistant'])
+        // Ordinary turns carry failed: false — the panel keys the retry
+        // affordance off this, so it must be present on every entry.
+        ->and(array_column($transcript, 'failed'))->toBe([false, false, false, false]);
 });
 
 /*

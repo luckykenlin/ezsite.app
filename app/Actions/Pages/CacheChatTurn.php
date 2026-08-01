@@ -64,8 +64,12 @@ final readonly class CacheChatTurn
      *                                                   site-scoped — they are not part of any
      *                                                   page — and the editor has to apply both
      *                                                   halves under one undo snapshot.
+     * @param  int  $preview  how many times the turn has repainted the canvas preview
+     *                        so far — a counter, not content, because the paint itself
+     *                        goes through {@see CachePageEditorPreview}; the stream only
+     *                        needs to know THAT there is something new to show.
      */
-    public function handle(string $token, string $reply, ?array $blocks = null, bool $failed = false, array $activity = [], ?array $design = null, ?array $chrome = null): void
+    public function handle(string $token, string $reply, ?array $blocks = null, bool $failed = false, array $activity = [], ?array $design = null, ?array $chrome = null, int $preview = 0): void
     {
         Cache::put(self::key($token), [
             'status' => $blocks === null ? 'running' : 'done',
@@ -75,6 +79,7 @@ final readonly class CacheChatTurn
             'activity' => $activity,
             'design' => $design,
             'chrome' => $chrome,
+            'preview' => $preview,
         ], now()->addMinutes(self::TTL_MINUTES));
     }
 
@@ -84,7 +89,7 @@ final readonly class CacheChatTurn
      * editor's state and from there into the page, so a malformed entry is
      * dropped here instead of downstream.
      *
-     * @return array{status: string, reply: string, blocks: list<array{key: string, type: string, data: array<string, mixed>}>|null, failed: bool, activity: list<string>, design: array<string, string|null>|null, chrome: array<string, array{type: string, data: array<string, mixed>}>|null}|null
+     * @return array{status: string, reply: string, blocks: list<array{key: string, type: string, data: array<string, mixed>}>|null, failed: bool, activity: list<string>, design: array<string, string|null>|null, chrome: array<string, array{type: string, data: array<string, mixed>}>|null, preview: int}|null
      */
     public function read(string $token): ?array
     {
@@ -106,6 +111,10 @@ final readonly class CacheChatTurn
             // the "this turn left the style alone" signal.
             'design' => TokenSelection::normalise($turn['design'] ?? null),
             'chrome' => $this->normalisedChrome($turn['chrome'] ?? null),
+            // Same normalise-not-trust treatment as the rest: anything but a
+            // non-negative int (a corrupted entry, an older writer) reads as
+            // "never painted", which only costs a repaint that was not needed.
+            'preview' => is_int($turn['preview'] ?? null) ? max(0, $turn['preview']) : 0,
         ];
     }
 

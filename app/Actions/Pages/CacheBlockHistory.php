@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Actions\Pages;
 
 use App\Design\TokenSelection;
+use App\Enums\ChromeSlot;
 use App\Site\Blocks\BlockData;
 use Illuminate\Support\Facades\Cache;
 
@@ -59,8 +60,8 @@ final readonly class CacheBlockHistory
     }
 
     /**
-     * @param  list<array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, selectedBlockKey: string|null, design: array<string, string|null>|null}>  $history
-     * @param  list<array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, selectedBlockKey: string|null, design: array<string, string|null>|null}>  $future
+     * @param  list<array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, selectedBlockKey: string|null, design: array<string, string|null>|null, chrome: array<string, array{type: string, data: array<string, mixed>}|null>|null, chromeDirty: bool}>  $history
+     * @param  list<array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, selectedBlockKey: string|null, design: array<string, string|null>|null, chrome: array<string, array{type: string, data: array<string, mixed>}|null>|null, chromeDirty: bool}>  $future
      */
     public function handle(int $pageId, array $history, array $future): void
     {
@@ -78,7 +79,7 @@ final readonly class CacheBlockHistory
      * snapshot is dropped here rather than downstream — the same reasoning as
      * {@see CacheChatTurn::read()}.
      *
-     * @return array{history: list<array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, selectedBlockKey: string|null, design: array<string, string|null>|null}>, future: list<array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, selectedBlockKey: string|null, design: array<string, string|null>|null}>}
+     * @return array{history: list<array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, selectedBlockKey: string|null, design: array<string, string|null>|null, chrome: array<string, array{type: string, data: array<string, mixed>}|null>|null, chromeDirty: bool}>, future: list<array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, selectedBlockKey: string|null, design: array<string, string|null>|null, chrome: array<string, array{type: string, data: array<string, mixed>}|null>|null, chromeDirty: bool}>}
      */
     public function read(int $pageId): array
     {
@@ -94,7 +95,7 @@ final readonly class CacheBlockHistory
     /**
      * Whether a stored entry has the shape of a snapshot at all.
      *
-     * @phpstan-assert-if-true array{blocks: array<array-key, mixed>, selectedBlockKey?: mixed, design?: mixed} $entry
+     * @phpstan-assert-if-true array{blocks: array<array-key, mixed>, selectedBlockKey?: mixed, design?: mixed, chrome?: mixed, chromeDirty?: mixed} $entry
      */
     private function isSnapshot(mixed $entry): bool
     {
@@ -115,7 +116,7 @@ final readonly class CacheBlockHistory
     }
 
     /**
-     * @return list<array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, selectedBlockKey: string|null, design: array<string, string|null>|null}>
+     * @return list<array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, selectedBlockKey: string|null, design: array<string, string|null>|null, chrome: array<string, array{type: string, data: array<string, mixed>}|null>|null, chromeDirty: bool}>
      */
     private function normalisedStack(mixed $stack): array
     {
@@ -140,7 +141,39 @@ final readonly class CacheBlockHistory
                 // mean the same thing to HasBlockHistory::restoreSnapshot(), which
                 // is why an already-cached stack survives the change inertly.
                 'design' => TokenSelection::normalise($entry['design'] ?? null),
+                // Null ONLY for a snapshot that predates chrome in the shape —
+                // restoreSnapshot() then leaves the chrome draft alone, unlike
+                // design, where null doubles as "nothing staged".
+                'chrome' => $this->normalisedChrome($entry['chrome'] ?? null),
+                'chromeDirty' => (bool) ($entry['chromeDirty'] ?? false),
             ];
+        }
+
+        return $normalised;
+    }
+
+    /**
+     * The editor's per-slot chrome draft, normalised: both real slots, each
+     * holding an entry or null (null slot = default chrome, a meaningful state
+     * of its own). A non-array store reads as "predates chrome".
+     *
+     * @return array<string, array{type: string, data: array<string, mixed>}|null>|null
+     */
+    private function normalisedChrome(mixed $chrome): ?array
+    {
+        if (! is_array($chrome)) {
+            return null;
+        }
+
+        $normalised = [];
+
+        foreach (ChromeSlot::values() as $slot) {
+            $entry = $chrome[$slot] ?? null;
+            $data = is_array($entry) ? ($entry['data'] ?? null) : null;
+
+            $normalised[$slot] = is_array($entry)
+                ? ['type' => $slot, 'data' => BlockData::stringKeyed(is_array($data) ? $data : [])]
+                : null;
         }
 
         return $normalised;

@@ -20,6 +20,10 @@ function historyEntry(string $key = 'k1', string $content = 'One'): array
         'blocks' => [['key' => $key, 'type' => 'heading', 'data' => ['content' => $content]]],
         'selectedBlockKey' => $key,
         'design' => null,
+        // Chrome null = "snapshot predates chrome in the shape" — the signal
+        // that tells restoreSnapshot() to leave the chrome draft alone.
+        'chrome' => null,
+        'chromeDirty' => false,
     ];
 }
 
@@ -93,7 +97,29 @@ it('drops malformed snapshots instead of letting them reach the page', function 
             ],
             'selectedBlockKey' => null,
             'design' => null,
+            'chrome' => null,
+            'chromeDirty' => false,
         ]]);
+});
+
+it('round-trips the chrome draft, keeping only the two real slots', function (): void {
+    $cache = resolve(CacheBlockHistory::class);
+
+    $entry = historyEntry();
+    $entry['chrome'] = [
+        'header' => ['type' => 'header', 'data' => ['variant' => 'centered']],
+        'footer' => null,
+        // A slot that does not exist cannot be invented by a malformed store.
+        'sidebar' => ['type' => 'sidebar', 'data' => []],
+    ];
+    $entry['chromeDirty'] = true;
+
+    $cache->handle(1, [$entry], []);
+
+    expect($cache->read(1)['history'][0]['chrome'])->toBe([
+        'header' => ['type' => 'header', 'data' => ['variant' => 'centered']],
+        'footer' => null,
+    ])->and($cache->read(1)['history'][0]['chromeDirty'])->toBeTrue();
 });
 
 it('keeps a separate stack per page', function (): void {

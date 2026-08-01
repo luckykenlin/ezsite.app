@@ -6,6 +6,7 @@ use App\Http\Controllers\PageController;
 use App\Http\Controllers\PageEditorChatStreamController;
 use App\Http\Controllers\PageEditorPreviewController;
 use App\Http\Controllers\RobotsController;
+use App\Http\Controllers\SharedPagePreviewController;
 use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\StoreLeadController;
 use Illuminate\Support\Facades\Route;
@@ -26,6 +27,16 @@ Route::middleware([
     // Livewire's wire:stream — see the controller for why.
     Route::get('/_editor/chat-stream', PageEditorChatStreamController::class)
         ->name('page-editor.chat-stream');
+
+    // The shareable stakeholder preview: saved state, draft status included,
+    // gated by the URL's own temporary signature instead of a login. Signed
+    // RELATIVE, deliberately: the signature covers path + query but not the
+    // host, so a link shared before a tenant moves to a custom domain still
+    // validates after — the tenant scope itself comes from the domain
+    // middleware + RLS, not from the signature.
+    Route::get('/_preview/{page}', SharedPagePreviewController::class)
+        ->middleware('signed:relative')
+        ->name('page.shared-preview');
 
     Route::get('/sitemap.xml', SitemapController::class)->name('sitemap');
     Route::get('/robots.txt', RobotsController::class)->name('robots');
