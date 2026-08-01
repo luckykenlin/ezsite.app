@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Tenant\Resources\PageResource\Concerns;
 
+use App\Actions\ImportChatAttachment;
 use App\Actions\Pages\CacheChatTurn;
 use App\Actions\Pages\ChatEditPage;
 use App\Actions\Pages\KeyEditorBlocks;
@@ -17,10 +18,16 @@ use App\Enums\DesignDraftSource;
 use App\Jobs\ChatEditPageJob;
 use App\Models\PageChatMessage;
 use App\Models\User;
+use Closure;
 use Filament\Notifications\Notification;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rules\File;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
+use Livewire\WithFileUploads;
+use Throwable;
 
 /**
  * The page editor's AI chat rail: the transcript, the composer, and the lifecycle
@@ -44,6 +51,13 @@ use Livewire\Attributes\Locked;
  */
 trait InteractsWithPageChat
 {
+    // For the composer's attachments: the browser streams files into
+    // $chatUploads through Livewire's upload machinery ($wire.uploadMultiple),
+    // and sending the message turns them into media/library imports. Lives on
+    // this trait rather than the host page because uploads are purely a chat
+    // concern — nothing else on the editor takes a file.
+    use WithFileUploads;
+
     /**
      * How long the editor waits for a turn before giving up on it. Only reached
      * when the worker dies without writing a result (OOM, a `queue:restart`
@@ -66,6 +80,16 @@ trait InteractsWithPageChat
     public bool $chatEditAwaitingSave = false;
 
     public string $chatInput = '';
+
+    /**
+     * Files the operator has attached to the message being composed —
+     * Livewire temporary uploads, validated the moment they land
+     * ({@see updatedChatUploads()}) and consumed by {@see sendChatMessage()},
+     * which imports them and clears this list.
+     *
+     * @var list<\Livewire\Features\SupportFileUploads\TemporaryUploadedFile>
+     */
+    public array $chatUploads = [];
 
     /**
      * The composer's Edit/Ask toggle, as its raw wire value. A string rather
@@ -98,7 +122,7 @@ trait InteractsWithPageChat
      * 5-second poll ticks. `#[Computed]` memoizes it for the request, so a render
      * that reads it twice still costs one query.
      *
-     * @return list<array{id: int, role: string, content: string, html: string|null, changed: bool, failed: bool, revertible: bool}>
+     * @return list<array{id: int, role: string, content: string, html: string|null, changed: bool, failed: bool, revertible: bool, attachments: list<array{kind: string, name: string, thumb: string|null}>}>
      */
     #[Computed]
     public function chatMessages(): array
@@ -151,6 +175,59 @@ trait InteractsWithPageChat
     }
 
     /**
+     * The accepted image types as MIME strings, for the browser: the config
+     * stores extensions (they read naturally in a validation rule), but the
+     * composer's pre-filter compares `File.type` and the file input takes an
+     * `accept` list — one derivation here so the two cannot drift.
+     *
+     * @return list<string>
+     */
+    #[Computed]
+    public function chatImageMimeTypes(): array
+    {
+        return array_values(array_unique(array_map(
+            static fn (string $extension): string => 'image/'.($extension === 'jpg' ? 'jpeg' : $extension),
+            array_filter(config()->array('chat.attachments.image_mimes'), is_string(...)),
+        )));
+    }
+
+    /**
+     * Validate attachments the moment they finish uploading, not when the
+     * message is sent: the operator should see "that file is too big" while
+     * they can still do something about it, and an invalid file must never
+     * sit in the composer looking accepted.
+     *
+     * The whole batch is dropped on failure rather than the offending entry
+     * picked out: the browser's own pre-filter ({@see resources/js/page-editor/chat.ts}
+     * `acceptChatFiles`) already rejects bad types, sizes and counts with
+     * per-file reasons, so a server-side rejection is the hostile path —
+     * and index bookkeeping against the client's chip state is not worth
+     * getting right for it.
+     */
+    public function updatedChatUploads(): void
+    {
+        try {
+            $this->validate($this->chatUploadRules());
+        } catch (ValidationException $validationException) {
+            $this->chatUploads = [];
+
+            throw $validationException;
+        }
+    }
+
+    /**
+     * Drop one attachment chip before sending.
+     */
+    public function removeChatUpload(int $index): void
+    {
+        $uploads = $this->chatUploads;
+
+        unset($uploads[$index]);
+
+        $this->chatUploads = array_values($uploads);
+    }
+
+    /**
      * @param  string|null  $message  what the operator typed, passed explicitly so
      *                                the composer can be emptied the instant they
      *                                hit send rather than when the turn returns
@@ -161,7 +238,9 @@ trait InteractsWithPageChat
     {
         $message = mb_trim($message ?? $this->chatInput);
 
-        if ($message === '' || $this->chatTurnToken !== null) {
+        // A message can be an attachment alone ("here's the new hero photo"
+        // needs no words), but never nothing at all.
+        if (($message === '' && $this->chatUploads === []) || $this->chatTurnToken !== null) {
             return;
         }
 
@@ -175,7 +254,33 @@ trait InteractsWithPageChat
             return;
         }
 
+        // Import BEFORE dispatch (发送即入库): images become media-library rows
+        // right here in the request, so their ids exist by the time the worker
+        // announces them to the model — and an image the model never places is
+        // still in the library for the operator to use by hand. Failures leave
+        // the message intact, like an invalid inspector draft above.
+        try {
+            $attachments = array_map(
+                fn (UploadedFile $upload): array => resolve(ImportChatAttachment::class)->handle($upload)->toArray(),
+                $this->chatUploads,
+            );
+        } catch (Throwable $throwable) {
+            report($throwable);
+
+            $this->chatInput = $message;
+
+            Notification::make()
+                ->title(__('Those files could not be attached — please try again.'))
+                ->danger()
+                ->send();
+
+            return;
+        }
+
+        $this->chatUploads = [];
         $this->chatInput = '';
+
+        $message = $message === '' ? __('(Sent an attachment)') : $message;
 
         $user = auth()->user();
         $user = $user instanceof User ? $user : null;
@@ -199,7 +304,7 @@ trait InteractsWithPageChat
         // the next poll tick rendered it UNDER the composer's local echo — the
         // same message twice, one of them half-transparent, for as long as the
         // turn ran. The echo is now dropped as soon as this request returns.
-        resolve(RecordPageChatMessage::class)->question($page, $user, $message);
+        resolve(RecordPageChatMessage::class)->question($page, $user, $message, $attachments === [] ? null : $attachments);
         unset($this->chatMessages);
 
         // Dispatched rather than run here: see ChatEditPageJob. This request
@@ -219,6 +324,7 @@ trait InteractsWithPageChat
             // swaps this preview entry's blocks after every tool call.
             $this->previewToken,
             $this->chatModeEnum(),
+            $attachments,
         ));
 
         // Persist the pointer to this turn. Not via pushPreview() — sending a
@@ -463,6 +569,41 @@ trait InteractsWithPageChat
         if ($painted) {
             $this->pushPreview();
         }
+    }
+
+    /**
+     * What the composer accepts: a bounded number of images and PDFs, with
+     * the size cap depending on which of the two a file is — a page photo
+     * legitimately outweighs the text of a menu, but a document ships to the
+     * vision provider whole, so it gets its own ceiling.
+     *
+     * @return array<string, list<mixed>>
+     */
+    private function chatUploadRules(): array
+    {
+        $imageMimes = array_values(array_filter(config()->array('chat.attachments.image_mimes'), is_string(...)));
+
+        return [
+            'chatUploads' => ['array', 'max:'.config()->integer('chat.attachments.max_count')],
+            'chatUploads.*' => [
+                File::types([...$imageMimes, 'pdf']),
+                function (string $attribute, mixed $value, Closure $fail): void {
+                    if (! $value instanceof UploadedFile) {
+                        return;
+                    }
+
+                    $isImage = str_starts_with($value->getMimeType() ?? '', 'image/');
+                    $limit = config()->integer($isImage ? 'chat.attachments.max_image_kilobytes' : 'chat.attachments.max_document_kilobytes');
+
+                    if ($value->getSize() > $limit * 1024) {
+                        $fail(__(':name is too large — the limit is :limit MB.', [
+                            'name' => $value->getClientOriginalName(),
+                            'limit' => round($limit / 1024, 1),
+                        ]));
+                    }
+                },
+            ],
+        ];
     }
 
     /**

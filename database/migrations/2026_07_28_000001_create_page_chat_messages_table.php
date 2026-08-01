@@ -45,6 +45,14 @@ return new class extends Migration
             $table->string('role');
             $table->text('content');
 
+            // The message's attachments, as ChatAttachment::toArray() shapes:
+            // the file reference the agent rehydrates on later turns (disk +
+            // path, via the SDK's File::fromArray) plus the media id /
+            // dimensions / original filename the prompt and the transcript
+            // chips render from. Null for assistant turns and for plain-text
+            // questions.
+            $table->json('attachments')->nullable();
+
             // What the assistant actually changed on that turn, for the "N
             // blocks changed" affordance in the UI. Null for user messages.
             $table->unsignedSmallInteger('changed_blocks')->nullable();

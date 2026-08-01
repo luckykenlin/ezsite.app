@@ -42,8 +42,13 @@ final readonly class RecordPageChatMessage
      *                                       agent's memory carries what it changed;
      *                                       an empty list stores as null — "made no
      *                                       edits" needs no annotation
+     * @param  list<array<string, mixed>>|null  $attachments  the files attached to a user
+     *                                                        turn, as {@see \App\Ai\ChatAttachment}
+     *                                                        array shapes; an empty list
+     *                                                        stores as null for the same
+     *                                                        reason as `$activity`
      */
-    public function handle(Page $page, ?User $user, ChatRole $role, string $content, ?int $changed = null, bool $failed = false, ?array $activity = null): PageChatMessage
+    public function handle(Page $page, ?User $user, ChatRole $role, string $content, ?int $changed = null, bool $failed = false, ?array $activity = null, ?array $attachments = null): PageChatMessage
     {
         return PageChatMessage::query()->create([
             'tenant_id' => $page->tenant_id,
@@ -51,6 +56,7 @@ final readonly class RecordPageChatMessage
             'user_id' => $user?->id,
             'role' => $role,
             'content' => $content,
+            'attachments' => $attachments === [] ? null : $attachments,
             'changed_blocks' => $changed,
             'failed' => $failed,
             'activity' => $activity === [] ? null : $activity,
@@ -72,8 +78,16 @@ final readonly class RecordPageChatMessage
      * a legitimate retry and must appear twice — by then the answer to the first
      * one sits between them, so only a question with no answer yet is treated as
      * the one already recorded.
+     *
+     * The dedup compares content alone, which is safe for attachments too: the
+     * editor records the question WITH its attachments before dispatching, so a
+     * duplicate write from the job (which carries the same attachments) or from
+     * the failure path (which carries none) returns early and the
+     * attachment-bearing row is the one that survives.
+     *
+     * @param  list<array<string, mixed>>|null  $attachments
      */
-    public function question(Page $page, ?User $user, string $content): void
+    public function question(Page $page, ?User $user, string $content, ?array $attachments = null): void
     {
         $newest = PageChatMessage::query()
             ->where('page_id', $page->id)
@@ -84,6 +98,6 @@ final readonly class RecordPageChatMessage
             return;
         }
 
-        $this->handle($page, $user, ChatRole::User, $content);
+        $this->handle($page, $user, ChatRole::User, $content, attachments: $attachments);
     }
 }

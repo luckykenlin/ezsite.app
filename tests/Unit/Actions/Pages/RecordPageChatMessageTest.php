@@ -79,6 +79,50 @@ it('records the operator question only once per unanswered turn', function (): v
     expect($contents)->toBe(['Shorten the headline']);
 });
 
+it('persists a question with its attachments, and an empty list as null', function (): void {
+    $tenant = Tenant::factory()->create();
+    $page = $this->createTenantPage($tenant, []);
+    $shapes = [['kind' => 'image', 'name' => 'kitchen.jpg', 'file' => ['type' => 'stored-image', 'path' => 'chat/a.jpg', 'disk' => 'public'], 'media_id' => 42, 'width' => null, 'height' => null]];
+
+    [$withFiles, $plain] = $this->runInTenant($tenant, function () use ($page, $shapes): array {
+        $transcript = resolve(RecordPageChatMessage::class);
+
+        $transcript->question($page, null, 'Use this photo', $shapes);
+
+        return [
+            PageChatMessage::query()->orderByDesc('id')->first(),
+            // "No attachments" stores as null, not [] — same convention as
+            // activity, so hasAttachments() has one shape to read.
+            $transcript->handle($page, null, ChatRole::User, 'And now?', attachments: []),
+        ];
+    });
+
+    expect($withFiles->attachments)->toBe($shapes)
+        ->and(PageChatMessage::query()->findOrFail($plain->getKey())->attachments)->toBeNull();
+});
+
+/*
+ * The worker re-records the question WITHOUT attachments (its payload carries
+ * them separately), so the dedup keeping the FIRST row is what preserves them.
+ */
+it('keeps the attachment-bearing question row through the worker duplicate', function (): void {
+    $tenant = Tenant::factory()->create();
+    $page = $this->createTenantPage($tenant, []);
+    $shapes = [['kind' => 'document', 'name' => 'menu.pdf', 'file' => ['type' => 'stored-document', 'path' => 'chat/b.pdf', 'disk' => 'local'], 'media_id' => null, 'width' => null, 'height' => null]];
+
+    $rows = $this->runInTenant($tenant, function () use ($page, $shapes) {
+        $transcript = resolve(RecordPageChatMessage::class);
+
+        $transcript->question($page, null, 'Build a menu page from this', $shapes);
+        $transcript->question($page, null, 'Build a menu page from this');
+
+        return PageChatMessage::query()->orderBy('id')->get();
+    });
+
+    expect($rows)->toHaveCount(1)
+        ->and($rows->first()->attachments)->toBe($shapes);
+});
+
 it('records a repeated question again once it has been answered', function (): void {
     // Only the NEWEST row is deduplicated: asking the same thing twice is a
     // legitimate retry, and swallowing the second would leave the second answer

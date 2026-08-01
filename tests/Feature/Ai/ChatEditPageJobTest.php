@@ -321,3 +321,36 @@ it('leaves no staged style behind when the job itself fails', function (): void 
     expect($turn['design'])->toBeNull()
         ->and($turn['blocks'])->toBe(jobBlocks());
 });
+
+it('forwards its attachment payload into the turn', function (): void {
+    config()->set('ai.vision', ['gemini']);
+
+    PageEditorAgent::fake(['Placed the photo.']);
+
+    $shapes = [[
+        'kind' => 'image',
+        'name' => 'kitchen.jpg',
+        'file' => ['type' => 'stored-image', 'path' => 'chat/a.jpg', 'disk' => 'public'],
+        'media_id' => 42,
+        'width' => 1600,
+        'height' => 900,
+    ]];
+
+    new ChatEditPageJob(
+        (string) $this->tenant->id,
+        (int) $this->page->id,
+        null,
+        'Use this as the hero image',
+        'tok',
+        jobBlocks(),
+        attachments: $shapes,
+    )->handle();
+
+    // The attachments reached the prompt (the announcement section) — proof the
+    // payload crossed the queue boundary rather than dying in the constructor.
+    PageEditorAgent::assertPrompted(fn (Laravel\Ai\Prompts\AgentPrompt $prompt): bool => $prompt->contains('media id 42'));
+
+    $question = $this->runInTenant($this->tenant, fn () => PageChatMessage::query()->orderBy('id')->first());
+
+    expect($question->attachments)->toBe($shapes);
+});

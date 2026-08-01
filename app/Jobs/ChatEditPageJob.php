@@ -68,6 +68,14 @@ final class ChatEditPageJob extends TenantAware
      *                                     behaviour for callers with no canvas.
      * @param  ChatMode  $mode  Ask withholds the tool roster — an advisory turn that
      *                          structurally cannot change the page
+     * @param  list<array<string, mixed>>  $attachments  the message's files as
+     *                                                   {@see \App\Ai\ChatAttachment} array
+     *                                                   shapes — already imported by the
+     *                                                   editor before dispatch, so this
+     *                                                   carries references (media ids,
+     *                                                   disk paths), never bytes. Public
+     *                                                   readonly like $selectedBlockKey,
+     *                                                   because tests assert on the payload.
      */
     public function __construct(
         string $tenantId,
@@ -79,6 +87,7 @@ final class ChatEditPageJob extends TenantAware
         public readonly ?string $selectedBlockKey = null,
         public readonly ?string $previewToken = null,
         public readonly ChatMode $mode = ChatMode::Edit,
+        public readonly array $attachments = [],
     ) {
         parent::__construct($tenantId);
     }
@@ -187,6 +196,7 @@ final class ChatEditPageJob extends TenantAware
                 $turns->handle($this->token, $reply, activity: $activity, preview: $painted);
             },
             $this->mode,
+            $this->attachments,
         );
 
         $turns->handle(

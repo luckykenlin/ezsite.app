@@ -120,6 +120,7 @@ it('to array', function (): void {
         'user_id',
         'role',
         'content',
+        'attachments',
         'changed_blocks',
         'failed',
         'blocks_before',
@@ -127,4 +128,23 @@ it('to array', function (): void {
         'created_at',
         'updated_at',
     ]);
+});
+
+it('casts attachments to an array and reports their presence', function (): void {
+    $withFiles = chatMessage(['attachments' => [[
+        'kind' => 'image',
+        'name' => 'kitchen.jpg',
+        'file' => ['type' => 'stored-image', 'name' => 'kitchen.jpg', 'path' => 'chat/chat-test.jpg', 'disk' => 'public'],
+        'media_id' => 1,
+        'width' => 1600,
+        'height' => 900,
+    ]]]);
+    $plain = chatMessage();
+
+    expect($withFiles->attachments)->toBeArray()->toHaveCount(1)
+        ->and($withFiles->attachments[0]['kind'])->toBe('image')
+        ->and($withFiles->hasAttachments())->toBeTrue()
+        // Null column and empty list both read as "no attachments".
+        ->and($plain->attachments)->toBeNull()
+        ->and($plain->hasAttachments())->toBeFalse();
 });

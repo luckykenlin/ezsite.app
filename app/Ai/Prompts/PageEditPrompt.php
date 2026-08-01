@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Ai\Prompts;
 
+use App\Ai\ChatAttachment;
 use App\Ai\PageDraft;
 use App\Ai\SiteChromeDraft;
 use App\Ai\SiteStyleDraft;
@@ -36,6 +37,11 @@ final readonly class PageEditPrompt implements Stringable
 {
     /**
      * @param  array<string, BlockType>  $vocabulary
+     * @param  list<ChatAttachment>  $attachments  the files riding on THIS
+     *                                             message — the announcement of
+     *                                             their media ids / filenames.
+     *                                             The bytes travel as history
+     *                                             attachments, not here.
      */
     public function __construct(
         private Page $page,
@@ -47,6 +53,7 @@ final readonly class PageEditPrompt implements Stringable
         private ?SiteStyleDraft $style = null,
         private ?SiteChromeDraft $chrome = null,
         private ?string $selectedBlockKey = null,
+        private array $attachments = [],
     ) {
         //
     }
@@ -62,8 +69,29 @@ final readonly class PageEditPrompt implements Stringable
             $this->siteSection(),
             $this->styleSection(),
             $this->businessSection(),
+            $this->attachmentsSection(),
             $this->requestSection(),
         ]));
+    }
+
+    /**
+     * What the operator attached to this message, one line per file — for an
+     * image, the media id the set-block-image tool takes; for a document, the
+     * name to read it by. Directly above the request, because the request is
+     * usually ABOUT these files ("use this as the hero image").
+     */
+    private function attachmentsSection(): ?string
+    {
+        if ($this->attachments === []) {
+            return null;
+        }
+
+        $lines = array_map(
+            static fn (ChatAttachment $attachment): string => '- '.$attachment->promptLine(),
+            $this->attachments,
+        );
+
+        return "## Attachments on this message\n".implode("\n", $lines);
     }
 
     /**

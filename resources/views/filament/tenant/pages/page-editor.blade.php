@@ -28,8 +28,18 @@
                 'chatLeaveHint' => __('You can carry on elsewhere — the turn keeps running and picks up where it left off.'),
                 'chatSlow' => __('Bigger edits take a minute: the assistant rewrites one block at a time.'),
                 'chatNearLimit' => __('Almost there — this turn is close to its time limit.'),
+                'chatAttachRejected' => __('Not attached (images and PDFs only, within the size limits)'),
+                'chatAttachFailed' => __('Those files could not be uploaded — please try again.'),
             ]),
             chatStreamUrl: @js(route('page-editor.chat-stream')),
+            {{-- Mirrors chatUploadRules(): the browser filter is a courtesy,
+                 the server rule is the boundary. --}}
+            chatLimits: @js([
+                'maxCount' => config()->integer('chat.attachments.max_count'),
+                'maxImageKb' => config()->integer('chat.attachments.max_image_kilobytes'),
+                'maxDocumentKb' => config()->integer('chat.attachments.max_document_kilobytes'),
+                'imageTypes' => $this->chatImageMimeTypes,
+            ]),
         })"
         x-on:message.window="onMessage($event)"
         x-on:keydown.window="onKeydown($event)"
@@ -88,7 +98,25 @@
                                 wire:key="chat-{{ $index }}"
                                 class="pe-chat-message"
                                 data-role="{{ $message['role'] }}"
-                            >{{ $message['content'] }}</div>
+                            >
+                                {{-- What rode with the message: image thumbs
+                                     resolve through the same MediaResolver the
+                                     canvas uses; a PDF is a named chip — there
+                                     is nothing of it to preview. --}}
+                                @if ($message['attachments'] !== [])
+                                    <span class="pe-chat-message-attachments">
+                                        @foreach ($message['attachments'] as $attachment)
+                                            @if ($attachment['thumb'] !== null)
+                                                <img class="pe-chat-message-thumb" src="{{ $attachment['thumb'] }}" alt="{{ $attachment['name'] }}" loading="lazy" />
+                                            @else
+                                                <span class="pe-chat-message-doc">
+                                                    <x-filament::icon icon="heroicon-m-document-text" class="pe-chat-message-doc-icon" />
+                                                    {{ $attachment['name'] }}
+                                                </span>
+                                            @endif
+                                        @endforeach
+                                    </span>
+                                @endif{{ $message['content'] }}</div>
                         @endif
                         {{-- Every turn that edited the page carries its own way
                              back: the pre-turn blocks land as a NEW undoable,
@@ -258,7 +286,13 @@
                      ChatGPT and Claude do: you can line up the next message,
                      and the send button becomes a stop button rather than
                      going dead. --}}
-                <div class="pe-chat-composer">
+                <div
+                    class="pe-chat-composer"
+                    x-on:dragover.prevent="chatDragging = true"
+                    x-on:dragleave="chatDragging = false"
+                    x-on:drop.prevent="onComposerDrop($event)"
+                    x-bind:data-dragging="chatDragging || undefined"
+                >
                     {{-- The selection, riding with the next message. Mirrors
                          chatContextKey(): what this chip names is exactly the
                          block the turn's prompt will treat as "this one". The ×
@@ -310,6 +344,44 @@
                         </div>
                     @endif
 
+                    {{-- The attachments lined up for the next message. Chips are
+                         Alpine state (the operator sees the file the instant
+                         they pick it, an upload later); the wire's chatUploads
+                         carries the real bytes and is what send consumes. --}}
+                    <div class="pe-chat-attachments" x-show="chatAttachments.length > 0" x-cloak>
+                        <template x-for="(attachment, index) in chatAttachments" :key="index">
+                            <span class="pe-chat-attachment">
+                                <template x-if="attachment.preview !== null">
+                                    <img class="pe-chat-attachment-thumb" x-bind:src="attachment.preview" alt="" />
+                                </template>
+                                <template x-if="attachment.preview === null">
+                                    <x-filament::icon icon="heroicon-m-document-text" class="pe-chat-attachment-icon" />
+                                </template>
+                                <span class="pe-chat-attachment-name" x-text="attachment.name"></span>
+                                <button
+                                    type="button"
+                                    class="pe-chat-attachment-remove"
+                                    title="{{ __('Remove attachment') }}"
+                                    x-on:click="removeChatAttachment(index)"
+                                >
+                                    <x-filament::icon icon="heroicon-m-x-mark" />
+                                </button>
+                            </span>
+                        </template>
+                        <span class="pe-chat-attachment-uploading" x-show="chatUploading">{{ __('Uploading…') }}</span>
+                    </div>
+
+                    {{-- Browser-side refusals (type/size/count) and, below it,
+                         the server's own verdict — the boundary the pre-filter
+                         is only a courtesy for. --}}
+                    <p class="pe-chat-attachment-error" x-show="chatAttachmentError !== ''" x-text="chatAttachmentError" x-cloak></p>
+                    @error('chatUploads.*')
+                        <p class="pe-chat-attachment-error">{{ $message }}</p>
+                    @enderror
+                    @error('chatUploads')
+                        <p class="pe-chat-attachment-error">{{ $message }}</p>
+                    @enderror
+
                     <textarea
                         class="pe-chat-input"
                         rows="3"
@@ -317,6 +389,7 @@
                         wire:model="chatInput"
                         placeholder="{{ __('Ask for a change…') }}"
                         x-on:keydown.enter="onComposerEnter($event)"
+                        x-on:paste="onComposerPaste($event)"
                     ></textarea>
 
                     <div class="pe-chat-composer-actions">
@@ -332,6 +405,28 @@
                             wire:loading.attr="disabled"
                         >
                             <x-filament::icon icon="heroicon-m-plus" />
+                        </button>
+
+                        {{-- Attach an image or a PDF. The input is a real file
+                             input (keyboard and screen-reader reachable through
+                             the button), hidden because the chips above are its
+                             visible state. Images are imported into the media
+                             library on send; PDFs are read by the assistant. --}}
+                        <input
+                            type="file"
+                            multiple
+                            hidden
+                            x-ref="chatFile"
+                            accept="application/pdf,{{ implode(',', $this->chatImageMimeTypes) }}"
+                            x-on:change="onChatFilePicked()"
+                        />
+                        <button
+                            type="button"
+                            class="pe-chat-add"
+                            title="{{ __('Attach an image or PDF') }}"
+                            x-on:click="$refs.chatFile.click()"
+                        >
+                            <x-filament::icon icon="heroicon-m-paper-clip" />
                         </button>
 
                         {{-- Edit acts, Ask only answers — in Ask the tool

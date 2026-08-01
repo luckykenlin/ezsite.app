@@ -7,6 +7,7 @@ namespace App\Actions\Pages;
 use App\Ai\Agents\PageEditorAgent;
 use App\Ai\ChangedBlocks;
 use App\Ai\ChatActivity;
+use App\Ai\ChatAttachment;
 use App\Ai\PageDraft;
 use App\Ai\Prompts\PageEditPrompt;
 use App\Ai\SiteChromeDraft;
@@ -21,6 +22,7 @@ use App\Models\User;
 use App\Site\BindResolver;
 use App\Site\Blocks\BlockData;
 use App\Site\Blocks\BlockVocabulary;
+use App\Site\MediaResolver;
 use App\Site\SiteChrome;
 use App\Site\SiteContext;
 use Closure;
@@ -85,6 +87,9 @@ final readonly class ChatEditPage
         // one turn needs the effective chrome for the draft, and the render that
         // follows needs it again.
         private SiteChrome $chrome,
+        // Scoped like the two above: the transcript's attachment thumbs go
+        // through the same memoized id→URL map the canvas render uses.
+        private MediaResolver $media,
     ) {
         //
     }
@@ -102,6 +107,10 @@ final readonly class ChatEditPage
      * @param  ChatMode  $mode  Ask runs the turn with no tools at all, so it can
      *                          answer questions with a structural guarantee of
      *                          changing nothing
+     * @param  list<array<string, mixed>>  $attachments  the message's files as
+     *                                                   {@see ChatAttachment} array shapes —
+     *                                                   arrays rather than objects because
+     *                                                   they ride a queued job payload
      * @return array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, reply: string, failed: bool, design: array<string, string|null>|null, chrome: array<string, array{type: string, data: array<string, mixed>}>|null}
      */
     public function handle(
@@ -114,17 +123,20 @@ final readonly class ChatEditPage
         ?string $selectedBlockKey = null,
         ?Closure $onEdit = null,
         ChatMode $mode = ChatMode::Edit,
+        array $attachments = [],
     ): array {
         // Hand the time budget to TURN_BUDGET_SECONDS instead: PHP's own limit
         // can only fail as an uncatchable fatal, and the default 30s is shorter
         // than a single provider round trip, let alone a multi-tool turn.
         set_time_limit(0);
 
+        $hydrated = array_values(array_filter(array_map(ChatAttachment::fromArray(...), $attachments)));
+
         // Idempotent: the editor already records the question when it dispatches
         // the turn, so the panel has a single bubble to render rather than a
         // persisted message plus the local echo of it. This is for callers that
         // reach the action directly.
-        $this->transcript->question($page, $user, $message);
+        $this->transcript->question($page, $user, $message, $attachments === [] ? null : $attachments);
 
         $draft = new PageDraft($blocks);
 
@@ -154,7 +166,7 @@ final readonly class ChatEditPage
         };
 
         try {
-            $reply = $this->ask($page, $draft, $style, $chrome, $message, $onDelta, $captureActivity, $selectedBlockKey, $onEdit, $mode);
+            $reply = $this->ask($page, $draft, $style, $chrome, $message, $onDelta, $captureActivity, $selectedBlockKey, $onEdit, $mode, $hydrated);
         } catch (Throwable $throwable) {
             Log::error('page_chat.failed', [
                 'page_id' => $page->id,
@@ -200,7 +212,7 @@ final readonly class ChatEditPage
      * operator's own turns are NOT rendered — their text is theirs, shown
      * verbatim and escaped.
      *
-     * @return list<array{id: int, role: string, content: string, html: string|null, changed: bool, failed: bool, revertible: bool}>
+     * @return list<array{id: int, role: string, content: string, html: string|null, changed: bool, failed: bool, revertible: bool, attachments: list<array{kind: string, name: string, thumb: string|null}>}>
      */
     public function transcript(Page $page): array
     {
@@ -218,6 +230,8 @@ final readonly class ChatEditPage
             ->get()
             ->reverse();
 
+        $this->preloadAttachmentThumbs($entries);
+
         foreach ($entries as $entry) {
             $transcript[] = [
                 // The id is what the revert button addresses; harmless on
@@ -229,10 +243,65 @@ final readonly class ChatEditPage
                 'changed' => $entry->changedThePage(),
                 'failed' => $entry->failed,
                 'revertible' => $entry->blocks_before !== null,
+                'attachments' => $this->attachmentChips($entry),
             ];
         }
 
         return $transcript;
+    }
+
+    /**
+     * One batched media lookup for every image attachment in the window —
+     * this renders on every poll tick, so per-chip queries are the N+1 the
+     * resolver's preload exists to prevent.
+     *
+     * @param  iterable<int, PageChatMessage>  $entries
+     */
+    private function preloadAttachmentThumbs(iterable $entries): void
+    {
+        $ids = [];
+
+        foreach ($entries as $entry) {
+            foreach ($entry->attachments ?? [] as $stored) {
+                $mediaId = ChatAttachment::fromArray($stored)?->mediaId;
+
+                if ($mediaId !== null) {
+                    $ids[] = $mediaId;
+                }
+            }
+        }
+
+        if ($ids !== []) {
+            $this->media->preload($ids);
+        }
+    }
+
+    /**
+     * The attachment chips one transcript bubble renders: a thumbnail URL for
+     * images (through the same resolver the canvas uses), a bare filename chip
+     * for documents.
+     *
+     * @return list<array{kind: string, name: string, thumb: string|null}>
+     */
+    private function attachmentChips(PageChatMessage $entry): array
+    {
+        $chips = [];
+
+        foreach ($entry->attachments ?? [] as $stored) {
+            $attachment = ChatAttachment::fromArray($stored);
+
+            if ($attachment === null) {
+                continue;
+            }
+
+            $chips[] = [
+                'kind' => $attachment->kind,
+                'name' => $attachment->name,
+                'thumb' => $attachment->mediaId !== null ? $this->media->url($attachment->mediaId) : null,
+            ];
+        }
+
+        return $chips;
     }
 
     /**
@@ -285,8 +354,9 @@ final readonly class ChatEditPage
      *
      * @param  (Closure(string): void)|null  $onDelta
      * @param  (Closure(string): void)|null  $onActivity
+     * @param  list<ChatAttachment>  $attachments
      */
-    private function ask(Page $page, PageDraft $draft, ?SiteStyleDraft $style, ?SiteChromeDraft $chrome, string $message, ?Closure $onDelta, ?Closure $onActivity = null, ?string $selectedBlockKey = null, ?Closure $onEdit = null, ChatMode $mode = ChatMode::Edit): string
+    private function ask(Page $page, PageDraft $draft, ?SiteStyleDraft $style, ?SiteChromeDraft $chrome, string $message, ?Closure $onDelta, ?Closure $onActivity = null, ?string $selectedBlockKey = null, ?Closure $onEdit = null, ChatMode $mode = ChatMode::Edit, array $attachments = []): string
     {
         $prompt = new PageEditPrompt(
             $page,
@@ -298,19 +368,32 @@ final readonly class ChatEditPage
             $style,
             $chrome,
             $selectedBlockKey,
+            $attachments,
         );
 
         // Started before the first request, not after: the slowest turns are the
         // ones where step one already takes too long.
         $deadline = now()->addSeconds(self::TURN_BUDGET_SECONDS);
 
+        // THE ROUTING INVARIANT. A turn runs on the vision chain (ai.vision)
+        // whenever any message in the agent's conversation window carries an
+        // attachment — this one, or an earlier one still inside HISTORY_LIMIT.
+        // Two things depend on it: the default chain's provider throws on
+        // document attachments (so it must never see a window containing one),
+        // and a follow-up like "now add the desserts too" must still be able
+        // to read the menu PDF sent three messages ago. Once the attachment
+        // rows age out of the window, the thread falls back to the default
+        // chain by itself. PageEditorAgent::messages() rehydrates on the
+        // strength of this — change one side only with the other in hand.
+        $vision = $attachments !== [] || $this->threadHasRecentAttachments($page);
+
         // The failover chain (ai.failover): with a fallback provider configured,
         // a turn whose PRIMARY refuses to even start (down, rate-limited, bad
         // key) silently retries there instead of costing the operator the whole
         // turn. A stream that has already emitted cannot fail over — the SDK
         // rethrows then, and the catch in handle() apologises as before.
-        $response = new PageEditorAgent($draft, $page, $style, $chrome, $mode)
-            ->stream((string) $prompt, provider: config()->array('ai.failover'));
+        $response = new PageEditorAgent($draft, $page, $style, $chrome, $mode, $vision)
+            ->stream((string) $prompt, provider: config()->array($vision ? 'ai.vision' : 'ai.failover'));
 
         foreach ($response as $event) {
             // Between events is the only place a turn can be stopped: tools run
@@ -354,6 +437,25 @@ final readonly class ChatEditPage
         $reply = mb_trim($response->text ?? '');
 
         return $reply === '' ? __('Done.') : $reply;
+    }
+
+    /**
+     * Whether any message inside the agent's conversation window carries an
+     * attachment — the other half of the routing invariant documented in
+     * {@see ask()}. An inner LIMIT rather than a plain WHERE, because a
+     * six-month-old attachment the agent can no longer see must not pin the
+     * thread to the vision chain forever.
+     */
+    private function threadHasRecentAttachments(Page $page): bool
+    {
+        return PageChatMessage::query()
+            ->whereIn('id', PageChatMessage::query()
+                ->where('page_id', $page->id)
+                ->orderByDesc('id')
+                ->limit(PageEditorAgent::HISTORY_LIMIT)
+                ->select('id'))
+            ->whereNotNull('attachments')
+            ->exists();
     }
 
     /**

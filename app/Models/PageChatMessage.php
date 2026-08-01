@@ -22,6 +22,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int|null $user_id
  * @property ChatRole $role
  * @property string $content
+ * @property list<array<string, mixed>>|null $attachments
  * @property int|null $changed_blocks
  * @property bool $failed
  * @property array<int, array{type: string, data: array<string, mixed>}>|null $blocks_before
@@ -71,6 +72,16 @@ final class PageChatMessage extends Model
     }
 
     /**
+     * Whether the operator attached files to this message — what routes the
+     * thread's turns to the vision provider while the row is in the agent's
+     * conversation window.
+     */
+    public function hasAttachments(): bool
+    {
+        return ($this->attachments ?? []) !== [];
+    }
+
+    /**
      * @return array<string, string>
      */
     protected function casts(): array
@@ -78,6 +89,7 @@ final class PageChatMessage extends Model
         return [
             'role' => ChatRole::class,
             'failed' => 'boolean',
+            'attachments' => 'array',
             'blocks_before' => 'array',
             'activity' => 'array',
         ];

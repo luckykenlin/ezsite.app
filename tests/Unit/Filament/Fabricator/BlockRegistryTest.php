@@ -205,3 +205,34 @@ it('returns null for a Location-bound block when the business has no locations',
 
     expect(BlockRegistry::bindAttributes(['type' => 'contact', 'data' => []]))->toBeNull();
 });
+
+/*
+ * The media-slot contract SetBlockImage places through, derived from each
+ * block's own form schema (a CuratorPicker top-level or one repeater deep) so
+ * a future block gets it for free. Pinned per type because a derivation bug
+ * here silently strips the assistant of image placement on that type.
+ */
+it('derives where every image-bearing type keeps its media ids', function (): void {
+    $contracts = BlockRegistry::contracts();
+
+    $slots = collect($contracts)
+        ->filter(fn ($type): bool => $type->acceptsMedia())
+        ->map(fn ($type): array => [$type->mediaField, $type->itemsField, $type->itemMediaField])
+        ->all();
+
+    expect($slots)->toBe([
+        'cta' => ['image_id', null, null],
+        'features' => [null, 'features', 'image_id'],
+        'gallery' => [null, 'images', 'media_id'],
+        'hero' => ['image_id', null, null],
+        'logos' => [null, 'logos', 'media_id'],
+        'offerings' => [null, 'items', 'image_id'],
+        'team' => [null, 'members', 'avatar_media_id'],
+        'testimonials' => [null, 'testimonials', 'avatar_media_id'],
+    ]);
+
+    // And a type with no picker anywhere reports no slot at all.
+    expect($contracts['heading']->acceptsMedia())->toBeFalse()
+        ->and($contracts['heading']->mediaField)->toBeNull()
+        ->and($contracts['heading']->itemMediaField)->toBeNull();
+});

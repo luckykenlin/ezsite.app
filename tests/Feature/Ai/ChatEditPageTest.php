@@ -692,3 +692,101 @@ it('copies the open page as a draft, from the working blocks', function (): void
         ->and($copy->blocks[0]['data']['heading'])->toBe('Only in the draft')
         ->and($copy->blocks[0])->not->toHaveKey('key');
 });
+
+/*
+ * THE ROUTING INVARIANT (see ChatEditPage::ask() and PageEditorAgent::messages()):
+ * a turn runs on the vision chain exactly when the agent's conversation window
+ * contains attachments. The default provider's gateway throws on document
+ * attachments, so "the window has one but the turn routed to the default chain"
+ * is the regression these three pin against.
+ */
+it('routes a turn with attachments to the vision chain and announces them', function (): void {
+    config()->set('ai.failover', ['deepseek']);
+    config()->set('ai.vision', ['gemini']);
+
+    PageEditorAgent::fake(['Placed the photo.']);
+
+    $this->runInTenant($this->tenant, fn (): array => resolve(ChatEditPage::class)->handle(
+        $this->page,
+        chatBlocks(),
+        'Use this as the hero image',
+        attachments: [[
+            'kind' => 'image',
+            'name' => 'kitchen.jpg',
+            'file' => ['type' => 'stored-image', 'path' => 'chat/a.jpg', 'disk' => 'public'],
+            'media_id' => 42,
+            'width' => 1600,
+            'height' => 900,
+        ]],
+    ));
+
+    PageEditorAgent::assertPrompted(fn (AgentPrompt $prompt): bool => $prompt->provider->name() === 'gemini'
+        && $prompt->contains('## Attachments on this message')
+        && $prompt->contains('media id 42'));
+
+    // The question row keeps its attachments, so the NEXT turn still routes here.
+    $stored = $this->runInTenant($this->tenant, fn () => PageChatMessage::query()->orderBy('id')->first());
+
+    expect($stored->hasAttachments())->toBeTrue();
+});
+
+it('keeps a text-only follow-up on the vision chain while attachments are in the window', function (): void {
+    config()->set('ai.failover', ['deepseek']);
+    config()->set('ai.vision', ['gemini']);
+
+    $this->runInTenant($this->tenant, fn () => PageChatMessage::factory()->withAttachments()->create([
+        'tenant_id' => $this->tenant->id,
+        'page_id' => $this->page->id,
+        'content' => 'Here is our menu',
+    ]));
+
+    PageEditorAgent::fake(['Added the desserts.']);
+
+    chatTurn(chatBlocks(), 'now add the desserts from that menu too');
+
+    PageEditorAgent::assertPrompted(fn (AgentPrompt $prompt): bool => $prompt->provider->name() === 'gemini'
+        // A text-only turn announces nothing new — the file rides as history.
+        && ! $prompt->contains('## Attachments on this message'));
+});
+
+it('keeps a clean thread on the default chain', function (): void {
+    config()->set('ai.failover', ['deepseek']);
+    config()->set('ai.vision', ['gemini']);
+
+    PageEditorAgent::fake(['Shortened it.']);
+
+    chatTurn(chatBlocks());
+
+    PageEditorAgent::assertPrompted(fn (AgentPrompt $prompt): bool => $prompt->provider->name() === 'deepseek');
+});
+
+it('shows the transcript attachments as chips, with thumbs only for library images', function (): void {
+    $media = $this->runInTenant($this->tenant, fn (): App\Models\Media => App\Models\Media::factory()->create([
+        'tenant_id' => $this->tenant->id,
+    ]));
+
+    $this->runInTenant($this->tenant, fn () => PageChatMessage::factory()->create([
+        'tenant_id' => $this->tenant->id,
+        'page_id' => $this->page->id,
+        'content' => 'Use these',
+        'attachments' => [
+            ['kind' => 'image', 'name' => 'kitchen.jpg', 'file' => [], 'media_id' => (int) $media->id, 'width' => null, 'height' => null],
+            ['kind' => 'document', 'name' => 'menu.pdf', 'file' => [], 'media_id' => null, 'width' => null, 'height' => null],
+            'not an attachment shape',
+        ],
+    ]));
+
+    $transcript = $this->runInTenant(
+        $this->tenant,
+        fn (): array => resolve(ChatEditPage::class)->transcript($this->page),
+    );
+
+    $chips = $transcript[0]['attachments'];
+
+    expect($chips)->toHaveCount(2)
+        ->and($chips[0]['name'])->toBe('kitchen.jpg')
+        ->and($chips[0]['thumb'])->toBeString()
+        ->and($chips[1])->toBe(['kind' => 'document', 'name' => 'menu.pdf', 'thumb' => null])
+        // Rows without attachments still carry the key, as an empty list.
+        ->and(array_column($transcript, 'attachments'))->toHaveCount(1);
+});

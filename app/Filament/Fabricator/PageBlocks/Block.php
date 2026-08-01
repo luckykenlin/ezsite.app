@@ -12,8 +12,10 @@ use App\Site\Blocks\BlockShape;
 use App\Site\Blocks\BlockType;
 use App\Site\Blocks\SectionSpacing;
 use App\Site\Blocks\SectionTone;
+use Awcodes\Curator\Components\Forms\CuratorPicker;
 use Filament\Forms\Components\Builder\Block as BuilderBlock;
 use Filament\Forms\Components\Field;
+use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Support\Icons\Heroicon;
 use Z3d0X\FilamentFabricator\PageBlocks\PageBlock;
@@ -136,6 +138,8 @@ abstract class Block extends PageBlock
      */
     final public static function contract(): BlockType
     {
+        [$mediaField, $itemsField, $itemMediaField] = self::mediaFields();
+
         return new BlockType(
             type: static::getName(),
             description: static::$description,
@@ -149,6 +153,9 @@ abstract class Block extends PageBlock
             sample: self::sample(),
             intent: static::$intent,
             variantLabels: static::$variants,
+            mediaField: $mediaField,
+            itemsField: $itemsField,
+            itemMediaField: $itemMediaField,
         );
     }
 
@@ -273,5 +280,44 @@ abstract class Block extends PageBlock
                 ->all())
             ->live()
             ->placeholder('Primary location');
+    }
+
+    /**
+     * Where this block keeps its media-library ids, read off the schema itself
+     * (a {@see Fields\ImageInput}-made picker at the top level, or inside a
+     * repeater's items) so the contract tracks the form with no per-block
+     * declaration to forget. The picker is detected as {@see CuratorPicker} —
+     * `ImageInput` is a factory, not a component class.
+     *
+     * @return array{string|null, string|null, string|null} `[mediaField, itemsField, itemMediaField]`
+     */
+    private static function mediaFields(): array
+    {
+        $mediaField = $itemsField = $itemMediaField = null;
+
+        foreach (static::fields() as $field) {
+            if ($field instanceof CuratorPicker) {
+                $mediaField ??= $field->getName();
+
+                continue;
+            }
+
+            if (! $field instanceof Repeater || $itemsField !== null) {
+                continue;
+            }
+
+            $children = $field->getDefaultChildComponents();
+
+            foreach (is_array($children) ? $children : [] as $child) {
+                if ($child instanceof CuratorPicker) {
+                    $itemsField = $field->getName();
+                    $itemMediaField = $child->getName();
+
+                    break;
+                }
+            }
+        }
+
+        return [$mediaField, $itemsField, $itemMediaField];
     }
 }

@@ -52,6 +52,94 @@ export function readChatFrame(data: string): ChatFrame | null {
         : null;
 }
 
+/** A composer attachment's kind — what decides its chip, caps and import path. */
+export type ChatAttachmentKind = 'image' | 'pdf';
+
+/**
+ * The composer's attachment limits, injected from config/chat.php via the
+ * blade so the browser's pre-filter and the server's validation rules cannot
+ * drift apart.
+ */
+export interface ChatAttachmentLimits {
+    maxCount: number;
+    maxImageKb: number;
+    maxDocumentKb: number;
+    /** Accepted image MIME types, e.g. `image/jpeg`. */
+    imageTypes: readonly string[];
+}
+
+/**
+ * The kind a file would attach as, or null when the composer does not take
+ * this type at all.
+ */
+export function attachmentKind(
+    mimeType: string,
+    limits: ChatAttachmentLimits,
+): ChatAttachmentKind | null {
+    if (limits.imageTypes.includes(mimeType)) {
+        return 'image';
+    }
+
+    return mimeType === 'application/pdf' ? 'pdf' : null;
+}
+
+/** Why one file was refused, for the composer's error line. */
+export interface RejectedChatFile {
+    name: string;
+    reason: 'type' | 'size' | 'count';
+}
+
+/** The slice of File the filter reads — a plain shape so tests need no DOM. */
+export interface ChatFileCandidate {
+    name: string;
+    size: number;
+    type: string;
+}
+
+/**
+ * Split a batch of would-be attachments into the ones the composer takes and
+ * the ones it must refuse, with a per-file reason.
+ *
+ * This is the browser-side HALF of the validation: it exists so the operator
+ * hears "that file is too big" before any bytes move, not after an upload.
+ * The server re-checks everything (`InteractsWithPageChat::chatUploadRules()`)
+ * because nothing here is trustworthy.
+ */
+export function acceptChatFiles<T extends ChatFileCandidate>(
+    existing: number,
+    files: readonly T[],
+    limits: ChatAttachmentLimits,
+): { accepted: T[]; rejected: RejectedChatFile[] } {
+    const accepted: T[] = [];
+    const rejected: RejectedChatFile[] = [];
+
+    for (const file of files) {
+        const kind = attachmentKind(file.type, limits);
+
+        if (kind === null) {
+            rejected.push({ name: file.name, reason: 'type' });
+            continue;
+        }
+
+        const capKb =
+            kind === 'image' ? limits.maxImageKb : limits.maxDocumentKb;
+
+        if (file.size > capKb * 1024) {
+            rejected.push({ name: file.name, reason: 'size' });
+            continue;
+        }
+
+        if (existing + accepted.length >= limits.maxCount) {
+            rejected.push({ name: file.name, reason: 'count' });
+            continue;
+        }
+
+        accepted.push(file);
+    }
+
+    return { accepted, rejected };
+}
+
 /**
  * When the waiting copy changes, in seconds of turn runtime.
  *

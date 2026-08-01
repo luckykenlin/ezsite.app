@@ -24,9 +24,11 @@ use App\Models\SiteSetting;
 use App\Models\Tenant;
 use App\Site\Blocks\BlockVocabulary;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Laravel\Ai\Responses\Data\ToolCall;
 use Livewire\Features\SupportTesting\Testable;
@@ -2790,4 +2792,153 @@ it('merges a staged slot without disturbing one the operator is editing', functi
         // A turn that never looked at the footer must not overwrite it with a
         // stale copy read when the turn was dispatched.
         ->and($component->get('chrome')['footer']['data']['note'])->toBe('Typed by hand');
+});
+
+/*
+ * Composer attachments (发送即入库): the files are imported in the SEND request —
+ * images into the media library, documents onto the private disk — so the media
+ * ids exist before the worker announces them to the model, and an image the
+ * model never places is still in the library for the operator.
+ */
+
+it('imports composer uploads on send and records them on the question', function (): void {
+    Storage::fake('public');
+    PageEditorAgent::fake(['Placed the photo.']);
+
+    $page = editorPage([['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']]]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->set('chatUploads', [UploadedFile::fake()->image('kitchen.jpg', 1600, 900)])
+        ->set('chatInput', 'Use this as the hero image')
+        ->call('sendChatMessage')
+        ->call('pollChatTurn');
+
+    $media = Media::query()->sole();
+    $question = PageChatMessage::query()->orderBy('id')->first();
+
+    expect($media->directory)->toBe('chat')
+        ->and($question->attachments)->toHaveCount(1)
+        ->and($question->attachments[0]['name'])->toBe('kitchen.jpg')
+        ->and($question->attachments[0]['media_id'])->toBe((int) $media->id)
+        // Consumed: the next message starts with an empty strip.
+        ->and($component->get('chatUploads'))->toBe([]);
+});
+
+it('sends an attachment alone, under a stand-in message', function (): void {
+    Storage::fake('public');
+    PageEditorAgent::fake(['Got it.']);
+
+    $page = editorPage([]);
+
+    Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->set('chatUploads', [UploadedFile::fake()->image('kitchen.jpg')])
+        ->call('sendChatMessage')
+        ->call('pollChatTurn');
+
+    expect(PageChatMessage::query()->orderBy('id')->first()->content)->toBe('(Sent an attachment)');
+});
+
+it('still refuses a wholly empty send', function (): void {
+    $page = editorPage([]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->call('sendChatMessage');
+
+    expect($component->get('chatTurnToken'))->toBeNull()
+        ->and(PageChatMessage::query()->count())->toBe(0);
+});
+
+it('rejects a composer upload the moment it lands, and drops the batch', function (): void {
+    $page = editorPage([]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->set('chatUploads', [UploadedFile::fake()->create('song.mp3', 100, 'audio/mpeg')])
+        ->assertHasErrors('chatUploads.0');
+
+    // The property is emptied so the composer cannot send what it showed red.
+    expect($component->get('chatUploads'))->toBe([]);
+});
+
+it('rejects a value that is not a file at all', function (): void {
+    // Nothing in the browser produces this — it is the hostile-request path,
+    // and the per-type size closure must step aside rather than crash on it.
+    $page = editorPage([]);
+
+    Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->set('chatUploads', ['bogus'])
+        ->assertHasErrors('chatUploads.0');
+});
+
+it('rejects an oversized document by its own document cap', function (): void {
+    config()->set('chat.attachments.max_document_kilobytes', 64);
+
+    $page = editorPage([]);
+
+    Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->set('chatUploads', [UploadedFile::fake()->create('menu.pdf', 128, 'application/pdf')])
+        ->assertHasErrors('chatUploads.0');
+});
+
+it('accepts an image the document cap would refuse', function (): void {
+    config()->set('chat.attachments.max_document_kilobytes', 64);
+    config()->set('chat.attachments.max_image_kilobytes', 512);
+
+    $page = editorPage([]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->set('chatUploads', [UploadedFile::fake()->create('photo.jpg', 128, 'image/jpeg')])
+        ->assertHasNoErrors();
+
+    expect($component->get('chatUploads'))->toHaveCount(1);
+});
+
+it('caps how many files ride one message', function (): void {
+    $page = editorPage([]);
+
+    Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->set('chatUploads', array_map(
+            fn (int $i): UploadedFile => UploadedFile::fake()->image("photo-{$i}.jpg"),
+            range(1, 5),
+        ))
+        ->assertHasErrors('chatUploads');
+});
+
+it('removes one queued upload by position', function (): void {
+    $page = editorPage([]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->set('chatUploads', [
+            UploadedFile::fake()->image('first.jpg'),
+            UploadedFile::fake()->image('second.jpg'),
+        ])
+        ->call('removeChatUpload', 0);
+
+    $uploads = $component->get('chatUploads');
+
+    expect($uploads)->toHaveCount(1)
+        ->and($uploads[0]->getClientOriginalName())->toBe('second.jpg');
+});
+
+it('keeps the message and starts no turn when an import fails', function (): void {
+    $page = editorPage([]);
+
+    // The action is final, so the failure is injected as a stand-in — the
+    // trait resolves it from the container and duck-types the call.
+    $this->app->bind(App\Actions\ImportChatAttachment::class, fn (): object => new class
+    {
+        public function handle(UploadedFile $file): never
+        {
+            throw new RuntimeException('disk full');
+        }
+    });
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id])
+        ->set('chatUploads', [UploadedFile::fake()->image('kitchen.jpg')])
+        ->set('chatInput', 'Use this photo')
+        ->call('sendChatMessage')
+        ->assertNotified();
+
+    expect($component->get('chatTurnToken'))->toBeNull()
+        ->and($component->get('chatInput'))->toBe('Use this photo')
+        ->and(PageChatMessage::query()->count())->toBe(0);
 });

@@ -15,6 +15,10 @@
  */
 
 import {
+    acceptChatFiles,
+    type ChatAttachmentKind,
+    type ChatAttachmentLimits,
+    attachmentKind,
     chatElapsedLabel,
     chatHintFor,
     readChatFrame,
@@ -43,9 +47,22 @@ interface PageEditorConfig {
         chatLeaveHint: string;
         chatSlow: string;
         chatNearLimit: string;
+        /** Prefix of the composer's rejected-files line; names are appended. */
+        chatAttachRejected: string;
+        chatAttachFailed: string;
     };
     /** Route the chat reply is streamed from, per turn token. */
     chatStreamUrl: string;
+    /** Attachment caps, mirrored from config/chat.php — see chat.ts. */
+    chatLimits: ChatAttachmentLimits;
+}
+
+/** One attachment chip in the composer, client state only. */
+interface ComposerAttachment {
+    name: string;
+    kind: ChatAttachmentKind;
+    /** Object URL for image thumbnails; null for documents. Revoked on clear. */
+    preview: string | null;
 }
 
 /** The Livewire component surface this Alpine component talks to. */
@@ -74,6 +91,19 @@ interface EditorWire {
     sendChatMessage(message: string): Promise<unknown>;
     pollChatTurn(): Promise<unknown>;
     cancelChatTurn(): Promise<unknown>;
+    removeChatUpload(index: number): Promise<unknown>;
+    /**
+     * Livewire's file-upload bridge: streams the files into the named
+     * property as temporary uploads, then calls back. REPLACES the property's
+     * previous uploads, which is why attachChatFiles() always re-sends the
+     * full accumulated set.
+     */
+    uploadMultiple(
+        name: string,
+        files: File[],
+        finish?: () => void,
+        error?: () => void,
+    ): void;
     /** `live: false` writes the property without a round trip of its own. */
     set(name: string, value: unknown, live?: boolean): void;
     on(event: string, handler: (payload: never) => void): void;
@@ -88,6 +118,7 @@ interface AlpineInjected {
         layout: HTMLElement;
         chatInput: HTMLTextAreaElement;
         chatLog?: HTMLElement;
+        chatFile?: HTMLInputElement;
     };
     $wire: EditorWire;
     $nextTick(callback: () => void): void;
@@ -119,6 +150,20 @@ interface PageEditorComponent extends AlpineInjected {
     chatActivity: string[];
     /** Seconds the turn in flight has been running; 0 when idle. */
     chatElapsed: number;
+    /** The composer's attachment chips; mirrors the wire's chatUploads. */
+    chatAttachments: ComposerAttachment[];
+    /** True while files stream to the server — send waits for it. */
+    chatUploading: boolean;
+    /** The composer's rejected/failed-files line; '' when clean. */
+    chatAttachmentError: string;
+    /** True while a drag hovers the composer, for the dropzone highlight. */
+    chatDragging: boolean;
+    attachChatFiles(files: readonly File[]): void;
+    removeChatAttachment(index: number): void;
+    clearChatAttachments(): void;
+    onChatFilePicked(): void;
+    onComposerPaste(event: ClipboardEvent): void;
+    onComposerDrop(event: DragEvent): void;
     chatElapsedLabel(): string;
     chatHint(): string;
     openChatStream(token: string): void;
@@ -197,6 +242,14 @@ export function pageEditor(
     /** The SSE connection carrying the reply of the turn in flight. */
     let chatSource: EventSource | null = null;
 
+    /**
+     * The actual File objects behind the composer's chips. Held here rather
+     * than on the component because Livewire's uploadMultiple() REPLACES the
+     * wire property, so adding a second file means re-sending the whole set —
+     * and that needs the originals, which Alpine state should not carry.
+     */
+    let chatFiles: File[] = [];
+
     /** Drives `chatElapsed` while a turn runs. */
     let chatClock: ReturnType<typeof setInterval> | null = null;
 
@@ -230,6 +283,10 @@ export function pageEditor(
         chatStream: '',
         chatActivity: [],
         chatElapsed: 0,
+        chatAttachments: [],
+        chatUploading: false,
+        chatAttachmentError: '',
+        chatDragging: false,
         libraryOpen: false,
         libraryLoaded: false,
 
@@ -321,6 +378,119 @@ export function pageEditor(
         },
 
         /**
+         * Take a batch of files into the composer: pre-filter them (type, size,
+         * count — the server re-validates), grow the chip strip, and stream the
+         * FULL accumulated set to Livewire, because uploadMultiple replaces the
+         * property rather than appending.
+         */
+        attachChatFiles(
+            this: PageEditorComponent,
+            files: readonly File[],
+        ): void {
+            if (this.chatSending || files.length === 0) {
+                return;
+            }
+
+            const { accepted, rejected } = acceptChatFiles(
+                chatFiles.length,
+                files,
+                config.chatLimits,
+            );
+
+            this.chatAttachmentError =
+                rejected.length === 0
+                    ? ''
+                    : `${config.labels.chatAttachRejected}: ${rejected.map((file) => file.name).join(', ')}`;
+
+            if (accepted.length === 0) {
+                return;
+            }
+
+            chatFiles = [...chatFiles, ...accepted];
+
+            for (const file of accepted) {
+                const kind = attachmentKind(file.type, config.chatLimits);
+
+                this.chatAttachments.push({
+                    name: file.name,
+                    kind: kind ?? 'pdf',
+                    preview:
+                        kind === 'image' ? URL.createObjectURL(file) : null,
+                });
+            }
+
+            this.chatUploading = true;
+
+            this.$wire.uploadMultiple(
+                'chatUploads',
+                chatFiles,
+                () => {
+                    this.chatUploading = false;
+                },
+                () => {
+                    // The server refused the batch (updatedChatUploads clears
+                    // the property) — drop every chip so what the operator
+                    // sees matches what would actually be sent.
+                    this.clearChatAttachments();
+                    this.chatAttachmentError = config.labels.chatAttachFailed;
+                },
+            );
+        },
+
+        /** Drop one chip, on both sides of the wire. */
+        removeChatAttachment(this: PageEditorComponent, index: number): void {
+            const [attachment] = this.chatAttachments.splice(index, 1);
+
+            if (attachment?.preview != null) {
+                URL.revokeObjectURL(attachment.preview);
+            }
+
+            chatFiles = chatFiles.filter((_, position) => position !== index);
+
+            void this.$wire.removeChatUpload(index);
+        },
+
+        clearChatAttachments(this: PageEditorComponent): void {
+            for (const attachment of this.chatAttachments) {
+                if (attachment.preview !== null) {
+                    URL.revokeObjectURL(attachment.preview);
+                }
+            }
+
+            this.chatAttachments = [];
+            this.chatUploading = false;
+            chatFiles = [];
+        },
+
+        /** The hidden `<input type=file>` behind the paperclip button. */
+        onChatFilePicked(this: PageEditorComponent): void {
+            const input = this.$refs.chatFile;
+
+            if (input?.files != null) {
+                this.attachChatFiles([...input.files]);
+                // Reset so picking the same file twice still fires `change`.
+                input.value = '';
+            }
+        },
+
+        onComposerPaste(
+            this: PageEditorComponent,
+            event: ClipboardEvent,
+        ): void {
+            const files = [...(event.clipboardData?.files ?? [])];
+
+            if (files.length > 0) {
+                event.preventDefault();
+                this.attachChatFiles(files);
+            }
+        },
+
+        onComposerDrop(this: PageEditorComponent, event: DragEvent): void {
+            this.chatDragging = false;
+            this.attachChatFiles([...(event.dataTransfer?.files ?? [])]);
+        },
+
+        /**
          * Send the box's contents.
          *
          * The message is passed as an argument rather than read off the bound
@@ -333,17 +503,28 @@ export function pageEditor(
          * Guarded against the double submit a held Enter key would otherwise
          * cause during that wait: the second turn would run against pre-edit
          * blocks and quietly undo the first.
+         *
+         * An attachment can carry a message on its own, but never while its
+         * upload is still streaming — the server would see an empty property.
          */
         sendChat(this: PageEditorComponent): void {
             const message = this.$wire.chatInput.trim();
 
-            if (this.chatSending || message === '') {
+            if (
+                this.chatSending ||
+                this.chatUploading ||
+                (message === '' && this.chatAttachments.length === 0)
+            ) {
                 return;
             }
 
             this.chatSending = true;
-            this.chatPending = message;
+            this.chatPending =
+                message === ''
+                    ? (this.chatAttachments[0]?.name ?? '')
+                    : message;
             this.chatActivity = [];
+            this.chatAttachmentError = '';
             this.startChatClock(0);
             this.$wire.set('chatInput', '', false);
             this.$nextTick(() => this.scrollChatToEnd());
@@ -371,8 +552,12 @@ export function pageEditor(
                     // The echo has served its purpose: sendChatMessage() records
                     // the question, so the render this response carried already
                     // shows it. Left up, it sat under the real bubble as a
-                    // half-transparent duplicate for the whole turn.
+                    // half-transparent duplicate for the whole turn. The chips
+                    // clear on the same cue — the uploads were consumed by the
+                    // send; on a DECLINED turn (no token) they survive, because
+                    // the server-side uploads did too.
                     this.chatPending = '';
+                    this.clearChatAttachments();
 
                     this.openChatStream(token);
                 })

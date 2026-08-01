@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Ai\ChatAttachment;
 use App\Ai\PageDraft;
 use App\Ai\Prompts\PageEditPrompt;
 use App\Ai\SiteStyleDraft;
@@ -118,6 +119,37 @@ it('flags a bound block so the model only writes its narrative fields', function
 
     expect($prompt)->toContain('fields: heading, intro, show_form, success_message')
         ->toContain('shows live location details automatically');
+});
+
+/*
+ * The announcement is what makes attachments usable: the bytes travel as
+ * conversation-history attachments, so this section is the model's only source
+ * for WHICH media id an image became and what each file is called.
+ */
+it('announces this message attachments right above the request', function (): void {
+    $page = Page::factory()->make(['title' => 'Home', 'slug' => '/', 'status' => 'draft']);
+
+    $prompt = (string) new PageEditPrompt(
+        $page,
+        heroPageDraft(),
+        resolve(BlockVocabulary::class)->all(),
+        null,
+        'Use this as the hero image',
+        attachments: [
+            new ChatAttachment('image', 'kitchen.jpg', [], mediaId: 42, width: 1600, height: 900),
+            new ChatAttachment('document', 'menu.pdf', []),
+        ],
+    );
+
+    expect($prompt)->toContain('## Attachments on this message')
+        ->toContain("image 'kitchen.jpg' (1600x900) — already imported into the media library as media id 42")
+        ->toContain("document 'menu.pdf'")
+        // Above the request, because the request is usually about the files.
+        ->and(mb_strpos($prompt, '## Attachments'))->toBeLessThan(mb_strpos($prompt, 'Use this as the hero image'));
+});
+
+it('omits the attachments section on a plain text message', function (): void {
+    expect(editPrompt(heroPageDraft()))->not->toContain('## Attachments');
 });
 
 it('says the page is empty when it has no blocks', function (): void {

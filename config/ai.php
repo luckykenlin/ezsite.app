@@ -35,6 +35,23 @@ return [
         env('AI_FAILOVER_PROVIDER'),
     ])),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Vision Chain
+    |--------------------------------------------------------------------------
+    |
+    | The providers used for chat turns that involve attachments — images or
+    | documents the operator sent, in the current message or anywhere in the
+    | agent's conversation window. The default text provider (DeepSeek) cannot
+    | read documents at all (its gateway throws on Document attachments), so
+    | such turns are routed here instead. See ChatEditPage::ask().
+    |
+    */
+
+    'vision' => array_filter([
+        env('AI_VISION_PROVIDER', 'gemini'),
+    ]),
+
     'default_for_images' => 'gemini',
     'default_for_audio' => 'openai',
     'default_for_transcription' => 'openai',
@@ -126,6 +143,17 @@ return [
             'driver' => 'gemini',
             'key' => env('GEMINI_API_KEY'),
             'url' => env('GEMINI_URL', 'https://generativelanguage.googleapis.com/v1beta/'),
+            // Pinned so #[UseCheapestModel] does not resolve to the SDK's
+            // flash-lite tier: vision turns carry the full 13-tool roster, and
+            // the lite models fumble exact tool arguments (block keys, media
+            // ids) often enough to burn the operator's turn.
+            'models' => [
+                'text' => [
+                    'default' => env('GEMINI_CHAT_MODEL', 'gemini-3.5-flash'),
+                    'cheapest' => env('GEMINI_CHAT_MODEL', 'gemini-3.5-flash'),
+                    'smartest' => 'gemini-3.5-flash',
+                ],
+            ],
         ],
 
         'groq' => [

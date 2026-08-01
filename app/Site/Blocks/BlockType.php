@@ -45,6 +45,16 @@ final readonly class BlockType
      *                                                overlay"), which is what lets a
      *                                                model choose a layout by purpose
      *                                                rather than by key name.
+     * @param  string|null  $mediaField  the top-level field holding a media-library
+     *                                   id (`image_id` on hero/cta), or null when
+     *                                   the type carries no block-level image.
+     *                                   Derived from the schema's ImageInput fields,
+     *                                   so it tracks the form automatically.
+     * @param  string|null  $itemsField  the repeater field whose ITEMS carry a media
+     *                                   id (`images` on gallery, `members` on team)
+     * @param  string|null  $itemMediaField  the media-id key inside one of those
+     *                                       items (`media_id`, `avatar_media_id`);
+     *                                       set exactly when `$itemsField` is
      */
     public function __construct(
         public string $type,
@@ -56,8 +66,20 @@ final readonly class BlockType
         public array $sample,
         public ?BlockIntent $intent = null,
         public array $variantLabels = [],
+        public ?string $mediaField = null,
+        public ?string $itemsField = null,
+        public ?string $itemMediaField = null,
     ) {
         //
+    }
+
+    /**
+     * Whether an image from the media library can be placed anywhere on this
+     * type — the SetBlockImage tool's "is there a slot at all" check.
+     */
+    public function acceptsMedia(): bool
+    {
+        return $this->mediaField !== null || $this->itemMediaField !== null;
     }
 
     /**

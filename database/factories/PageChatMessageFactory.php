@@ -45,6 +45,29 @@ final class PageChatMessageFactory extends Factory
     }
 
     /**
+     * A question with an attached image, in the stored ChatAttachment shape —
+     * what routes the thread to the vision provider.
+     */
+    public function withAttachments(): self
+    {
+        return $this->state(fn (): array => [
+            'attachments' => [[
+                'kind' => 'image',
+                'name' => 'kitchen.jpg',
+                'file' => [
+                    'type' => 'stored-image',
+                    'name' => 'kitchen.jpg',
+                    'path' => 'chat/chat-test.jpg',
+                    'disk' => 'public',
+                ],
+                'media_id' => 1,
+                'width' => 1600,
+                'height' => 900,
+            ]],
+        ]);
+    }
+
+    /**
      * The apology recorded for a turn that never finished — what the chat
      * rail's "Try again" button renders from.
      */
