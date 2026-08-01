@@ -5,56 +5,13 @@ declare(strict_types=1);
 use App\Actions\Pages\PopulateDraftImages;
 use App\Enums\PageStatus;
 use App\Models\Business;
+use App\Models\LibraryPhoto;
 use App\Models\Media;
 use App\Models\Page;
 use App\Models\Tenant;
-use App\StockPhotos\PhotoOrientation;
-use App\StockPhotos\StockPhoto;
 use App\StockPhotos\StockPhotoProvider;
 use Illuminate\Support\Facades\Http;
-
-/**
- * A provider double returning a fixed pool of photos and recording every
- * search, so budget and query assertions need no HTTP.
- */
-function poolStockProvider(int $photos = 6): StockPhotoProvider
-{
-    return new class($photos) implements StockPhotoProvider
-    {
-        /** @var list<array{query: string, count: int}> */
-        public array $searches = [];
-
-        public function __construct(private readonly int $photos)
-        {
-            //
-        }
-
-        public function search(string $query, PhotoOrientation $orientation, int $count): array
-        {
-            $this->searches[] = ['query' => $query, 'count' => $count];
-
-            $pool = [];
-
-            for ($index = 1; $index <= $this->photos; $index++) {
-                $pool[] = new StockPhoto(
-                    provider: 'pexels',
-                    sourceId: (string) $index,
-                    downloadUrl: 'https://images.pexels.com/photos/'.$index.'/photo.jpeg',
-                    width: 4000,
-                    height: 2667,
-                    alt: 'Stock photo '.$index,
-                );
-            }
-
-            return $pool;
-        }
-
-        public function trackDownload(StockPhoto $photo): void
-        {
-            //
-        }
-    };
-}
+use Illuminate\Support\Facades\Storage;
 
 function populateDraftImagesFor(Tenant $tenant, StockPhotoProvider $provider): void
 {
@@ -67,7 +24,7 @@ function populateDraftImagesFor(Tenant $tenant, StockPhotoProvider $provider): v
 }
 
 it('fills hero and gallery slots from the model queries, stripping the transit key', function (): void {
-    $provider = poolStockProvider();
+    $provider = $this->poolStockPhotoProvider();
     $tenant = Tenant::factory()->create();
     $this->createTenantBusiness($tenant, ['category' => 'barber'], 1);
 
@@ -104,7 +61,7 @@ it('fills hero and gallery slots from the model queries, stripping the transit k
 });
 
 it('spends nothing on a gallery whose every item already has an image', function (): void {
-    $provider = poolStockProvider();
+    $provider = $this->poolStockPhotoProvider();
     $tenant = Tenant::factory()->create();
     $this->createTenantBusiness($tenant, [], 1);
 
@@ -115,13 +72,13 @@ it('spends nothing on a gallery whose every item already has an image', function
 
     populateDraftImagesFor($tenant, $provider);
 
-    expect($provider->searches)->toBe([])
+    expect($provider->searches)->toBeEmpty()
         ->and(Page::query()->findOrFail($page->getKey())->blocks[0]['data']['images'])
         ->toBe([['media_id' => 5], ['url' => 'https://example.com/x.jpg']]);
 });
 
 it('fills offering and feature items per label, skipping slots that already hold an image', function (): void {
-    $provider = poolStockProvider();
+    $provider = $this->poolStockPhotoProvider();
     $tenant = Tenant::factory()->create();
     $this->createTenantBusiness($tenant, ['category' => 'cafe'], 1);
 
@@ -154,7 +111,7 @@ it('fills offering and feature items per label, skipping slots that already hold
 });
 
 it('leaves the draft intact when the provider finds nothing', function (): void {
-    $provider = poolStockProvider(photos: 0);
+    $provider = $this->poolStockPhotoProvider(photos: 0);
     $tenant = Tenant::factory()->create();
     $this->createTenantBusiness($tenant, [], 1);
 
@@ -179,7 +136,7 @@ it('stops spending when the per-site budgets run out', function (): void {
     config()->set('stock-photos.max_searches_per_site', 1);
     config()->set('stock-photos.max_photos_per_site', 1);
 
-    $provider = poolStockProvider();
+    $provider = $this->poolStockPhotoProvider();
     $tenant = Tenant::factory()->create();
     $this->createTenantBusiness($tenant, [], 1);
 
@@ -198,8 +155,85 @@ it('stops spending when the per-site budgets run out', function (): void {
         ->and($provider->searches)->toHaveCount(1);
 });
 
+it('fills a slot from the shared library without touching the provider', function (): void {
+    // The payoff of the catalogue: once a photo is in it, the next site to want
+    // that subject costs zero requests and zero downloads.
+    $provider = $this->poolStockPhotoProvider();
+    $tenant = Tenant::factory()->create();
+    $this->createTenantBusiness($tenant, ['category' => 'barber'], 1);
+
+    $photo = LibraryPhoto::factory()->describing('a barber shop interior')->create();
+    Storage::disk('library')->put($photo->path, 'jpeg-bytes');
+
+    $page = $this->createTenantPage($tenant, [
+        ['type' => 'hero', 'data' => ['heading' => 'Hi', '_image_query' => 'barber shop interior']],
+    ]);
+    $this->runInTenant($tenant, fn () => Page::query()->whereKey($page->getKey())->update(['status' => PageStatus::Draft]));
+
+    populateDraftImagesFor($tenant, $provider);
+
+    $blocks = Page::query()->findOrFail($page->getKey())->blocks;
+    $media = Media::query()->findOrFail($blocks[0]['data']['image_id']);
+
+    expect($media->getAttribute('library_photo_id'))->toBe($photo->id)
+        ->and($provider->searches)->toBeEmpty()
+        ->and(LibraryPhoto::query()->findOrFail($photo->getKey())->usage_count)->toBe(1);
+});
+
+it('over-fetches from the library but adopts only what the slot needs', function (): void {
+    // FindLibraryPhotos is asked for needed+3 so the in-run dedup has spares to
+    // choose from; the tenant must still end up with one photo for one slot, not
+    // four unused copies in their media library.
+    $provider = $this->poolStockPhotoProvider();
+    $tenant = Tenant::factory()->create();
+    $this->createTenantBusiness($tenant, ['category' => 'florist'], 1);
+
+    for ($index = 0; $index < 4; $index++) {
+        $photo = LibraryPhoto::factory()->describing('a florist arranging tulips '.$index)->create();
+        Storage::disk('library')->put($photo->path, 'jpeg-bytes');
+    }
+
+    $page = $this->createTenantPage($tenant, [
+        ['type' => 'hero', 'data' => ['heading' => 'Hi', '_image_query' => 'florist tulips']],
+    ]);
+    $this->runInTenant($tenant, fn () => Page::query()->whereKey($page->getKey())->update(['status' => PageStatus::Draft]));
+
+    populateDraftImagesFor($tenant, $provider);
+
+    expect(Media::query()->count())->toBe(1)
+        ->and($provider->searches)->toBeEmpty();
+});
+
+it('falls back to the provider for what the library could not cover', function (): void {
+    $provider = $this->poolStockPhotoProvider();
+    $tenant = Tenant::factory()->create();
+    $this->createTenantBusiness($tenant, ['category' => 'barber'], 1);
+
+    // One library photo for a four-slot gallery: three still have to be found.
+    $photo = LibraryPhoto::factory()->describing('barber chairs')->create();
+    Storage::disk('library')->put($photo->path, 'jpeg-bytes');
+
+    $page = $this->createTenantPage($tenant, [
+        ['type' => 'gallery', 'data' => ['heading' => 'Work', '_image_query' => 'barber chairs']],
+    ]);
+    $this->runInTenant($tenant, fn () => Page::query()->whereKey($page->getKey())->update(['status' => PageStatus::Draft]));
+
+    populateDraftImagesFor($tenant, $provider);
+
+    $items = Page::query()->findOrFail($page->getKey())->blocks[0]['data']['images'];
+    $adopted = Media::query()->whereNotNull('library_photo_id')->count();
+
+    expect($items)->toHaveCount(4)
+        // Only the shortfall was searched for, not the whole gallery.
+        ->and($provider->searches)->toHaveCount(1)
+        ->and($provider->searches[0]['count'])->toBe(6)
+        // Every photo lands in the catalogue, so the library one is not special.
+        ->and($adopted)->toBe(4)
+        ->and(LibraryPhoto::query()->count())->toBe(4);
+});
+
 it('never touches a published page', function (): void {
-    $provider = poolStockProvider();
+    $provider = $this->poolStockPhotoProvider();
     $tenant = Tenant::factory()->create();
     $this->createTenantBusiness($tenant, [], 1);
 
@@ -211,5 +245,5 @@ it('never touches a published page', function (): void {
     populateDraftImagesFor($tenant, $provider);
 
     expect(Page::query()->findOrFail($page->getKey())->blocks[0]['data'])->toHaveKey('_image_query')
-        ->and($provider->searches)->toBe([]);
+        ->and($provider->searches)->toBeEmpty();
 });

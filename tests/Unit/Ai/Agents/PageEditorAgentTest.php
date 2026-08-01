@@ -9,8 +9,10 @@ use App\Ai\Tools\AddBlock;
 use App\Ai\Tools\CreatePage;
 use App\Ai\Tools\DuplicatePage;
 use App\Ai\Tools\FetchWebPage;
+use App\Ai\Tools\ImportStockPhotos;
 use App\Ai\Tools\RemoveBlock;
 use App\Ai\Tools\ReorderBlocks;
+use App\Ai\Tools\SearchPhotoLibrary;
 use App\Ai\Tools\SetBlockAppearance;
 use App\Ai\Tools\SetBlockImage;
 use App\Ai\Tools\SetBlockVariant;
@@ -44,6 +46,10 @@ it('offers the page-editing verbs, without the site style when there is no busin
         SetBlockVariant::class,
         SetBlockAppearance::class,
         SetBlockImage::class,
+        // Photo sourcing, in the order the instructions ask for it: the shared
+        // library first, a new provider import only when nothing there fits.
+        SearchPhotoLibrary::class,
+        ImportStockPhotos::class,
         // App-side fetching, so a pasted URL works on every provider — the
         // provider-native WebFetch below only exists on the vision chain.
         FetchWebPage::class,

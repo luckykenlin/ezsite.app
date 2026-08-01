@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Actions\Pages;
 
 use App\Actions\FindOrImportStockPhoto;
+use App\Actions\Library\AdoptLibraryPhoto;
+use App\Actions\Library\FindLibraryPhotos;
 use App\Enums\PageStatus;
 use App\Models\Business;
 use App\Models\Media;
@@ -21,13 +23,19 @@ use App\StockPhotos\StockPhotoProvider;
  * fill the photo slots the draft agent structurally cannot — hero images,
  * gallery grids, offering and feature item photos.
  *
+ * Every slot is filled from the SHARED photo library first and only then from
+ * the provider ({@see findPhotos()}), so the catalogue makes each generation
+ * after the first cheaper — and photo-bearing even when the provider is
+ * unreachable.
+ *
  * Runs as its own queued step ({@see \App\Jobs\PopulateDraftImagesJob}) after
  * the draft has already landed, so every failure mode here — provider down,
  * rate limit, timeout — degrades to exactly the pre-pipeline behavior: a
  * draft without photos, whose views all guard their image slots. The walk is
  * idempotent and re-runnable: `_image_query` keys are consumed and removed,
  * slots that already hold an image are skipped (protecting operator edits on
- * regeneration), and imported photos dedup on (provider, source id).
+ * regeneration), and photos dedup on (provider, source id) in the shared
+ * library.
  *
  * Deliberately UNFILLED: `team` and `testimonials` avatars — a stock face
  * posing as a real employee or a real reviewer is a fabricated fact in image
@@ -44,6 +52,8 @@ final readonly class PopulateDraftImages
     public function __construct(
         private StockPhotoProvider $provider,
         private FindOrImportStockPhoto $import,
+        private FindLibraryPhotos $library,
+        private AdoptLibraryPhoto $adopt,
     ) {
         //
     }
@@ -214,32 +224,74 @@ final readonly class PopulateDraftImages
     }
 
     /**
-     * Spend one search and import up to `$needed` distinct photos from it.
-     * Over-fetches slightly so the in-run dedup still has enough left to
-     * choose from when earlier sections already took the top results.
+     * Up to `$needed` distinct photos for one query: the shared library first,
+     * the provider only for what the library could not cover.
+     *
+     * Library-first is the point of having a library. A photo another tenant's
+     * site already imported costs no request, no download and nothing from the
+     * budget, so the catalogue makes every generation after the first cheaper
+     * and faster — and it still works when the provider is down or the budget
+     * is spent, which is why the library pass runs BEFORE the `canSearch()`
+     * guard.
+     *
+     * Over-fetches slightly on both sides so the in-run dedup still has enough
+     * left to choose from when earlier sections already took the top results.
      *
      * @return list<Media>
      */
     private function findPhotos(string $query, int $needed, PhotoBudget $budget): array
     {
-        if (! $budget->canSearch()) {
-            return [];
+        $found = $this->takeFromLibrary($query, $needed, $budget);
+
+        if (count($found) >= $needed || ! $budget->canSearch()) {
+            return $found;
         }
 
         $budget->spendSearch();
 
-        $photos = $budget->unused($this->provider->search($query, PhotoOrientation::Landscape, $needed + 3));
-        $found = [];
+        $missing = $needed - count($found);
+        $photos = $budget->unused($this->provider->search($query, PhotoOrientation::Landscape, $missing + 3));
 
         foreach ($photos as $photo) {
             if (count($found) >= $needed || ! $budget->canTake()) {
                 break;
             }
 
-            $media = $this->import->handle($photo);
+            $media = $this->import->handle($photo, $query);
 
             if ($media instanceof Media) {
                 $budget->take($photo);
+                $found[] = $media;
+            }
+        }
+
+        return $found;
+    }
+
+    /**
+     * The library pass: adopt matching photos into this tenant's media library.
+     * Least-used first, which is {@see FindLibraryPhotos}'s ordering and the
+     * reason reuse does not make every generated site look alike.
+     *
+     * @return list<Media>
+     */
+    private function takeFromLibrary(string $query, int $needed, PhotoBudget $budget): array
+    {
+        $candidates = $budget->unusedLibrary(
+            $this->library->handle($query, PhotoOrientation::Landscape, $needed + 3),
+        );
+
+        $found = [];
+
+        foreach ($candidates as $candidate) {
+            if (count($found) >= $needed) {
+                break;
+            }
+
+            $media = $this->adopt->handle($candidate);
+
+            if ($media instanceof Media) {
+                $budget->reuse($candidate);
                 $found[] = $media;
             }
         }

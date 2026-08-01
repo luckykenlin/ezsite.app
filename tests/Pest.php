@@ -15,6 +15,7 @@ use Illuminate\Support\Sleep;
 use Illuminate\Support\Str;
 use Stancl\Tenancy\Events\TenantCreated;
 use Tests\Concerns\InteractsWithTenancy;
+use Tests\Concerns\MakesStockPhotos;
 use Tests\Concerns\VisitsTenantPages;
 use Tests\TestCase;
 
@@ -144,7 +145,7 @@ $cleanUpAfterTest = function () use (&$createdTenantKeys): void {
 };
 
 pest()->extend(TestCase::class)
-    ->use(InteractsWithTenancy::class)
+    ->use(InteractsWithTenancy::class, MakesStockPhotos::class)
     ->beforeEach(function () use ($prepareDatabase): void {
         Http::preventStrayRequests();
         Process::preventStrayProcesses();

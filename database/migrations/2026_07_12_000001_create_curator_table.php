@@ -42,13 +42,23 @@ return new class extends Migration
             $table->text('exif')->nullable();
             $table->longText('curations')->nullable();
 
+            // The shared-library row this media was adopted from, if any
+            // (App\Actions\Library\AdoptLibraryPhoto). This is the per-tenant
+            // adoption dedup key: RLS scopes the lookup, so asking "has this
+            // tenant already taken that photo?" is one indexed read.
+            //
+            // nullOnDelete, never cascade: curating a bad photo out of the
+            // shared library must not delete the media rows — and therefore
+            // the live page images — of every tenant that already used it.
+            $table->foreignId('library_photo_id')->nullable()->constrained('library_photos')->nullOnDelete();
+
             // Stock-photo provenance (App\StockPhotos): where an imported
-            // photo came from and whose credit it carries. The pair index is
-            // the dedup key — re-generating a site must reuse the already
-            // imported file instead of spending another download and another
-            // rate-limit token. RLS scopes the lookup per tenant, so two
-            // tenants importing the same Pexels photo store it twice, by
-            // design (media is tenant-owned, files live on tenant disks).
+            // photo came from and whose credit it carries, copied down from
+            // the library row on adoption so rendering and attribution never
+            // need a join. Two tenants adopting the same photograph each get
+            // their own file on their own tenant disk (see AdoptLibraryPhoto
+            // for why the bytes are copied rather than shared), but the
+            // DOWNLOAD happened once, into `library_photos`.
             $table->string('source_provider')->nullable();
             $table->string('source_id')->nullable();
             $table->string('source_url', 2048)->nullable();

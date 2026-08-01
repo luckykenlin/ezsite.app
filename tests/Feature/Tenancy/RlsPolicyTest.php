@@ -73,6 +73,12 @@ test('every table is RLS-protected or an explicitly documented exemption', funct
         // The tenant table itself, and the two 'no-rls' tables that must be queryable
         // before tenancy resolves / from the central panel (domains.tenant_id, tenant_user.tenant_id).
         'tenants', 'domains', 'tenant_user',
+        // The shared photo library — one cross-tenant catalogue every tenant draws
+        // from, so global by definition, same reasoning as 'users'. Note this is NOT
+        // the 'no-rls' escape hatch: the table has no tenant_id column at all, and it
+        // holds no tenant-owned data. What a tenant owns is the `curator` row
+        // AdoptLibraryPhoto copies out of it, which is RLS-protected as usual.
+        'library_photos',
     ];
 
     $allTables = collect(DB::select('SELECT tablename FROM pg_tables WHERE schemaname = current_schema()'))

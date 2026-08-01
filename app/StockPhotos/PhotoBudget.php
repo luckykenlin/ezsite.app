@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\StockPhotos;
 
+use App\Models\LibraryPhoto;
+
 /**
  * One site-population run's spending money: how many provider searches and
  * how many photo imports it may still make, plus which photos it has already
@@ -16,9 +18,10 @@ namespace App\StockPhotos;
  * itself can stay `readonly` like every other action.
  *
  * Cross-run dedup is a different mechanism and deliberately not here: the
- * (provider, source id) pair on the media record lets
- * {@see \App\Actions\FindOrImportStockPhoto} reuse files across
- * regenerations, whereas this set only prevents in-run repetition.
+ * (provider, source id) pair on the SHARED library row lets
+ * {@see \App\Actions\Library\FindOrImportLibraryPhoto} reuse a download across
+ * regenerations and across tenants, whereas this set only prevents in-run
+ * repetition.
  */
 final class PhotoBudget
 {
@@ -62,6 +65,21 @@ final class PhotoBudget
     }
 
     /**
+     * Register a photo reused out of the shared library.
+     *
+     * Deliberately does NOT decrement either counter, unlike {@see take()}:
+     * this budget is provider SPEND, and a photo another site already imported
+     * costs no request and no download. It shares the same `used` key space
+     * though — without that, one photograph could land on a page twice, once
+     * from the library and once from a fresh provider search that returned the
+     * same result.
+     */
+    public function reuse(LibraryPhoto $photo): void
+    {
+        $this->used[$this->libraryKey($photo)] = true;
+    }
+
+    /**
      * The given results minus every photo this run already used.
      *
      * @param  list<StockPhoto>  $photos
@@ -73,5 +91,29 @@ final class PhotoBudget
             $photos,
             fn (StockPhoto $photo): bool => ! isset($this->used[$photo->provider.':'.$photo->sourceId]),
         ));
+    }
+
+    /**
+     * The same filter for library rows.
+     *
+     * @param  list<LibraryPhoto>  $photos
+     * @return list<LibraryPhoto>
+     */
+    public function unusedLibrary(array $photos): array
+    {
+        return array_values(array_filter(
+            $photos,
+            fn (LibraryPhoto $photo): bool => ! isset($this->used[$this->libraryKey($photo)]),
+        ));
+    }
+
+    /**
+     * A library row's key in the shared `used` space. Falls back to the row id
+     * for a photo with no provider source id (nothing imports those today, but
+     * a null source id must not collide every such photo into one key).
+     */
+    private function libraryKey(LibraryPhoto $photo): string
+    {
+        return $photo->provider.':'.($photo->source_id ?? 'library-'.$photo->id);
     }
 }

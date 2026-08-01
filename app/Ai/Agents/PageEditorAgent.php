@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Ai\Agents;
 
 use App\Actions\FetchWebPageText as FetchWebPageTextAction;
+use App\Actions\Library\FindLibraryPhotos;
+use App\Actions\Library\FindOrImportLibraryPhoto;
 use App\Actions\Pages\AddPageBlock;
 use App\Actions\Pages\CreatePageFromName;
 use App\Actions\Pages\DuplicatePage as DuplicatePageAction;
@@ -15,14 +17,17 @@ use App\Actions\Pages\UpdatePageBlock;
 use App\Ai\BlockDataSanitizer;
 use App\Ai\ChatAttachment;
 use App\Ai\PageDraft;
+use App\Ai\PhotoAnnouncement;
 use App\Ai\SiteChromeDraft;
 use App\Ai\SiteStyleDraft;
 use App\Ai\Tools\AddBlock;
 use App\Ai\Tools\CreatePage;
 use App\Ai\Tools\DuplicatePage;
 use App\Ai\Tools\FetchWebPage;
+use App\Ai\Tools\ImportStockPhotos;
 use App\Ai\Tools\RemoveBlock;
 use App\Ai\Tools\ReorderBlocks;
+use App\Ai\Tools\SearchPhotoLibrary;
 use App\Ai\Tools\SetBlockAppearance;
 use App\Ai\Tools\SetBlockImage;
 use App\Ai\Tools\SetBlockVariant;
@@ -34,6 +39,7 @@ use App\Enums\ChatRole;
 use App\Models\Page;
 use App\Models\PageChatMessage;
 use App\Site\Blocks\BlockVocabulary;
+use App\StockPhotos\StockPhotoProvider;
 use Laravel\Ai\Attributes\MaxSteps;
 use Laravel\Ai\Attributes\Temperature;
 use Laravel\Ai\Attributes\Timeout;
@@ -41,6 +47,7 @@ use Laravel\Ai\Attributes\UseCheapestModel;
 use Laravel\Ai\Contracts\Agent;
 use Laravel\Ai\Contracts\Conversational;
 use Laravel\Ai\Contracts\HasTools;
+use Laravel\Ai\Files\File;
 use Laravel\Ai\Messages\Message;
 use Laravel\Ai\Messages\UserMessage;
 use Laravel\Ai\Promptable;
@@ -154,6 +161,15 @@ final readonly class PageEditorAgent implements Agent, Conversational, HasTools
         .'the page or the business profile. If a request needs a fact you do not have, make the '
         .'part you can and say what you need. '
         ."\n\n"
+        .'You can source photographs yourself. Search the shared photo library FIRST — it is the '
+        ."app's own catalogue, shared by every site, and a photo already in it costs nothing to use. "
+        .'Only import new stock photos when the library genuinely has nothing that fits; what you '
+        .'import joins the library for every site afterwards. Both tools hand you media ids you place '
+        .'with the set block image tool. Ask for the orientation the slot needs, and for a dark photo '
+        .'when text will sit on top of it (a full-bleed hero or a full-photo cta). Never pass off a '
+        .'stock photo as the business itself, its real staff, or its logo — that is a fabricated fact '
+        .'in image form, so leave those slots for the operator to fill and say so. '
+        ."\n\n"
         .'The operator can attach files and links, and they widen what counts as a fact you have. '
         .'An attached image is already imported into the media library and announced with its media '
         .'id — place it with the set block image tool, and never use a media id that was not '
@@ -265,7 +281,7 @@ final readonly class PageEditorAgent implements Agent, Conversational, HasTools
                     $attachment = ChatAttachment::fromArray($stored);
                     $file = $attachment?->toFile();
 
-                    if ($file !== null) {
+                    if ($file instanceof File) {
                         $files[] = $file;
                         // Named in the text too, so the model can refer to
                         // "the menu PDF" even when a provider presents the
@@ -289,7 +305,7 @@ final readonly class PageEditorAgent implements Agent, Conversational, HasTools
      * such call would be a dead end the model cannot diagnose. Better to not
      * offer the verb — and to save its schema tokens on every turn.
      *
-     * @return list<AddBlock|CreatePage|DuplicatePage|FetchWebPage|RemoveBlock|ReorderBlocks|SetBlockAppearance|SetBlockImage|SetBlockVariant|SetSiteStyle|UpdateBlockContent|UpdateChrome|WebFetch>
+     * @return list<AddBlock|CreatePage|DuplicatePage|FetchWebPage|ImportStockPhotos|RemoveBlock|ReorderBlocks|SearchPhotoLibrary|SetBlockAppearance|SetBlockImage|SetBlockVariant|SetSiteStyle|UpdateBlockContent|UpdateChrome|WebFetch>
      */
     public function tools(): iterable
     {
@@ -312,6 +328,17 @@ final readonly class PageEditorAgent implements Agent, Conversational, HasTools
             new SetBlockVariant($this->draft, $vocabulary, $update),
             new SetBlockAppearance($this->draft, $vocabulary, $update),
             new SetBlockImage($this->draft, $vocabulary, $update),
+            // The two photo-sourcing verbs, in the order the instructions ask
+            // for them. Both unconditional: with no provider key configured the
+            // NullProvider makes the import tool report "found nothing", which
+            // is a better answer than a missing verb the model keeps
+            // hallucinating.
+            new SearchPhotoLibrary(resolve(FindLibraryPhotos::class), resolve(PhotoAnnouncement::class)),
+            new ImportStockPhotos(
+                resolve(StockPhotoProvider::class),
+                resolve(FindOrImportLibraryPhoto::class),
+                resolve(PhotoAnnouncement::class),
+            ),
             new FetchWebPage(resolve(FetchWebPageTextAction::class)),
             // The two page-level verbs. Unconditional, unlike the design and
             // chrome tools: a page needs no Business profile to exist, and both
