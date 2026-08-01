@@ -7,7 +7,6 @@ namespace App\Filament\Tenant\Resources\PageResource\Pages;
 use App\Actions\Pages\AddPageBlock;
 use App\Actions\Pages\BuildEditorPreviewDraft;
 use App\Actions\Pages\CachePageEditorPreview;
-use App\Actions\Pages\DuplicatePage;
 use App\Actions\Pages\DuplicatePageBlock;
 use App\Actions\Pages\KeyEditorBlocks;
 use App\Actions\Pages\MovePageBlock;
@@ -25,15 +24,19 @@ use App\Filament\Fabricator\BlockRegistry;
 use App\Filament\Fabricator\PageBlocks\Block;
 use App\Filament\Tenant\Resources\PageResource;
 use App\Filament\Tenant\Resources\PageResource\Actions\DesignAction;
+use App\Filament\Tenant\Resources\PageResource\Actions\DiscardDraftAction;
+use App\Filament\Tenant\Resources\PageResource\Actions\DuplicatePageAction;
 use App\Filament\Tenant\Resources\PageResource\Actions\PageHistoryAction;
 use App\Filament\Tenant\Resources\PageResource\Actions\PageSettingsAction;
+use App\Filament\Tenant\Resources\PageResource\Actions\PublishPageAction;
+use App\Filament\Tenant\Resources\PageResource\Actions\SharePreviewAction;
 use App\Filament\Tenant\Resources\PageResource\Concerns\HasBlockHistory;
 use App\Filament\Tenant\Resources\PageResource\Concerns\HasSiteChromeDraft;
 use App\Filament\Tenant\Resources\PageResource\Concerns\HostsEditorModals;
 use App\Filament\Tenant\Resources\PageResource\Concerns\InteractsWithPageChat;
+use App\Filament\Tenant\Resources\PageResource\Concerns\ManagesPageVersions;
 use App\Filament\Tenant\Resources\PageResource\Concerns\RestoresEditorDraft;
 use App\Models\Page as PageModel;
-use App\Models\PageRevision;
 use App\Models\User;
 use App\Site\Blocks\BlockData;
 use App\Site\Blocks\BlockIntent;
@@ -48,8 +51,6 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Locked;
@@ -91,6 +92,7 @@ final class PageEditor extends Page
     use HostsEditorModals;
     use InteractsWithPageChat;
     use InteractsWithRecord;
+    use ManagesPageVersions;
     use RestoresEditorDraft;
 
     /**
@@ -790,35 +792,6 @@ final class PageEditor extends Page
     }
 
     /**
-     * Load a saved version into the editor as an UNSAVED draft.
-     *
-     * Deliberately not a write to `pages.blocks`. Going through applyBlocks() puts
-     * the restore on the undo stack, repaints the canvas, and leaves it needing an
-     * explicit Save — so restoring the wrong version is itself one Undo away, and
-     * the operator reviews it on the canvas first. That is the same
-     * review-then-Save contract every other edit in this editor follows, including
-     * the assistant's.
-     */
-    public function restoreRevision(int $revision): void
-    {
-        $stored = $this->revisionOrNull($revision);
-
-        if (! $stored instanceof PageRevision) {
-            $this->notifyRevisionGone();
-
-            return;
-        }
-
-        $this->applyBlocks(resolve(KeyEditorBlocks::class)->handle($stored->blocks));
-
-        Notification::make()
-            ->title(__('Version restored'))
-            ->body(__('Review it on the canvas, then Save — or Undo to go back.'))
-            ->success()
-            ->send();
-    }
-
-    /**
      * The remove confirmation, as a mountable Filament action rather than a
      * native `window.confirm()`: it matches the rest of the panel's chrome,
      * and while it is mounted `mountedActions` gates the canvas keyboard verbs
@@ -839,82 +812,6 @@ final class PageEditor extends Page
                     $this->removeBlock($key);
                 }
             });
-    }
-
-    /**
-     * Name a saved version — which also EXEMPTS it from pruning (see
-     * {@see RecordPageRevision::prune()}): the point of naming one is that a
-     * busy session's thirty saves cannot silently push it out of the window.
-     * An empty label un-names it, returning it to the ordinary window.
-     */
-    public function nameRevision(int $revision, string $label): void
-    {
-        $stored = $this->revisionOrNull($revision);
-
-        if (! $stored instanceof PageRevision) {
-            return;
-        }
-
-        $label = mb_trim($label);
-        $stored->update(['label' => $label === '' ? null : Str::limit($label, 60, '')]);
-
-        Notification::make()
-            ->title($label === '' ? __('Version name removed') : __('Version named'))
-            ->body($label === ''
-                ? __('It ages out of the history window like any other save.')
-                : __('Named versions are never pruned from the history.'))
-            ->success()
-            ->send();
-    }
-
-    /**
-     * Put a PAST version live, without touching the canvas.
-     *
-     * The other half of {@see restoreRevision()}'s contract: restore loads a
-     * version INTO the editor for review, this ships one PAST the editor —
-     * "roll the live site back to Tuesday" must not cost the operator the
-     * draft they are halfway through. The version becomes the saved state
-     * (recorded in history like any save) and the page goes live; the editor's
-     * unsaved draft stays exactly where it was.
-     */
-    public function publishRevision(int $revision): void
-    {
-        $stored = $this->revisionOrNull($revision);
-
-        if (! $stored instanceof PageRevision) {
-            $this->notifyRevisionGone();
-
-            return;
-        }
-
-        $page = $this->pageRecord();
-        $user = auth()->user();
-
-        DB::transaction(function () use ($page, $stored, $user): void {
-            // Recorded first, so the newest history row mirrors what is now
-            // saved — the same order persistBlocks() keeps.
-            resolve(RecordPageRevision::class)->handle(
-                $page,
-                $stored->blocks,
-                $user instanceof User ? $user : null,
-            );
-
-            $page->update(['blocks' => $stored->blocks]);
-
-            resolve(PublishPage::class)->handle($page, true);
-        });
-
-        Notification::make()
-            ->title(__('Version published'))
-            ->body(__('The live page now shows that version. Your unsaved work on the canvas is untouched.'))
-            ->success()
-            ->actions([
-                Action::make('viewLive')
-                    ->label(__('View live'))
-                    ->button()
-                    ->url($page->getUrl(), shouldOpenInNewTab: true),
-            ])
-            ->send();
     }
 
     /**
@@ -948,31 +845,7 @@ final class PageEditor extends Page
                 ->openUrlInNewTab()
                 ->visible(fn (): bool => ! $this->pageRecord()->isDraft()),
 
-            // A stakeholder link to the SAVED page, draft status included —
-            // signed and expiring, so it needs no account and dies on its own.
-            // The copy itself happens in the browser (editor.ts), which is why
-            // this dispatches rather than notifying with the URL to hand-copy.
-            Action::make('sharePreview')
-                ->label('Share preview')
-                ->color('gray')
-                ->icon(Heroicon::OutlinedLink)
-                ->action(function (): void {
-                    // Signed relative (matching the route's `signed:relative`),
-                    // then absolutised against the host the operator is on —
-                    // so the link survives a later move to a custom domain.
-                    $this->dispatch('page-editor:copy-link', url: url(URL::temporarySignedRoute(
-                        'page.shared-preview',
-                        now()->addDays(7),
-                        ['page' => $this->pageRecord()->id],
-                        absolute: false,
-                    )));
-
-                    Notification::make()
-                        ->title(__('Preview link copied'))
-                        ->body(__('Anyone with the link can view the saved page for 7 days — no account needed.'))
-                        ->success()
-                        ->send();
-                }),
+            SharePreviewAction::make($this),
 
             PageSettingsAction::make($this),
 
@@ -980,74 +853,17 @@ final class PageEditor extends Page
 
             PageHistoryAction::make($this),
 
-            // The only route back to the saved page. A restored draft carries no
-            // undo history behind it, so without this a draft the operator does not
-            // want is sticky — every mount would adopt it again.
-            Action::make('discardDraft')
-                ->label('Discard draft')
-                ->color('danger')
-                ->requiresConfirmation()
-                ->modalDescription('Throws away every unsaved change and reloads the last saved version of this page.')
-                ->visible(fn (): bool => $this->draftRestored || $this->isDirty)
-                ->action(fn () => $this->discardDraft()),
+            DiscardDraftAction::make($this),
 
-            Action::make('duplicatePage')
-                ->label('Duplicate page')
-                ->color('gray')
-                ->requiresConfirmation()
-                ->modalDescription('Duplicates the last saved version as a new draft page.')
-                ->action(function (): void {
-                    $copy = resolve(DuplicatePage::class)->handle($this->pageRecord());
+            DuplicatePageAction::make($this),
 
-                    $this->redirect(PageResource::getUrl('edit', ['record' => $copy]), navigate: true);
-                }),
-
-            Action::make('publish')
-                ->label(fn (): string => $this->pageRecord()->isDraft() ? 'Publish' : 'Unpublish')
-                ->color(fn (): string => $this->pageRecord()->isDraft() ? 'success' : 'gray')
-                ->requiresConfirmation()
-                ->modalDescription(fn (): string => $this->pageRecord()->isDraft()
-                    ? 'The current draft is saved and the page goes live.'
-                    : 'The page returns to draft and disappears from the live site.')
-                ->action(fn () => $this->togglePublish()),
+            PublishPageAction::make($this),
 
             Action::make('save')
                 ->label(fn (): string => $this->isDirty ? 'Save changes' : 'Saved')
                 ->disabled(fn (): bool => ! $this->isDirty)
                 ->action(fn () => $this->save()),
         ];
-    }
-
-    /**
-     * One saved version of THIS page, or null.
-     *
-     * The `page_id` clause is the security half, not a convenience: every
-     * revision verb is reachable with an id the browser supplies, so without it
-     * a stale DOM — or a crafted call — could restore or publish another page's
-     * blocks onto this one. One derivation, three callers, one place to get it
-     * right (`PageEditorTest`: "refuses to restore another page's version").
-     */
-    private function revisionOrNull(int $revision): ?PageRevision
-    {
-        return PageRevision::query()
-            ->where('page_id', $this->pageRecord()->id)
-            ->whereKey($revision)
-            ->first();
-    }
-
-    /**
-     * The history window is pruned ({@see RecordPageRevision::prune()}), so a
-     * version listed when the modal opened can be gone by the time it is
-     * chosen. Restore and publish both say so the same way; naming stays silent,
-     * because a rename nobody sees fail costs nothing.
-     */
-    private function notifyRevisionGone(): void
-    {
-        Notification::make()
-            ->title(__('That version is no longer available'))
-            ->body(__('It may have been pruned while this page was open.'))
-            ->warning()
-            ->send();
     }
 
     /**
