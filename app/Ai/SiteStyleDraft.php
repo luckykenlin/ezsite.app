@@ -58,6 +58,20 @@ final class SiteStyleDraft
         return $this->staged ?? $this->saved;
     }
 
+    /**
+     * The tokens as they are ON DISK, ignoring anything this turn staged.
+     *
+     * Read by {@see Tools\CreatePage}, and the distinction matters there: a new
+     * page is WRITTEN to the database, so its block layouts should match the style
+     * the site actually has. Stamping this turn's staged preset onto it would
+     * produce a page laid out for a look the operator may never apply — and
+     * nothing would later go back and fix it.
+     */
+    public function saved(): DesignTokens
+    {
+        return $this->saved;
+    }
+
     public function touched(): bool
     {
         return $this->staged instanceof DesignTokens;

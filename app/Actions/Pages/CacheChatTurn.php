@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Actions\Pages;
 
 use App\Design\TokenSelection;
+use App\Enums\ChromeSlot;
 use Illuminate\Support\Facades\Cache;
 
 /**
@@ -51,6 +52,11 @@ final readonly class CacheChatTurn
      *                                  same reason: the stream forwards only the
      *                                  increment, so a browser that reconnects
      *                                  mid-turn still gets the lines it missed.
+     * @param  array<string, array{type: string, data: array<string, mixed>}>|null  $chrome  the
+     *                                                                                       header/footer slots the turn STAGED, or null when
+     *                                                                                       it left chrome alone. Beside the blocks for the
+     *                                                                                       same reason as `$design`: chrome is site-scoped and
+     *                                                                                       is not part of any page.
      * @param  array<string, string|null>|null  $design  the site style the turn STAGED, or
      *                                                   null when it left the style alone.
      *                                                   Travels beside the blocks rather than
@@ -59,7 +65,7 @@ final readonly class CacheChatTurn
      *                                                   page — and the editor has to apply both
      *                                                   halves under one undo snapshot.
      */
-    public function handle(string $token, string $reply, ?array $blocks = null, bool $failed = false, array $activity = [], ?array $design = null): void
+    public function handle(string $token, string $reply, ?array $blocks = null, bool $failed = false, array $activity = [], ?array $design = null, ?array $chrome = null): void
     {
         Cache::put(self::key($token), [
             'status' => $blocks === null ? 'running' : 'done',
@@ -68,6 +74,7 @@ final readonly class CacheChatTurn
             'failed' => $failed,
             'activity' => $activity,
             'design' => $design,
+            'chrome' => $chrome,
         ], now()->addMinutes(self::TTL_MINUTES));
     }
 
@@ -77,7 +84,7 @@ final readonly class CacheChatTurn
      * editor's state and from there into the page, so a malformed entry is
      * dropped here instead of downstream.
      *
-     * @return array{status: string, reply: string, blocks: list<array{key: string, type: string, data: array<string, mixed>}>|null, failed: bool, activity: list<string>, design: array<string, string|null>|null}|null
+     * @return array{status: string, reply: string, blocks: list<array{key: string, type: string, data: array<string, mixed>}>|null, failed: bool, activity: list<string>, design: array<string, string|null>|null, chrome: array<string, array{type: string, data: array<string, mixed>}>|null}|null
      */
     public function read(string $token): ?array
     {
@@ -98,12 +105,52 @@ final readonly class CacheChatTurn
             // from which ThemeVariables compiles a <style> tag. Null doubles as
             // the "this turn left the style alone" signal.
             'design' => TokenSelection::normalise($turn['design'] ?? null),
+            'chrome' => $this->normalisedChrome($turn['chrome'] ?? null),
         ];
     }
 
     public function forget(string $token): void
     {
         Cache::forget(self::key($token));
+    }
+
+    /**
+     * The staged chrome slots that carry a usable entry; null when the turn left
+     * chrome alone or stored nothing recognisable.
+     *
+     * Normalised for the same reason the blocks are: this comes back from an
+     * external store and goes straight into the editor's `$chrome` draft, and from
+     * there — via SaveSiteChrome — into `site_settings`. Only the two real slots
+     * survive, so a malformed entry cannot invent a third.
+     *
+     * @return array<string, array{type: string, data: array<string, mixed>}>|null
+     */
+    private function normalisedChrome(mixed $chrome): ?array
+    {
+        if (! is_array($chrome)) {
+            return null;
+        }
+
+        $normalised = [];
+
+        foreach (ChromeSlot::values() as $slot) {
+            $entry = $chrome[$slot] ?? null;
+
+            if (! is_array($entry)) {
+                continue;
+            }
+
+            $data = $entry['data'] ?? null;
+            $fields = [];
+
+            foreach (is_array($data) ? $data : [] as $field => $value) {
+                $fields[(string) $field] = $value;
+            }
+
+            $normalised[$slot] = ['type' => $slot, 'data' => $fields];
+        }
+
+        return $normalised === [] ? null : $normalised;
     }
 
     /**

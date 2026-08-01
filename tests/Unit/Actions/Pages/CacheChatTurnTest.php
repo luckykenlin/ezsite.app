@@ -27,6 +27,7 @@ it('reports a turn that is still streaming as running, with no result to apply',
         'failed' => false,
         'activity' => [],
         'design' => null,
+        'chrome' => null,
     ]);
 });
 
@@ -42,6 +43,7 @@ it('reports a finished turn with its blocks', function (): void {
         'failed' => false,
         'activity' => [],
         'design' => null,
+        'chrome' => null,
     ]);
 });
 
@@ -119,6 +121,7 @@ it('reads a structurally broken payload as nothing rather than throwing', functi
         'failed' => false,
         'activity' => [],
         'design' => null,
+        'chrome' => null,
     ]],
     'a non-string reply' => [['reply' => 42, 'blocks' => 'oops', 'activity' => 'not a list'], [
         'status' => 'running',
@@ -127,6 +130,7 @@ it('reads a structurally broken payload as nothing rather than throwing', functi
         'failed' => false,
         'activity' => [],
         'design' => null,
+        'chrome' => null,
     ]],
 ]);
 
@@ -154,3 +158,42 @@ it('round-trips a staged style and keeps only the keys the editor knows', functi
         'density' => null,
     ]);
 });
+
+/*
+ * The chrome payload is normalised for the same reason the blocks are: it comes
+ * back from an external store and goes straight into the editor's `$chrome`
+ * draft, and from there — via SaveSiteChrome — into `site_settings`.
+ */
+it('keeps only the two real chrome slots, with string-keyed data', function (): void {
+    $turns = resolve(CacheChatTurn::class);
+
+    $turns->handle('t-chrome', 'Done.', [], chrome: [
+        'header' => ['type' => 'header', 'data' => ['nav_links' => [['label' => 'Home', 'url' => '/']], 0 => 'numeric']],
+        // A slot that does not exist cannot be invented by a malformed payload.
+        'sidebar' => ['type' => 'sidebar', 'data' => ['note' => 'nope']],
+        // A non-array entry is dropped rather than reaching the editor.
+        'footer' => 'not an entry',
+    ]);
+
+    $chrome = $turns->read('t-chrome')['chrome'];
+
+    expect(array_keys((array) $chrome))->toBe(['header'])
+        ->and($chrome['header']['type'])->toBe('header')
+        // The cast to string does not survive as a string KEY — PHP normalises a
+        // numeric-looking key straight back to an int. What it buys is that the
+        // array stops being a list, so json_encode emits an object rather than an
+        // array and the stored shape does not silently change (see BlockData).
+        ->and(array_keys($chrome['header']['data']))->toBe(['nav_links', 0])
+        ->and(array_is_list($chrome['header']['data']))->toBeFalse();
+});
+
+it('reads absent or unusable chrome as "the turn left it alone"', function (mixed $chrome): void {
+    $turns = resolve(CacheChatTurn::class);
+
+    $turns->handle('t-none', 'Done.', [], chrome: $chrome);
+
+    expect($turns->read('t-none')['chrome'])->toBeNull();
+})->with([
+    'nothing staged' => [null],
+    'no recognised slot' => [[['type' => 'header']]],
+]);

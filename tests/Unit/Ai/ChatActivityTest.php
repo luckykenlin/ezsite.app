@@ -40,6 +40,7 @@ it('names the block a tool call is about', function (string $tool, array $argume
     // Named without the preset it is switching to: the argument is a slug the
     // operator has never seen, and the canvas is about to show them the answer.
     'restyling the site' => ['SetSiteStyle', ['preset' => 'warm-craft'], 'Restyling the site…'],
+    'restyling one section' => ['SetBlockAppearance', ['key' => 'k1', 'tone' => 'inverted'], 'Restyling the Hero section…'],
 ]);
 
 it('falls back to the indefinite line when the arguments name no block', function (string $tool, array $arguments, string $expected): void {
@@ -53,6 +54,7 @@ it('falls back to the indefinite line when the arguments name no block', functio
     'a non-string key' => ['RemoveBlock', ['key' => 42], 'Removing a block…'],
     'no type' => ['AddBlock', [], 'Adding a block…'],
     'a layout switch on an invented key' => ['SetBlockVariant', ['key' => 'nope'], 'Changing a block layout…'],
+    'a restyle on an invented key' => ['SetBlockAppearance', ['key' => 'nope'], 'Restyling a section…'],
 ]);
 
 it('says nothing at all about a tool it does not know', function (): void {
@@ -60,3 +62,28 @@ it('says nothing at all about a tool it does not know', function (): void {
     // and the caller only streams what this returns.
     expect(activityLine('SomeFutureTool', ['key' => 'k1']))->toBeNull();
 });
+
+/*
+ * Named by SLOT, because "editing the site" would not tell the operator that
+ * their navigation — the thing on every page — is about to change.
+ */
+it('names the page-level verbs without naming a block', function (string $tool, string $expected): void {
+    // Neither addresses a block, so the block label is irrelevant — and both are
+    // slow enough (a write plus a skeleton) to be worth a line.
+    expect(activityLine($tool, ['title' => 'Services']))->toBe($expected);
+})->with([
+    'adding a page' => ['CreatePage', 'Adding a page…'],
+    'copying a page' => ['DuplicatePage', 'Copying this page…'],
+]);
+
+it('names which piece of site chrome it is editing', function (mixed $slot, string $expected): void {
+    expect(activityLine('UpdateChrome', ['slot' => $slot]))->toBe($expected);
+})->with([
+    'the header' => ['header', 'Editing the site navigation…'],
+    'the footer' => ['footer', 'Editing the site footer…'],
+    // The arguments are the model's, so a missing or nonsense slot is ordinary.
+    // It degrades to the navigation line rather than to silence: chrome IS being
+    // edited, and the header is the far likelier of the two.
+    'a missing slot' => [null, 'Editing the site navigation…'],
+    'a nonsense slot' => ['sidebar', 'Editing the site navigation…'],
+]);

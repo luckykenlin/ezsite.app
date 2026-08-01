@@ -2079,3 +2079,86 @@ it('ignores an apply when there is no business to write to', function (): void {
         ->call('applyChatDesign')
         ->assertOk();
 });
+
+/*
+ * The assistant reaching the site chrome, end to end. Chrome is site-scoped, so
+ * it lands in the editor's `$chrome` draft and settles through Save — exactly
+ * like an operator's own edit through the chrome inspector.
+ */
+it('lands an assistant chrome edit on the draft, unsaved', function (): void {
+    $this->createTenantBusiness($this->tenant, ['name' => 'Corner Cafe']);
+    $page = editorPage([['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']]]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
+
+    PageEditorAgent::fake([
+        new ToolCall('c1', 'UpdateChrome', ['slot' => 'header', 'content' => [
+            'nav_links' => [['label' => 'Services', 'url' => '/services']],
+        ]]),
+        'Added Services to the menu.',
+    ]);
+
+    $component->set('chatInput', 'add Services to the menu')
+        ->call('sendChatMessage')
+        ->call('pollChatTurn');
+
+    expect($component->get('chrome')['header']['data']['nav_links'])
+        ->toBe([['label' => 'Services', 'url' => '/services']])
+        ->and($component->get('chromeDirty'))->toBeTrue()
+        // Nothing persisted: Save is still the only write path.
+        ->and(SiteSetting::query()->count())->toBe(0);
+
+    $component->call('save');
+
+    expect(SiteSetting::query()->sole()->header[0]['data']['nav_links'])
+        ->toBe([['label' => 'Services', 'url' => '/services']]);
+});
+
+/*
+ * The one place an AI chrome edit differs from an AI block edit. Chrome has never
+ * been on the undo stack — structure-level history covers page blocks only — so
+ * making just this path undoable would give one piece of state two histories.
+ * Pinned so the asymmetry stays a decision rather than a surprise.
+ */
+it('leaves an assistant chrome edit outside the undo stack, like a hand one', function (): void {
+    $this->createTenantBusiness($this->tenant, ['name' => 'Corner Cafe']);
+    $page = editorPage([['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']]]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
+
+    $component->call('applyTurn', null, null, [
+        'footer' => ['type' => 'footer', 'data' => ['variant' => 'minimal', 'note' => 'Closed Sundays.']],
+    ]);
+
+    expect($component->get('chrome')['footer']['data']['note'])->toBe('Closed Sundays.');
+
+    $component->call('undo');
+
+    expect($component->get('chrome')['footer']['data']['note'])->toBe('Closed Sundays.');
+});
+
+it('merges a staged slot without disturbing one the operator is editing', function (): void {
+    $this->createTenantBusiness($this->tenant, ['name' => 'Corner Cafe']);
+    $page = editorPage([['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']]]);
+
+    $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
+
+    PageEditorAgent::fake([
+        new ToolCall('c1', 'UpdateChrome', ['slot' => 'header', 'variant' => 'centered']),
+        'Centered the navigation.',
+    ]);
+
+    // The operator edits the footer by hand while a header-only turn runs.
+    // pollChatTurn() commits that edit before applying the turn, which is what
+    // puts it into the chrome draft in time to be preserved.
+    $component->set('chatInput', 'center the nav')
+        ->call('sendChatMessage')
+        ->call('selectBlock', 'chrome:footer')
+        ->set('data.block.note', 'Typed by hand')
+        ->call('pollChatTurn');
+
+    expect($component->get('chrome')['header']['data']['variant'])->toBe('centered')
+        // A turn that never looked at the footer must not overwrite it with a
+        // stale copy read when the turn was dispatched.
+        ->and($component->get('chrome')['footer']['data']['note'])->toBe('Typed by hand');
+});

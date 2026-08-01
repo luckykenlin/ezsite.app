@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Ai;
 
 use App\Site\Blocks\BlockShape;
+use App\Site\Blocks\SectionAppearance;
 use Illuminate\Support\Str;
 
 /**
@@ -81,13 +82,26 @@ final class PageDraft
         foreach ($this->blocks as $position => $block) {
             $data = $block['data'];
             $variant = $data[BlockShape::VARIANT_KEY] ?? null;
-            unset($data[BlockShape::VARIANT_KEY], $data[BlockShape::BIND_KEY]);
+
+            // Appearance joins the variant in the parenthesised header rather
+            // than the content JSON: both are presentation the model sets
+            // through their own tools, and leaving them inline invited it to
+            // write them back as though they were content fields.
+            $appearance = SectionAppearance::describeStored($data[BlockShape::APPEARANCE_KEY] ?? null);
+
+            unset(
+                $data[BlockShape::VARIANT_KEY],
+                $data[BlockShape::BIND_KEY],
+                $data[BlockShape::APPEARANCE_KEY],
+            );
+
+            $traits = array_filter([is_string($variant) ? $variant : null, $appearance]);
 
             $lines[] = sprintf(
                 '%d. %s%s [key: %s]%s',
                 $position,
                 $block['type'] === '' ? 'unknown' : $block['type'],
-                is_string($variant) ? ' ('.$variant.')' : '',
+                $traits === [] ? '' : ' ('.implode(', ', $traits).')',
                 $block['key'],
                 $data === [] ? ' — no content' : "\n   ".$this->encode($data),
             );

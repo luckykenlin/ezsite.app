@@ -6,20 +6,26 @@ use App\Ai\Agents\PageEditorAgent;
 use App\Ai\PageDraft;
 use App\Ai\SiteStyleDraft;
 use App\Ai\Tools\AddBlock;
+use App\Ai\Tools\CreatePage;
+use App\Ai\Tools\DuplicatePage;
 use App\Ai\Tools\RemoveBlock;
 use App\Ai\Tools\ReorderBlocks;
+use App\Ai\Tools\SetBlockAppearance;
 use App\Ai\Tools\SetBlockVariant;
 use App\Ai\Tools\SetSiteStyle;
 use App\Ai\Tools\UpdateBlockContent;
 use App\Design\DesignTokens;
 use App\Enums\ChatRole;
+use App\Models\Page;
 use App\Models\PageChatMessage;
 use App\Models\Tenant;
 use Laravel\Ai\Tools\Request;
 
 function editorAgent(PageDraft $draft, int $pageId = 1, ?SiteStyleDraft $style = null): PageEditorAgent
 {
-    return new PageEditorAgent($draft, $pageId, $style);
+    // Made, not created: the agent only reads the id (for the transcript query)
+    // and hands the model itself to the page-level tools.
+    return new PageEditorAgent($draft, Page::factory()->make(['id' => $pageId]), $style);
 }
 
 it('offers the page-editing verbs, without the site style when there is no business', function (): void {
@@ -31,6 +37,11 @@ it('offers the page-editing verbs, without the site style when there is no busin
         RemoveBlock::class,
         ReorderBlocks::class,
         SetBlockVariant::class,
+        SetBlockAppearance::class,
+        // The page-level verbs are unconditional: a page needs no Business
+        // profile to exist, and both only ever create a hidden draft.
+        CreatePage::class,
+        DuplicatePage::class,
     ]);
 });
 

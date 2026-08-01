@@ -9,14 +9,18 @@ use App\Ai\ChangedBlocks;
 use App\Ai\ChatActivity;
 use App\Ai\PageDraft;
 use App\Ai\Prompts\PageEditPrompt;
+use App\Ai\SiteChromeDraft;
 use App\Ai\SiteStyleDraft;
 use App\Enums\ChatRole;
+use App\Enums\ChromeSlot;
 use App\Models\Business;
 use App\Models\Page;
 use App\Models\PageChatMessage;
 use App\Models\User;
 use App\Site\BindResolver;
+use App\Site\Blocks\BlockData;
 use App\Site\Blocks\BlockVocabulary;
+use App\Site\SiteChrome;
 use App\Site\SiteContext;
 use Closure;
 use Illuminate\Support\Facades\Log;
@@ -75,6 +79,10 @@ final readonly class ChatEditPage
         private ChatActivity $activity,
         private ChangedBlocks $changed,
         private SiteContext $site,
+        // Request-scoped like the bind resolver, and read for the same reason:
+        // one turn needs the effective chrome for the draft, and the render that
+        // follows needs it again.
+        private SiteChrome $chrome,
     ) {
         //
     }
@@ -83,7 +91,7 @@ final readonly class ChatEditPage
      * @param  list<array{key: string, type: string, data: array<string, mixed>}>  $blocks  the editor's current draft
      * @param  (Closure(string): void)|null  $onDelta  called with each chunk of the reply as it arrives
      * @param  (Closure(string): void)|null  $onActivity  called with one line per tool call, as it is announced
-     * @return array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, reply: string, failed: bool, design: array<string, string|null>|null}
+     * @return array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, reply: string, failed: bool, design: array<string, string|null>|null, chrome: array<string, array{type: string, data: array<string, mixed>}>|null}
      */
     public function handle(
         Page $page,
@@ -112,8 +120,13 @@ final readonly class ChatEditPage
         $business = $this->bindResolver->business();
         $style = $business instanceof Business ? new SiteStyleDraft($business->design_tokens) : null;
 
+        // Same condition as the style draft, different reason: SiteChrome renders
+        // nothing at all without a Business, so there would be no header for an
+        // edit to appear in.
+        $chrome = $business instanceof Business ? new SiteChromeDraft($this->savedChrome()) : null;
+
         try {
-            $reply = $this->ask($page, $draft, $style, $message, $onDelta, $onActivity);
+            $reply = $this->ask($page, $draft, $style, $chrome, $message, $onDelta, $onActivity);
         } catch (Throwable $throwable) {
             Log::error('page_chat.failed', [
                 'page_id' => $page->id,
@@ -124,10 +137,11 @@ final readonly class ChatEditPage
 
             $this->record($page, $user, ChatRole::Assistant, $reply);
 
-            // `design` is explicitly null, not merely absent: a turn that chose a
-            // palette and then died must not leave the operator previewing a
-            // half-finished restyle they never saw described.
-            return ['blocks' => $blocks, 'reply' => $reply, 'failed' => true, 'design' => null];
+            // `design` and `chrome` are explicitly null, not merely absent: a turn
+            // that chose a palette or rewrote the navigation and then died must not
+            // leave the operator previewing a half-finished change they never saw
+            // described.
+            return ['blocks' => $blocks, 'reply' => $reply, 'failed' => true, 'design' => null, 'chrome' => null];
         }
 
         $edited = $draft->blocks();
@@ -135,7 +149,13 @@ final readonly class ChatEditPage
 
         $this->record($page, $user, ChatRole::Assistant, $reply, $changed);
 
-        return ['blocks' => $edited, 'reply' => $reply, 'failed' => false, 'design' => $style?->toArray()];
+        return [
+            'blocks' => $edited,
+            'reply' => $reply,
+            'failed' => false,
+            'design' => $style?->toArray(),
+            'chrome' => $chrome?->toArray(),
+        ];
     }
 
     /**
@@ -180,6 +200,44 @@ final readonly class ChatEditPage
     }
 
     /**
+     * The EFFECTIVE header/footer entry per slot — stored settings, or the default
+     * chrome a tenant with a Business gets.
+     *
+     * Read through {@see SiteChrome} rather than from `site_settings` directly, so
+     * the assistant sees exactly what a visitor sees. The editor's own chrome
+     * draft deliberately hydrates only STORED slots (a null slot must stay null so
+     * merely opening the editor never materialises a default); here the opposite is
+     * right, because the model is being asked to change what is on screen.
+     *
+     * @return array<string, array{type: string, data: array<string, mixed>}>
+     */
+    private function savedChrome(): array
+    {
+        $entries = [];
+
+        foreach ([ChromeSlot::Header, ChromeSlot::Footer] as $slot) {
+            $blocks = $slot === ChromeSlot::Header
+                ? $this->chrome->headerBlocks()
+                : $this->chrome->footerBlocks();
+
+            $entry = is_array($blocks[0] ?? null) ? $blocks[0] : null;
+
+            if ($entry === null) {
+                continue;
+            }
+
+            $data = $entry['data'] ?? null;
+
+            $entries[$slot->value] = [
+                'type' => is_string($entry['type'] ?? null) ? $entry['type'] : $slot->value,
+                'data' => is_array($data) ? BlockData::stringKeyed($data) : [],
+            ];
+        }
+
+        return $entries;
+    }
+
+    /**
      * Run the turn. The agent mutates `$draft` through its tools; its prose
      * return value is only the summary line shown in the chat, so an empty one
      * still needs to read as an answer.
@@ -192,7 +250,7 @@ final readonly class ChatEditPage
      * @param  (Closure(string): void)|null  $onDelta
      * @param  (Closure(string): void)|null  $onActivity
      */
-    private function ask(Page $page, PageDraft $draft, ?SiteStyleDraft $style, string $message, ?Closure $onDelta, ?Closure $onActivity = null): string
+    private function ask(Page $page, PageDraft $draft, ?SiteStyleDraft $style, ?SiteChromeDraft $chrome, string $message, ?Closure $onDelta, ?Closure $onActivity = null): string
     {
         $prompt = new PageEditPrompt(
             $page,
@@ -202,13 +260,14 @@ final readonly class ChatEditPage
             $message,
             $this->site,
             $style,
+            $chrome,
         );
 
         // Started before the first request, not after: the slowest turns are the
         // ones where step one already takes too long.
         $deadline = now()->addSeconds(self::TURN_BUDGET_SECONDS);
 
-        $response = new PageEditorAgent($draft, (int) $page->id, $style)->stream((string) $prompt);
+        $response = new PageEditorAgent($draft, $page, $style, $chrome)->stream((string) $prompt);
 
         foreach ($response as $event) {
             // Between events is the only place a turn can be stopped: tools run

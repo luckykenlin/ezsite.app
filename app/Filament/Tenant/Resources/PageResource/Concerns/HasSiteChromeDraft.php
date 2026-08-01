@@ -42,6 +42,43 @@ trait HasSiteChromeDraft
     public bool $chromeDirty = false;
 
     /**
+     * Land the header/footer a chat turn staged.
+     *
+     * Merges per slot rather than replacing the pair, because
+     * {@see \App\Ai\SiteChromeDraft::toArray()} returns only the slots the turn
+     * actually touched: a turn that edited the header must not overwrite a footer
+     * the operator was editing by hand while it ran.
+     *
+     * Marks the chrome dirty but does NOT snapshot, which is the one place an AI
+     * chrome edit differs from an AI block edit. Chrome has never been on the undo
+     * stack — structure-level history covers page blocks only — so making just this
+     * path undoable would give one piece of state two histories. It stays as
+     * reversible as a hand edit: visible on the canvas, and unsaved until Save.
+     *
+     * @param  array<string, array{type: string, data: array<string, mixed>}>  $chrome
+     */
+    public function applyChromeDraft(array $chrome): void
+    {
+        foreach (ChromeSlot::cases() as $slot) {
+            $entry = $chrome[$slot->value] ?? null;
+
+            if ($entry === null) {
+                continue;
+            }
+
+            $this->chrome[$slot->value] = [
+                'type' => $slot->value,
+                // Pruned like every other commit into this draft, so an untouched
+                // slot compares identical to its stored form and the canvas can
+                // skip a reload — see BlockData::committed().
+                'data' => BlockData::committed($entry['data']),
+            ];
+
+            $this->chromeDirty = true;
+        }
+    }
+
+    /**
      * The chrome slot a pseudo selection key refers to, or null for regular
      * page-block keys.
      */

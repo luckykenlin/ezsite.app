@@ -495,15 +495,25 @@ final class PageEditor extends Page
      * site" stays the only path to the `businesses` row. Tokens reach every page
      * including published ones, so that separation is the whole safety story.
      *
+     * Chrome is the exception to the one-snapshot rule, and deliberately: it has
+     * never been on the undo stack, so it is applied outside the snapshot and
+     * settles through Save like a hand edit to the header would. See
+     * {@see HasSiteChromeDraft::applyChromeDraft()}.
+     *
      * @param  array<array{key: string, type: string, data: array<string, mixed>}>|null  $blocks
      * @param  array<string, string|null>|null  $design
+     * @param  array<string, array{type: string, data: array<string, mixed>}>|null  $chrome
      */
-    public function applyTurn(?array $blocks, ?array $design): void
+    public function applyTurn(?array $blocks, ?array $design, ?array $chrome = null): void
     {
         $this->snapshot();
 
         if ($blocks !== null) {
             $this->replaceBlocks($blocks);
+        }
+
+        if ($chrome !== null) {
+            $this->applyChromeDraft($chrome);
         }
 
         // Staging under the chat source is also what raises the rail's "Apply to

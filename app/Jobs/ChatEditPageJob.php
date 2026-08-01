@@ -102,9 +102,10 @@ final class ChatEditPageJob extends TenantAware
 
             $this->recordFailure($apology);
 
-            // No `design`: the turn did not finish, so any style it had begun
-            // choosing is discarded along with the block edits, and for the same
-            // reason — the operator must not be left previewing half a decision.
+            // No `design` and no `chrome`: the turn did not finish, so any style or
+            // navigation edit it had begun is discarded along with the block edits,
+            // and for the same reason — the operator must not be left previewing
+            // half a decision.
             $turns->handle($this->token, $apology, $this->blocks, failed: true);
         });
     }
@@ -155,6 +156,7 @@ final class ChatEditPageJob extends TenantAware
             failed: $result['failed'],
             activity: $activity,
             design: $result['design'],
+            chrome: $result['chrome'],
         );
     }
 

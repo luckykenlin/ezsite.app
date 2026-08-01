@@ -5,20 +5,28 @@ declare(strict_types=1);
 namespace App\Ai\Agents;
 
 use App\Actions\Pages\AddPageBlock;
+use App\Actions\Pages\CreatePageFromName;
+use App\Actions\Pages\DuplicatePage as DuplicatePageAction;
 use App\Actions\Pages\RemovePageBlock;
 use App\Actions\Pages\ReorderPageBlocks;
-use App\Actions\Pages\StampVariantDefaults;
+use App\Actions\Pages\StampPresetDefaults;
 use App\Actions\Pages\UpdatePageBlock;
 use App\Ai\BlockDataSanitizer;
 use App\Ai\PageDraft;
+use App\Ai\SiteChromeDraft;
 use App\Ai\SiteStyleDraft;
 use App\Ai\Tools\AddBlock;
+use App\Ai\Tools\CreatePage;
+use App\Ai\Tools\DuplicatePage;
 use App\Ai\Tools\RemoveBlock;
 use App\Ai\Tools\ReorderBlocks;
+use App\Ai\Tools\SetBlockAppearance;
 use App\Ai\Tools\SetBlockVariant;
 use App\Ai\Tools\SetSiteStyle;
 use App\Ai\Tools\UpdateBlockContent;
+use App\Ai\Tools\UpdateChrome;
 use App\Enums\ChatRole;
+use App\Models\Page;
 use App\Models\PageChatMessage;
 use App\Site\Blocks\BlockVocabulary;
 use Laravel\Ai\Attributes\MaxSteps;
@@ -97,7 +105,10 @@ final readonly class PageEditorAgent implements Agent, Conversational, HasTools
         ."\n\n"
         .'Layout and style ARE yours to set, but only through the choices the builder offers: never '
         ."a hex colour, a font name, a pixel value or CSS. The levers differ in reach. A section's "
-        .'layout changes one block on this page. The site style changes the colours, fonts, corner '
+        ."layout changes one block on this page. A section's background and vertical spacing change how "
+        .'that one block sits against its neighbours — that is what gives a page its rhythm, so reach for '
+        .'it to make ONE section stand out and leave the others alone: a page where every section claims '
+        .'its own colour has no rhythm at all. The site style changes the colours, fonts, corner '
         .'shapes and spacing of EVERY page on the site. When the operator describes a feeling — '
         .'"more premium", "warmer", "cleaner", "bolder" — match their words against the style list '
         .'you were given and set that style; styles are combinations that were designed together, '
@@ -109,6 +120,15 @@ final readonly class PageEditorAgent implements Agent, Conversational, HasTools
         .'translate it into the qualities in your style list — never name it back, and never claim '
         .'the result resembles it. If you change the site style, say in your answer that it affects '
         .'every page and that they apply it separately. '
+        .'You can add a page to the site, or copy the open one, and both arrive as hidden drafts the '
+        .'operator finds on the site canvas — you do NOT move them there, so say where it is. You cannot '
+        .'delete a page and you cannot publish one: deleting cannot be undone, and publishing is what makes '
+        ."a page public, which is the operator's decision about your work rather than yours. The tools you "
+        .'have address the page that is OPEN, so a page you just made is out of reach until they switch to it '
+        .'— do not promise to fill it in. '
+        .'The site header and footer are yours to edit too, and they are the widest reach of all: '
+        .'they frame EVERY page, so a menu link you add appears site-wide. Say that in your answer '
+        .'when you change one. '
         .'The site is already responsive and there is no mobile-only styling to set: if they ask for '
         .'a mobile improvement, say so plainly and offer a change you can actually make. '
         ."\n\n"
@@ -130,11 +150,15 @@ final readonly class PageEditorAgent implements Agent, Conversational, HasTools
      * @param  SiteStyleDraft|null  $style  the turn's staged site style; null when
      *                                      the tenant has no Business profile, which
      *                                      is also when the design tools are withheld
+     * @param  SiteChromeDraft|null  $chrome  the turn's staged header/footer; null on
+     *                                        the same condition, since a tenant with
+     *                                        no Business renders no chrome at all
      */
     public function __construct(
         private PageDraft $draft,
-        private int $pageId,
+        private Page $page,
         private ?SiteStyleDraft $style = null,
+        private ?SiteChromeDraft $chrome = null,
     ) {
         //
     }
@@ -153,7 +177,7 @@ final readonly class PageEditorAgent implements Agent, Conversational, HasTools
     public function messages(): iterable
     {
         return PageChatMessage::query()
-            ->where('page_id', $this->pageId)
+            ->where('page_id', $this->page->id)
             ->orderByDesc('id')
             ->limit(self::HISTORY_LIMIT)
             ->get()
@@ -173,7 +197,7 @@ final readonly class PageEditorAgent implements Agent, Conversational, HasTools
      * such call would be a dead end the model cannot diagnose. Better to not
      * offer the verb — and to save its schema tokens on every turn.
      *
-     * @return list<AddBlock|RemoveBlock|ReorderBlocks|SetBlockVariant|SetSiteStyle|UpdateBlockContent>
+     * @return list<AddBlock|CreatePage|DuplicatePage|RemoveBlock|ReorderBlocks|SetBlockAppearance|SetBlockVariant|SetSiteStyle|UpdateBlockContent|UpdateChrome>
      */
     public function tools(): iterable
     {
@@ -187,10 +211,32 @@ final readonly class PageEditorAgent implements Agent, Conversational, HasTools
             new RemoveBlock($this->draft, resolve(RemovePageBlock::class)),
             new ReorderBlocks($this->draft, resolve(ReorderPageBlocks::class)),
             new SetBlockVariant($this->draft, $vocabulary, $update),
+            new SetBlockAppearance($this->draft, $vocabulary, $update),
+            // The two page-level verbs. Unconditional, unlike the design and
+            // chrome tools: a page needs no Business profile to exist, and both
+            // create a hidden DRAFT — so neither can touch the live site.
+            // Deleting and publishing are deliberately absent; see CreatePage.
+            new CreatePage(
+                resolve(CreatePageFromName::class),
+                $vocabulary,
+                resolve(StampPresetDefaults::class),
+                // The SAVED preset, not this turn's staged one: the new page is
+                // written to the database, so its layouts should match the style
+                // the site actually has, not one the operator has yet to apply.
+                $this->style?->saved()->preset,
+            ),
+            new DuplicatePage($this->draft, $this->page, resolve(DuplicatePageAction::class)),
         ];
 
         if ($this->style instanceof SiteStyleDraft) {
-            $tools[] = new SetSiteStyle($this->style, $this->draft, resolve(StampVariantDefaults::class));
+            $tools[] = new SetSiteStyle($this->style, $this->draft, resolve(StampPresetDefaults::class));
+        }
+
+        // Withheld on the same condition as the design tools, for a reason of its
+        // own: SiteChrome renders NOTHING for a tenant with no Business, so an
+        // edit here would stage a header the operator cannot see anywhere.
+        if ($this->chrome instanceof SiteChromeDraft) {
+            $tools[] = new UpdateChrome($this->chrome, $vocabulary, $sanitizer);
         }
 
         return $tools;

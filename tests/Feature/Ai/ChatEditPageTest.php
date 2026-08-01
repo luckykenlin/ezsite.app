@@ -3,16 +3,20 @@
 declare(strict_types=1);
 
 use App\Actions\Pages\ChatEditPage;
+use App\Actions\SaveSiteChrome;
 use App\Ai\Agents\PageEditorAgent;
 use App\Design\DesignTokens;
 use App\Design\StylePreset;
 use App\Enums\ChatRole;
+use App\Enums\PageStatus;
 use App\Models\Business;
 use App\Models\Page;
 use App\Models\PageChatMessage;
+use App\Models\SiteSetting;
 use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Support\Facades\Log;
+use Laravel\Ai\Prompts\AgentPrompt;
 use Laravel\Ai\Responses\Data\ToolCall;
 
 /*
@@ -486,4 +490,176 @@ it('switches one section layout without touching the site style', function (): v
     expect($result['blocks'][0]['data']['variant'])->toBe('full-bleed-overlay')
         ->and($result['blocks'][0]['data']['heading'])->toBe('Old headline')
         ->and($result['design'])->toBeNull();
+});
+
+/*
+ * Chrome is site-scoped like design tokens, so it gets the same treatment: the
+ * turn STAGES it and the operator's Save is still the only write. A tool calling
+ * SaveSiteChrome from the worker would rewrite the navigation of a live website
+ * while its owner was reading the reply.
+ */
+it('stages a site chrome edit without writing it to site settings', function (): void {
+    $this->createTenantBusiness($this->tenant, [], 0);
+
+    PageEditorAgent::fake([
+        toolCall('UpdateChrome', ['slot' => 'header', 'content' => [
+            'nav_links' => [['label' => 'Services', 'url' => '/services']],
+        ]]),
+        'Added Services to the menu — it shows on every page.',
+    ])->preventStrayPrompts();
+
+    $result = chatTurn(chatBlocks(), 'add Services to the menu');
+
+    expect($result['chrome']['header']['data']['nav_links'])
+        ->toBe([['label' => 'Services', 'url' => '/services']])
+        // Nothing on disk: site_settings is written by Save, not by the turn.
+        ->and($this->runInTenant($this->tenant, fn (): int => SiteSetting::query()->count()))->toBe(0);
+});
+
+it('hands back only the chrome slot the turn touched', function (): void {
+    $this->createTenantBusiness($this->tenant, [], 0);
+
+    PageEditorAgent::fake([
+        toolCall('UpdateChrome', ['slot' => 'footer', 'content' => ['note' => 'Closed Sundays.']]),
+        'Updated the footer.',
+    ])->preventStrayPrompts();
+
+    // The editor merges per slot, so an untouched header must not travel back and
+    // overwrite one the operator was editing by hand while the turn ran.
+    expect(array_keys(chatTurn(chatBlocks())['chrome']))->toBe(['footer']);
+});
+
+it('reports no staged chrome when the turn left it alone', function (): void {
+    $this->createTenantBusiness($this->tenant, [], 0);
+
+    PageEditorAgent::fake([
+        toolCall('UpdateBlockContent', ['key' => 'k1', 'content' => ['heading' => 'Fresh']]),
+        'Rewrote the headline.',
+    ])->preventStrayPrompts();
+
+    expect(chatTurn(chatBlocks())['chrome'])->toBeNull();
+});
+
+/*
+ * Withheld on the same condition as the design tools, for a reason of its own:
+ * SiteChrome renders nothing at all without a Business, so a staged header would
+ * be invisible everywhere.
+ */
+it('withholds the chrome verb from a tenant with no business profile', function (): void {
+    PageEditorAgent::fake(['I can only help with this website.'])->preventStrayPrompts();
+
+    expect(chatTurn(chatBlocks())['chrome'])->toBeNull();
+
+    PageEditorAgent::assertPrompted(fn (AgentPrompt $prompt): bool => ! $prompt->contains('## Site header and footer'));
+});
+
+it('gives the model the links already in the navigation, not just the field names', function (): void {
+    $this->createTenantBusiness($this->tenant, [], 0);
+
+    $this->runInTenant($this->tenant, fn (): SiteSetting => resolve(SaveSiteChrome::class)->handle(
+        [['type' => 'header', 'data' => ['variant' => 'simple', 'nav_links' => [['label' => 'About', 'url' => '/about']]]]],
+        null,
+    ));
+
+    PageEditorAgent::fake(['Done.'])->preventStrayPrompts();
+
+    chatTurn(chatBlocks());
+
+    // nav_links is replaced as a whole list, so a model that cannot see the
+    // existing links deletes them when it adds one.
+    PageEditorAgent::assertPrompted(fn (AgentPrompt $prompt): bool => $prompt->contains('## Site header and footer')
+        && $prompt->contains('About')
+        && $prompt->contains('replaced as a whole list'));
+});
+
+/*
+ * A failed turn must not leave a half-finished navigation staged, for the same
+ * reason it must not leave a half-chosen palette.
+ */
+it('discards a staged chrome edit when the turn fails', function (): void {
+    $this->createTenantBusiness($this->tenant, [], 0);
+
+    PageEditorAgent::fake([new RuntimeException('provider down')])->preventStrayPrompts();
+
+    $result = chatTurn(chatBlocks());
+
+    expect($result['failed'])->toBeTrue()
+        ->and($result['chrome'])->toBeNull()
+        ->and($result['design'])->toBeNull();
+});
+
+/*
+ * A malformed stored slot must not stop the turn. `site_settings.header` is JSON
+ * a seeder, an import or an older release could have written, and SiteChrome
+ * hands back whatever is in it — so the slot is skipped here and
+ * SiteChromeDraft::current() falls back to an empty entry, exactly as the render
+ * path degrades rather than fatalling.
+ */
+it('survives a chrome slot whose stored entry is not a block', function (): void {
+    $this->createTenantBusiness($this->tenant, [], 0);
+
+    $this->runInTenant($this->tenant, fn (): SiteSetting => resolve(SaveSiteChrome::class)->handle(
+        [null],
+        [['type' => 'footer', 'data' => ['note' => 'Fine.']]],
+    ));
+
+    PageEditorAgent::fake([
+        toolCall('UpdateChrome', ['slot' => 'header', 'content' => ['cta_label' => 'Call us']]),
+        'Added a button to the menu.',
+    ])->preventStrayPrompts();
+
+    $result = chatTurn(chatBlocks());
+
+    // The header had nothing usable to start from, so the edit lands on an empty
+    // entry rather than failing the turn.
+    expect($result['failed'])->toBeFalse()
+        ->and($result['chrome']['header']['data'])->toBe(['cta_label' => 'Call us']);
+});
+
+/*
+ * The page-level verbs end to end. They are the only ones that WRITE, so what
+ * matters is what they write: a hidden draft, leaving the open page's blocks and
+ * the live site alone.
+ */
+it('adds a page without touching the open one', function (): void {
+    PageEditorAgent::fake([
+        toolCall('CreatePage', ['title' => 'Services', 'sections' => ['hero', 'cta']]),
+        'Added a Services page as a draft — you will find it on the site canvas.',
+    ])->preventStrayPrompts();
+
+    $blocks = chatBlocks();
+    $result = chatTurn($blocks, 'add a services page');
+
+    $created = $this->runInTenant($this->tenant, fn (): Page => Page::query()->where('slug', 'services')->sole());
+
+    expect($created->status)->toBe(PageStatus::Draft)
+        ->and(array_column($created->blocks, 'type'))->toBe(['hero', 'cta'])
+        // The open page is untouched: creating a page is not an edit to this one,
+        // so nothing here should ask the operator to review and save anything.
+        ->and($result['blocks'])->toBe($blocks)
+        ->and($result['chrome'])->toBeNull()
+        ->and($result['design'])->toBeNull();
+});
+
+it('copies the open page as a draft, from the working blocks', function (): void {
+    PageEditorAgent::fake([
+        toolCall('DuplicatePage', []),
+        'Copied this page.',
+    ])->preventStrayPrompts();
+
+    // The draft carries an edit the stored page does not have.
+    $blocks = [
+        ['key' => 'k1', 'type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Only in the draft']],
+    ];
+
+    chatTurn($blocks, 'make another page like this');
+
+    $copy = $this->runInTenant($this->tenant, fn (): Page => Page::query()
+        ->where('slug', 'like-my-page-copy')
+        ->orWhere('slug', 'like', '%-copy')
+        ->firstOrFail());
+
+    expect($copy->status)->toBe(PageStatus::Draft)
+        ->and($copy->blocks[0]['data']['heading'])->toBe('Only in the draft')
+        ->and($copy->blocks[0])->not->toHaveKey('key');
 });

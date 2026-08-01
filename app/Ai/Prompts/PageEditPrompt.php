@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Ai\Prompts;
 
 use App\Ai\PageDraft;
+use App\Ai\SiteChromeDraft;
 use App\Ai\SiteStyleDraft;
 use App\Design\StylePreset;
 use App\Enums\BindType;
@@ -44,6 +45,7 @@ final readonly class PageEditPrompt implements Stringable
         private string $message,
         private ?SiteContext $site = null,
         private ?SiteStyleDraft $style = null,
+        private ?SiteChromeDraft $chrome = null,
     ) {
         //
     }
@@ -54,6 +56,7 @@ final readonly class PageEditPrompt implements Stringable
             $this->pageSection(),
             $this->draft->outline(),
             $this->vocabularySection(),
+            $this->chromeSection(),
             $this->siteSection(),
             $this->styleSection(),
             $this->businessSection(),
@@ -105,13 +108,20 @@ final readonly class PageEditPrompt implements Stringable
         return "## Block vocabulary\n"
             .'The fields each block type on this page accepts, and the layouts it can be switched '
             .'to. Field names not listed here are discarded — never invent one, and never write '
-            ."\"variant\", \"bind\" or a layout name as if it were a content field.\n"
+            ."\"variant\", \"bind\", \"appearance\" or a layout name as if it were a content field.\n"
             .($lines === [] ? '(nothing on the page yet)' : implode("\n", $lines))
             .$this->addableSection($present)
             ."\nList fields (features, testimonials, images, nav_links) take an array of flat "
             .'objects, e.g. features: [{icon, title, description}]. For links use relative paths '
-            .'like "/contact" or anchors like "#contact". The site header and footer are '
-            .'site-wide and are not part of this page.';
+            .'like "/contact" or anchors like "#contact".'
+            // Every type supports appearance, so it is stated once here rather
+            // than repeated on each vocabulary line. The outline names it only
+            // for blocks that have one stored — silence there means the block
+            // renders whatever its own layout was designed to do, NOT that it is
+            // unstyled and waiting to be fixed.
+            ."\nEvery section also has a background and a vertical spacing, set with "
+            .'SetBlockAppearance. The page outline names them only where they have been set; a '
+            .'section without them uses what its layout was designed to do, which is usually right.';
     }
 
     /**
@@ -144,6 +154,51 @@ final readonly class PageEditPrompt implements Stringable
         );
 
         return "\nSections you can add:\n".implode("\n", $lines);
+    }
+
+    /**
+     * The site-wide header and footer, with what each currently holds.
+     *
+     * Present only when {@see \App\Ai\Tools\UpdateChrome} is — a tenant with no
+     * Business renders no chrome at all, so describing a navigation bar nobody
+     * can see would invite an edit with nowhere to land.
+     *
+     * Their CONTENT is listed, not just their field names, and that is the
+     * difference between this and the vocabulary section: the commonest request
+     * here is "add X to the menu", which the model cannot do without knowing the
+     * links already there — `nav_links` is replaced whole, so a partial list
+     * silently deletes the rest of the navigation.
+     */
+    private function chromeSection(): ?string
+    {
+        if (! $this->chrome instanceof SiteChromeDraft) {
+            return null;
+        }
+
+        $lines = [];
+
+        foreach (ChromeSlot::values() as $slot) {
+            $contract = $this->vocabulary[$slot] ?? null;
+
+            if (! $contract instanceof BlockType) {
+                continue;
+            }
+
+            $lines[] = sprintf(
+                '- %s accepts: %s%s',
+                $slot,
+                $contract->fields === [] ? '(none)' : implode(', ', $contract->fields),
+                $contract->variants === [] ? '' : ' — layouts: '.implode(', ', $contract->variants),
+            );
+        }
+
+        return "## Site header and footer\n"
+            ."These frame EVERY page on the site, not just this one. Change them with UpdateChrome, and\n"
+            ."say in your answer that the change is site-wide.\n"
+            .$this->chrome->outline()
+            ."\n".implode("\n", $lines)
+            ."\nnav_links is replaced as a whole list, so to add one link send every existing link too."
+            .' The brand name and logo come from the business profile and are not fields here.';
     }
 
     /**

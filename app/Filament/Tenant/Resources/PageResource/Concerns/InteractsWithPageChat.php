@@ -250,8 +250,8 @@ trait InteractsWithPageChat
         // restyled the site is a single Undo. Each half is passed only when it
         // actually moved: a turn that merely explained something must not touch
         // the undo stack, the dirty flag or the canvas theme.
-        if ($editedBlocks || $turn['design'] !== null) {
-            $this->applyTurn($editedBlocks ? $turn['blocks'] : null, $turn['design']);
+        if ($editedBlocks || $turn['design'] !== null || $turn['chrome'] !== null) {
+            $this->applyTurn($editedBlocks ? $turn['blocks'] : null, $turn['design'], $turn['chrome']);
         }
 
         if ($editedBlocks) {

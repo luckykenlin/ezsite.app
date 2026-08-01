@@ -63,10 +63,20 @@ final readonly class ChatActivity
             'SetBlockVariant' => $block === null
                 ? __('Changing a block layout…')
                 : str_replace(':block', $block, __('Changing the :block layout…')),
+            'SetBlockAppearance' => $block === null
+                ? __('Restyling a section…')
+                : str_replace(':block', $block, __('Restyling the :block section…')),
             // Named without the style it is switching to: the argument is a
             // preset SLUG the operator has never seen, and by the time this
             // renders the canvas is about to show them the answer anyway.
             'SetSiteStyle' => __('Restyling the site…'),
+            // Named by slot, because "editing the site" would not tell the
+            // operator that their navigation is about to change.
+            'CreatePage' => __('Adding a page…'),
+            'DuplicatePage' => __('Copying this page…'),
+            'UpdateChrome' => ($arguments['slot'] ?? null) === 'footer'
+                ? __('Editing the site footer…')
+                : __('Editing the site navigation…'),
             default => null,
         };
 
