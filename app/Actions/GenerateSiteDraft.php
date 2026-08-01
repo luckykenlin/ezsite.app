@@ -26,10 +26,13 @@ use Laravel\Ai\Responses\StructuredAgentResponse;
  * context (the RequiresTenantContext guards on Page/Business enforce it —
  * dispatch out-of-band callers through GenerateSiteDraftJob/RunInTenant).
  *
- * The AI only chose a preset, block sequence and copy; this action stamps
- * each block's layout variant from the preset (never the model's choice),
- * applies the preset tokens, and upserts the home page as a draft. An
- * already-published home page is never overwritten.
+ * The AI chooses a preset, a block sequence, per-section layout variants and
+ * appearances, and copy; the validator lets only enum-checked layout choices
+ * through, and {@see StampPresetDefaults::fill()} back-fills the preset's
+ * defaults for whatever the model omitted (position-aware, so even a silent
+ * model gets an alternating rhythm). This action applies the preset tokens
+ * and upserts the home page as a draft. An already-published home page is
+ * never overwritten.
  */
 final readonly class GenerateSiteDraft
 {
@@ -121,7 +124,7 @@ final readonly class GenerateSiteDraft
             return null;
         }
 
-        $blocks = $this->stampPresetDefaults->handle($page['blocks'], $preset);
+        $blocks = $this->stampPresetDefaults->fill($page['blocks'], $preset);
 
         // A regenerated draft replaces the copy, but never wipes a
         // description the operator wrote when the model omitted one.
@@ -198,6 +201,17 @@ final readonly class GenerateSiteDraft
             'The agent returned no structured output.',
         );
 
-        return $this->validator->handle($response->toArray(), $business->name);
+        $payload = $response->toArray();
+        $draft = $this->validator->handle($payload, $business->name);
+
+        // The schema demands one sentence of design reasoning; nothing
+        // in-product reads it yet, but a greppable line per landed draft is
+        // what makes the prompt tunable — without it, "the model reasons
+        // badly" and "the model reasons well and we override it" look alike.
+        if (is_string($payload['rationale'] ?? null)) {
+            Log::info('site_draft.rationale', ['tenant_id' => tenant('id'), 'rationale' => $payload['rationale']]);
+        }
+
+        return $draft;
     }
 }

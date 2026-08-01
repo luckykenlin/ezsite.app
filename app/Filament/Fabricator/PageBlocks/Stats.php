@@ -46,6 +46,14 @@ final class Stats extends Block
     ];
 
     /**
+     * @var array<string, string>
+     */
+    protected static array $variants = [
+        'grid' => 'Simple grid',
+        'band' => 'Statement band',
+    ];
+
+    /**
      * @return array<int, Field>
      */
     protected static function fields(): array

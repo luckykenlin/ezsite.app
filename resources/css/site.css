@@ -51,3 +51,179 @@
         font-family: var(--font-heading);
     }
 }
+
+/*
+ * The shared type treatments for tenant sites — the ONE definition of what a
+ * section heading, a hero title, an eyebrow and an intro line look like.
+ * These used to be per-view utility literals (the same
+ * `text-3xl font-bold tracking-tight md:text-4xl` pasted into a dozen block
+ * views), which made every treatment un-themable; an arch test now keeps
+ * those literals out of the page-block views.
+ *
+ * Every declaration reads a `--type-*` variable with today's exact value as
+ * the fallback, so a site with no type tokens renders byte-identically to the
+ * pre-class markup. The variables are the contract the TypeStyle design token
+ * fills in per tenant (via the inline `data-site-theme` tag) — sizes multiply
+ * by `--type-scale`, so line-heights here are unitless ratios, exactly the
+ * ratios Tailwind's own text-* utilities use.
+ *
+ * Colour and layout stay OUT of these classes on purpose: an eyebrow is
+ * `text-primary` on a light hero but inherits the overlay's light text on a
+ * dark one, and margins/widths/alignment belong to each view's composition.
+ */
+@layer components {
+    .site-display-lg,
+    .site-display,
+    .site-h1 {
+        font-weight: var(--type-display-weight, 700);
+        letter-spacing: var(--type-display-tracking, -0.025em);
+        line-height: calc(2.5 / 2.25);
+        text-wrap: balance;
+    }
+
+    .site-display-lg {
+        font-size: calc(3rem * var(--type-scale, 1));
+        line-height: 1;
+    }
+
+    .site-display,
+    .site-h1 {
+        font-size: calc(2.25rem * var(--type-scale, 1));
+    }
+
+    .site-h2 {
+        font-size: calc(1.875rem * var(--type-scale, 1));
+        line-height: calc(2.25 / 1.875);
+        font-weight: var(--type-heading-weight, 700);
+        letter-spacing: var(--type-heading-tracking, -0.025em);
+        text-transform: var(--type-heading-case, none);
+        text-wrap: balance;
+    }
+
+    .site-h3,
+    .site-h4,
+    .site-h5,
+    .site-h6 {
+        font-weight: var(--type-subheading-weight, 600);
+        letter-spacing: var(--type-heading-tracking, -0.025em);
+        text-wrap: balance;
+    }
+
+    .site-h3 {
+        font-size: calc(1.5rem * var(--type-scale, 1));
+        line-height: calc(2 / 1.5);
+    }
+
+    .site-h4 {
+        font-size: calc(1.25rem * var(--type-scale, 1));
+        line-height: calc(1.75 / 1.25);
+    }
+
+    .site-h5 {
+        font-size: calc(1.125rem * var(--type-scale, 1));
+        line-height: calc(1.75 / 1.125);
+    }
+
+    .site-h6 {
+        font-size: calc(1rem * var(--type-scale, 1));
+        line-height: 1.5;
+    }
+
+    .site-eyebrow {
+        font-size: var(--type-eyebrow-size, 0.875rem);
+        line-height: calc(1.25 / 0.875);
+        font-weight: var(--type-eyebrow-weight, 600);
+        text-transform: var(--type-eyebrow-case, uppercase);
+        letter-spacing: var(--type-eyebrow-tracking, 0.1em);
+    }
+
+    .site-intro {
+        font-size: var(--type-intro-size, 1.125rem);
+        line-height: calc(1.75 / 1.125);
+    }
+
+    /*
+     * The accent section surface (App\Site\Blocks\SectionTone::Accent).
+     * A component class rather than `bg-primary` because the surface is the
+     * AccentStyle token's to paint: --accent-surface may be a flat colour or
+     * a palette-derived gradient, and `background` (not -color) accepts both.
+     * The token keeps the secondary share small enough that primary-content
+     * stays the right text colour across the whole surface.
+     */
+    .site-tone-accent {
+        background: var(--accent-surface, var(--color-primary));
+        color: var(--color-primary-content);
+    }
+
+    /*
+     * The section seam (App\Design\SectionDivider). Rendered by
+     * <x-site.section> at the top of every section; inert until the divider
+     * token sets --divider-display. It paints in the section's own inherited
+     * background, clipped to the token's silhouette, and overlaps the
+     * previous section's bottom padding — position: relative so it paints
+     * above that section's background in the negative-margin overlap.
+     * Sections with no background of their own (the `plain` tone) inherit
+     * transparent and the seam stays invisible, by design.
+     */
+    .site-divider {
+        display: var(--divider-display, none);
+        position: relative;
+        height: 3rem;
+        margin-top: -3rem;
+        background-color: inherit;
+        clip-path: var(--divider-clip, none);
+    }
+
+    /* Accent surfaces may be gradients, which background-color cannot
+       inherit — the seam picks the same token surface up directly. */
+    .site-tone-accent > .site-divider {
+        background: var(--accent-surface, var(--color-primary));
+    }
+
+    /* The first section on a page has nothing above it to seam against —
+       an overlap there would ride up over the site header. */
+    section:first-child > .site-divider {
+        display: none;
+    }
+
+    @media (width >= 48rem) {
+        .site-display-lg {
+            font-size: calc(4.5rem * var(--type-scale, 1));
+        }
+
+        .site-display {
+            font-size: calc(3.75rem * var(--type-scale, 1));
+            line-height: 1;
+        }
+
+        .site-h1 {
+            font-size: calc(3rem * var(--type-scale, 1));
+            line-height: 1;
+        }
+
+        .site-h2 {
+            font-size: calc(2.25rem * var(--type-scale, 1));
+            line-height: calc(2.5 / 2.25);
+        }
+
+        .site-h3 {
+            font-size: calc(1.875rem * var(--type-scale, 1));
+            line-height: calc(2.25 / 1.875);
+        }
+
+        .site-h4 {
+            font-size: calc(1.5rem * var(--type-scale, 1));
+            line-height: calc(2 / 1.5);
+        }
+
+        .site-h5 {
+            font-size: calc(1.25rem * var(--type-scale, 1));
+            line-height: calc(1.75 / 1.25);
+        }
+
+        .site-h6 {
+            font-size: calc(1.125rem * var(--type-scale, 1));
+            line-height: calc(1.75 / 1.125);
+        }
+    }
+}

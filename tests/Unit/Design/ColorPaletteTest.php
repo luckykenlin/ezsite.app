@@ -35,6 +35,68 @@ it('emits the full deterministic variable set for every palette', function (Colo
     array_filter(ColorPalette::cases(), fn (ColorPalette $palette): bool => $palette !== ColorPalette::Brand),
 ));
 
+/**
+ * The OKLCH lightness (0–100) of a palette value. Every curated value is
+ * authored in `oklch(L% C H)` form, so a parse failure is itself a finding.
+ */
+function oklchLightness(string $color): float
+{
+    expect(preg_match('/^oklch\((\d+(?:\.\d+)?)%/', $color, $matches))->toBe(1, $color.' is not an oklch(L% …) value');
+
+    return (float) $matches[1];
+}
+
+it('keeps every content color readable and the muted step visible', function (ColorPalette $palette): void {
+    $colors = $palette->colors();
+
+    // Readability: each background/content pair must be far apart in
+    // lightness — the curated-palette analogue of Contrast::contentFor().
+    // Two tiers: base and neutral carry body copy, so they need a wide gap;
+    // primary/secondary/accent carry short bold button labels, where chroma
+    // does part of the work and mid-tone surfaces are legitimate.
+    foreach ([
+        ['--color-base-100', '--color-base-content', 55],
+        ['--color-neutral', '--color-neutral-content', 55],
+        ['--color-primary', '--color-primary-content', 25],
+        ['--color-secondary', '--color-secondary-content', 25],
+        ['--color-accent', '--color-accent-content', 25],
+    ] as [$background, $content, $minimum]) {
+        expect(abs(oklchLightness($colors[$background]) - oklchLightness($colors[$content])))
+            ->toBeGreaterThanOrEqual($minimum, $palette->value.': '.$background.' vs '.$content);
+    }
+
+    // The muted band: base-200 must sit a visible step from base-100 (this
+    // used to be 2–3 L points, which rendered as dirty white), and the ramp
+    // must be monotonic — away from base-100 in the palette's own direction.
+    $base100 = oklchLightness($colors['--color-base-100']);
+    $base200 = oklchLightness($colors['--color-base-200']);
+    $base300 = oklchLightness($colors['--color-base-300']);
+
+    expect(abs($base200 - $base100))->toBeGreaterThanOrEqual(3.5, $palette->value.': muted step');
+
+    if ($palette->isDark()) {
+        expect($base200)->toBeGreaterThan($base100)
+            ->and($base300)->toBeGreaterThan($base200)
+            // Inverted sections and the footer need their own surface.
+            ->and(oklchLightness($colors['--color-neutral']))->toBeLessThan($base100);
+    } else {
+        expect($base200)->toBeLessThan($base100)
+            ->and($base300)->toBeLessThan($base200);
+    }
+})->with(array_map(
+    fn (ColorPalette $palette): array => [$palette],
+    array_filter(ColorPalette::cases(), fn (ColorPalette $palette): bool => $palette !== ColorPalette::Brand),
+));
+
+it('marks exactly the near-black palettes dark', function (): void {
+    $dark = array_values(array_filter(
+        ColorPalette::cases(),
+        fn (ColorPalette $palette): bool => $palette->isDark(),
+    ));
+
+    expect($dark)->toBe([ColorPalette::Midnight, ColorPalette::NoirGold]);
+});
+
 it('derives the brand palette from validated hex colors with contrast-picked content', function (): void {
     $business = paletteBusiness([
         'brand_primary' => '#1A2B3C', // dark blue → light content

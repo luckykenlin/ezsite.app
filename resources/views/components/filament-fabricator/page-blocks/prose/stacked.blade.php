@@ -15,7 +15,7 @@
          characters. --}}
     <div class="mx-auto max-w-3xl px-6">
         @if ($heading)
-            <h2 class="text-balance text-3xl font-bold tracking-tight md:text-4xl">{{ $heading }}</h2>
+            <h2 class="site-h2">{{ $heading }}</h2>
         @endif
 
         <div @class(['space-y-5 text-lg leading-relaxed text-base-content/80', 'mt-8' => (bool) $heading])>

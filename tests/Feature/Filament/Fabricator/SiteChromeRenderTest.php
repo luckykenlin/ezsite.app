@@ -42,6 +42,35 @@ it('renders the saved chrome configuration instead of the defaults', function ()
         ->assertDontSee('sm:footer-horizontal');
 });
 
+it('renders the inverted header and soft footer chrome variants', function (): void {
+    $tenant = Tenant::factory()->withDomain('acme')->create();
+    $this->createTenantBusiness($tenant, ['name' => 'Corner Cafe'], 1);
+    $this->runInTenant($tenant, fn (): SiteSetting => SiteSetting::factory()->create([
+        'tenant_id' => $tenant->id,
+        'header' => [[
+            'type' => 'header',
+            'data' => [
+                'variant' => 'inverted',
+                'nav_links' => [['label' => 'Saved nav link', 'url' => '/about']],
+            ],
+        ]],
+        'footer' => [[
+            'type' => 'footer',
+            'data' => ['variant' => 'soft', 'note' => 'Saved footer note'],
+        ]],
+    ]));
+    $this->createTenantPage($tenant, [
+        ['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']],
+    ]);
+
+    $this->get(sprintf('http://acme.%s/', $this->centralDomain()))
+        ->assertOk()
+        ->assertSee('Saved nav link')
+        ->assertSee('bg-neutral', false) // inverted header wrapper
+        ->assertSee('Saved footer note')
+        ->assertSee('bg-base-200', false); // soft footer wrapper
+});
+
 /*
  * Guards the `scoped` container binding on SiteChrome (AppServiceProvider) by its
  * consequence rather than by instance identity: the main layout resolves the class

@@ -155,7 +155,7 @@ it('publishes both slots and every chrome layout in its schema', function (): vo
     )), associative: true);
 
     expect($serialized['slot']['enum'])->toBe(['header', 'footer'])
-        ->and($serialized['variant']['enum'])->toBe(['simple', 'centered', 'columns', 'minimal'])
+        ->and($serialized['variant']['enum'])->toBe(['simple', 'centered', 'inverted', 'columns', 'minimal', 'soft'])
         // The load-bearing warning: nav_links is replaced whole, so a model that
         // sends one link deletes the rest of the navigation.
         ->and($serialized['content']['description'])->toContain('REPLACED whole')

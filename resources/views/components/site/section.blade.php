@@ -42,6 +42,14 @@
     $section = \App\Site\Blocks\SectionAppearance::resolve($appearance, $tone, $spacing);
 @endphp
 <section {{ $attributes->class($section->toneClasses()) }}>
+    {{--
+        The divider seam (App\Design\SectionDivider): hidden until the
+        divider token sets --divider-display, painted in this section's own
+        background and pulled up over the previous section's bottom padding —
+        so it only shows where two adjacent tones differ. Purely decorative.
+    --}}
+    <div class="site-divider" aria-hidden="true"></div>
+
     {{ $backdrop ?? '' }}
 
     <div class="{{ $section->spacingClasses() }}">

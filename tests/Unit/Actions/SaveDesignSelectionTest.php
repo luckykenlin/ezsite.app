@@ -31,15 +31,17 @@ function designSelectionBusiness(): array
  */
 function selectionFor(StylePreset $preset): array
 {
+    // The fixture mirrors what the Design form actually posts: one field per
+    // TokenKey, so a token added to the system is submitted here too instead
+    // of silently "diverging" and detaching every preset.
     $tokens = $preset->tokens();
+    $selection = ['preset' => $preset->value];
 
-    return [
-        'preset' => $preset->value,
-        'palette' => $tokens->palette->value,
-        'font_pair' => $tokens->fontPair->value,
-        'radius' => $tokens->radius->value,
-        'density' => $tokens->density->value,
-    ];
+    foreach (App\Design\TokenKey::cases() as $key) {
+        $selection[$key->value] = $key->valueOn($tokens);
+    }
+
+    return $selection;
 }
 
 it('saves an untouched preset as that preset', function (): void {

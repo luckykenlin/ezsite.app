@@ -10,6 +10,9 @@ use App\Site\Blocks\BlockVocabulary;
 use App\Site\MediaResolver;
 use App\Site\SiteChrome;
 use App\Site\SiteContext;
+use App\StockPhotos\NullProvider;
+use App\StockPhotos\PexelsProvider;
+use App\StockPhotos\StockPhotoProvider;
 use Illuminate\Support\ServiceProvider;
 
 final class AppServiceProvider extends ServiceProvider
@@ -20,6 +23,17 @@ final class AppServiceProvider extends ServiceProvider
         $this->app->scoped(MediaResolver::class);
         $this->app->scoped(SiteChrome::class);
         $this->app->scoped(SiteContext::class);
+
+        // Keyed by configuration, not environment: with no Pexels key the
+        // NullProvider makes the whole stock-photo pipeline inert-but-safe,
+        // so nothing else needs to know whether photos are available.
+        $this->app->bind(StockPhotoProvider::class, static function (): StockPhotoProvider {
+            $key = config('services.pexels.key');
+
+            return is_string($key) && $key !== ''
+                ? new PexelsProvider($key)
+                : new NullProvider;
+        });
 
         // The one place the two layers are wired together. The block CLASSES are
         // Filament form schemas and stay under App\Filament (Fabricator globs them

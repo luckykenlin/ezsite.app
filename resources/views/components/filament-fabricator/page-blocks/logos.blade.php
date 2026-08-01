@@ -12,7 +12,7 @@
 <x-site.section :appearance="$appearance" tone="muted" spacing="tight">
     <div class="mx-auto max-w-6xl px-6">
         @if ($heading)
-            <h2 class="text-center text-sm font-semibold uppercase tracking-widest text-base-content/60">{{ $heading }}</h2>
+            <h2 class="site-eyebrow text-center text-base-content/60">{{ $heading }}</h2>
         @endif
 
         <div @class(['flex flex-wrap items-center justify-center gap-x-12 gap-y-8', 'mt-8' => (bool) $heading])>

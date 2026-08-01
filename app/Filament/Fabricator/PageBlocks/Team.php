@@ -46,6 +46,14 @@ final class Team extends Block
     ];
 
     /**
+     * @var array<string, string>
+     */
+    protected static array $variants = [
+        'portraits' => 'Portrait circles',
+        'tiles' => 'Photo tiles',
+    ];
+
+    /**
      * @return array<int, Field>
      */
     protected static function fields(): array

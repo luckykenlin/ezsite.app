@@ -46,6 +46,7 @@ final class Testimonials extends Block
     protected static array $variants = [
         'grid' => 'Two-column cards',
         'carousel' => 'Horizontal carousel',
+        'spotlight' => 'Spotlight quote',
     ];
 
     /**

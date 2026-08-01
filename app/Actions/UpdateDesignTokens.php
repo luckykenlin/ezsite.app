@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace App\Actions;
 
+use App\Design\AccentStyle;
 use App\Design\ColorPalette;
 use App\Design\FontPair;
 use App\Design\RadiusScale;
+use App\Design\SectionDivider;
 use App\Design\SpacingDensity;
 use App\Design\TokenKey;
+use App\Design\TypeStyle;
 use App\Models\Business;
 use InvalidArgumentException;
 
@@ -34,6 +37,9 @@ final readonly class UpdateDesignTokens
             fontPair: $this->enumValue(FontPair::class, $changes, TokenKey::FontPair),
             radius: $this->enumValue(RadiusScale::class, $changes, TokenKey::Radius),
             density: $this->enumValue(SpacingDensity::class, $changes, TokenKey::Density),
+            typeStyle: $this->enumValue(TypeStyle::class, $changes, TokenKey::TypeStyle),
+            divider: $this->enumValue(SectionDivider::class, $changes, TokenKey::Divider),
+            accent: $this->enumValue(AccentStyle::class, $changes, TokenKey::Accent),
         );
 
         $business->update(['design_tokens' => $tokens]);

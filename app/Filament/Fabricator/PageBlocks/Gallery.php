@@ -56,6 +56,7 @@ final class Gallery extends Block
     protected static array $variants = [
         'grid' => 'Uniform grid',
         'masonry' => 'Masonry columns',
+        'filmstrip' => 'Filmstrip',
     ];
 
     /**

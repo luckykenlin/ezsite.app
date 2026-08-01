@@ -39,6 +39,19 @@ use App\Site\Blocks\SectionTone;
  *    it is why the render loop is defensive — and a restyle must not be the
  *    thing that throws on one.
  *  - Blocks may carry the editor's transient `key`, which is preserved.
+ *
+ * TWO SEMANTICS LIVE HERE, and they must not be "unified":
+ *
+ *  - {@see handle()}/{@see stamp()} OVERWRITE. Their consumers are
+ *    {@see \App\Ai\Tools\SetSiteStyle}'s `align_layouts` (a whole-site restyle
+ *    is supposed to land both halves of the preset over whatever was there)
+ *    and {@see CreatePage} (fresh sample blocks, where fill
+ *    and stamp coincide anyway).
+ *  - {@see fill()} BACK-FILLS. Its one consumer is
+ *    {@see \App\Actions\GenerateSiteDraft}: the draft agent now makes its own
+ *    validated layout choices, and the preset supplies defaults only for what
+ *    the model omitted — overwriting here would re-create the six-identical-
+ *    sites problem this split exists to kill.
  */
 final readonly class StampPresetDefaults
 {
@@ -48,9 +61,8 @@ final readonly class StampPresetDefaults
     }
 
     /**
-     * Restamp a whole list. Used by {@see \App\Actions\GenerateSiteDraft}, whose
-     * blocks are freshly validated `{type, data}` with no editor key yet; the chat
-     * path iterates {@see stamp()} itself, for the reason given there.
+     * Restamp a whole list — the OVERWRITE semantics (see the class docblock).
+     * The chat path iterates {@see stamp()} itself, for the reason given there.
      *
      * @param  list<array{type: string, data: array<string, mixed>}>  $blocks
      * @return list<array{type: string, data: array<string, mixed>}>
@@ -59,6 +71,37 @@ final readonly class StampPresetDefaults
     {
         return array_map(function (array $block) use ($preset): array {
             $block['data'] = $this->stamp($block['data'], $block['type'], $preset);
+
+            return $block;
+        }, $blocks);
+    }
+
+    /**
+     * Fill the preset's defaults into freshly VALIDATED draft blocks — the
+     * generation-path counterpart of {@see handle()}, with the opposite
+     * precedence: a layout choice the model made (and
+     * {@see \App\Ai\SiteDraftValidator} let through) survives, and the preset
+     * speaks only where the model was silent.
+     *
+     * The fallback is position-aware where the per-type maps cannot be:
+     * walking the list in order, a fallback tone that would repeat the
+     * previous section's base/muted band flips to the other, and a fallback
+     * dark band directly after a dark band demotes to muted — so even a model
+     * that chose nothing gets an alternating rhythm instead of a flat stack.
+     * `hero` and `heading` are exempt for the same reasons the preset maps
+     * exclude them (the hero's variant decides its weight; a heading is a
+     * divider, not a band), and neither advances the alternation state, so
+     * the section after a hero alternates against the first real band.
+     *
+     * @param  list<array{type: string, data: array<string, mixed>}>  $blocks
+     * @return list<array{type: string, data: array<string, mixed>}>
+     */
+    public function fill(array $blocks, StylePreset $preset): array
+    {
+        $previousTone = null;
+
+        return array_map(function (array $block) use ($preset, &$previousTone): array {
+            $block['data'] = $this->fillBlock($block['data'], $block['type'], $preset, $previousTone);
 
             return $block;
         }, $blocks);
@@ -146,5 +189,98 @@ final readonly class StampPresetDefaults
         // Falls back to the type's first variant when the preset has no (valid)
         // default for it — e.g. a block type added after the preset was authored.
         return in_array($preferred, $variants, true) ? $preferred : $variants[0];
+    }
+
+    /**
+     * @param  array<array-key, mixed>  $stored
+     */
+    private static function storedTone(array $stored): ?SectionTone
+    {
+        $value = $stored[BlockShape::TONE_KEY] ?? null;
+
+        return is_string($value) ? SectionTone::tryFrom($value) : null;
+    }
+
+    /**
+     * @param  array<array-key, mixed>  $stored
+     */
+    private static function storedSpacing(array $stored): ?SectionSpacing
+    {
+        $value = $stored[BlockShape::SPACING_KEY] ?? null;
+
+        return is_string($value) ? SectionSpacing::tryFrom($value) : null;
+    }
+
+    /**
+     * One block's fill. `$previousTone` is the alternation state: the tone the
+     * previous band-capable section resolved to, or null before the first one.
+     * A section that ends up writing nothing still counts as `base` — PHP
+     * cannot see the tone a variant's Blade view defaults to (the known limit
+     * on {@see StylePreset::blockAppearanceDefaults()}), and `base` is the
+     * right guess for every view that is not testimonials.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function fillBlock(array $data, string $type, StylePreset $preset, ?string &$previousTone): array
+    {
+        $contract = $this->vocabulary->get($type);
+
+        if (! $contract instanceof BlockType) {
+            // Unknown type: untouched, exactly as stamp() tolerates it.
+            return $data;
+        }
+
+        // A valid model variant survives; missing or invalid gets the preset's.
+        if ($contract->variants !== [] && ! in_array($data[BlockShape::VARIANT_KEY] ?? null, $contract->variants, true)) {
+            $data[BlockShape::VARIANT_KEY] = $this->variantFor($type, $preset);
+        }
+
+        if ($type === 'hero' || $type === 'heading') {
+            return $data;
+        }
+
+        $stored = is_array($data[BlockShape::APPEARANCE_KEY] ?? null) ? $data[BlockShape::APPEARANCE_KEY] : [];
+        $modelTone = self::storedTone($stored);
+        $modelSpacing = self::storedSpacing($stored);
+
+        $declared = $this->appearanceFor($type, $preset) ?? [];
+        $presetTone = isset($declared[BlockShape::TONE_KEY]) ? SectionTone::from($declared[BlockShape::TONE_KEY]) : null;
+        $presetSpacing = isset($declared[BlockShape::SPACING_KEY]) ? SectionSpacing::from($declared[BlockShape::SPACING_KEY]) : null;
+
+        $tone = $modelTone;
+        $fallbackTone = null;
+
+        if ($tone === null) {
+            $candidate = $presetTone ?? SectionTone::Base;
+            $flipped = false;
+
+            if ($candidate === SectionTone::Inverted && $previousTone === SectionTone::Inverted->value) {
+                $candidate = SectionTone::Muted;
+                $flipped = true;
+            } elseif (in_array($candidate, [SectionTone::Base, SectionTone::Muted], true) && $candidate->value === $previousTone) {
+                $candidate = $candidate === SectionTone::Base ? SectionTone::Muted : SectionTone::Base;
+                $flipped = true;
+            }
+
+            // Write only a real opinion: the preset named this type, or the
+            // alternation had to flip. A computed `base` over silence stays
+            // unwritten — an untouched block keeps its view's own default.
+            if ($flipped || $presetTone !== null) {
+                $fallbackTone = $candidate;
+            }
+
+            $tone = $candidate;
+        }
+
+        $appearance = SectionAppearance::store($modelTone ?? $fallbackTone, $modelSpacing ?? $presetSpacing);
+
+        if ($appearance !== null) {
+            $data[BlockShape::APPEARANCE_KEY] = $appearance;
+        }
+
+        $previousTone = $tone->value;
+
+        return $data;
     }
 }

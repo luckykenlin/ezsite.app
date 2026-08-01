@@ -64,7 +64,11 @@ enum SectionTone: string
         return match ($this) {
             self::Base => 'bg-base-100 text-base-content',
             self::Muted => 'bg-base-200 text-base-content',
-            self::Accent => 'bg-primary text-primary-content',
+            // Not `bg-primary`: the accent surface is a token
+            // (App\Design\AccentStyle fills --accent-surface, which may be a
+            // gradient), and only a component class in site.css can consume
+            // it — a Tailwind utility cannot carry a var-driven gradient.
+            self::Accent => 'site-tone-accent',
             self::Inverted => 'bg-neutral text-neutral-content',
             self::Plain => '',
         };

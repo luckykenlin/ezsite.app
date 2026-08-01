@@ -37,4 +37,21 @@ final class MediaFactory extends Factory
             'alt' => fake()->sentence(3),
         ];
     }
+
+    /**
+     * A photo imported from a stock provider, carrying the provenance and
+     * credit columns FindOrImportStockPhoto dedups and attributes by.
+     */
+    public function stock(): self
+    {
+        return $this->state(fn (): array => [
+            'directory' => 'stock',
+            'path' => sprintf('stock/%s.jpg', fake()->uuid()),
+            'source_provider' => 'pexels',
+            'source_id' => (string) fake()->unique()->numberBetween(1, 10_000_000),
+            'source_url' => 'https://www.pexels.com/photo/'.fake()->numberBetween(1, 10_000_000).'/',
+            'photographer_name' => fake()->name(),
+            'photographer_url' => 'https://www.pexels.com/@'.fake()->userName(),
+        ]);
+    }
 }

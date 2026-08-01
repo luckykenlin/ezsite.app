@@ -48,6 +48,14 @@ final class Steps extends Block
     ];
 
     /**
+     * @var array<string, string>
+     */
+    protected static array $variants = [
+        'list' => 'Numbered list',
+        'timeline' => 'Timeline',
+    ];
+
+    /**
      * @return array<int, Field>
      */
     protected static function fields(): array

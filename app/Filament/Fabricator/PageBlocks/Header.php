@@ -41,6 +41,7 @@ final class Header extends Block
     protected static array $variants = [
         'simple' => 'Brand left, links right',
         'centered' => 'Brand above centered links',
+        'inverted' => 'Dark',
     ];
 
     protected static ?BindType $bindType = BindType::Business;

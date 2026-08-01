@@ -14,6 +14,7 @@ use App\Models\Page;
 use App\Models\SiteSetting;
 use App\Models\Tenant;
 use App\Tenancy\RunInTenant;
+use Illuminate\Support\Facades\Log;
 use Laravel\Ai\Prompts\AgentPrompt;
 
 function fakeDraftResponse(array $overrides = []): array
@@ -41,7 +42,7 @@ function generateFor(Tenant $tenant): Page
     );
 }
 
-it('persists a draft home page with preset-stamped variants and no AI-authored reserved keys', function (): void {
+it('persists a draft home page where the model\'s layout choices survive and the preset fills its silences', function (): void {
     SiteDraftAgent::fake([fakeDraftResponse()])->preventStrayPrompts();
 
     $tenant = Tenant::factory()->create();
@@ -61,21 +62,48 @@ it('persists a draft home page with preset-stamped variants and no AI-authored r
         ->and($page->slug)->toBe('/')
         ->and($page->status)->toBe(PageStatus::Draft)
         ->and($page->title)->toBe('Corner Cafe — Home')
-        // Variants come from the WarmCraft preset, not from the AI output.
-        ->and($page->blocks[0]['data']['variant'])->toBe('left-text-right-image')
-        ->and($page->blocks[1]['data']['variant'])->toBe('list')
+        // The model chose the hero layout (salvaged from inside `data`, where
+        // a drifting provider habitually puts it) — the layout authority the
+        // draft agent now has. The preset no longer overwrites it.
+        ->and($page->blocks[0]['data']['variant'])->toBe('full-bleed-overlay')
+        // Where the model was silent, the WarmCraft preset fills.
+        ->and($page->blocks[1]['data']['variant'])->toBe('alternating')
         ->and($page->blocks[2]['data']['variant'])->toBe('split')
         // The AI-authored bind was stripped; omission = primary location.
         ->and($page->blocks[2]['data'])->not->toHaveKey('bind')
-        // A preset has two per-block halves, and a first draft gets both:
-        // WarmCraft shades its features and gives them room, and says nothing
-        // about a hero because the variant already decides its weight.
+        // Appearance fill is position-aware: WarmCraft says muted for both
+        // features and contact, and the flip keeps two muted bands from
+        // sitting next to each other.
         ->and($page->blocks[1]['data']['appearance'])->toBe(['tone' => 'muted', 'spacing' => 'airy'])
-        ->and($page->blocks[2]['data']['appearance'])->toBe(['tone' => 'muted', 'spacing' => 'airy'])
+        ->and($page->blocks[2]['data']['appearance'])->toBe(['tone' => 'base', 'spacing' => 'airy'])
         ->and($page->blocks[0]['data'])->not->toHaveKey('appearance')
         ->and(Business::query()->sole()->design_tokens->preset)->toBe(StylePreset::WarmCraft);
 
     SiteDraftAgent::assertPrompted(fn (AgentPrompt $prompt): bool => $prompt->contains('Corner Cafe'));
+});
+
+it('keeps the model\'s block-level tone and spacing, and falls back on an invalid variant', function (): void {
+    SiteDraftAgent::fake([fakeDraftResponse(['pages' => [['blocks' => [
+        ['type' => 'hero', 'data' => ['heading' => 'Welcome friends'], 'variant' => 'no-such-layout'],
+        ['type' => 'features', 'data' => ['heading' => 'Why us', 'features' => [['title' => 'Handmade']]], 'variant' => 'grid', 'tone' => 'inverted', 'spacing' => 'tight'],
+        ['type' => 'contact', 'data' => ['heading' => 'Visit us']],
+    ]]]])]);
+
+    $tenant = Tenant::factory()->create();
+    $this->createTenantBusiness($tenant, [], 1);
+
+    $page = generateFor($tenant);
+
+    // An invalid variant falls back to the preset default — never worse than
+    // the stamped output this path used to produce.
+    expect($page->blocks[0]['data']['variant'])->toBe('left-text-right-image')
+        // Valid block-level choices land in data, overriding the preset's
+        // per-type opinion (WarmCraft would have said muted/airy + list).
+        ->and($page->blocks[1]['data']['variant'])->toBe('grid')
+        ->and($page->blocks[1]['data']['appearance'])->toBe(['tone' => 'inverted', 'spacing' => 'tight'])
+        // The silent contact block still gets the preset's opinion; muted
+        // does not repeat because the previous band was inverted.
+        ->and($page->blocks[2]['data']['appearance'])->toBe(['tone' => 'muted', 'spacing' => 'airy']);
 });
 
 it('overwrites an existing draft in place on regeneration', function (): void {
@@ -171,6 +199,29 @@ it('does not retry when the site state refuses the write', function (): void {
     });
 
     expect(fn (): Page => generateFor($tenant))->toThrow(SiteDraftRefused::class);
+});
+
+it('logs the rationale when the model wrote one, and copes silently when it did not', function (): void {
+    Log::spy();
+
+    $without = fakeDraftResponse();
+    unset($without['rationale']);
+
+    SiteDraftAgent::fake([fakeDraftResponse(), $without]);
+
+    $tenant = Tenant::factory()->create();
+    $this->createTenantBusiness($tenant, [], 1);
+
+    generateFor($tenant);
+    generateFor($tenant);
+
+    // One greppable line per landed draft that offered one — the telemetry
+    // that makes the prompt tunable — and no crash or noise when a provider
+    // drops the field.
+    Log::shouldHaveReceived('info')
+        ->withArgs(fn (string $message, array $context): bool => $message === 'site_draft.rationale'
+            && $context['rationale'] === 'Earthy tones suit a bakery.')
+        ->once();
 });
 
 it('rejects a response without structured output after the retry also fails', function (): void {

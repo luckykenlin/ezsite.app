@@ -172,8 +172,11 @@ it('round-trips a staged style and keeps only the keys the editor knows', functi
         'palette' => 'warm-sand',
         // Non-strings become null rather than being passed along.
         'font_pair' => null,
+        'type_style' => null,
         'radius' => null,
         'density' => null,
+        'divider' => null,
+        'accent' => null,
     ]);
 });
 

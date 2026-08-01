@@ -23,11 +23,11 @@
     <div class="mx-auto grid max-w-6xl gap-12 px-6 lg:grid-cols-2">
         <div>
             @if ($heading)
-                <h2 class="text-balance text-3xl font-bold tracking-tight md:text-4xl">{{ $heading }}</h2>
+                <h2 class="site-h2">{{ $heading }}</h2>
             @endif
 
             @if ($intro)
-                <p class="mt-4 text-lg text-base-content/70">{{ $intro }}</p>
+                <p class="site-intro mt-4 text-base-content/70">{{ $intro }}</p>
             @endif
 
             @if ($show_form)

@@ -10,7 +10,7 @@
 <x-site.section :appearance="$appearance" tone="muted" spacing="normal">
     <div class="mx-auto max-w-7xl px-6">
         @if ($heading)
-            <h2 class="text-balance text-center text-3xl font-bold tracking-tight md:text-4xl">{{ $heading }}</h2>
+            <h2 class="site-h2 text-center">{{ $heading }}</h2>
         @endif
 
         <div class="carousel mt-12 w-full gap-6">

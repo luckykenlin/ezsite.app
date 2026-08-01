@@ -41,6 +41,21 @@ return new class extends Migration
             $table->text('pretty_name')->nullable();
             $table->text('exif')->nullable();
             $table->longText('curations')->nullable();
+
+            // Stock-photo provenance (App\StockPhotos): where an imported
+            // photo came from and whose credit it carries. The pair index is
+            // the dedup key — re-generating a site must reuse the already
+            // imported file instead of spending another download and another
+            // rate-limit token. RLS scopes the lookup per tenant, so two
+            // tenants importing the same Pexels photo store it twice, by
+            // design (media is tenant-owned, files live on tenant disks).
+            $table->string('source_provider')->nullable();
+            $table->string('source_id')->nullable();
+            $table->string('source_url', 2048)->nullable();
+            $table->string('photographer_name')->nullable();
+            $table->string('photographer_url', 2048)->nullable();
+            $table->index(['source_provider', 'source_id']);
+
             $table->timestamps();
 
             $table->foreign('tenant_id')->references('id')->on('tenants')->onUpdate('cascade')->onDelete('cascade');

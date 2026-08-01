@@ -4,13 +4,16 @@ declare(strict_types=1);
 
 namespace App\Ai;
 
+use App\Design\AccentStyle;
 use App\Design\ColorPalette;
 use App\Design\DesignTokens;
 use App\Design\FontPair;
 use App\Design\RadiusScale;
+use App\Design\SectionDivider;
 use App\Design\SpacingDensity;
 use App\Design\StylePreset;
 use App\Design\TokenKey;
+use App\Design\TypeStyle;
 
 /**
  * The turn-scoped working copy of the site's design tokens — the design-side
@@ -109,6 +112,9 @@ final class SiteStyleDraft
             fontPair: $this->value(FontPair::class, $changes, TokenKey::FontPair),
             radius: $this->value(RadiusScale::class, $changes, TokenKey::Radius),
             density: $this->value(SpacingDensity::class, $changes, TokenKey::Density),
+            typeStyle: $this->value(TypeStyle::class, $changes, TokenKey::TypeStyle),
+            divider: $this->value(SectionDivider::class, $changes, TokenKey::Divider),
+            accent: $this->value(AccentStyle::class, $changes, TokenKey::Accent),
         );
     }
 
@@ -120,7 +126,7 @@ final class SiteStyleDraft
      * {@see DesignTokens::toArray()} already emits exactly the keys both of
      * those expect, so there is no adapter anywhere on this path.
      *
-     * @return array{preset: string|null, palette: string, font_pair: string, radius: string, density: string}|null
+     * @return array{preset: string|null, palette: string, font_pair: string, type_style: string, radius: string, density: string, divider: string, accent: string}|null
      */
     public function toArray(): ?array
     {

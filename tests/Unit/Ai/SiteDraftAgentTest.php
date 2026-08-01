@@ -6,6 +6,8 @@ use App\Ai\Agents\SiteDraftAgent;
 use App\Ai\SiteDraftValidator;
 use App\Design\StylePreset;
 use App\Site\Blocks\BlockVocabulary;
+use App\Site\Blocks\SectionSpacing;
+use App\Site\Blocks\SectionTone;
 use Illuminate\JsonSchema\JsonSchemaTypeFactory;
 
 it('constrains the structured output to presets and non-chrome vocabulary types', function (): void {
@@ -24,16 +26,27 @@ it('constrains the structured output to presets and non-chrome vocabulary types'
         ->and($serialized['pages']['items']['properties']['slug']['enum'])
         ->toBe(['/', ...SiteDraftValidator::EXTRA_SLUGS]);
 
-    $blockType = $serialized['pages']['items']['properties']['blocks']['items']['properties']['type'];
+    $blockItems = $serialized['pages']['items']['properties']['blocks']['items']['properties'];
 
-    expect($blockType['enum'])->toContain('hero', 'features', 'testimonials', 'gallery', 'cta', 'contact', 'heading')
-        ->and($blockType['enum'])->not->toContain('header')
-        ->and($blockType['enum'])->not->toContain('footer');
+    expect($blockItems['type']['enum'])->toContain('hero', 'features', 'testimonials', 'gallery', 'cta', 'contact', 'heading')
+        ->and($blockItems['type']['enum'])->not->toContain('header')
+        ->and($blockItems['type']['enum'])->not->toContain('footer');
+
+    // The layout keys the draft agent now owns: variants are the union of every
+    // PAGE type's layouts — chrome layouts must never enter the enum — and
+    // tone/spacing mirror the appearance enums exactly.
+    expect($blockItems['variant']['enum'])->toContain('full-bleed-overlay', 'grid', 'boxed', 'masonry')
+        ->and($blockItems['variant']['enum'])->not->toContain('columns')
+        ->and($blockItems['variant']['enum'])->not->toContain('centered')
+        ->and($blockItems['tone']['enum'])->toBe(SectionTone::values())
+        ->and($blockItems['spacing']['enum'])->toBe(SectionSpacing::values());
 
     // The copy is free to evolve, but two clauses are load-bearing: the block
     // views escape everything (so markup would render as text), and the draft is
-    // persisted verbatim (so an invented fact reaches the live site).
+    // persisted verbatim (so an invented fact reaches the live site). The third
+    // pins the new layout authority.
     expect(new SiteDraftAgent(resolve(BlockVocabulary::class))->instructions())
         ->toContain('never output HTML')
-        ->toContain('never invent facts');
+        ->toContain('never invent facts')
+        ->toContain('layout');
 });

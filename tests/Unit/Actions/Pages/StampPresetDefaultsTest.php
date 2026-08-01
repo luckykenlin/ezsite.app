@@ -121,3 +121,101 @@ it('stamps both halves of a preset over a whole list', function (): void {
         ->and($blocks[0]['data']['heading'])->toBe('Keep me')
         ->and($blocks[1]['data'])->not->toHaveKey('appearance');
 });
+
+/*
+ * fill() — the BACK-FILL semantics, used only by GenerateSiteDraft. The model's
+ * validated layout choices survive; the preset speaks where the model was
+ * silent; and the fallback is position-aware, so even a silent model gets an
+ * alternating rhythm instead of the flat per-type stack. handle()/stamp() above
+ * keep their overwrite semantics — that pair belongs to the restyle path.
+ */
+it('fill: keeps a valid model variant and tone, filling only the missing dimension', function (): void {
+    $blocks = stampPresetDefaults()->fill([
+        ['type' => 'features', 'data' => ['variant' => 'grid', 'appearance' => ['tone' => 'accent']]],
+    ], StylePreset::WarmCraft);
+
+    // WarmCraft says list + muted/airy; the model said grid + accent. Grid and
+    // accent survive, and only the unset spacing takes the preset's airy.
+    expect($blocks[0]['data']['variant'])->toBe('grid')
+        ->and($blocks[0]['data']['appearance'])->toBe(['tone' => 'accent', 'spacing' => 'airy']);
+});
+
+it('fill: replaces an invalid variant with the preset default', function (): void {
+    $blocks = stampPresetDefaults()->fill([
+        ['type' => 'features', 'data' => ['variant' => 'no-such-layout']],
+    ], StylePreset::WarmCraft);
+
+    expect($blocks[0]['data']['variant'])->toBe('alternating');
+});
+
+it('fill: alternates a repeating base band instead of stacking it', function (): void {
+    // professional-minimal deliberately says base for every content type — the
+    // per-type map cannot alternate, but the position-aware walk can.
+    $blocks = stampPresetDefaults()->fill([
+        ['type' => 'features', 'data' => []],
+        ['type' => 'offerings', 'data' => []],
+        ['type' => 'gallery', 'data' => []],
+    ], StylePreset::ProfessionalMinimal);
+
+    expect($blocks[0]['data']['appearance'])->toBe(['tone' => 'base'])
+        ->and($blocks[1]['data']['appearance'])->toBe(['tone' => 'muted'])
+        ->and($blocks[2]['data']['appearance'])->toBe(['tone' => 'base']);
+});
+
+it('fill: demotes a dark band that would sit directly under another dark band', function (): void {
+    // bold-editorial puts gallery AND testimonials on inverted; adjacent, the
+    // second becomes muted — never two dark bands next to each other.
+    $blocks = stampPresetDefaults()->fill([
+        ['type' => 'gallery', 'data' => []],
+        ['type' => 'testimonials', 'data' => []],
+    ], StylePreset::BoldEditorial);
+
+    expect($blocks[0]['data']['appearance'])->toBe(['tone' => 'inverted', 'spacing' => 'tight'])
+        ->and($blocks[1]['data']['appearance'])->toBe(['tone' => 'muted']);
+});
+
+it('fill: a model tone resets the alternation state', function (): void {
+    $blocks = stampPresetDefaults()->fill([
+        ['type' => 'features', 'data' => ['appearance' => ['tone' => 'inverted']]],
+        ['type' => 'contact', 'data' => []],
+    ], StylePreset::WarmCraft);
+
+    // Contact's preset muted does not repeat anything — the previous band was
+    // the model's inverted — so it lands unflipped. The model's tone survives
+    // on features while the preset still fills its unset spacing.
+    expect($blocks[0]['data']['appearance'])->toBe(['tone' => 'inverted', 'spacing' => 'airy'])
+        ->and($blocks[1]['data']['appearance'])->toBe(['tone' => 'muted', 'spacing' => 'airy']);
+});
+
+it('fill: writes nothing over silence, and a spacing-only preset entry stays spacing-only', function (): void {
+    // steps has no WarmCraft entry and no flip is needed first in the list, so
+    // it keeps its view's own default; prose has a spacing-only entry.
+    $blocks = stampPresetDefaults()->fill([
+        ['type' => 'steps', 'data' => []],
+        ['type' => 'prose', 'data' => []],
+    ], StylePreset::WarmCraft);
+
+    expect($blocks[0]['data'])->not->toHaveKey('appearance')
+        // steps counted as base, so prose (also no tone opinion) flips to muted
+        // to keep two silent base bands from stacking — plus its preset airy.
+        ->and($blocks[1]['data']['appearance'])->toBe(['tone' => 'muted', 'spacing' => 'airy']);
+});
+
+it('fill: skips hero and heading appearance, and leaves unknown types alone', function (): void {
+    $blocks = stampPresetDefaults()->fill([
+        ['type' => 'hero', 'data' => []],
+        ['type' => 'heading', 'data' => ['content' => 'Divider']],
+        ['type' => 'not-a-block', 'data' => ['keep' => 'me']],
+        ['type' => 'features', 'data' => []],
+    ], StylePreset::WarmCraft);
+
+    // The hero still gets its variant filled — only its appearance is exempt —
+    // and it does not advance the alternation, so features lands its preset
+    // muted unflipped, alternating against the first real band.
+    expect($blocks[0]['data']['variant'])->toBe('left-text-right-image')
+        ->and($blocks[0]['data'])->not->toHaveKey('appearance')
+        ->and($blocks[1]['data'])->not->toHaveKey('variant')
+        ->and($blocks[1]['data'])->not->toHaveKey('appearance')
+        ->and($blocks[2]['data'])->toBe(['keep' => 'me'])
+        ->and($blocks[3]['data']['appearance'])->toBe(['tone' => 'muted', 'spacing' => 'airy']);
+});

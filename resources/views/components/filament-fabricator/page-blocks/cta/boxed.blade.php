@@ -15,7 +15,7 @@
                 <h2 data-editor-field="heading" class="card-title text-balance text-3xl tracking-tight md:text-4xl">{{ $heading }}</h2>
 
                 @if ($body)
-                    <p data-editor-field="body" class="max-w-2xl text-lg text-base-content/70">{{ $body }}</p>
+                    <p data-editor-field="body" class="site-intro max-w-2xl text-base-content/70">{{ $body }}</p>
                 @endif
 
                 <div class="card-actions mt-4 justify-center">

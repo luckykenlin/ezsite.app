@@ -112,6 +112,90 @@ it('drops a duplicate hero', function (): void {
         ->once();
 });
 
+/*
+ * The layout keys — the draft path's validating door onto variant/tone/spacing,
+ * the counterpart of SetBlockVariant/SetBlockAppearance on the chat path. Only
+ * enum-checked values reach `data`; anything else falls through to the preset
+ * fill, with a log so provider drift stays measurable.
+ */
+it('validates block-level layout choices into data, block level winning over the data salvage', function (): void {
+    $draft = validAiDraft();
+    $draft['pages'][0]['blocks'][0]['variant'] = 'centered-minimal';
+    $draft['pages'][0]['blocks'][0]['data']['variant'] = 'full-bleed-overlay';
+    $draft['pages'][0]['blocks'][1]['tone'] = 'muted';
+    $draft['pages'][0]['blocks'][1]['spacing'] = 'airy';
+
+    $blocks = draftValidator()->handle($draft, 'Fallback')['pages'][0]['blocks'];
+
+    expect($blocks[0]['data']['variant'])->toBe('centered-minimal')
+        ->and($blocks[1]['data']['appearance'])->toBe(['tone' => 'muted', 'spacing' => 'airy'])
+        // A block that chose nothing carries nothing — the preset fill decides later.
+        ->and($blocks[2]['data'])->not->toHaveKey('variant')
+        ->and($blocks[2]['data'])->not->toHaveKey('appearance');
+});
+
+it('salvages layout choices the model tucked inside data', function (): void {
+    // Prompt-enforced structured output drifts: providers habitually nest the
+    // keys inside data, where the sanitizer strips them. The salvage read is free.
+    $draft = validAiDraft();
+    $draft['pages'][0]['blocks'][0]['data']['variant'] = 'full-bleed-overlay';
+    $draft['pages'][0]['blocks'][1]['data']['appearance'] = ['tone' => 'inverted', 'spacing' => 'tight'];
+
+    $blocks = draftValidator()->handle($draft, 'Fallback')['pages'][0]['blocks'];
+
+    expect($blocks[0]['data']['variant'])->toBe('full-bleed-overlay')
+        ->and($blocks[1]['data']['appearance'])->toBe(['tone' => 'inverted', 'spacing' => 'tight']);
+});
+
+it('drops layout choices outside the enums, logging each dimension', function (): void {
+    Log::spy();
+
+    $draft = validAiDraft();
+    // A real variant, but of the wrong type: hero offers no 'grid'.
+    $draft['pages'][0]['blocks'][0]['variant'] = 'grid';
+    $draft['pages'][0]['blocks'][1]['tone'] = 'neon';
+    $draft['pages'][0]['blocks'][1]['spacing'] = 'huge';
+
+    $blocks = draftValidator()->handle($draft, 'Fallback')['pages'][0]['blocks'];
+
+    expect($blocks[0]['data'])->not->toHaveKey('variant')
+        ->and($blocks[1]['data'])->not->toHaveKey('appearance');
+
+    Log::shouldHaveReceived('info')
+        ->withArgs(fn (string $message, array $context): bool => $message === 'site_draft.layout_dropped'
+            && in_array($context['dimension'], ['variant', 'tone', 'spacing'], true))
+        ->times(3);
+});
+
+it('harvests image queries into the reserved transit key when the pipeline is enabled', function (): void {
+    config()->set('stock-photos.enabled', true);
+
+    $draft = validAiDraft();
+    $draft['pages'][0]['blocks'][0]['data']['image_query'] = '  <b>barber shop</b> interior '.str_repeat('x', 100);
+    // The reserved key itself can never be authored directly — the sanitizer
+    // strips it, whatever either AI path sends.
+    $draft['pages'][0]['blocks'][1]['data']['_image_query'] = 'smuggled';
+
+    $blocks = draftValidator()->handle($draft, 'Fallback')['pages'][0]['blocks'];
+
+    expect($blocks[0]['data']['_image_query'])->toStartWith('barber shop interior')
+        ->and(mb_strlen($blocks[0]['data']['_image_query']))->toBe(80)
+        ->and($blocks[0]['data'])->not->toHaveKey('image_query')
+        ->and($blocks[1]['data'])->not->toHaveKey('_image_query');
+});
+
+it('discards image queries when the pipeline is disabled', function (): void {
+    $draft = validAiDraft();
+    $draft['pages'][0]['blocks'][0]['data']['image_query'] = 'barber shop interior';
+
+    $blocks = draftValidator()->handle($draft, 'Fallback')['pages'][0]['blocks'];
+
+    // Nothing will ever consume the key, so persisting it would litter every
+    // generated page with a transit slot for a pipeline that is off.
+    expect($blocks[0]['data'])->not->toHaveKey('_image_query')
+        ->and($blocks[0]['data'])->not->toHaveKey('image_query');
+});
+
 it('rejects a draft that survives with too few blocks', function (): void {
     $draft = validAiDraft();
     $draft['pages'][0]['blocks'] = array_slice($draft['pages'][0]['blocks'], 0, 2);

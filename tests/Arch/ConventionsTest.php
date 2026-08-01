@@ -183,6 +183,46 @@ test('every page block view renders through the shared section shell', function 
     }
 });
 
+test('the page-block views type through the shared site-* classes, never utility literals', function (): void {
+    // The heading/eyebrow/intro treatments live ONCE in resources/css/site.css
+    // (.site-h2 and friends), where the TypeStyle token's --type-* variables
+    // can reach them. A pasted utility literal (`text-3xl font-bold
+    // tracking-tight`, the pre-refactor state of a dozen views) silently
+    // escapes the token system: it renders fine today and simply ignores every
+    // typography token forever after. Chrome is exempt like everywhere else —
+    // a header's nav is not section typography.
+    $dir = dirname(__DIR__, 2).'/resources/views/components/filament-fabricator/page-blocks';
+    $chrome = ['header', 'footer'];
+    $literals = [
+        'text-3xl font-bold tracking-tight',
+        'text-4xl font-bold tracking-tight',
+        'text-5xl font-bold tracking-tight',
+        'uppercase tracking-widest',
+    ];
+
+    $views = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS),
+    );
+
+    $offenders = [];
+
+    foreach ($views as $view) {
+        if ($view->getExtension() !== 'php' || in_array(basename(dirname($view->getPathname())), $chrome, true)) {
+            continue;
+        }
+
+        $contents = (string) file_get_contents($view->getPathname());
+
+        foreach ($literals as $literal) {
+            if (str_contains($contents, $literal)) {
+                $offenders[] = basename($view->getPathname()).' hand-rolls "'.$literal.'"';
+            }
+        }
+    }
+
+    expect($offenders)->toBeEmpty();
+});
+
 test("the section shell's Tailwind sources are declared", function (): void {
     // A section's background and vertical padding now live ONLY as class strings
     // inside two PHP enums plus one view outside the page-blocks tree. Tailwind

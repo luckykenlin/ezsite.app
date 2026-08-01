@@ -12,7 +12,7 @@
 <x-site.section :appearance="$appearance" tone="base" spacing="tight">
     <div class="mx-auto max-w-5xl px-6">
         @if ($heading)
-            <h2 class="text-balance text-center text-3xl font-bold tracking-tight md:text-4xl">{{ $heading }}</h2>
+            <h2 class="site-h2 text-center">{{ $heading }}</h2>
         @endif
 
         {{-- A <dl> pairs each number with what it counts, which is the whole

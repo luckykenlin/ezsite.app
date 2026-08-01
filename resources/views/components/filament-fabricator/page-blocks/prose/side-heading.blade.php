@@ -17,7 +17,7 @@
             {{-- Sticky on desktop only: the heading stays beside the paragraph
                  being read, which is the whole point of this composition. On a
                  phone the grid collapses and it simply sits above. --}}
-            <h2 class="text-balance text-3xl font-bold tracking-tight md:sticky md:top-8 md:self-start md:text-4xl">{{ $heading }}</h2>
+            <h2 class="site-h2 md:sticky md:top-8 md:self-start">{{ $heading }}</h2>
         @endif
 
         <div @class([

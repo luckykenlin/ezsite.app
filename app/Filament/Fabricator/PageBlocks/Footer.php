@@ -41,6 +41,7 @@ final class Footer extends Block
     protected static array $variants = [
         'columns' => 'Brand, links and contact columns',
         'minimal' => 'Single centered row',
+        'soft' => 'Soft light',
     ];
 
     protected static ?BindType $bindType = BindType::Location;

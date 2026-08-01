@@ -111,7 +111,7 @@ it('keeps every block view on the background and spacing it declared before the 
     ],
     'cta banner is the brand colour, and tighter' => [
         ['type' => 'cta', 'data' => ['variant' => 'banner', 'heading' => 'Book now', 'cta_label' => 'Call', 'cta_url' => '/contact']],
-        'bg-primary text-primary-content', 'py-16 md:py-20', 0,
+        'site-tone-accent', 'py-16 md:py-20', 0,
     ],
     'cta boxed is tighter but plain' => [
         ['type' => 'cta', 'data' => ['variant' => 'boxed', 'heading' => 'Book now', 'cta_label' => 'Call', 'cta_url' => '/contact']],

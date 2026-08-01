@@ -30,8 +30,15 @@ final class ThemeVariables
             ...$tokens->palette->colors($business),
             ...$tokens->radius->variables(),
             ...$tokens->density->variables(),
+            ...$tokens->typeStyle->variables(),
+            ...$tokens->divider->variables(),
+            ...$tokens->accent->variables(),
             '--font-sans' => $tokens->fontPair->bodyStack(),
             '--font-heading' => $tokens->fontPair->headingStack(),
+            // Not a custom property, but it belongs in the same :root block:
+            // without it a dark palette gets light-scheme form controls and
+            // scrollbars, which is the one part of the page CSS cannot paint.
+            'color-scheme' => $tokens->palette->isDark() ? 'dark' : 'light',
         ];
     }
 

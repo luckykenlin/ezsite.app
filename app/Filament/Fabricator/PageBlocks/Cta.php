@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Fabricator\PageBlocks;
 
+use App\Filament\Fabricator\Fields\ImageInput;
 use App\Filament\Fabricator\Fields\LinkInput;
 use App\Site\Blocks\BlockIntent;
 use Filament\Forms\Components\Field;
@@ -41,6 +42,7 @@ final class Cta extends Block
     protected static array $variants = [
         'banner' => 'Full-width banner',
         'boxed' => 'Boxed card',
+        'full-photo' => 'Full-bleed photo',
     ];
 
     /**
@@ -63,6 +65,11 @@ final class Cta extends Block
             TextInput::make('secondary_label')
                 ->maxLength(60),
             LinkInput::make('secondary_url'),
+            ImageInput::make('image_id'),
+            TextInput::make('image_url')
+                ->label('External image URL')
+                ->helperText('Optional — used when no library image is chosen.')
+                ->maxLength(2048),
         ];
     }
 }

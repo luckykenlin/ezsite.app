@@ -21,16 +21,24 @@ enum StylePreset: string
     case BoldEditorial = 'bold-editorial';
     case CalmCoastal = 'calm-coastal';
     case PlayfulFriendly = 'playful-friendly';
+    case NightLounge = 'night-lounge';
 
+    /**
+     * A preset now bundles SEVEN axes (palette, fonts, type style, radius,
+     * density, dividers, accent surface) rather than the original four —
+     * the type style, seam shape and accent treatment are where two presets
+     * that share a hue stop looking like the same template.
+     */
     public function tokens(): DesignTokens
     {
         return match ($this) {
-            self::WarmCraft => new DesignTokens($this, ColorPalette::WarmSand, FontPair::ElegantSerif, RadiusScale::Lg, SpacingDensity::Spacious),
-            self::ProfessionalMinimal => new DesignTokens($this, ColorPalette::Charcoal, FontPair::ModernSans, RadiusScale::Sm, SpacingDensity::Normal),
-            self::FreshModern => new DesignTokens($this, ColorPalette::Forest, FontPair::Geometric, RadiusScale::Md, SpacingDensity::Normal),
-            self::BoldEditorial => new DesignTokens($this, ColorPalette::Plum, FontPair::Editorial, RadiusScale::None, SpacingDensity::Compact),
-            self::CalmCoastal => new DesignTokens($this, ColorPalette::Ocean, FontPair::ModernSans, RadiusScale::Lg, SpacingDensity::Spacious),
-            self::PlayfulFriendly => new DesignTokens($this, ColorPalette::Sunset, FontPair::FriendlyRounded, RadiusScale::Full, SpacingDensity::Normal),
+            self::WarmCraft => new DesignTokens($this, ColorPalette::WarmSand, FontPair::ElegantSerif, RadiusScale::Lg, SpacingDensity::Spacious, typeStyle: TypeStyle::Refined, divider: SectionDivider::Curve, accent: AccentStyle::Flat),
+            self::ProfessionalMinimal => new DesignTokens($this, ColorPalette::Charcoal, FontPair::ModernSans, RadiusScale::Sm, SpacingDensity::Normal, typeStyle: TypeStyle::Quiet, divider: SectionDivider::None, accent: AccentStyle::Flat),
+            self::FreshModern => new DesignTokens($this, ColorPalette::Forest, FontPair::Geometric, RadiusScale::Md, SpacingDensity::Normal, typeStyle: TypeStyle::Classic, divider: SectionDivider::None, accent: AccentStyle::Gradient),
+            self::BoldEditorial => new DesignTokens($this, ColorPalette::Plum, FontPair::Editorial, RadiusScale::None, SpacingDensity::Compact, typeStyle: TypeStyle::Impact, divider: SectionDivider::Slant, accent: AccentStyle::Flat),
+            self::CalmCoastal => new DesignTokens($this, ColorPalette::Ocean, FontPair::ModernSans, RadiusScale::Lg, SpacingDensity::Spacious, typeStyle: TypeStyle::Refined, divider: SectionDivider::Curve, accent: AccentStyle::Sheen),
+            self::PlayfulFriendly => new DesignTokens($this, ColorPalette::Sunset, FontPair::FriendlyRounded, RadiusScale::Full, SpacingDensity::Normal, typeStyle: TypeStyle::Friendly, divider: SectionDivider::Peak, accent: AccentStyle::Gradient),
+            self::NightLounge => new DesignTokens($this, ColorPalette::NoirGold, FontPair::Editorial, RadiusScale::Sm, SpacingDensity::Normal, typeStyle: TypeStyle::Impact, divider: SectionDivider::Slant, accent: AccentStyle::Sheen),
         };
     }
 
@@ -44,12 +52,13 @@ enum StylePreset: string
     public function blockVariantDefaults(): array
     {
         return match ($this) {
-            self::WarmCraft => ['hero' => 'left-text-right-image', 'features' => 'list', 'testimonials' => 'grid', 'gallery' => 'masonry', 'cta' => 'boxed', 'contact' => 'split', 'header' => 'centered', 'footer' => 'columns', 'offerings' => 'list', 'prose' => 'side-heading', 'faq' => 'list'],
-            self::ProfessionalMinimal => ['hero' => 'centered-minimal', 'features' => 'grid', 'testimonials' => 'grid', 'gallery' => 'grid', 'cta' => 'banner', 'contact' => 'split', 'header' => 'simple', 'footer' => 'minimal', 'offerings' => 'list', 'prose' => 'stacked', 'faq' => 'list'],
-            self::FreshModern => ['hero' => 'left-text-right-image', 'features' => 'grid', 'testimonials' => 'carousel', 'gallery' => 'grid', 'cta' => 'banner', 'contact' => 'split', 'header' => 'simple', 'footer' => 'columns', 'offerings' => 'cards', 'prose' => 'stacked', 'faq' => 'grid'],
-            self::BoldEditorial => ['hero' => 'full-bleed-overlay', 'features' => 'list', 'testimonials' => 'grid', 'gallery' => 'masonry', 'cta' => 'banner', 'contact' => 'stacked', 'header' => 'centered', 'footer' => 'minimal', 'offerings' => 'cards', 'prose' => 'side-heading', 'faq' => 'grid'],
-            self::CalmCoastal => ['hero' => 'centered-minimal', 'features' => 'grid', 'testimonials' => 'carousel', 'gallery' => 'grid', 'cta' => 'boxed', 'contact' => 'stacked', 'header' => 'simple', 'footer' => 'columns', 'offerings' => 'list', 'prose' => 'stacked', 'faq' => 'list'],
-            self::PlayfulFriendly => ['hero' => 'full-bleed-overlay', 'features' => 'grid', 'testimonials' => 'carousel', 'gallery' => 'masonry', 'cta' => 'banner', 'contact' => 'stacked', 'header' => 'centered', 'footer' => 'columns', 'offerings' => 'cards', 'prose' => 'stacked', 'faq' => 'grid'],
+            self::WarmCraft => ['hero' => 'left-text-right-image', 'features' => 'alternating', 'testimonials' => 'grid', 'gallery' => 'masonry', 'cta' => 'boxed', 'contact' => 'split', 'header' => 'centered', 'footer' => 'columns', 'offerings' => 'list', 'prose' => 'side-heading', 'faq' => 'list', 'steps' => 'list', 'stats' => 'grid', 'team' => 'portraits', 'pricing' => 'simple'],
+            self::ProfessionalMinimal => ['hero' => 'centered-minimal', 'features' => 'grid', 'testimonials' => 'grid', 'gallery' => 'grid', 'cta' => 'banner', 'contact' => 'split', 'header' => 'simple', 'footer' => 'minimal', 'offerings' => 'list', 'prose' => 'stacked', 'faq' => 'list', 'steps' => 'list', 'stats' => 'grid', 'team' => 'portraits', 'pricing' => 'tiers'],
+            self::FreshModern => ['hero' => 'left-text-right-image', 'features' => 'grid', 'testimonials' => 'carousel', 'gallery' => 'grid', 'cta' => 'banner', 'contact' => 'split', 'header' => 'simple', 'footer' => 'columns', 'offerings' => 'cards', 'prose' => 'stacked', 'faq' => 'grid', 'steps' => 'timeline', 'stats' => 'grid', 'team' => 'tiles', 'pricing' => 'tiers'],
+            self::BoldEditorial => ['hero' => 'full-bleed-overlay', 'features' => 'list', 'testimonials' => 'spotlight', 'gallery' => 'masonry', 'cta' => 'banner', 'contact' => 'stacked', 'header' => 'centered', 'footer' => 'minimal', 'offerings' => 'cards', 'prose' => 'side-heading', 'faq' => 'grid', 'steps' => 'list', 'stats' => 'band', 'team' => 'tiles', 'pricing' => 'simple'],
+            self::CalmCoastal => ['hero' => 'centered-minimal', 'features' => 'grid', 'testimonials' => 'carousel', 'gallery' => 'grid', 'cta' => 'boxed', 'contact' => 'stacked', 'header' => 'simple', 'footer' => 'columns', 'offerings' => 'list', 'prose' => 'stacked', 'faq' => 'list', 'steps' => 'timeline', 'stats' => 'grid', 'team' => 'portraits', 'pricing' => 'simple'],
+            self::PlayfulFriendly => ['hero' => 'full-bleed-overlay', 'features' => 'grid', 'testimonials' => 'carousel', 'gallery' => 'filmstrip', 'cta' => 'banner', 'contact' => 'stacked', 'header' => 'centered', 'footer' => 'columns', 'offerings' => 'cards', 'prose' => 'stacked', 'faq' => 'grid', 'steps' => 'list', 'stats' => 'band', 'team' => 'portraits', 'pricing' => 'simple'],
+            self::NightLounge => ['hero' => 'full-bleed-overlay', 'features' => 'alternating', 'testimonials' => 'spotlight', 'gallery' => 'masonry', 'cta' => 'banner', 'contact' => 'stacked', 'header' => 'inverted', 'footer' => 'minimal', 'offerings' => 'cards', 'prose' => 'side-heading', 'faq' => 'list', 'steps' => 'list', 'stats' => 'band', 'team' => 'tiles', 'pricing' => 'simple'],
         };
     }
 
@@ -80,13 +89,15 @@ enum StylePreset: string
      *    band of its own. Giving it a background turns a section title into a
      *    section.
      *
-     * KNOWN LIMIT — these are per TYPE, not per POSITION, so two `features`
-     * blocks on one page get the same background instead of alternating. Genuine
-     * odd/even alternation needs PHP to know the default tone of every
-     * type×variant pair, and those defaults live in the eighteen Blade views;
-     * promoting them to a queryable contract is its own change. Hand-picked
-     * tones already express a rhythm (plain features, dark testimonials, shaded
-     * FAQ) — it just does not adapt to how many blocks the page has.
+     * KNOWN LIMIT — these are per TYPE, not per POSITION. On the RESTYLE path
+     * (`StampPresetDefaults::stamp()`) two `features` blocks on one page still
+     * get the same background; the DRAFT path routes through
+     * `StampPresetDefaults::fill()`, which walks the list in order and flips a
+     * repeating base/muted fallback, so a fresh generation no longer produces
+     * the flat stack. Genuine view-aware alternation still needs PHP to know
+     * the default tone of every type×variant pair, and those defaults live in
+     * the Blade views; promoting them to a queryable contract is its own
+     * change.
      *
      * @return array<string, array{tone?: string, spacing?: string}>
      */
@@ -161,6 +172,19 @@ enum StylePreset: string
                 'contact' => ['tone' => 'muted'],
                 'cta' => ['tone' => 'accent'],
             ],
+            // The whole site is already dark (NoirGold base), so this preset
+            // never reaches for `inverted` — BoldEditorial keeps sole ownership
+            // of that tone. Rhythm here is raised panels (`muted` is LIGHTER
+            // than the base on a dark ramp) and one gold accent moment.
+            self::NightLounge => [
+                'features' => ['tone' => 'base', 'spacing' => 'tight'],
+                'offerings' => ['tone' => 'muted'],
+                'gallery' => ['tone' => 'base', 'spacing' => 'tight'],
+                'testimonials' => ['tone' => 'muted', 'spacing' => 'airy'],
+                'faq' => ['tone' => 'muted'],
+                'contact' => ['tone' => 'base'],
+                'cta' => ['tone' => 'accent', 'spacing' => 'tight'],
+            ],
         };
     }
 
@@ -192,6 +216,7 @@ enum StylePreset: string
             self::BoldEditorial => ['bold', 'dramatic', 'high-contrast', 'striking', 'confident', 'edgy'],
             self::CalmCoastal => ['calm', 'airy', 'gentle', 'soothing', 'light', 'spacious'],
             self::PlayfulFriendly => ['playful', 'friendly', 'fun', 'approachable', 'colourful', 'casual'],
+            self::NightLounge => ['dark', 'moody', 'luxe', 'glamorous', 'nocturnal'],
         };
     }
 
@@ -210,6 +235,7 @@ enum StylePreset: string
             self::BoldEditorial => ['bold', 'fashion', 'studio', 'photography', 'editorial'],
             self::CalmCoastal => ['calm', 'wellness', 'clinic', 'dental', 'coastal', 'yoga'],
             self::PlayfulFriendly => ['playful', 'family', 'kids', 'pets', 'fun', 'casual'],
+            self::NightLounge => ['bar', 'nightlife', 'barber', 'tattoo', 'salon', 'music'],
         };
     }
 
@@ -222,6 +248,7 @@ enum StylePreset: string
             self::BoldEditorial => 'Bold editorial',
             self::CalmCoastal => 'Calm coastal',
             self::PlayfulFriendly => 'Playful friendly',
+            self::NightLounge => 'Night lounge',
         };
     }
 
@@ -234,6 +261,7 @@ enum StylePreset: string
             self::BoldEditorial => 'High-contrast plum, sharp corners and magazine typography.',
             self::CalmCoastal => 'Cool blues, soft corners and airy spacing — for wellness and care.',
             self::PlayfulFriendly => 'Sunset colors, round shapes and a friendly voice.',
+            self::NightLounge => 'Near-black and gold, heavy type on a dark room — the one dark-site preset.',
         };
     }
 }

@@ -46,6 +46,8 @@ final class Features extends Block
     protected static array $variants = [
         'grid' => 'Three-column cards',
         'list' => 'Stacked list',
+        'alternating' => 'Alternating rows',
+        'icon-rows' => 'Icon rows',
     ];
 
     /**

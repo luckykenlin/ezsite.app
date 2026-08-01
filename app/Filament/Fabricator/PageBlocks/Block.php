@@ -148,6 +148,7 @@ abstract class Block extends PageBlock
             )),
             sample: self::sample(),
             intent: static::$intent,
+            variantLabels: static::$variants,
         );
     }
 

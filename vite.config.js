@@ -69,25 +69,25 @@ export default defineConfig({
                     weights: [400, 500, 600, 700],
                 }),
                 bunny('Playfair Display', {
-                    weights: [600, 700],
+                    weights: [500, 600, 700, 800],
                 }),
                 bunny('Source Sans 3', {
                     weights: [400, 600],
                 }),
                 bunny('Fraunces', {
-                    weights: [600, 700],
+                    weights: [500, 600, 700, 800],
                 }),
                 bunny('Inter', {
                     weights: [400, 500, 600],
                 }),
                 bunny('Nunito', {
-                    weights: [700, 800],
+                    weights: [500, 600, 700, 800],
                 }),
                 bunny('Nunito Sans', {
                     weights: [400, 600],
                 }),
                 bunny('Space Grotesk', {
-                    weights: [500, 700],
+                    weights: [500, 600, 700],
                 }),
             ],
         }),

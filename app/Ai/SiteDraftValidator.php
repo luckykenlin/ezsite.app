@@ -6,7 +6,12 @@ namespace App\Ai;
 
 use App\Design\StylePreset;
 use App\Exceptions\SiteDraftUnusable;
+use App\Site\Blocks\BlockShape;
+use App\Site\Blocks\BlockType;
 use App\Site\Blocks\BlockVocabulary;
+use App\Site\Blocks\SectionAppearance;
+use App\Site\Blocks\SectionSpacing;
+use App\Site\Blocks\SectionTone;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
@@ -17,6 +22,14 @@ use Illuminate\Support\Str;
  * surviving blocks to be worth publishing. Per-block field whitelisting is
  * {@see BlockDataSanitizer}'s job — the same rules the editor chat writes
  * through.
+ *
+ * This is also the draft path's one validating door onto the server-owned
+ * layout keys, the counterpart of {@see Tools\SetBlockVariant} and
+ * {@see Tools\SetBlockAppearance} on the chat path: the model offers
+ * `variant`/`tone`/`spacing` as flat siblings of `type`/`data`, each choice is
+ * checked against its own block's enums, and only a valid value is written
+ * into `data` — the sanitizer keeps stripping those keys out of `data` itself,
+ * so a value that did not pass through here cannot exist.
  */
 final readonly class SiteDraftValidator
 {
@@ -35,6 +48,17 @@ final readonly class SiteDraftValidator
      * itself is unbounded text.
      */
     private const int MAX_META_DESCRIPTION = 160;
+
+    /**
+     * The UNPREFIXED name under which the model proposes a stock-photo search
+     * query inside a block's `data`. Harvested here (popped BEFORE the
+     * sanitizer runs, so the field-stripped warning never fires for it) and
+     * re-attached under the reserved {@see BlockShape::IMAGE_QUERY_KEY} for
+     * {@see \App\Actions\Pages\PopulateDraftImages} to consume.
+     */
+    private const string IMAGE_QUERY_FIELD = 'image_query';
+
+    private const int MAX_IMAGE_QUERY = 80;
 
     public function __construct(
         private BlockDataSanitizer $sanitizer,
@@ -199,15 +223,93 @@ final readonly class SiteDraftValidator
                 continue;
             }
 
-            $data = $this->sanitizer->handle(
-                $type,
-                is_array($block['data'] ?? null) ? $block['data'] : [],
+            $raw = is_array($block['data'] ?? null) ? $block['data'] : [];
+            $imageQuery = $raw[self::IMAGE_QUERY_FIELD] ?? null;
+            unset($raw[self::IMAGE_QUERY_FIELD]);
+
+            $data = $this->sanitizer->handle($type, $raw);
+
+            if (config()->boolean('stock-photos.enabled') && is_string($imageQuery) && mb_trim($imageQuery) !== '') {
+                $data[BlockShape::IMAGE_QUERY_KEY] = mb_substr(strip_tags(mb_trim($imageQuery)), 0, self::MAX_IMAGE_QUERY);
+            }
+
+            // The model's layout choices ride as flat siblings of type/data —
+            // with a salvage read from inside `data`, where a drifting
+            // provider habitually puts them (the sanitizer just stripped them
+            // there). Block level wins. Only validated values are written; an
+            // invalid one falls through to the preset fill, never worse than
+            // the stamped output this path used to produce.
+            $variant = $this->variant($pageTypes[$type], $block[BlockShape::VARIANT_KEY] ?? $raw[BlockShape::VARIANT_KEY] ?? null, $index);
+
+            if ($variant !== null) {
+                $data[BlockShape::VARIANT_KEY] = $variant;
+            }
+
+            $stored = is_array($raw[BlockShape::APPEARANCE_KEY] ?? null) ? $raw[BlockShape::APPEARANCE_KEY] : [];
+            $appearance = SectionAppearance::store(
+                $this->tone($type, $block[BlockShape::TONE_KEY] ?? $stored[BlockShape::TONE_KEY] ?? null, $index),
+                $this->spacing($type, $block[BlockShape::SPACING_KEY] ?? $stored[BlockShape::SPACING_KEY] ?? null, $index),
             );
+
+            if ($appearance !== null) {
+                $data[BlockShape::APPEARANCE_KEY] = $appearance;
+            }
 
             $hasHero = $hasHero || $type === 'hero';
             $sanitized[] = ['type' => $type, 'data' => $data];
         }
 
         return $sanitized;
+    }
+
+    /**
+     * A validated layout choice, or null. Present-but-invalid logs with the
+     * offered value — silent-drop-to-preset would make "the model chose
+     * garbage every time" look identical to "the model chose nothing", and
+     * that frequency is exactly the DeepSeek-fidelity telemetry to watch.
+     */
+    private function variant(BlockType $type, mixed $raw, int $index): ?string
+    {
+        if (! is_string($raw) || $raw === '') {
+            return null;
+        }
+
+        if (in_array($raw, $type->variants, true)) {
+            return $raw;
+        }
+
+        Log::info('site_draft.layout_dropped', ['dimension' => BlockShape::VARIANT_KEY, 'type' => $type->type, 'value' => $raw, 'index' => $index]);
+
+        return null;
+    }
+
+    private function tone(string $type, mixed $raw, int $index): ?SectionTone
+    {
+        if (! is_string($raw) || $raw === '') {
+            return null;
+        }
+
+        $tone = SectionTone::tryFrom($raw);
+
+        if ($tone === null) {
+            Log::info('site_draft.layout_dropped', ['dimension' => BlockShape::TONE_KEY, 'type' => $type, 'value' => $raw, 'index' => $index]);
+        }
+
+        return $tone;
+    }
+
+    private function spacing(string $type, mixed $raw, int $index): ?SectionSpacing
+    {
+        if (! is_string($raw) || $raw === '') {
+            return null;
+        }
+
+        $spacing = SectionSpacing::tryFrom($raw);
+
+        if ($spacing === null) {
+            Log::info('site_draft.layout_dropped', ['dimension' => BlockShape::SPACING_KEY, 'type' => $type, 'value' => $raw, 'index' => $index]);
+        }
+
+        return $spacing;
     }
 }

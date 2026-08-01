@@ -36,8 +36,11 @@ enum TokenKey: string
 {
     case Palette = 'palette';
     case FontPair = 'font_pair';
+    case TypeStyle = 'type_style';
     case Radius = 'radius';
     case Density = 'density';
+    case Divider = 'divider';
+    case Accent = 'accent';
 
     /**
      * @return list<string>
@@ -57,8 +60,11 @@ enum TokenKey: string
         return match ($this) {
             self::Palette => ColorPalette::class,
             self::FontPair => FontPair::class,
+            self::TypeStyle => TypeStyle::class,
             self::Radius => RadiusScale::class,
             self::Density => SpacingDensity::class,
+            self::Divider => SectionDivider::class,
+            self::Accent => AccentStyle::class,
         };
     }
 
@@ -72,8 +78,11 @@ enum TokenKey: string
         return match ($this) {
             self::Palette => 'Palette',
             self::FontPair => 'Fonts',
+            self::TypeStyle => 'Type style',
             self::Radius => 'Corner radius',
             self::Density => 'Spacing density',
+            self::Divider => 'Section dividers',
+            self::Accent => 'Accent surface',
         };
     }
 
@@ -92,8 +101,11 @@ enum TokenKey: string
         return match ($this) {
             self::Palette => $tokens->palette->value,
             self::FontPair => $tokens->fontPair->value,
+            self::TypeStyle => $tokens->typeStyle->value,
             self::Radius => $tokens->radius->value,
             self::Density => $tokens->density->value,
+            self::Divider => $tokens->divider->value,
+            self::Accent => $tokens->accent->value,
         };
     }
 

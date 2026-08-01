@@ -17,7 +17,9 @@ use Illuminate\Support\Facades\Log;
  * types and fields are dropped and logged (matching the render layer's defensive
  * philosophy), the reserved keys are server-owned, and every leaf string is
  * de-tagged: block views render this content unescaped-free but on shared
- * tenant domains, so tags never survive the boundary.
+ * tenant domains, so tags never survive the boundary. The draft path's
+ * variant/appearance enter through {@see SiteDraftValidator}'s own enum checks
+ * AFTER this stripping, never through `data` — this class needs no carve-out.
  *
  * KNOWN LIMIT — the field whitelist is TOP-LEVEL ONLY. `BlockType::$fields`
  * is a flat list of {@see \Filament\Forms\Components\Field} names, so a `Repeater`

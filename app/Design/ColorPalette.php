@@ -7,10 +7,22 @@ namespace App\Design;
 use App\Models\Business;
 
 /**
- * The enumerated color layer of the design-token system: six curated OKLCH
- * palettes plus a Brand palette derived at render time from the business's
- * `brand_*` hex columns. Only the enum KEY is ever persisted — these CSS
- * values live in code so they can evolve without data migrations.
+ * The enumerated color layer of the design-token system: curated OKLCH
+ * palettes (light and dark) plus a Brand palette derived at render time from
+ * the business's `brand_*` hex columns. Only the enum KEY is ever persisted —
+ * these CSS values live in code so they can evolve without data migrations.
+ *
+ * Two ramp conventions, both enforced by ColorPaletteTest's structural
+ * invariants:
+ *
+ *  - Light palettes step DOWN in lightness from base-100 to base-300, and the
+ *    base-100 → base-200 step is at least ~2.5 L points with a touch of
+ *    chroma — that step IS the `muted` section tone, and a step smaller than
+ *    that renders as "why is this band dirty white" instead of a deliberate
+ *    band.
+ *  - Dark palettes ({@see isDark()}) step UP from base-100 to base-300, and
+ *    keep `neutral` darker than base-100 so the footer and `inverted`
+ *    sections still read as distinct surfaces on a dark page.
  */
 enum ColorPalette: string
 {
@@ -21,9 +33,25 @@ enum ColorPalette: string
     case Plum = 'plum';
     case Charcoal = 'charcoal';
     case Sunset = 'sunset';
+    case Midnight = 'midnight';
+    case NoirGold = 'noir-gold';
     case Brand = 'brand';
 
     private const string HEX_PATTERN = '/^#[0-9a-f]{6}$/i';
+
+    /**
+     * Whether this palette sits content on a dark base. Read by
+     * {@see ThemeVariables} to emit `color-scheme`, so form controls,
+     * scrollbars and default UI chrome follow the page instead of flashing
+     * white on a near-black site.
+     */
+    public function isDark(): bool
+    {
+        return match ($this) {
+            self::Midnight, self::NoirGold => true,
+            default => false,
+        };
+    }
 
     /**
      * The DaisyUI color variables this palette emits, always the full
@@ -36,53 +64,71 @@ enum ColorPalette: string
     {
         return match ($this) {
             self::Default => self::palette(
-                base100: 'oklch(100% 0 0)', base200: 'oklch(98% 0 0)', base300: 'oklch(95% 0 0)', baseContent: 'oklch(21% 0.006 285.885)',
+                base100: 'oklch(100% 0 0)', base200: 'oklch(95.5% 0 0)', base300: 'oklch(91% 0 0)', baseContent: 'oklch(21% 0.006 285.885)',
                 primary: 'oklch(45% 0.24 277.023)', primaryContent: 'oklch(93% 0.034 272.788)',
                 secondary: 'oklch(65% 0.241 354.308)', secondaryContent: 'oklch(94% 0.028 342.258)',
                 accent: 'oklch(77% 0.152 181.912)', accentContent: 'oklch(38% 0.063 188.416)',
                 neutral: 'oklch(14% 0.005 285.823)', neutralContent: 'oklch(92% 0.004 286.32)',
             ),
             self::WarmSand => self::palette(
-                base100: 'oklch(97% 0.01 80)', base200: 'oklch(94% 0.02 80)', base300: 'oklch(90% 0.03 80)', baseContent: 'oklch(25% 0.02 50)',
+                base100: 'oklch(97% 0.01 80)', base200: 'oklch(92% 0.025 80)', base300: 'oklch(86.5% 0.035 80)', baseContent: 'oklch(25% 0.02 50)',
                 primary: 'oklch(55% 0.12 40)', primaryContent: 'oklch(97% 0.01 80)',
                 secondary: 'oklch(55% 0.07 120)', secondaryContent: 'oklch(97% 0.01 80)',
                 accent: 'oklch(75% 0.12 85)', accentContent: 'oklch(25% 0.02 50)',
                 neutral: 'oklch(30% 0.02 50)', neutralContent: 'oklch(95% 0.01 80)',
             ),
             self::Forest => self::palette(
-                base100: 'oklch(98% 0.005 150)', base200: 'oklch(95% 0.01 150)', base300: 'oklch(91% 0.015 150)', baseContent: 'oklch(22% 0.02 155)',
+                base100: 'oklch(98% 0.005 150)', base200: 'oklch(93% 0.018 150)', base300: 'oklch(87.5% 0.025 150)', baseContent: 'oklch(22% 0.02 155)',
                 primary: 'oklch(45% 0.1 155)', primaryContent: 'oklch(98% 0.005 150)',
                 secondary: 'oklch(60% 0.08 130)', secondaryContent: 'oklch(20% 0.02 130)',
                 accent: 'oklch(80% 0.15 125)', accentContent: 'oklch(25% 0.05 130)',
                 neutral: 'oklch(28% 0.03 155)', neutralContent: 'oklch(94% 0.01 150)',
             ),
             self::Ocean => self::palette(
-                base100: 'oklch(99% 0.003 240)', base200: 'oklch(96% 0.006 240)', base300: 'oklch(92% 0.01 240)', baseContent: 'oklch(24% 0.02 250)',
+                base100: 'oklch(99% 0.003 240)', base200: 'oklch(94.5% 0.014 240)', base300: 'oklch(89% 0.022 240)', baseContent: 'oklch(24% 0.02 250)',
                 primary: 'oklch(48% 0.13 250)', primaryContent: 'oklch(98% 0.003 240)',
                 secondary: 'oklch(60% 0.09 200)', secondaryContent: 'oklch(98% 0.003 240)',
                 accent: 'oklch(78% 0.12 190)', accentContent: 'oklch(25% 0.03 210)',
                 neutral: 'oklch(30% 0.03 255)', neutralContent: 'oklch(93% 0.008 240)',
             ),
             self::Plum => self::palette(
-                base100: 'oklch(98% 0.004 340)', base200: 'oklch(95% 0.008 340)', base300: 'oklch(91% 0.013 340)', baseContent: 'oklch(24% 0.03 330)',
+                base100: 'oklch(98% 0.004 340)', base200: 'oklch(93.5% 0.014 340)', base300: 'oklch(88% 0.02 340)', baseContent: 'oklch(24% 0.03 330)',
                 primary: 'oklch(45% 0.15 320)', primaryContent: 'oklch(97% 0.005 340)',
                 secondary: 'oklch(40% 0.12 10)', secondaryContent: 'oklch(97% 0.005 340)',
                 accent: 'oklch(65% 0.2 350)', accentContent: 'oklch(98% 0.005 340)',
                 neutral: 'oklch(27% 0.04 325)', neutralContent: 'oklch(93% 0.008 340)',
             ),
             self::Charcoal => self::palette(
-                base100: 'oklch(97% 0 0)', base200: 'oklch(93% 0 0)', base300: 'oklch(88% 0 0)', baseContent: 'oklch(20% 0 0)',
+                base100: 'oklch(97% 0 0)', base200: 'oklch(92% 0 0)', base300: 'oklch(85.5% 0 0)', baseContent: 'oklch(20% 0 0)',
                 primary: 'oklch(25% 0.01 260)', primaryContent: 'oklch(97% 0 0)',
                 secondary: 'oklch(45% 0.02 260)', secondaryContent: 'oklch(97% 0 0)',
                 accent: 'oklch(75% 0.15 80)', accentContent: 'oklch(25% 0.05 80)',
                 neutral: 'oklch(20% 0.01 260)', neutralContent: 'oklch(93% 0 0)',
             ),
             self::Sunset => self::palette(
-                base100: 'oklch(98% 0.008 60)', base200: 'oklch(95% 0.015 60)', base300: 'oklch(91% 0.02 60)', baseContent: 'oklch(25% 0.03 40)',
+                base100: 'oklch(98% 0.008 60)', base200: 'oklch(93% 0.022 60)', base300: 'oklch(87.5% 0.03 60)', baseContent: 'oklch(25% 0.03 40)',
                 primary: 'oklch(62% 0.18 30)', primaryContent: 'oklch(98% 0.008 60)',
                 secondary: 'oklch(72% 0.15 55)', secondaryContent: 'oklch(28% 0.05 45)',
                 accent: 'oklch(70% 0.17 0)', accentContent: 'oklch(98% 0.008 60)',
                 neutral: 'oklch(30% 0.04 35)', neutralContent: 'oklch(94% 0.012 60)',
+            ),
+            // The two dark palettes: base ramps step UP in lightness so
+            // `muted` still reads as a raised band, and neutral stays darker
+            // than base-100 so `inverted` sections and the footer keep their
+            // own surface on an already-dark page.
+            self::Midnight => self::palette(
+                base100: 'oklch(20% 0.03 265)', base200: 'oklch(24% 0.035 265)', base300: 'oklch(29% 0.04 265)', baseContent: 'oklch(93% 0.01 250)',
+                primary: 'oklch(75% 0.14 210)', primaryContent: 'oklch(18% 0.03 230)',
+                secondary: 'oklch(70% 0.1 300)', secondaryContent: 'oklch(18% 0.03 300)',
+                accent: 'oklch(82% 0.16 85)', accentContent: 'oklch(22% 0.05 85)',
+                neutral: 'oklch(13% 0.02 265)', neutralContent: 'oklch(90% 0.01 250)',
+            ),
+            self::NoirGold => self::palette(
+                base100: 'oklch(17% 0.005 60)', base200: 'oklch(21% 0.008 60)', base300: 'oklch(26% 0.01 60)', baseContent: 'oklch(92% 0.02 85)',
+                primary: 'oklch(78% 0.13 85)', primaryContent: 'oklch(20% 0.04 85)',
+                secondary: 'oklch(65% 0.03 60)', secondaryContent: 'oklch(15% 0.01 60)',
+                accent: 'oklch(60% 0.15 25)', accentContent: 'oklch(97% 0.01 60)',
+                neutral: 'oklch(10% 0 0)', neutralContent: 'oklch(88% 0.02 85)',
             ),
             self::Brand => self::brandPalette($business),
         };
@@ -110,7 +156,7 @@ enum ColorPalette: string
         $accent = self::validHex($business?->brand_accent) ?? $primary;
 
         return self::palette(
-            base100: 'oklch(100% 0 0)', base200: 'oklch(98% 0 0)', base300: 'oklch(95% 0 0)', baseContent: 'oklch(21% 0.006 285.885)',
+            base100: 'oklch(100% 0 0)', base200: 'oklch(95.5% 0 0)', base300: 'oklch(91% 0 0)', baseContent: 'oklch(21% 0.006 285.885)',
             primary: $primary, primaryContent: Contrast::contentFor($primary),
             secondary: $secondary, secondaryContent: Contrast::contentFor($secondary),
             accent: $accent, accentContent: Contrast::contentFor($accent),

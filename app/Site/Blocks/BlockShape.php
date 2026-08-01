@@ -35,6 +35,18 @@ final class BlockShape
     public const string SPACING_KEY = 'spacing';
 
     /**
+     * The server-side slot for a block's stock-photo search query, in transit
+     * between draft generation and {@see \App\Actions\Pages\PopulateDraftImages},
+     * which consumes and removes it. The model proposes the query under the
+     * UNPREFIXED name `image_query`; {@see \App\Ai\SiteDraftValidator} harvests
+     * that before sanitization and re-attaches it here. Reserved (underscored,
+     * stripped by the sanitizer) so neither AI write path can author it
+     * directly — the validator is its one door, like every other key on this
+     * list.
+     */
+    public const string IMAGE_QUERY_KEY = '_image_query';
+
+    /**
      * Every reserved key, for stripping them out of author-supplied data.
      *
      * Only the TOP-LEVEL names belong here: this list is what
@@ -47,6 +59,6 @@ final class BlockShape
      */
     public static function reservedKeys(): array
     {
-        return [self::VARIANT_KEY, self::BIND_KEY, self::APPEARANCE_KEY];
+        return [self::VARIANT_KEY, self::BIND_KEY, self::APPEARANCE_KEY, self::IMAGE_QUERY_KEY];
     }
 }

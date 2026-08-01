@@ -79,6 +79,14 @@ final class Pricing extends Block
     ];
 
     /**
+     * @var array<string, string>
+     */
+    protected static array $variants = [
+        'simple' => 'Simple columns',
+        'tiers' => 'Highlighted tiers',
+    ];
+
+    /**
      * @return array<int, Field>
      */
     protected static function fields(): array

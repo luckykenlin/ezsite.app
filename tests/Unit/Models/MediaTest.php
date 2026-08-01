@@ -22,6 +22,18 @@ test('tenant_id is stamped from the current tenant context on create', function 
     expect(Media::query()->findOrFail($id)->tenant_id)->toBe($tenant->id);
 });
 
+test('stock provenance columns round-trip through the factory stock state', function (): void {
+    $tenant = Tenant::factory()->create();
+    $media = $this->runInTenant($tenant, fn (): Media => Media::factory()->stock()->create(['tenant_id' => $tenant->id]));
+
+    $media = Media::query()->findOrFail($media->getKey());
+
+    expect($media->getAttribute('source_provider'))->toBe('pexels')
+        ->and($media->getAttribute('source_id'))->not->toBeNull()
+        ->and($media->getAttribute('photographer_name'))->not->toBeNull()
+        ->and($media->directory)->toBe('stock');
+});
+
 test('the url resolves through the tenant-aware public disk', function (): void {
     $tenant = Tenant::factory()->create();
 

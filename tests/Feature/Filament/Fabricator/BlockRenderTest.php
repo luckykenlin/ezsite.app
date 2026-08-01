@@ -53,7 +53,7 @@ it('renders each block variant with its own layout', function (array $block, arr
             'secondary_label' => 'Call us',
             'secondary_url' => 'tel:+15551234567',
         ]],
-        ['Ready to book?', 'Book now', 'Call us'], 'bg-primary text-primary-content', 'none',
+        ['Ready to book?', 'Book now', 'Call us'], 'site-tone-accent', 'none',
     ],
     'cta boxed' => [
         ['type' => 'cta', 'data' => [
@@ -101,6 +101,41 @@ it('renders each block variant with its own layout', function (array $block, arr
             ]],
         ]],
         ['Deep clean', 'https://example.com/clean.jpg', '/services/deep-clean'], 'after:absolute', 'none',
+    ],
+    // Two items, because the layout's whole point is positional: even rows put
+    // the image column second, and only a second row makes that class render.
+    'features alternating' => [
+        ['type' => 'features', 'data' => [
+            'variant' => 'alternating',
+            'heading' => 'Why choose us',
+            'features' => [
+                ['icon' => '⭐', 'title' => 'Fast turnaround', 'description' => 'Same-day service'],
+                ['title' => 'Award winning', 'image_url' => 'https://example.com/award.jpg'],
+            ],
+        ]],
+        ['Why choose us', 'Fast turnaround', 'Award winning'], 'md:order-2', 'none',
+    ],
+    'features icon-rows' => [
+        ['type' => 'features', 'data' => [
+            'variant' => 'icon-rows',
+            'heading' => 'Why choose us',
+            'features' => [['icon' => '⭐', 'title' => 'Fast turnaround', 'description' => 'Same-day service']],
+        ]],
+        ['Why choose us', 'Fast turnaround'], 'bg-primary/10', 'none',
+    ],
+    // No image on purpose: the backdrop is guarded, so the centered column must
+    // stand on its own over the plain inverted section.
+    'cta full-photo' => [
+        ['type' => 'cta', 'data' => [
+            'variant' => 'full-photo',
+            'heading' => 'Ready to book?',
+            'body' => 'Slots fill up fast.',
+            'cta_label' => 'Book now',
+            'cta_url' => '/contact',
+            'secondary_label' => 'Call us',
+            'secondary_url' => 'tel:+15551234567',
+        ]],
+        ['Ready to book?', 'Book now', 'Call us'], 'max-w-2xl', 'none',
     ],
     'features list with an item image and link' => [
         ['type' => 'features', 'data' => [
@@ -163,6 +198,17 @@ it('renders each block variant with its own layout', function (array $block, arr
         ]],
         ['How it works', 'Get in touch', 'We visit'], '<ol', 'none',
     ],
+    'steps timeline' => [
+        ['type' => 'steps', 'data' => [
+            'variant' => 'timeline',
+            'heading' => 'How it works',
+            'steps' => [
+                ['title' => 'Get in touch', 'description' => 'Call or email.'],
+                ['title' => 'We visit', 'description' => 'Free quote.'],
+            ],
+        ]],
+        ['How it works', 'Get in touch', 'We visit'], 'border-l-2', 'none',
+    ],
     'stats pairs each number with what it counts' => [
         ['type' => 'stats', 'data' => [
             'heading' => 'By the numbers',
@@ -170,12 +216,28 @@ it('renders each block variant with its own layout', function (array $block, arr
         ]],
         ['500+', 'happy customers', 'since 2010'], '<dl', 'none',
     ],
+    'stats band' => [
+        ['type' => 'stats', 'data' => [
+            'variant' => 'band',
+            'heading' => 'By the numbers',
+            'stats' => [['value' => '500+', 'label' => 'happy customers']],
+        ]],
+        ['500+', 'happy customers'], 'tabular-nums text-primary', 'none',
+    ],
     'team renders a person with a role' => [
         ['type' => 'team', 'data' => [
             'heading' => 'Meet the team',
             'members' => [['name' => 'Dana Reed', 'role' => 'Head baker', 'bio' => 'Twelve years at the oven.']],
         ]],
         ['Meet the team', 'Dana Reed', 'Head baker', 'Twelve years at the oven.'], 'rounded-full', 'none',
+    ],
+    'team tiles' => [
+        ['type' => 'team', 'data' => [
+            'variant' => 'tiles',
+            'heading' => 'Meet the team',
+            'members' => [['name' => 'Dana Reed', 'role' => 'Head baker', 'bio' => 'Twelve years at the oven.']],
+        ]],
+        ['Meet the team', 'Dana Reed', 'Head baker', 'Twelve years at the oven.'], 'aspect-[4/5]', 'none',
     ],
     'logos uses the brand name as alt text' => [
         ['type' => 'logos', 'data' => [
@@ -197,6 +259,17 @@ it('renders each block variant with its own layout', function (array $block, arr
             ]],
         ]],
         ['Choose a plan', 'Standard', '$29', 'per month', 'Weekly visit', 'Same-day callout', 'Start now'], 'card-actions', 'none',
+    ],
+    'pricing tiers highlights the featured plan' => [
+        ['type' => 'pricing', 'data' => [
+            'variant' => 'tiers',
+            'heading' => 'Choose a plan',
+            'plans' => [
+                ['name' => 'Starter', 'price' => '$19', 'cta_label' => 'Start now', 'cta_url' => '/contact'],
+                ['name' => 'Standard', 'price' => '$29', 'is_featured' => true, 'cta_label' => 'Start now', 'cta_url' => '/contact'],
+            ],
+        ]],
+        ['Choose a plan', 'Starter', 'Standard', '$29', 'Most popular'], 'ring-primary', 'none',
     ],
     // One block for menus, service lists and packages alike — what differs
     // between those is the content, not the layout.
@@ -264,6 +337,14 @@ it('renders each block variant with its own layout', function (array $block, arr
         ]],
         ['Our work', 'https://example.com/one.jpg', 'Signature look'], 'columns-2', 'none',
     ],
+    'gallery filmstrip' => [
+        ['type' => 'gallery', 'data' => [
+            'variant' => 'filmstrip',
+            'heading' => 'Our work',
+            'images' => [['url' => 'https://example.com/one.jpg', 'caption' => 'Signature look']],
+        ]],
+        ['Our work', 'https://example.com/one.jpg', 'Signature look'], 'snap-x', 'none',
+    ],
     'testimonials grid' => [
         ['type' => 'testimonials', 'data' => [
             'variant' => 'grid',
@@ -282,6 +363,19 @@ it('renders each block variant with its own layout', function (array $block, arr
             'testimonials' => [['quote' => 'Absolutely wonderful service', 'author' => 'Amy Chen']],
         ]],
         ['What clients say', 'Absolutely wonderful service', 'Amy Chen'], 'carousel-item', 'none',
+    ],
+    // Two quotes stored, but the spotlight renders only the first — one voice
+    // at full volume is the layout's whole idea.
+    'testimonials spotlight' => [
+        ['type' => 'testimonials', 'data' => [
+            'variant' => 'spotlight',
+            'heading' => 'What clients say',
+            'testimonials' => [
+                ['quote' => 'Absolutely wonderful service', 'author' => 'Amy Chen', 'role' => 'Regular'],
+                ['quote' => 'Best in town', 'author' => 'Ben Wu'],
+            ],
+        ]],
+        ['What clients say', 'Absolutely wonderful service', 'Amy Chen'], 'not-italic', 'none',
     ],
     'header simple' => [
         ['type' => 'header', 'data' => [

@@ -13,11 +13,11 @@
 <x-site.section :appearance="$appearance" tone="base" spacing="normal">
     <div class="mx-auto max-w-7xl px-6">
         @if ($heading)
-            <h2 class="text-balance text-center text-3xl font-bold tracking-tight md:text-4xl">{{ $heading }}</h2>
+            <h2 class="site-h2 text-center">{{ $heading }}</h2>
         @endif
 
         @if ($intro)
-            <p class="mx-auto mt-4 max-w-2xl text-center text-lg text-base-content/70">{{ $intro }}</p>
+            <p class="site-intro mx-auto mt-4 max-w-2xl text-center text-base-content/70">{{ $intro }}</p>
         @endif
 
         <div class="mt-12 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">

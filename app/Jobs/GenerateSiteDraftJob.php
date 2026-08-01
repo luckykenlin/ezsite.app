@@ -48,6 +48,13 @@ final class GenerateSiteDraftJob extends TenantAware
             return;
         }
 
+        // Photos are a follow-up, never part of this job's budget: the draft
+        // is already landed and notified, and a photo failure must cost
+        // nothing but the photos.
+        if (config()->boolean('stock-photos.enabled')) {
+            dispatch(new PopulateDraftImagesJob($this->tenantId));
+        }
+
         Notification::make()
             ->title('Site draft ready')
             ->body(sprintf('“%s” is waiting for your review in Pages.', $page->title))

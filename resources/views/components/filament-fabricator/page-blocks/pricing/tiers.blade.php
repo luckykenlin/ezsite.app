@@ -9,10 +9,9 @@
     // Repeater state may be a uuid-keyed map (Filament) or a plain list (AI
     // output) — iterate whatever array arrives, defensively.
     //
-    // Unnamed plans are dropped HERE rather than skipped in the loop, because the
-    // column count is derived from this list: a half-finished entry the operator
-    // is still typing would otherwise claim a column and leave the real plan
-    // rendering at half width.
+    // Unnamed plans are dropped HERE rather than skipped in the loop, for the
+    // same reason as the simple variant: a half-finished entry the operator is
+    // still typing must not claim a column.
     $items = array_values(array_filter(
         is_array($plans) ? $plans : [],
         static fn (mixed $plan): bool => is_array($plan) && ($plan['name'] ?? null),
@@ -30,21 +29,20 @@
             break;
         }
     }
-
-    // Columns, capped so four plans do not become four unreadable slivers.
-    $columns = min(max(count($items), 1), 3);
 @endphp
 <x-site.section :appearance="$appearance" tone="base" spacing="normal">
     <div class="mx-auto max-w-6xl px-6">
         @if ($heading)
-            <h2 class="text-balance text-center text-3xl font-bold tracking-tight md:text-4xl">{{ $heading }}</h2>
+            <h2 class="site-h2 text-center">{{ $heading }}</h2>
         @endif
 
         @if ($intro)
-            <p class="mx-auto mt-4 max-w-2xl text-center text-lg text-base-content/70">{{ $intro }}</p>
+            <p class="site-intro mx-auto mt-4 max-w-2xl text-center text-base-content/70">{{ $intro }}</p>
         @endif
 
-        <div @class(['mt-12 grid items-start gap-8', 'sm:grid-cols-2' => $columns >= 2, 'lg:grid-cols-3' => $columns >= 3])>
+        {{-- items-center rather than items-start: the featured tier reads as the
+             tallest card only when its neighbours float at mid-height. --}}
+        <div class="mt-12 grid gap-8 lg:grid-cols-3 lg:items-center">
             @foreach ($items as $index => $item)
                 @php
                     $isFeatured = $index === $featured;
@@ -57,12 +55,12 @@
                     ));
                 @endphp
                 <div @class([
-                    'card h-full bg-base-200',
+                    'card bg-base-200',
                     'ring-2 ring-primary' => $isFeatured,
                 ])>
                     <div class="card-body">
                         @if ($isFeatured)
-                            <span class="badge badge-primary self-start">Recommended</span>
+                            <span class="site-eyebrow text-primary">{{ __('Most popular') }}</span>
                         @endif
 
                         <h3 class="card-title">{{ $item['name'] }}</h3>
@@ -95,7 +93,7 @@
                             <div class="card-actions mt-6">
                                 <a
                                     href="{{ $item['cta_url'] }}"
-                                    @class(['btn w-full', 'btn-primary' => $isFeatured, 'btn-outline' => ! $isFeatured])
+                                    @class(['btn w-full', 'btn-primary' => $isFeatured, 'btn-ghost' => ! $isFeatured])
                                 >{{ $item['cta_label'] }}</a>
                             </div>
                         @endif

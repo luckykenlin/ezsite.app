@@ -41,7 +41,25 @@ it('compiles stored tokens into the variable set, defaulting without them, and r
         ->and($defaults['--radius-box'])->toBe('0.5rem')
         ->and($defaults['--spacing'])->toBe('0.25rem')
         ->and($defaults['--font-heading'])->toContain('Instrument Sans')
+        // The TypeStyle contract rides in the same set (Classic here).
+        ->and($defaults['--type-scale'])->toBe('1')
+        ->and($defaults['--type-heading-weight'])->toBe('700')
         ->and(ThemeVariables::style($themed)->toHtml())->toStartWith('<style data-site-theme>:root{')
         ->toEndWith('}</style>')
         ->toContain('--color-primary: oklch(55% 0.12 40);');
+});
+
+it('tells the browser the palette scheme, so native UI follows a dark site', function (): void {
+    $business = Business::query()->findOrFail(themedBusiness()->getKey());
+
+    $light = ThemeVariables::variablesFor($business->design_tokens, $business);
+    $dark = ThemeVariables::variablesFor(
+        $business->design_tokens->with(palette: App\Design\ColorPalette::Midnight),
+        $business,
+    );
+
+    expect($light['color-scheme'])->toBe('light')
+        ->and($dark['color-scheme'])->toBe('dark')
+        ->and(ThemeVariables::styleFor($business->design_tokens->with(palette: App\Design\ColorPalette::Midnight), $business)->toHtml())
+        ->toContain('color-scheme: dark;');
 });

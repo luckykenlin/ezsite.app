@@ -22,11 +22,11 @@
 <x-site.section :appearance="$appearance" tone="base" spacing="normal">
     <div class="mx-auto flex max-w-2xl flex-col items-center px-6 text-center">
         @if ($heading)
-            <h2 class="text-balance text-3xl font-bold tracking-tight md:text-4xl">{{ $heading }}</h2>
+            <h2 class="site-h2">{{ $heading }}</h2>
         @endif
 
         @if ($intro)
-            <p class="mt-4 text-lg text-base-content/70">{{ $intro }}</p>
+            <p class="site-intro mt-4 text-base-content/70">{{ $intro }}</p>
         @endif
 
         @if ($addressLines !== [])

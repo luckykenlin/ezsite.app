@@ -38,6 +38,13 @@ final readonly class BlockType
      * @param  array<string, mixed>  $sample  ready-to-render placeholder content
      * @param  BlockIntent|null  $intent  the block library group; null only for
      *                                    chrome, which the library never offers
+     * @param  array<string, string>  $variantLabels  `variantKey => human label`,
+     *                                                for the AI vocabulary. The label
+     *                                                doubles as the "when to use"
+     *                                                line ("Full-bleed image with
+     *                                                overlay"), which is what lets a
+     *                                                model choose a layout by purpose
+     *                                                rather than by key name.
      */
     public function __construct(
         public string $type,
@@ -48,6 +55,7 @@ final readonly class BlockType
         public array $fields,
         public array $sample,
         public ?BlockIntent $intent = null,
+        public array $variantLabels = [],
     ) {
         //
     }

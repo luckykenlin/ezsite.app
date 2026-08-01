@@ -10,10 +10,10 @@
 ])
 <x-site.section :appearance="$appearance" tone="accent" spacing="tight">
     <div class="mx-auto flex max-w-5xl flex-col items-center px-6 text-center">
-        <h2 data-editor-field="heading" class="text-balance text-3xl font-bold tracking-tight md:text-4xl">{{ $heading }}</h2>
+        <h2 data-editor-field="heading" class="site-h2">{{ $heading }}</h2>
 
         @if ($body)
-            <p data-editor-field="body" class="mt-4 max-w-2xl text-lg text-primary-content/80">{{ $body }}</p>
+            <p data-editor-field="body" class="site-intro mt-4 max-w-2xl text-primary-content/80">{{ $body }}</p>
         @endif
 
         <div class="mt-8 flex flex-wrap items-center justify-center gap-4">

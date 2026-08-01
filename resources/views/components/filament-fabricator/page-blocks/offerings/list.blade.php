@@ -26,11 +26,11 @@
          name-to-price column, and a long leader line is hard to follow. --}}
     <div class="mx-auto max-w-3xl px-6">
         @if ($heading)
-            <h2 class="text-balance text-3xl font-bold tracking-tight md:text-4xl">{{ $heading }}</h2>
+            <h2 class="site-h2">{{ $heading }}</h2>
         @endif
 
         @if ($intro)
-            <p class="mt-4 text-lg text-base-content/70">{{ $intro }}</p>
+            <p class="site-intro mt-4 text-base-content/70">{{ $intro }}</p>
         @endif
 
         @foreach ($groups as $group => $groupItems)

@@ -19,6 +19,9 @@ final readonly class DesignTokens
         public FontPair $fontPair,
         public RadiusScale $radius,
         public SpacingDensity $density,
+        public TypeStyle $typeStyle = TypeStyle::Classic,
+        public SectionDivider $divider = SectionDivider::None,
+        public AccentStyle $accent = AccentStyle::Flat,
     ) {
         //
     }
@@ -31,6 +34,9 @@ final readonly class DesignTokens
             fontPair: FontPair::ModernSans,
             radius: RadiusScale::Md,
             density: SpacingDensity::Normal,
+            typeStyle: TypeStyle::Classic,
+            divider: SectionDivider::None,
+            accent: AccentStyle::Flat,
         );
     }
 
@@ -45,11 +51,14 @@ final readonly class DesignTokens
             fontPair: (is_string($data['font_pair'] ?? null) ? FontPair::tryFrom($data['font_pair']) : null) ?? FontPair::ModernSans,
             radius: (is_string($data['radius'] ?? null) ? RadiusScale::tryFrom($data['radius']) : null) ?? RadiusScale::Md,
             density: (is_string($data['density'] ?? null) ? SpacingDensity::tryFrom($data['density']) : null) ?? SpacingDensity::Normal,
+            typeStyle: (is_string($data['type_style'] ?? null) ? TypeStyle::tryFrom($data['type_style']) : null) ?? TypeStyle::Classic,
+            divider: (is_string($data['divider'] ?? null) ? SectionDivider::tryFrom($data['divider']) : null) ?? SectionDivider::None,
+            accent: (is_string($data['accent'] ?? null) ? AccentStyle::tryFrom($data['accent']) : null) ?? AccentStyle::Flat,
         );
     }
 
     /**
-     * @return array{preset: string|null, palette: string, font_pair: string, radius: string, density: string}
+     * @return array{preset: string|null, palette: string, font_pair: string, type_style: string, radius: string, density: string, divider: string, accent: string}
      */
     public function toArray(): array
     {
@@ -57,8 +66,11 @@ final readonly class DesignTokens
             'preset' => $this->preset?->value,
             'palette' => $this->palette->value,
             'font_pair' => $this->fontPair->value,
+            'type_style' => $this->typeStyle->value,
             'radius' => $this->radius->value,
             'density' => $this->density->value,
+            'divider' => $this->divider->value,
+            'accent' => $this->accent->value,
         ];
     }
 
@@ -94,6 +106,9 @@ final readonly class DesignTokens
         ?FontPair $fontPair = null,
         ?RadiusScale $radius = null,
         ?SpacingDensity $density = null,
+        ?TypeStyle $typeStyle = null,
+        ?SectionDivider $divider = null,
+        ?AccentStyle $accent = null,
     ): self {
         return new self(
             preset: null,
@@ -101,6 +116,9 @@ final readonly class DesignTokens
             fontPair: $fontPair ?? $this->fontPair,
             radius: $radius ?? $this->radius,
             density: $density ?? $this->density,
+            typeStyle: $typeStyle ?? $this->typeStyle,
+            divider: $divider ?? $this->divider,
+            accent: $accent ?? $this->accent,
         );
     }
 }
