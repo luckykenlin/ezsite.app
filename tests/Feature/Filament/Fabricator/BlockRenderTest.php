@@ -113,6 +113,55 @@ it('renders each block variant with its own layout', function (array $block, arr
         ]],
         ['Deep clean', 'https://example.com/clean.jpg'], 'after:absolute', 'none',
     ],
+    // The five types added to widen what the assistant can reach for. Each is a
+    // shape the library genuinely lacked, not a variation on one it had — see
+    // each block class's description for the line that separates it from its
+    // nearest look-alike.
+    'steps numbers itself from position, not from content' => [
+        ['type' => 'steps', 'data' => [
+            'heading' => 'How it works',
+            'steps' => [
+                ['title' => 'Get in touch', 'description' => 'Call or email.'],
+                ['title' => 'We visit', 'description' => 'Free quote.'],
+            ],
+        ]],
+        ['How it works', 'Get in touch', 'We visit'], '<ol', 'none',
+    ],
+    'stats pairs each number with what it counts' => [
+        ['type' => 'stats', 'data' => [
+            'heading' => 'By the numbers',
+            'stats' => [['value' => '500+', 'label' => 'happy customers', 'description' => 'since 2010']],
+        ]],
+        ['500+', 'happy customers', 'since 2010'], '<dl', 'none',
+    ],
+    'team renders a person with a role' => [
+        ['type' => 'team', 'data' => [
+            'heading' => 'Meet the team',
+            'members' => [['name' => 'Dana Reed', 'role' => 'Head baker', 'bio' => 'Twelve years at the oven.']],
+        ]],
+        ['Meet the team', 'Dana Reed', 'Head baker', 'Twelve years at the oven.'], 'rounded-full', 'none',
+    ],
+    'logos uses the brand name as alt text' => [
+        ['type' => 'logos', 'data' => [
+            'heading' => 'Trusted by',
+            'logos' => [['url' => 'https://example.com/acme.png', 'name' => 'Acme Corp']],
+        ]],
+        ['Trusted by', 'Acme Corp', 'https://example.com/acme.png'], 'grayscale', 'none',
+    ],
+    'pricing renders a plan with its included lines' => [
+        ['type' => 'pricing', 'data' => [
+            'heading' => 'Choose a plan',
+            'plans' => [[
+                'name' => 'Standard',
+                'price' => '$29',
+                'period' => 'per month',
+                'features' => "Weekly visit\nSame-day callout",
+                'cta_label' => 'Start now',
+                'cta_url' => '/contact',
+            ]],
+        ]],
+        ['Choose a plan', 'Standard', '$29', 'per month', 'Weekly visit', 'Same-day callout', 'Start now'], 'card-actions', 'none',
+    ],
     // One block for menus, service lists and packages alike — what differs
     // between those is the content, not the layout.
     'offerings list' => [
