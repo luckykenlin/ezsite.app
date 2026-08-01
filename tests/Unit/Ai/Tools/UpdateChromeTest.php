@@ -134,23 +134,17 @@ it('says nothing changed when no field name was real', function (): void {
         ->and($result)->toContain('None of those field names exist on the header');
 });
 
-it('requires either content or a layout', function (): void {
+it('requires either content or a layout', function (array $arguments): void {
     $draft = editableChrome();
 
-    $result = chromeTool($draft)->handle(new Request(['slot' => 'footer']));
+    $result = chromeTool($draft)->handle(new Request(['slot' => 'footer', ...$arguments]));
 
     expect($draft->toArray())->toBeNull()
         ->and($result)->toContain('send the fields to change, a layout, or both');
-});
-
-it('treats empty content as nothing to do', function (): void {
-    $draft = editableChrome();
-
-    $result = chromeTool($draft)->handle(new Request(['slot' => 'footer', 'content' => []]));
-
-    expect($draft->toArray())->toBeNull()
-        ->and($result)->toContain('send the fields to change, a layout, or both');
-});
+})->with([
+    'neither given' => [[]],
+    'content given but empty' => [['content' => []]],
+]);
 
 it('publishes both slots and every chrome layout in its schema', function (): void {
     $tool = chromeTool(editableChrome());

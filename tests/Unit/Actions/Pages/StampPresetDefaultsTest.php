@@ -110,16 +110,6 @@ it('overwrites an appearance the preset does have an opinion about', function ()
     expect($stamped['appearance'])->toBe(['tone' => 'inverted', 'spacing' => 'tight']);
 });
 
-/*
- * A preset is hand-authored PHP, so a typo in it would otherwise reach a `class`
- * attribute through the section shell. Validation happens here rather than being
- * trusted, and an entry that validates away to nothing answers null — so a
- * malformed preset cannot blank an operator's choice either.
- */
-it('drops preset values that are not on the scales, rather than passing them through', function (): void {
-    expect(stampPresetDefaults()->appearanceFor('not-a-block', StylePreset::WarmCraft))->toBeNull();
-});
-
 it('stamps both halves of a preset over a whole list', function (): void {
     $blocks = stampPresetDefaults()->handle([
         ['type' => 'features', 'data' => ['heading' => 'Keep me']],

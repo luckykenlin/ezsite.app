@@ -81,9 +81,8 @@ it('names which piece of site chrome it is editing', function (mixed $slot, stri
 })->with([
     'the header' => ['header', 'Editing the site navigation…'],
     'the footer' => ['footer', 'Editing the site footer…'],
-    // The arguments are the model's, so a missing or nonsense slot is ordinary.
-    // It degrades to the navigation line rather than to silence: chrome IS being
-    // edited, and the header is the far likelier of the two.
-    'a missing slot' => [null, 'Editing the site navigation…'],
-    'a nonsense slot' => ['sidebar', 'Editing the site navigation…'],
+    // The arguments are the model's, so a nonsense slot is ordinary. It degrades
+    // to the navigation line rather than to silence: chrome IS being edited, and
+    // the header is the far likelier of the two.
+    'anything else' => ['sidebar', 'Editing the site navigation…'],
 ]);

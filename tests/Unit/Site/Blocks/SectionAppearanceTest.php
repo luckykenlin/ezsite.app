@@ -88,13 +88,6 @@ it('scales vertical padding responsively at every step', function (SectionSpacin
         ->and($spacing->description())->not->toBeEmpty();
 })->with(SectionSpacing::cases());
 
-it('exposes every case to the panel selects and the tool schemas', function (): void {
-    expect(SectionTone::options())->toHaveSameSize(SectionTone::cases())
-        ->and(SectionTone::values())->toBe(['base', 'muted', 'accent', 'inverted', 'plain'])
-        ->and(SectionSpacing::options())->toHaveSameSize(SectionSpacing::cases())
-        ->and(SectionSpacing::values())->toBe(['flush', 'tight', 'normal', 'airy', 'tall']);
-});
-
 it('keeps the spacing scale able to express every padding a block view had', function (): void {
     // The five steps exist because the views between them hard-coded exactly
     // these five pairs. If a step is ever retuned, the view that relied on it

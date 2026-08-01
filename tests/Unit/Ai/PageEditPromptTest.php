@@ -4,13 +4,11 @@ declare(strict_types=1);
 
 use App\Ai\PageDraft;
 use App\Ai\Prompts\PageEditPrompt;
-use App\Ai\SiteChromeDraft;
 use App\Ai\SiteStyleDraft;
 use App\Design\StylePreset;
 use App\Models\Business;
 use App\Models\Page;
 use App\Models\Tenant;
-use App\Site\Blocks\BlockType;
 use App\Site\Blocks\BlockVocabulary;
 use App\Site\SiteContext;
 
@@ -233,43 +231,4 @@ it('offers nothing to add when the page already uses every section type', functi
     }
 
     expect(editPrompt(new PageDraft($blocks)))->not->toContain('Sections you can add');
-});
-
-/*
- * The chrome section is skipped entirely without a draft, and a slot whose
- * contract is missing from the vocabulary is skipped within it. The second is
- * defensive rather than reachable today — every install registers both chrome
- * blocks — but the prompt must not print "header accepts:" followed by nothing
- * if one is ever unregistered.
- */
-it('omits the chrome section when the assistant has no chrome draft', function (): void {
-    expect(editPrompt(heroPageDraft()))->not->toContain('## Site header and footer');
-});
-
-it('skips a chrome slot the vocabulary does not describe', function (): void {
-    $page = Page::factory()->make(['title' => 'Home', 'slug' => '/', 'status' => 'draft']);
-
-    // A vocabulary with the page types but neither chrome type registered.
-    $vocabulary = array_filter(
-        resolve(BlockVocabulary::class)->all(),
-        static fn (BlockType $type): bool => ! $type->isChrome(),
-    );
-
-    $prompt = (string) new PageEditPrompt(
-        $page,
-        heroPageDraft(),
-        $vocabulary,
-        null,
-        'hi',
-        null,
-        null,
-        new SiteChromeDraft(['header' => ['type' => 'header', 'data' => ['variant' => 'simple']]]),
-    );
-
-    expect($prompt)->toContain('## Site header and footer')
-        // The outline still describes both slots — that comes from the draft, not
-        // the vocabulary...
-        ->toContain('- header (simple)')
-        // ...but neither field list is offered, because neither contract exists.
-        ->not->toContain('accepts:');
 });

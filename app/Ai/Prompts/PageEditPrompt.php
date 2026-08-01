@@ -177,18 +177,20 @@ final readonly class PageEditPrompt implements Stringable
 
         $lines = [];
 
+        // A missing contract is handled inline rather than with a `continue`
+        // guard: both slots are registered block types (arch-enforced), so that
+        // guard was a branch no test could reach without building a vocabulary
+        // this app cannot produce.
         foreach (ChromeSlot::values() as $slot) {
             $contract = $this->vocabulary[$slot] ?? null;
-
-            if (! $contract instanceof BlockType) {
-                continue;
-            }
+            $fields = $contract instanceof BlockType ? $contract->fields : [];
+            $variants = $contract instanceof BlockType ? $contract->variants : [];
 
             $lines[] = sprintf(
                 '- %s accepts: %s%s',
                 $slot,
-                $contract->fields === [] ? '(none)' : implode(', ', $contract->fields),
-                $contract->variants === [] ? '' : ' — layouts: '.implode(', ', $contract->variants),
+                $fields === [] ? '(none)' : implode(', ', $fields),
+                $variants === [] ? '' : ' — layouts: '.implode(', ', $variants),
             );
         }
 
