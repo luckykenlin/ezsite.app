@@ -35,7 +35,16 @@ final readonly class CreatePageFromName
 
     public function __construct(private UniquePageSlug $slugs) {}
 
-    public function handle(string $title): Page
+    /**
+     * @param  list<array{type: string, data: array<string, mixed>}>  $blocks  what the
+     *                                                                         page starts with. Empty for the canvas's right-click gesture, which
+     *                                                                         wants a blank page; the assistant passes a section skeleton
+     *                                                                         ({@see \App\Ai\Tools\CreatePage}). Taking it here rather than letting
+     *                                                                         the caller create-then-update keeps it to one INSERT and leaves no
+     *                                                                         window in which a half-built page exists — the same reason
+     *                                                                         {@see DuplicatePage} takes its blocks as an argument.
+     */
+    public function handle(string $title, array $blocks = []): Page
     {
         $title = mb_trim($title);
 
@@ -48,7 +57,7 @@ final readonly class CreatePageFromName
                     // The same default Fabricator's own create form uses.
                     'layout' => FilamentFabricator::getDefaultLayoutName(),
                     'parent_id' => null,
-                    'blocks' => [],
+                    'blocks' => $blocks,
                     'status' => PageStatus::Draft,
                 ]);
             } catch (UniqueConstraintViolationException $exception) {

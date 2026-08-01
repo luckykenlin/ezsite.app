@@ -108,11 +108,7 @@ final readonly class CreatePage implements Tool
             );
         }
 
-        $page = $this->create->handle($title);
-
-        if ($blocks !== []) {
-            $page->update(['blocks' => $blocks]);
-        }
+        $page = $this->create->handle($title, $blocks);
 
         return sprintf(
             'Created "%s" as a hidden draft at /%s%s. It is not on the live site: the operator opens it '
