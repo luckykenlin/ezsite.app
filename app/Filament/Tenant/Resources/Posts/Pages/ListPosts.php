@@ -16,7 +16,7 @@ final class ListPosts extends ListRecords
     {
         return [
             CreateAction::make()
-                ->mutateFormDataUsing(function (array $data): array {
+                ->mutateDataUsing(function (array $data): array {
                     $data['tenant_id'] = tenant('id');
 
                     return $data;

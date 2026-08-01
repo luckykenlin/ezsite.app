@@ -37,7 +37,7 @@ test('can update a user without changing the password, through an edit form pref
     Livewire::test(ListUsers::class)
         ->mountAction(TestAction::make(EditAction::class)->table($user))
         ->assertSchemaStateSet(['email' => $user->email])
-        ->setActionData(['name' => 'Updated Name', 'password' => null])
+        ->fillForm(['name' => 'Updated Name', 'password' => null])
         ->callMountedAction()
         ->assertHasNoFormErrors();
 
