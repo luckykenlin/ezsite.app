@@ -5,17 +5,17 @@
     'testimonials' => [],
 ])
 @php
+    $layout = \App\Site\Blocks\SectionLayout::for('testimonials', 'spotlight')->resolve($appearance);
+
     // Repeater state may be a uuid-keyed map (Filament) or a plain list (AI
     // output) — normalize defensively, then spotlight only the FIRST quote:
     // one voice at full volume is the whole idea of this layout.
     $items = array_values(array_filter(is_array($testimonials) ? $testimonials : [], 'is_array'));
     $item = $items[0] ?? null;
 @endphp
-<x-site.section :appearance="$appearance" tone="muted" spacing="normal">
-    <div class="mx-auto max-w-3xl px-6 text-center">
-        @if ($heading)
-            <h2 class="site-h2 text-center">{{ $heading }}</h2>
-        @endif
+<x-site.section :appearance="$appearance" :tone="$layout->toneDefault()" :spacing="$layout->spacingDefault()">
+    <div class="{{ $layout->container() }} text-center">
+        <x-site.section-header :layout="$layout" :heading="$heading" />
 
         @if ($item)
             <figure @class(['mt-12' => (bool) $heading])>

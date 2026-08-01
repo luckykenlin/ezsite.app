@@ -72,16 +72,12 @@ it('keeps every block view on the background and spacing it declared before the 
         ['type' => 'features', 'data' => ['variant' => 'grid', 'heading' => 'Why us']],
         'bg-base-100 text-base-content', 'py-20 md:py-28', 0,
     ],
-    'features list' => [
-        ['type' => 'features', 'data' => ['variant' => 'list', 'heading' => 'Why us']],
+    'features icon-rows' => [
+        ['type' => 'features', 'data' => ['variant' => 'icon-rows', 'heading' => 'Why us']],
         'bg-base-100 text-base-content', 'py-20 md:py-28', 0,
     ],
-    'offerings list' => [
-        ['type' => 'offerings', 'data' => ['variant' => 'list', 'heading' => 'Menu']],
-        'bg-base-100 text-base-content', 'py-20 md:py-28', 0,
-    ],
-    'offerings cards' => [
-        ['type' => 'offerings', 'data' => ['variant' => 'cards', 'heading' => 'Menu']],
+    'offerings' => [
+        ['type' => 'offerings', 'data' => ['heading' => 'Menu']],
         'bg-base-100 text-base-content', 'py-20 md:py-28', 0,
     ],
     'gallery grid' => [
@@ -113,26 +109,82 @@ it('keeps every block view on the background and spacing it declared before the 
         ['type' => 'cta', 'data' => ['variant' => 'banner', 'heading' => 'Book now', 'cta_label' => 'Call', 'cta_url' => '/contact']],
         'site-tone-accent', 'py-16 md:py-20', 0,
     ],
-    'cta boxed is tighter but plain' => [
-        ['type' => 'cta', 'data' => ['variant' => 'boxed', 'heading' => 'Book now', 'cta_label' => 'Call', 'cta_url' => '/contact']],
-        'bg-base-100 text-base-content', 'py-16 md:py-20', 0,
-    ],
     // A heading paints nothing at all: it is a divider inside the page's flow,
     // not a band of its own.
     'heading paints no background' => [
         ['type' => 'heading', 'data' => ['content' => 'Our services', 'level' => 'h2']],
-        '<section class="px-4">', 'py-8 md:py-12', 0,
+        '<section class="">', 'py-8 md:py-12', 0,
     ],
     // Bound blocks need a location before they render at all.
-    'contact split' => [
-        ['type' => 'contact', 'data' => ['variant' => 'split', 'heading' => 'Find us']],
-        'bg-base-100 text-base-content', 'py-20 md:py-28', 1,
-    ],
-    'contact stacked' => [
-        ['type' => 'contact', 'data' => ['variant' => 'stacked', 'heading' => 'Find us']],
+    'contact' => [
+        ['type' => 'contact', 'data' => ['heading' => 'Find us']],
         'bg-base-100 text-base-content', 'py-20 md:py-28', 1,
     ],
 ]);
+
+/*
+ * The parametric axes, end to end: a stored axis value must change the classes
+ * the view emits, and an untouched one must render the contract default. One
+ * spot check per axis — the enum→class maps themselves are unit-pinned.
+ */
+it('renders stored layout axes and falls back to the contract defaults', function (): void {
+    renderBlock([
+        'type' => 'features',
+        'data' => [
+            'variant' => 'grid',
+            'appearance' => ['columns' => 'two', 'item_style' => 'plain', 'align' => 'start', 'width' => 'narrow'],
+            'heading' => 'Why us',
+            'features' => [['title' => 'Fresh', 'description' => 'Daily']],
+        ],
+    ])
+        ->assertSeeHtml('grid-cols-1 sm:grid-cols-2')
+        ->assertSeeHtml('max-w-3xl')
+        // align=start drops the centring; plain items drop the card chrome.
+        ->assertDontSeeHtml('site-h2 text-center')
+        ->assertDontSeeHtml('card bg-base-200');
+});
+
+it('renders the contract axis defaults when nothing is stored', function (): void {
+    renderBlock([
+        'type' => 'features',
+        'data' => ['variant' => 'grid', 'heading' => 'Why us', 'features' => [['title' => 'Fresh']]],
+    ])
+        ->assertSeeHtml('grid-cols-1 sm:grid-cols-2 lg:grid-cols-3')
+        ->assertSeeHtml('max-w-7xl')
+        ->assertSeeHtml('site-h2 text-center')
+        ->assertSeeHtml('card bg-base-200');
+});
+
+it('lifts cards onto a lighter surface when the tone axis darkens the band', function (): void {
+    // The latent bug the tone-aware item surface fixes: bg-base-200 cards on
+    // a muted bg-base-200 band used to vanish.
+    renderBlock([
+        'type' => 'features',
+        'data' => [
+            'variant' => 'grid',
+            'appearance' => ['tone' => 'muted'],
+            'heading' => 'Why us',
+            'features' => [['title' => 'Fresh']],
+        ],
+    ])
+        ->assertSeeHtml('card bg-base-100')
+        ->assertDontSeeHtml('card bg-base-200');
+});
+
+it('re-expresses the retired list variants as axis combinations', function (): void {
+    // The old offerings/list look: one column, no cards, divided price rows.
+    renderBlock([
+        'type' => 'offerings',
+        'data' => [
+            'appearance' => ['columns' => 'one', 'item_style' => 'plain', 'width' => 'narrow', 'align' => 'start'],
+            'heading' => 'Menu',
+            'items' => [['name' => 'Espresso', 'price' => '$4']],
+        ],
+    ])
+        ->assertSeeHtml('divide-y divide-base-300')
+        ->assertSeeHtml('max-w-3xl')
+        ->assertSee('Espresso');
+});
 
 it('lets a stored appearance override the view defaults', function (): void {
     renderBlock([

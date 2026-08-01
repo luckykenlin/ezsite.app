@@ -7,17 +7,25 @@ namespace App\Ai\Tools;
 use App\Actions\Pages\UpdatePageBlock;
 use App\Ai\PageDraft;
 use App\Site\Blocks\BlockShape;
+use App\Site\Blocks\BlockType;
 use App\Site\Blocks\BlockVocabulary;
-use App\Site\Blocks\SectionSpacing;
-use App\Site\Blocks\SectionTone;
+use App\Site\Blocks\LayoutAxis;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Ai\Contracts\Tool;
 use Laravel\Ai\Tools\Request;
 
 /**
- * Sets how one section PRESENTS itself — the background it paints and how much
- * vertical room it takes. "Make that section stand out", "put the testimonials
- * on a dark band", "tighten up the gap there".
+ * Sets how one section PRESENTS itself — every layout axis short of the
+ * variant: the background it paints, its vertical room, content width, header
+ * alignment, column count, item chrome and image crop. "Make that two
+ * columns", "left-align the heading", "put the testimonials on a dark band",
+ * "drop the cards".
+ *
+ * ONE restyle verb, deliberately: the model choosing between two overlapping
+ * presentation tools costs more than one wider schema. Which axes a given
+ * block accepts is the CONTRACT's decision ({@see BlockType::$axes}) — an
+ * axis the type never declared comes back as a correction naming the real
+ * ones, exactly like an invalid value.
  *
  * The third door onto a server-owned reserved key, alongside
  * {@see SetBlockVariant} (`variant`) and the panel's own bind picker (`bind`).
@@ -26,10 +34,6 @@ use Laravel\Ai\Tools\Request;
  * routine copy edit must never silently restyle a section, and every restyle
  * must pass through one place that validates it.
  *
- * The schema descriptions warn against overuse rather than just listing values:
- * a page where every section claims its own background is worse than one where
- * none do.
- *
  * Writes into `data`'s existing `appearance` slot when there is one, rather than
  * rebuilding the array — key order is load-bearing, for the reason spelled out on
  * {@see SetBlockVariant}.
@@ -37,10 +41,10 @@ use Laravel\Ai\Tools\Request;
 final readonly class SetBlockAppearance implements Tool
 {
     /**
-     * The value that CLEARS a dimension, handing it back to whatever the block's
+     * The value that CLEARS an axis, handing it back to whatever the block's
      * layout was designed to do.
      *
-     * Necessary rather than tidy: an unset dimension is not the same as any
+     * Necessary rather than tidy: an unset axis is not the same as any
      * particular case (a testimonials block defaults to a shaded band, a hero to
      * the page background), so without this the model could apply an appearance
      * but never take it back — and the undo stack belongs to the operator, not
@@ -58,9 +62,11 @@ final readonly class SetBlockAppearance implements Tool
 
     public function description(): string
     {
-        return 'Change how one section on the page looks without touching its words or its layout: '
-            .'the background it sits on and how much vertical space it takes. Use it to give a page '
-            .'rhythm — a shaded or dark band between plain sections — not on every section at once.';
+        return 'Change how one section on the page looks without touching its words or its layout '
+            .'variant: background, vertical space, content width, header alignment, column count, '
+            .'item style (cards or plain), and image shape. Send only the axes you want to change. '
+            .'Not every section has every axis — the correction will name the real ones. Use it to '
+            .'give a page rhythm, not on every section at once.';
     }
 
     /**
@@ -68,21 +74,30 @@ final readonly class SetBlockAppearance implements Tool
      */
     public function schema(JsonSchema $schema): array
     {
-        return [
+        $fields = [
             'key' => $schema->string()
                 ->description("The block's key, as listed in the current page blocks.")
                 ->required(),
-            'tone' => $schema->string()
-                ->description('The background: '.$this->describe(SectionTone::cases()).'. '
-                    .'Most sections should stay on the page background; a page where every section '
-                    .'has its own colour looks worse than one where none do. Use "'.self::RESET
-                    .'" to hand the background back to the layout\'s own default.')
-                ->enum([...SectionTone::values(), self::RESET]),
-            'spacing' => $schema->string()
-                ->description('The vertical space above and below: '.$this->describe(SectionSpacing::cases()).'. '
-                    .'Use "'.self::RESET.'" to hand it back to the layout\'s own default.')
-                ->enum([...SectionSpacing::values(), self::RESET]),
         ];
+
+        // One optional enum per axis, its guidance published straight off the
+        // value enum — the same argument as BlockType::$description: names
+        // alone leave the model choosing by vibe.
+        foreach (LayoutAxis::cases() as $axis) {
+            $extra = match ($axis) {
+                LayoutAxis::Tone => ' Most sections should stay on the page background; a page where '
+                    .'every section has its own colour looks worse than one where none do.',
+                default => '',
+            };
+
+            $fields[$axis->value] = $schema->string()
+                ->description(ucfirst(str_replace('_', ' ', $axis->value)).': '
+                    .$this->describe($axis).'.'.$extra
+                    .' Use "'.self::RESET.'" to hand it back to the layout\'s own default.')
+                ->enum([...$axis->values(), self::RESET]);
+        }
+
+        return $fields;
     }
 
     public function handle(Request $request): string
@@ -106,33 +121,51 @@ final readonly class SetBlockAppearance implements Tool
             );
         }
 
-        $tone = $arguments['tone'] ?? null;
-        $spacing = $arguments['spacing'] ?? null;
+        $contract = $this->vocabulary->get($block['type']);
+        $requested = [];
 
-        if (! is_string($tone) && ! is_string($spacing)) {
-            return "Nothing changed: set a background, a vertical spacing, or both.\n\n".$this->draft->outline();
+        foreach (LayoutAxis::cases() as $axis) {
+            $value = $arguments[$axis->value] ?? null;
+
+            if (! is_string($value)) {
+                continue;
+            }
+
+            // An axis the type never declared: name the ones it has, so the
+            // model's next call is a real one instead of a retry by vibe.
+            if ($contract instanceof BlockType && ! $contract->supportsAxis($axis)) {
+                return sprintf(
+                    "%s is not a layout axis of a %s block, so nothing changed. A %s block's axes are: %s.\n\n%s",
+                    $axis->value,
+                    $block['type'],
+                    $block['type'],
+                    implode(', ', array_map(
+                        static fn (LayoutAxis $supported): string => $supported->value,
+                        $contract->supportedAxes(),
+                    )),
+                    $this->draft->outline(),
+                );
+            }
+
+            if ($value !== self::RESET && $axis->resolve($value) === null) {
+                return sprintf(
+                    "'%s' is not a %s you can set, so nothing changed. The values are: %s.\n\n%s",
+                    $value,
+                    mb_strtolower($axis->label()),
+                    implode(', ', $axis->values()),
+                    $this->draft->outline(),
+                );
+            }
+
+            $requested[$axis->value] = $value;
         }
 
-        if (is_string($tone) && $tone !== self::RESET && SectionTone::tryFrom($tone) === null) {
-            return sprintf(
-                "'%s' is not a background you can set, so nothing changed. The backgrounds are: %s.\n\n%s",
-                $tone,
-                implode(', ', SectionTone::values()),
-                $this->draft->outline(),
-            );
-        }
-
-        if (is_string($spacing) && $spacing !== self::RESET && SectionSpacing::tryFrom($spacing) === null) {
-            return sprintf(
-                "'%s' is not a spacing you can set, so nothing changed. The spacings are: %s.\n\n%s",
-                $spacing,
-                implode(', ', SectionSpacing::values()),
-                $this->draft->outline(),
-            );
+        if ($requested === []) {
+            return "Nothing changed: send at least one layout axis to set or reset.\n\n".$this->draft->outline();
         }
 
         $data = $block['data'];
-        $appearance = $this->apply($this->stored($data), $tone, $spacing);
+        $appearance = $this->apply($this->stored($data), $requested);
 
         if ($appearance === []) {
             unset($data[BlockShape::APPEARANCE_KEY]);
@@ -146,15 +179,16 @@ final readonly class SetBlockAppearance implements Tool
             "Set the %s block to %s.\n\n%s",
             $block['type'],
             $appearance === []
-                ? "its layout's own background and spacing"
+                ? "its layout's own defaults"
                 : $this->summarize($appearance),
             $this->draft->outline(),
         );
     }
 
     /**
-     * The block's stored appearance, narrowed to the two keys that belong in it —
-     * so a malformed or hand-edited value cannot survive an otherwise valid edit.
+     * The block's stored appearance, narrowed to the axis keys that belong in
+     * it — so a malformed or hand-edited value cannot survive an otherwise
+     * valid edit.
      *
      * @param  array<string, mixed>  $data
      * @return array<string, string>
@@ -166,11 +200,11 @@ final readonly class SetBlockAppearance implements Tool
 
         $narrowed = [];
 
-        foreach ([BlockShape::TONE_KEY, BlockShape::SPACING_KEY] as $dimension) {
-            $value = $stored[$dimension] ?? null;
+        foreach (LayoutAxis::cases() as $axis) {
+            $value = $stored[$axis->value] ?? null;
 
             if (is_string($value)) {
-                $narrowed[$dimension] = $value;
+                $narrowed[$axis->value] = $value;
             }
         }
 
@@ -178,20 +212,18 @@ final readonly class SetBlockAppearance implements Tool
     }
 
     /**
-     * Apply the requested dimensions over what is stored: a given value sets,
-     * {@see RESET} clears, and an absent argument leaves that dimension alone —
-     * so "make it dark" does not quietly reset the spacing someone chose.
+     * Apply the requested axes over what is stored: a given value sets,
+     * {@see RESET} clears, and an absent axis is left alone — so "make it
+     * dark" does not quietly reset the columns someone chose. Keys re-emitted
+     * in {@see LayoutAxis} order so repeated edits never reorder the JSON.
      *
      * @param  array<string, string>  $appearance
+     * @param  array<string, string>  $requested
      * @return array<string, string>
      */
-    private function apply(array $appearance, mixed $tone, mixed $spacing): array
+    private function apply(array $appearance, array $requested): array
     {
-        foreach ([BlockShape::TONE_KEY => $tone, BlockShape::SPACING_KEY => $spacing] as $dimension => $value) {
-            if (! is_string($value)) {
-                continue;
-            }
-
+        foreach ($requested as $dimension => $value) {
             if ($value === self::RESET) {
                 unset($appearance[$dimension]);
 
@@ -201,21 +233,27 @@ final readonly class SetBlockAppearance implements Tool
             $appearance[$dimension] = $value;
         }
 
-        return $appearance;
+        $ordered = [];
+
+        foreach (LayoutAxis::cases() as $axis) {
+            if (array_key_exists($axis->value, $appearance)) {
+                $ordered[$axis->value] = $appearance[$axis->value];
+            }
+        }
+
+        return $ordered;
     }
 
     /**
      * `value — when to use it` lines for a schema description. Publishing the
      * guidance the enum already carries is what stops the model choosing a
      * background by vibe, the same argument as `BlockType::$description`.
-     *
-     * @param  list<SectionTone|SectionSpacing>  $cases
      */
-    private function describe(array $cases): string
+    private function describe(LayoutAxis $axis): string
     {
         return implode('; ', array_map(
-            static fn (SectionTone|SectionSpacing $case): string => $case->value.' is '.$case->description(),
-            $cases,
+            static fn (object $case): string => $case->value.' is '.$case->description(),
+            $axis->enumClass()::cases(),
         ));
     }
 
@@ -236,6 +274,12 @@ final readonly class SetBlockAppearance implements Tool
             $parts[] = $appearance[BlockShape::SPACING_KEY].' vertical spacing';
         }
 
-        return implode(' and ', $parts);
+        foreach (LayoutAxis::extended() as $axis) {
+            if (array_key_exists($axis->value, $appearance)) {
+                $parts[] = str_replace('_', ' ', $axis->value).' '.$appearance[$axis->value];
+            }
+        }
+
+        return implode(', ', $parts);
     }
 }

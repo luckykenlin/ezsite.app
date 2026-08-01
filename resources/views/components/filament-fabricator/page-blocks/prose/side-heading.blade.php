@@ -5,19 +5,23 @@
     'paragraphs' => [],
 ])
 @php
+    $layout = \App\Site\Blocks\SectionLayout::for('prose', 'side-heading')->resolve($appearance);
+
     // Repeater state may be a uuid-keyed map (Filament) or a plain list (AI
     // output) — iterate whatever array arrives, defensively.
     $items = is_array($paragraphs) ? $paragraphs : [];
 @endphp
-<x-site.section :appearance="$appearance" tone="base" spacing="normal">
-    {{-- Wider than the stacked variant, because the measure here is the TEXT
-         column (the right two thirds), not the whole container. --}}
-    <div class="mx-auto grid max-w-6xl gap-10 px-6 md:grid-cols-3">
+<x-site.section :appearance="$appearance" :tone="$layout->toneDefault()" :spacing="$layout->spacingDefault()">
+    {{-- Defaults wider than the stacked variant, because the measure here is
+         the TEXT column (the right two thirds), not the whole container. The
+         three-column split is this variant's structure — the columns axis does
+         not reach it. --}}
+    <div class="{{ $layout->container() }} grid gap-10 md:grid-cols-3">
         @if ($heading)
             {{-- Sticky on desktop only: the heading stays beside the paragraph
                  being read, which is the whole point of this composition. On a
                  phone the grid collapses and it simply sits above. --}}
-            <h2 class="site-h2 md:sticky md:top-8 md:self-start">{{ $heading }}</h2>
+            <h2 class="{{ $layout->heading() }} md:sticky md:top-8 md:self-start">{{ $heading }}</h2>
         @endif
 
         <div @class([

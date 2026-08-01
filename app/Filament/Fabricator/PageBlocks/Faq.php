@@ -45,9 +45,12 @@ final class Faq extends Block
     /**
      * @var array<string, string>
      */
-    protected static array $variants = [
-        'list' => 'Single divided column',
-        'grid' => 'Two columns',
+    protected static array $axes = [
+        'tone' => 'base',
+        'spacing' => 'normal',
+        'width' => 'narrow',
+        'align' => 'start',
+        'columns' => 'one',
     ];
 
     /**

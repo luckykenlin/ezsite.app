@@ -7,8 +7,13 @@ namespace App\Ai\Agents;
 use App\Ai\SiteDraftValidator;
 use App\Design\StylePreset;
 use App\Site\Blocks\BlockVocabulary;
+use App\Site\Blocks\SectionAlign;
+use App\Site\Blocks\SectionColumns;
+use App\Site\Blocks\SectionImageShape;
+use App\Site\Blocks\SectionItemStyle;
 use App\Site\Blocks\SectionSpacing;
 use App\Site\Blocks\SectionTone;
+use App\Site\Blocks\SectionWidth;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Ai\Attributes\Temperature;
 use Laravel\Ai\Attributes\Timeout;
@@ -119,6 +124,21 @@ final readonly class SiteDraftAgent implements Agent, HasStructuredOutput
                             'spacing' => $schema->string()
                                 ->enum(SectionSpacing::values())
                                 ->description('The vertical breathing room. Omit for the layout\'s own default.'),
+                            'width' => $schema->string()
+                                ->enum(SectionWidth::values())
+                                ->description('The content column width: narrow reads, wide shows. Omit for the layout\'s own default.'),
+                            'align' => $schema->string()
+                                ->enum(SectionAlign::values())
+                                ->description('The section header alignment. Omit for the layout\'s own default.'),
+                            'columns' => $schema->string()
+                                ->enum(SectionColumns::values())
+                                ->description('How many columns the section\'s items flow into, where the type takes items. Omit for the layout\'s own default.'),
+                            'item_style' => $schema->string()
+                                ->enum(SectionItemStyle::values())
+                                ->description('Whether items sit on cards or run plain. Omit for the layout\'s own default.'),
+                            'image_shape' => $schema->string()
+                                ->enum(SectionImageShape::values())
+                                ->description('The crop item images render in. Omit for the layout\'s own default.'),
                             'data' => $schema->object()
                                 ->description('Content fields for this block type, per the vocabulary.')
                                 ->required(),

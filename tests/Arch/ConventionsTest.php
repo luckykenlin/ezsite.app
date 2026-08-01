@@ -177,6 +177,9 @@ test('every page block view renders through the shared section shell', function 
         expect(file_get_contents($view->getPathname()))
             ->toContain('<x-site.section')
             ->toContain("'appearance' => null")
+            // Every view resolves its layout axes through the contract — a view
+            // that skips this has hard-coded knobs the assistant cannot turn.
+            ->toContain('SectionLayout::for(')
             // The shell owns the outer element, so a stray <section> here means
             // a second, unstyleable one nested inside it.
             ->not->toContain('<section');
@@ -198,6 +201,21 @@ test('the page-block views type through the shared site-* classes, never utility
         'text-4xl font-bold tracking-tight',
         'text-5xl font-bold tracking-tight',
         'uppercase tracking-widest',
+        'uppercase tracking-wider',
+        // The layout-axis-owned strings: a view that pastes one of these back
+        // has re-hard-coded a knob the axes exist to turn. The class literals
+        // live only in the App\Site\Blocks\Section* enums.
+        'max-w-7xl',
+        'max-w-5xl',
+        'max-w-3xl',
+        'sm:grid-cols-2',
+        'sm:grid-cols-3',
+        'lg:grid-cols-3',
+        'card bg-base-200',
+        'card bg-base-100',
+        'aspect-video',
+        'aspect-square',
+        'aspect-[4/5]',
     ];
 
     $views = new RecursiveIteratorIterator(

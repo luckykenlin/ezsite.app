@@ -48,9 +48,12 @@ final class Stats extends Block
     /**
      * @var array<string, string>
      */
-    protected static array $variants = [
-        'grid' => 'Simple grid',
-        'band' => 'Statement band',
+    protected static array $axes = [
+        'tone' => 'base',
+        'spacing' => 'tight',
+        'width' => 'normal',
+        'align' => 'center',
+        'columns' => 'three',
     ];
 
     /**

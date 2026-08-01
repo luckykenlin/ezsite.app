@@ -81,9 +81,13 @@ final class Pricing extends Block
     /**
      * @var array<string, string>
      */
-    protected static array $variants = [
-        'simple' => 'Simple columns',
-        'tiers' => 'Highlighted tiers',
+    protected static array $axes = [
+        'tone' => 'base',
+        'spacing' => 'normal',
+        'width' => 'wide',
+        'align' => 'center',
+        'columns' => 'three',
+        'item_style' => 'card',
     ];
 
     /**

@@ -55,16 +55,17 @@ it('renders each block variant with its own layout', function (array $block, arr
         ]],
         ['Ready to book?', 'Book now', 'Call us'], 'site-tone-accent', 'none',
     ],
-    'cta boxed' => [
+    'cta banner on a card (the old boxed)' => [
         ['type' => 'cta', 'data' => [
-            'variant' => 'boxed',
+            'variant' => 'banner',
+            'appearance' => ['item_style' => 'card'],
             'heading' => 'Ready to book?',
             'cta_label' => 'Book now',
             'cta_url' => '/contact',
             'secondary_label' => 'Call us',
             'secondary_url' => 'tel:+15551234567',
         ]],
-        ['Ready to book?', 'Book now', 'Call us'], 'card-actions', 'none',
+        ['Ready to book?', 'Book now', 'Call us'], 'card-body', 'none',
     ],
     'features grid' => [
         ['type' => 'features', 'data' => [
@@ -78,13 +79,14 @@ it('renders each block variant with its own layout', function (array $block, arr
         ]],
         ['Why choose us', 'Fast turnaround', 'Award winning'], 'lg:grid-cols-3', 'none',
     ],
-    'features list' => [
+    'features as a single-column list (the old list variant)' => [
         ['type' => 'features', 'data' => [
-            'variant' => 'list',
+            'variant' => 'grid',
+            'appearance' => ['columns' => 'one', 'item_style' => 'plain', 'width' => 'narrow', 'align' => 'start'],
             'heading' => 'Why choose us',
             'features' => [['title' => 'Fast turnaround', 'description' => 'Same-day service']],
         ]],
-        ['Why choose us', 'Fast turnaround'], 'divide-y', 'none',
+        ['Why choose us', 'Fast turnaround'], 'grid-cols-1', 'none',
     ],
     // An item that carries a photo and a destination — what turns this block
     // from a benefits list into the service list operators kept asking for.
@@ -135,11 +137,12 @@ it('renders each block variant with its own layout', function (array $block, arr
             'secondary_label' => 'Call us',
             'secondary_url' => 'tel:+15551234567',
         ]],
-        ['Ready to book?', 'Book now', 'Call us'], 'max-w-2xl', 'none',
+        ['Ready to book?', 'Book now', 'Call us'], 'max-w-3xl', 'none',
     ],
     'features list with an item image and link' => [
         ['type' => 'features', 'data' => [
-            'variant' => 'list',
+            'variant' => 'grid',
+            'appearance' => ['columns' => 'one', 'item_style' => 'plain'],
             'features' => [[
                 'title' => 'Deep clean',
                 'image_url' => 'https://example.com/clean.jpg',
@@ -170,19 +173,18 @@ it('renders each block variant with its own layout', function (array $block, arr
     ],
     'faq list' => [
         ['type' => 'faq', 'data' => [
-            'variant' => 'list',
             'heading' => 'Questions',
             'questions' => [['question' => 'Do you deliver?', 'answer' => 'Within five miles.']],
         ]],
         ['Questions', 'Do you deliver?', 'Within five miles.'], 'divide-y', 'none',
     ],
-    'faq grid' => [
+    'faq in two columns (the old grid variant)' => [
         ['type' => 'faq', 'data' => [
-            'variant' => 'grid',
+            'appearance' => ['columns' => 'two', 'width' => 'wide', 'align' => 'center'],
             'heading' => 'Questions',
             'questions' => [['question' => 'Do you deliver?', 'answer' => 'Within five miles.']],
         ]],
-        ['Questions', 'Do you deliver?', 'Within five miles.'], 'md:grid-cols-2', 'none',
+        ['Questions', 'Do you deliver?', 'Within five miles.'], 'sm:grid-cols-2', 'none',
     ],
     // The five types added to widen what the assistant can reach for. Each is a
     // shape the library genuinely lacked, not a variation on one it had — see
@@ -216,9 +218,9 @@ it('renders each block variant with its own layout', function (array $block, arr
         ]],
         ['500+', 'happy customers', 'since 2010'], '<dl', 'none',
     ],
-    'stats band' => [
+    'stats band (the old variant, via the tone axis)' => [
         ['type' => 'stats', 'data' => [
-            'variant' => 'band',
+            'appearance' => ['tone' => 'inverted'],
             'heading' => 'By the numbers',
             'stats' => [['value' => '500+', 'label' => 'happy customers']],
         ]],
@@ -231,9 +233,9 @@ it('renders each block variant with its own layout', function (array $block, arr
         ]],
         ['Meet the team', 'Dana Reed', 'Head baker', 'Twelve years at the oven.'], 'rounded-full', 'none',
     ],
-    'team tiles' => [
+    'team tiles (the old variant, via card + portrait axes)' => [
         ['type' => 'team', 'data' => [
-            'variant' => 'tiles',
+            'appearance' => ['item_style' => 'card', 'image_shape' => 'portrait'],
             'heading' => 'Meet the team',
             'members' => [['name' => 'Dana Reed', 'role' => 'Head baker', 'bio' => 'Twelve years at the oven.']],
         ]],
@@ -260,22 +262,21 @@ it('renders each block variant with its own layout', function (array $block, arr
         ]],
         ['Choose a plan', 'Standard', '$29', 'per month', 'Weekly visit', 'Same-day callout', 'Start now'], 'card-actions', 'none',
     ],
-    'pricing tiers highlights the featured plan' => [
+    'pricing highlights the featured plan' => [
         ['type' => 'pricing', 'data' => [
-            'variant' => 'tiers',
             'heading' => 'Choose a plan',
             'plans' => [
                 ['name' => 'Starter', 'price' => '$19', 'cta_label' => 'Start now', 'cta_url' => '/contact'],
                 ['name' => 'Standard', 'price' => '$29', 'is_featured' => true, 'cta_label' => 'Start now', 'cta_url' => '/contact'],
             ],
         ]],
-        ['Choose a plan', 'Starter', 'Standard', '$29', 'Most popular'], 'ring-primary', 'none',
+        ['Choose a plan', 'Starter', 'Standard', '$29', 'Recommended'], 'ring-primary', 'none',
     ],
     // One block for menus, service lists and packages alike — what differs
     // between those is the content, not the layout.
-    'offerings list' => [
+    'offerings as a priced list (the old list variant)' => [
         ['type' => 'offerings', 'data' => [
-            'variant' => 'list',
+            'appearance' => ['columns' => 'one', 'item_style' => 'plain', 'width' => 'narrow', 'align' => 'start'],
             'heading' => 'Our menu',
             'items' => [
                 ['group' => 'Starters', 'name' => 'Bruschetta', 'price' => '$9', 'description' => 'Tomato, basil, garlic.'],
@@ -286,7 +287,6 @@ it('renders each block variant with its own layout', function (array $block, arr
     ],
     'offerings cards' => [
         ['type' => 'offerings', 'data' => [
-            'variant' => 'cards',
             'heading' => 'Packages',
             'items' => [
                 ['name' => 'Half day', 'price' => 'from $400', 'image_url' => 'https://example.com/shoot.jpg'],
@@ -327,7 +327,7 @@ it('renders each block variant with its own layout', function (array $block, arr
                 ['url' => 'https://example.com/two.jpg'],
             ],
         ]],
-        ['Our work', 'https://example.com/one.jpg', 'Signature look'], 'sm:grid-cols-3', 'none',
+        ['Our work', 'https://example.com/one.jpg', 'Signature look'], 'lg:grid-cols-3', 'none',
     ],
     'gallery masonry' => [
         ['type' => 'gallery', 'data' => [
@@ -354,7 +354,7 @@ it('renders each block variant with its own layout', function (array $block, arr
                 ['quote' => 'Best in town', 'author' => 'Ben Wu'],
             ],
         ]],
-        ['What clients say', 'Absolutely wonderful service', 'Amy Chen', 'Ben Wu'], 'md:grid-cols-2', 'none',
+        ['What clients say', 'Absolutely wonderful service', 'Amy Chen', 'Ben Wu'], 'sm:grid-cols-2', 'none',
     ],
     'testimonials carousel' => [
         ['type' => 'testimonials', 'data' => [
@@ -468,7 +468,7 @@ it('renders optional fields and skips malformed repeater items per block view', 
     // items never grows a stray empty section title.
     'offerings renders ungrouped items without a group heading' => [
         ['type' => 'offerings', 'data' => [
-            'variant' => 'list',
+            'appearance' => ['columns' => 'one', 'item_style' => 'plain'],
             'heading' => 'Services',
             'items' => [
                 ['name' => 'Consultation', 'price' => 'Free'],
@@ -528,8 +528,8 @@ it('escapes authored block content to prevent stored XSS', function (): void {
     $tenant = Tenant::factory()->withDomain('acme')->create();
     $this->createTenantPage($tenant, [
         ['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => $payload]],
-        ['type' => 'cta', 'data' => ['variant' => 'boxed', 'heading' => $payload, 'cta_label' => 'Go', 'cta_url' => '/x']],
-        ['type' => 'features', 'data' => ['variant' => 'list', 'features' => [['title' => $payload]]]],
+        ['type' => 'cta', 'data' => ['variant' => 'banner', 'appearance' => ['item_style' => 'card'], 'heading' => $payload, 'cta_label' => 'Go', 'cta_url' => '/x']],
+        ['type' => 'features', 'data' => ['variant' => 'grid', 'appearance' => ['columns' => 'one', 'item_style' => 'plain'], 'features' => [['title' => $payload]]]],
         ['type' => 'gallery', 'data' => ['variant' => 'grid', 'images' => [['url' => 'https://example.com/x.jpg', 'caption' => $payload]]]],
         ['type' => 'testimonials', 'data' => ['variant' => 'grid', 'testimonials' => [['quote' => $payload, 'author' => 'Eve']]]],
     ]);
@@ -548,7 +548,8 @@ it('strips executable url schemes out of every rendered href and src', function 
     $this->createTenantBusiness($tenant, ['name' => 'Corner Cafe']);
     $this->createTenantPage($tenant, [
         ['type' => 'cta', 'data' => [
-            'variant' => 'boxed',
+            'variant' => 'banner',
+            'appearance' => ['item_style' => 'card'],
             'heading' => 'Book now',
             'cta_label' => 'Go',
             'cta_url' => 'javascript:alert(1)',
@@ -608,12 +609,12 @@ it('skips a bound block with a warning when its bind cannot resolve, while sibli
         ['type' => 'header', 'data' => ['variant' => 'simple']], 'navbar-end', false, 1,
     ],
     'contact without a business' => [
-        ['type' => 'contact', 'data' => ['variant' => 'split', 'heading' => 'Ghost contact']], 'Ghost contact', false, 1,
+        ['type' => 'contact', 'data' => ['heading' => 'Ghost contact']], 'Ghost contact', false, 1,
     ],
     // The default footer chrome also fails to bind (business without
     // locations) but warns with its own type, so the filter keeps this at 1.
     'contact without locations' => [
-        ['type' => 'contact', 'data' => ['variant' => 'split', 'heading' => 'Ghost contact']], 'Ghost contact', true, 1,
+        ['type' => 'contact', 'data' => ['heading' => 'Ghost contact']], 'Ghost contact', true, 1,
     ],
     // Here the failing type IS footer: the page's block and the default
     // footer chrome each warn.

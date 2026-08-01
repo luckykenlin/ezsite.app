@@ -60,6 +60,24 @@ final class Gallery extends Block
     ];
 
     /**
+     * @var array<string, string>
+     */
+    protected static array $axes = [
+        'tone' => 'base',
+        'spacing' => 'normal',
+        'width' => 'wide',
+        'columns' => 'three',
+        'image_shape' => 'square',
+    ];
+
+    /**
+     * @var array<string, array<string, string>>
+     */
+    protected static array $variantAxes = [
+        'filmstrip' => ['image_shape' => 'standard'],
+    ];
+
+    /**
      * @return array<int, Field>
      */
     protected static function fields(): array

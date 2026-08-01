@@ -301,3 +301,13 @@ it('offers nothing to add when the page already uses every section type', functi
 
     expect(editPrompt(new PageDraft($blocks)))->not->toContain('Sections you can add');
 });
+
+it('lists the layout axes of the types on the page, names only', function (): void {
+    $prompt = editPrompt(heroPageDraft());
+
+    // Names only — the values and their guidance live once, in the restyle
+    // tool's schema, not in every prompt.
+    expect($prompt)->toContain('axes: tone, spacing, width, align, image_shape')
+        ->toContain('"Two columns", "left-align the heading", "drop the cards" are axis changes')
+        ->not->toContain('narrow is');
+});

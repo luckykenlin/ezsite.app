@@ -40,6 +40,15 @@ final class Logos extends Block
     protected static ?BlockIntent $intent = BlockIntent::Trust;
 
     /**
+     * @var array<string, string>
+     */
+    protected static array $axes = [
+        'tone' => 'muted',
+        'spacing' => 'tight',
+        'width' => 'wide',
+    ];
+
+    /**
      * @var array<string, mixed>
      */
     protected static array $sample = [

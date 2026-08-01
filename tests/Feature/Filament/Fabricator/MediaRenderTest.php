@@ -35,7 +35,7 @@ it('renders media-backed blocks by translating ids into the url props', function
         ['type' => 'features', 'data' => ['variant' => 'grid', 'features' => [
             ['title' => 'Deep clean', 'image_id' => $media->id],
         ]]],
-        ['type' => 'offerings', 'data' => ['variant' => 'cards', 'items' => [
+        ['type' => 'offerings', 'data' => ['items' => [
             ['name' => 'Half day', 'price' => 'from $400', 'image_id' => $media->id],
         ]]],
     ]);

@@ -8,9 +8,16 @@
     'cta_url' => null,
     'image_url' => null,
 ])
-<x-site.section :appearance="$appearance" tone="base" spacing="normal">
-    <div class="mx-auto grid max-w-7xl items-center gap-12 px-6 md:grid-cols-2">
-        <div>
+@php
+    $layout = \App\Site\Blocks\SectionLayout::for('hero', 'left-text-right-image')->resolve($appearance);
+
+    $centered = str_contains($layout->heading(), 'text-center');
+@endphp
+<x-site.section :appearance="$appearance" :tone="$layout->toneDefault()" :spacing="$layout->spacingDefault()">
+    {{-- The two-column split is this variant's structure; the columns axis
+         deliberately does not reach it. --}}
+    <div class="{{ $layout->container() }} grid items-center gap-12 md:grid-cols-2">
+        <div @class(['text-center' => $centered])>
             @if ($eyebrow)
                 <p data-editor-field="eyebrow" class="site-eyebrow mb-4 text-primary">{{ $eyebrow }}</p>
             @endif
@@ -28,7 +35,7 @@
 
         @if ($image_url)
             <div class="overflow-hidden rounded-box">
-                <img src="{{ $image_url }}" alt="{{ $heading }}" class="h-full w-full object-cover" />
+                <img src="{{ $image_url }}" alt="{{ $heading }}" class="{{ $layout->image() }} w-full object-cover" />
             </div>
         @endif
     </div>

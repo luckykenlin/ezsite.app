@@ -8,14 +8,19 @@
     'cta_url' => null,
     'image_url' => null,
 ])
+@php
+    $layout = \App\Site\Blocks\SectionLayout::for('hero', 'full-bleed-overlay')->resolve($appearance);
+
+    $centered = str_contains($layout->heading(), 'text-center');
+@endphp
 {{-- The only view that uses the shell's `backdrop` slot: the artwork is
      absolutely positioned against the section itself and must sit OUTSIDE the
      padding wrapper, so `-z-10` resolves in the same stacking context that
      `isolate` creates here. --}}
 <x-site.section
     :appearance="$appearance"
-    tone="inverted"
-    spacing="tall"
+    :tone="$layout->toneDefault()"
+    :spacing="$layout->spacingDefault()"
     class="relative isolate overflow-hidden"
 >
     <x-slot:backdrop>
@@ -25,7 +30,7 @@
         @endif
     </x-slot:backdrop>
 
-    <div class="mx-auto flex max-w-4xl flex-col items-start px-6">
+    <div @class([$layout->container(), 'flex flex-col', 'items-center text-center' => $centered, 'items-start' => ! $centered])>
         @if ($eyebrow)
             <p data-editor-field="eyebrow" class="site-eyebrow mb-4">{{ $eyebrow }}</p>
         @endif

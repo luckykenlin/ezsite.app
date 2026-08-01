@@ -5,16 +5,21 @@
     'logos' => [],
 ])
 @php
+    $layout = \App\Site\Blocks\SectionLayout::for('logos')->resolve($appearance);
+
     // Repeater state may be a uuid-keyed map (Filament) or a plain list (AI
     // output) — iterate whatever array arrives, defensively.
     $items = array_values(array_filter(is_array($logos) ? $logos : [], 'is_array'));
 @endphp
-<x-site.section :appearance="$appearance" tone="muted" spacing="tight">
-    <div class="mx-auto max-w-6xl px-6">
+<x-site.section :appearance="$appearance" :tone="$layout->toneDefault()" :spacing="$layout->spacingDefault()">
+    <div class="{{ $layout->container() }}">
         @if ($heading)
             <h2 class="site-eyebrow text-center text-base-content/60">{{ $heading }}</h2>
         @endif
 
+        {{-- A trust row auto-flows and centres itself — logos deliberately
+             takes no columns axis; a fixed grid would ragged-edge a row of
+             five marks. --}}
         <div @class(['flex flex-wrap items-center justify-center gap-x-12 gap-y-8', 'mt-8' => (bool) $heading])>
             @foreach ($items as $item)
                 {{-- Skipped rather than rendered empty, as in gallery: a trust row

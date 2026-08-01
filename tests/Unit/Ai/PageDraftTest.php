@@ -50,7 +50,7 @@ it('outlines each block with its position, key, type and variant', function (): 
 it('keeps the server-owned reserved keys out of the outlined content', function (): void {
     $outline = new PageDraft([
         ['key' => 'k1', 'type' => 'contact', 'data' => [
-            'variant' => 'split',
+            'variant' => 'grid',
             'bind' => ['location_id' => 7],
             'heading' => 'Visit us',
         ]],
@@ -58,7 +58,7 @@ it('keeps the server-owned reserved keys out of the outlined content', function 
 
     // The variant is shown as a label, never as an editable field, and the bind
     // target is not the model's business at all.
-    expect($outline)->toContain('contact (split)')
+    expect($outline)->toContain('contact (grid)')
         ->and($outline)->not->toContain('location_id')
         ->and($outline)->not->toContain('"variant"');
 });

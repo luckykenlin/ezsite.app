@@ -33,7 +33,7 @@ function containerizedBlockComponents(Block $block): array
     return $block->container(Schema::make($livewire))->getChildComponents();
 }
 
-it('auto-injects a location picker between the variant selector and content fields on Location-bound blocks', function (): void {
+it('auto-injects a location picker ahead of the content fields on Location-bound blocks', function (): void {
     $tenant = Tenant::factory()->create();
     $this->runInTenant($tenant, fn (): Location => Location::factory()->create([
         'tenant_id' => $tenant->id,
@@ -43,26 +43,24 @@ it('auto-injects a location picker between the variant selector and content fiel
 
     $components = containerizedBlockComponents(Contact::getBlockSchema());
 
+    // Contact is variant-less since the layout axes absorbed split/stacked,
+    // so the bind select leads the schema.
     /** @var Select $bindSelect */
-    $bindSelect = $components[1];
+    $bindSelect = $components[0];
 
-    expect($components[0]->getName())->toBe(BlockShape::VARIANT_KEY)
-        ->and($bindSelect)->toBeInstanceOf(Select::class)
+    expect($bindSelect)->toBeInstanceOf(Select::class)
         ->and($bindSelect->getName())->toBe(BlockShape::BIND_KEY.'.location_id')
         ->and($bindSelect->isRequired())->toBeFalse()
         ->and(array_values($bindSelect->getOptions()))->toBe(['Main spot'])
-        ->and(array_map(fn (Field $field): string => $field->getName(), array_slice($components, 2)))
+        ->and(array_map(fn (Field $field): string => $field->getName(), array_slice($components, 1)))
         // Appearance goes after the content, not before it: an operator opens a
-        // block to write words, and two empty selects should not stand between
+        // block to write words, and empty selects should not stand between
         // them and the headline.
-        ->toBe(['heading', 'intro', 'show_form', 'success_message', 'appearance.tone', 'appearance.spacing']);
+        ->toBe(['heading', 'intro', 'show_form', 'success_message', 'appearance.tone', 'appearance.spacing', 'appearance.width', 'appearance.align', 'appearance.columns']);
 
-    // Both auto-injected selects are explicitly live WITHOUT a debounce, so
-    // they override the page editor's debounced section binding — switching
-    // layout/location refreshes the canvas immediately.
-    expect($components[0]->isLive())->toBeTrue()
-        ->and($components[0]->isLiveDebounced())->toBeFalse()
-        ->and($bindSelect->isLive())->toBeTrue()
+    // The auto-injected select is explicitly live WITHOUT a debounce, so
+    // switching location refreshes the canvas immediately.
+    expect($bindSelect->isLive())->toBeTrue()
         ->and($bindSelect->isLiveDebounced())->toBeFalse();
 });
 
@@ -95,7 +93,7 @@ it("auto-injects a required variant selector ahead of a variant block's content 
         ->and(array_map(fn (Field $field): string => $field->getName(), array_slice($components, 1)))
         ->toBe([
             'eyebrow', 'heading', 'subheading', 'cta_label', 'cta_url', 'image_id', 'image_url',
-            'appearance.tone', 'appearance.spacing',
+            'appearance.tone', 'appearance.spacing', 'appearance.width', 'appearance.align', 'appearance.image_shape',
         ]);
 });
 
@@ -134,5 +132,34 @@ it('composes a no-variant block from its content fields only, without a variant 
     $fieldNames = array_map(fn (Field $field): string => $field->getName(), containerizedBlockComponents($schema));
 
     expect($schema->getName())->toBe('heading')
-        ->and($fieldNames)->toBe(['content', 'level', 'appearance.tone', 'appearance.spacing']);
+        ->and($fieldNames)->toBe(['content', 'level', 'appearance.tone', 'appearance.spacing', 'appearance.width', 'appearance.align']);
+});
+
+it('injects one select per contract axis, options straight off the axis enum', function (): void {
+    $components = containerizedBlockComponents(App\Filament\Fabricator\PageBlocks\Features::getBlockSchema());
+
+    $selects = [];
+
+    foreach ($components as $component) {
+        if ($component instanceof Select && str_starts_with($component->getName(), BlockShape::APPEARANCE_KEY.'.')) {
+            $selects[mb_substr($component->getName(), mb_strlen(BlockShape::APPEARANCE_KEY) + 1)] = $component;
+        }
+    }
+
+    // features declares the full roster, in LayoutAxis order.
+    expect(array_keys($selects))->toBe(['tone', 'spacing', 'width', 'align', 'columns', 'item_style', 'image_shape']);
+
+    foreach ($selects as $key => $select) {
+        $axis = App\Site\Blocks\LayoutAxis::from($key);
+
+        expect($select->getOptions())->toBe($axis->enumClass()::options())
+            ->and($select->isRequired())->toBeFalse()
+            ->and($select->getDefaultState())->toBeNull()
+            // The clearing-= -reset contract: an empty select must dehydrate
+            // to nothing, or every save writes null axes and manufactures
+            // revisions.
+            ->and($select->isDehydrated())->toBeFalse()
+            ->and($select->isLive())->toBeTrue()
+            ->and($select->isLiveDebounced())->toBeFalse();
+    }
 });

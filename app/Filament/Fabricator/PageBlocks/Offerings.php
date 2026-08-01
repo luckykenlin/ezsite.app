@@ -70,9 +70,14 @@ final class Offerings extends Block
     /**
      * @var array<string, string>
      */
-    protected static array $variants = [
-        'list' => 'Priced list',
-        'cards' => 'Cards with photos',
+    protected static array $axes = [
+        'tone' => 'base',
+        'spacing' => 'normal',
+        'width' => 'wide',
+        'align' => 'center',
+        'columns' => 'three',
+        'item_style' => 'card',
+        'image_shape' => 'wide',
     ];
 
     /**

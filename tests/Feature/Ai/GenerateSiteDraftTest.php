@@ -68,7 +68,8 @@ it('persists a draft home page where the model\'s layout choices survive and the
         ->and($page->blocks[0]['data']['variant'])->toBe('full-bleed-overlay')
         // Where the model was silent, the WarmCraft preset fills.
         ->and($page->blocks[1]['data']['variant'])->toBe('alternating')
-        ->and($page->blocks[2]['data']['variant'])->toBe('split')
+        // contact went variant-less with the layout axes — nothing to fill.
+        ->and($page->blocks[2]['data'])->not->toHaveKey('variant')
         // The AI-authored bind was stripped; omission = primary location.
         ->and($page->blocks[2]['data'])->not->toHaveKey('bind')
         // Appearance fill is position-aware: WarmCraft says muted for both
@@ -274,8 +275,10 @@ it('lands every generated page as a draft and stamps the navigation', function (
         ->and($about->status)->toBe(PageStatus::Draft)
         ->and($about->title)->toBe('Our Story')
         ->and($about->seo_description)->toBe('How Corner Cafe came to be.')
-        // Extra pages get the same preset stamping as the home page.
-        ->and($about->blocks[2]['data']['variant'])->toBe('boxed');
+        // Extra pages get the same preset stamping as the home page —
+        // WarmCraft's cta look is now banner + the card item axis.
+        ->and($about->blocks[2]['data']['variant'])->toBe('banner')
+        ->and($about->blocks[2]['data']['appearance']['item_style'] ?? null)->toBe('card');
 
     // The header nav names every landed page, home first.
     $header = SiteSetting::query()->sole()->header;

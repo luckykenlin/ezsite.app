@@ -9,6 +9,8 @@
     'success_message' => null,
 ])
 @php
+    $layout = \App\Site\Blocks\SectionLayout::for('contact')->resolve($appearance);
+
     $addressLines = array_filter([
         $location->address_line1,
         $location->address_line2,
@@ -18,26 +20,26 @@
     $email = $location->email ?? $business->contact_email;
     $hours = $location->opening_hours?->forWeek() ?? [];
     $hasCoordinates = $location->latitude !== null && $location->longitude !== null;
-@endphp
-<x-site.section :appearance="$appearance" tone="base" spacing="normal">
-    <div class="mx-auto grid max-w-6xl gap-12 px-6 lg:grid-cols-2">
-        <div>
-            @if ($heading)
-                <h2 class="site-h2">{{ $heading }}</h2>
-            @endif
 
-            @if ($intro)
-                <p class="site-intro mt-4 text-base-content/70">{{ $intro }}</p>
-            @endif
+    // Two columns puts the form beside the details (the old "split" look);
+    // one column stacks everything down a centre-or-left spine (the old
+    // "stacked" look, which centred).
+    $split = $layout->grid() !== 'grid-cols-1';
+    $centered = str_contains($layout->heading(), 'text-center');
+@endphp
+<x-site.section :appearance="$appearance" :tone="$layout->toneDefault()" :spacing="$layout->spacingDefault()">
+    <div @class([$layout->container(), 'grid gap-12' => $split, $layout->grid() => $split, 'flex flex-col' => ! $split, 'items-center text-center' => ! $split && $centered])>
+        <div @class(['flex flex-col items-center' => ! $split && $centered, 'w-full' => ! $split])>
+            <x-site.section-header :layout="$layout" :heading="$heading" :intro="$intro" />
 
             @if ($show_form)
-                <div class="mt-8">
+                <div @class(['mt-8' => $split, 'order-last mt-10 flex w-full text-start' => ! $split, 'justify-center' => ! $split && $centered])>
                     <x-lead-form :location="$location" :page="$page" :success-message="$success_message" />
                 </div>
             @endif
         </div>
 
-        <div class="space-y-8">
+        <div @class(['space-y-8' => $split, 'mt-8 w-full space-y-8' => ! $split, 'flex flex-col items-center' => ! $split && $centered])>
             @if ($addressLines !== [])
                 <address class="not-italic leading-relaxed">
                     @foreach ($addressLines as $line)

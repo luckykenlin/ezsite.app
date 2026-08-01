@@ -8,7 +8,8 @@ use App\Design\StylePreset;
 use App\Site\Blocks\BlockShape;
 use App\Site\Blocks\BlockType;
 use App\Site\Blocks\BlockVocabulary;
-use App\Site\Blocks\SectionAppearance;
+use App\Site\Blocks\LayoutAxis;
+use App\Site\Blocks\SectionLayout;
 use App\Site\Blocks\SectionSpacing;
 use App\Site\Blocks\SectionTone;
 
@@ -149,8 +150,11 @@ final readonly class StampPresetDefaults
      *
      * Values are validated against the enums rather than trusted: a preset is
      * hand-authored PHP, so a typo here would otherwise reach a `class`
-     * attribute. An entry that survives validation empty (every key misspelled)
-     * answers null, so it cannot blank an operator's choice either.
+     * attribute. Axis APPLICABILITY is enforced at authoring time instead —
+     * StylePresetTest asserts every preset entry names only axes its type
+     * declares — so an inapplicable entry cannot ship. An entry that survives
+     * validation empty answers null, so it cannot blank an operator's choice
+     * either.
      *
      * @return array<string, string>|null
      */
@@ -162,10 +166,17 @@ final readonly class StampPresetDefaults
             return null;
         }
 
-        return SectionAppearance::store(
-            SectionTone::tryFrom($declared[BlockShape::TONE_KEY] ?? ''),
-            SectionSpacing::tryFrom($declared[BlockShape::SPACING_KEY] ?? ''),
-        );
+        $axes = [];
+
+        foreach (LayoutAxis::cases() as $axis) {
+            $value = $declared[$axis->value] ?? null;
+
+            if (is_string($value) && $axis->resolve($value) !== null) {
+                $axes[$axis->value] = $value;
+            }
+        }
+
+        return SectionLayout::store($axes);
     }
 
     /**
@@ -214,10 +225,10 @@ final readonly class StampPresetDefaults
     /**
      * One block's fill. `$previousTone` is the alternation state: the tone the
      * previous band-capable section resolved to, or null before the first one.
-     * A section that ends up writing nothing still counts as `base` — PHP
-     * cannot see the tone a variant's Blade view defaults to (the known limit
-     * on {@see StylePreset::blockAppearanceDefaults()}), and `base` is the
-     * right guess for every view that is not testimonials.
+     * A section that writes nothing seeds the state from its CONTRACT default
+     * ({@see BlockType::axisDefault()}) — the queryable form of the tone its
+     * view used to hard-code, so testimonials' muted default now alternates
+     * correctly instead of being guessed at as `base`.
      *
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>
@@ -240,6 +251,8 @@ final readonly class StampPresetDefaults
             return $data;
         }
 
+        $variant = is_string($data[BlockShape::VARIANT_KEY] ?? null) ? $data[BlockShape::VARIANT_KEY] : null;
+
         $stored = is_array($data[BlockShape::APPEARANCE_KEY] ?? null) ? $data[BlockShape::APPEARANCE_KEY] : [];
         $modelTone = self::storedTone($stored);
         $modelSpacing = self::storedSpacing($stored);
@@ -252,7 +265,10 @@ final readonly class StampPresetDefaults
         $fallbackTone = null;
 
         if ($tone === null) {
-            $candidate = $presetTone ?? SectionTone::Base;
+            // The contract default is what the view will actually render when
+            // nothing is written — the alternation must compare against THAT.
+            $candidate = $presetTone
+                ?? SectionTone::from($contract->axisDefault(LayoutAxis::Tone, $variant));
             $flipped = false;
 
             if ($candidate === SectionTone::Inverted && $previousTone === SectionTone::Inverted->value) {
@@ -264,7 +280,7 @@ final readonly class StampPresetDefaults
             }
 
             // Write only a real opinion: the preset named this type, or the
-            // alternation had to flip. A computed `base` over silence stays
+            // alternation had to flip. A computed default over silence stays
             // unwritten — an untouched block keeps its view's own default.
             if ($flipped || $presetTone !== null) {
                 $fallbackTone = $candidate;
@@ -273,7 +289,22 @@ final readonly class StampPresetDefaults
             $tone = $candidate;
         }
 
-        $appearance = SectionAppearance::store($modelTone ?? $fallbackTone, $modelSpacing ?? $presetSpacing);
+        // The parametric axes fill the same way: a valid model choice
+        // survives, the preset speaks where the model was silent.
+        $axes = [];
+
+        foreach (LayoutAxis::extended() as $axis) {
+            $model = $stored[$axis->value] ?? null;
+            $axes[$axis->value] = is_string($model) && $axis->resolve($model) !== null
+                ? $model
+                : ($declared[$axis->value] ?? null);
+        }
+
+        $appearance = SectionLayout::store([
+            BlockShape::TONE_KEY => ($modelTone ?? $fallbackTone)?->value,
+            BlockShape::SPACING_KEY => ($modelSpacing ?? $presetSpacing)?->value,
+            ...$axes,
+        ]);
 
         if ($appearance !== null) {
             $data[BlockShape::APPEARANCE_KEY] = $appearance;

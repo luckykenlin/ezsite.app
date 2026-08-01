@@ -282,3 +282,38 @@ it('rejects a draft whose pages carry no home at all', function (): void {
         'pages' => [extraPage('/about')],
     ], 'Fallback'))->toThrow(SiteDraftUnusable::class, 'no home page');
 });
+
+it('accepts the parametric axes at block level and writes them into appearance', function (): void {
+    $draft = validAiDraft();
+    $draft['pages'][0]['blocks'][1]['columns'] = 'two';
+    $draft['pages'][0]['blocks'][1]['item_style'] = 'plain';
+    $draft['pages'][0]['blocks'][1]['width'] = 'narrow';
+
+    $blocks = draftValidator()->handle($draft, 'Fallback')['pages'][0]['blocks'];
+
+    expect($blocks[1]['data']['appearance'])
+        ->toBe(['width' => 'narrow', 'columns' => 'two', 'item_style' => 'plain']);
+});
+
+/*
+ * An axis the type never declared degrades exactly like a typo — dropped and
+ * logged — so "the model keeps putting columns on heroes" is visible in the
+ * same telemetry as "the model chose garbage".
+ */
+it('drops and logs an axis the block type does not declare', function (): void {
+    Log::spy();
+
+    $draft = validAiDraft();
+    $draft['pages'][0]['blocks'][0]['columns'] = 'two';
+
+    $blocks = draftValidator()->handle($draft, 'Fallback')['pages'][0]['blocks'];
+
+    expect($blocks[0]['data'])->not->toHaveKey('appearance');
+
+    Log::shouldHaveReceived('info')
+        ->withArgs(fn (string $message, array $context): bool => $message === 'site_draft.layout_dropped'
+            && $context['dimension'] === 'columns'
+            && $context['type'] === 'hero'
+            && ($context['reason'] ?? null) === 'axis_not_applicable')
+        ->once();
+});

@@ -49,6 +49,25 @@ final class Hero extends Block
     ];
 
     /**
+     * @var array<string, string>
+     */
+    protected static array $axes = [
+        'tone' => 'base',
+        'spacing' => 'airy',
+        'width' => 'narrow',
+        'align' => 'center',
+        'image_shape' => 'standard',
+    ];
+
+    /**
+     * @var array<string, array<string, string>>
+     */
+    protected static array $variantAxes = [
+        'left-text-right-image' => ['spacing' => 'normal', 'width' => 'wide', 'align' => 'start'],
+        'full-bleed-overlay' => ['tone' => 'inverted', 'spacing' => 'tall', 'width' => 'normal', 'align' => 'start'],
+    ];
+
+    /**
      * @return array<int, Field>
      */
     protected static function fields(): array

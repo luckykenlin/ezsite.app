@@ -158,7 +158,9 @@ it('fill: alternates a repeating base band instead of stacking it', function ():
     ], StylePreset::ProfessionalMinimal);
 
     expect($blocks[0]['data']['appearance'])->toBe(['tone' => 'base'])
-        ->and($blocks[1]['data']['appearance'])->toBe(['tone' => 'muted'])
+        // The preset's axis opinions ride along with the flipped tone: this is
+        // where professional-minimal keeps its old priced-list offerings look.
+        ->and($blocks[1]['data']['appearance'])->toBe(['tone' => 'muted', 'width' => 'narrow', 'align' => 'start', 'columns' => 'one', 'item_style' => 'plain'])
         ->and($blocks[2]['data']['appearance'])->toBe(['tone' => 'base']);
 });
 
@@ -218,4 +220,20 @@ it('fill: skips hero and heading appearance, and leaves unknown types alone', fu
         ->and($blocks[1]['data'])->not->toHaveKey('appearance')
         ->and($blocks[2]['data'])->toBe(['keep' => 'me'])
         ->and($blocks[3]['data']['appearance'])->toBe(['tone' => 'muted', 'spacing' => 'airy']);
+});
+
+it('fill: a valid model axis choice survives the preset opinion', function (): void {
+    // professional-minimal's offerings entry says columns=one/plain; the model
+    // chose two-column cards, and the model wins on every axis it spoke to.
+    $blocks = stampPresetDefaults()->fill([
+        ['type' => 'offerings', 'data' => ['appearance' => ['columns' => 'two', 'item_style' => 'card']]],
+    ], StylePreset::ProfessionalMinimal);
+
+    $appearance = $blocks[0]['data']['appearance'];
+
+    expect($appearance['columns'])->toBe('two')
+        ->and($appearance['item_style'])->toBe('card')
+        // The axes the model was silent on still take the preset's opinion.
+        ->and($appearance['width'])->toBe('narrow')
+        ->and($appearance['align'])->toBe('start');
 });

@@ -50,6 +50,25 @@ final class Testimonials extends Block
     ];
 
     /**
+     * @var array<string, string>
+     */
+    protected static array $axes = [
+        'tone' => 'muted',
+        'spacing' => 'normal',
+        'width' => 'wide',
+        'align' => 'center',
+        'columns' => 'two',
+        'item_style' => 'card',
+    ];
+
+    /**
+     * @var array<string, array<string, string>>
+     */
+    protected static array $variantAxes = [
+        'spotlight' => ['width' => 'narrow', 'columns' => 'one', 'item_style' => 'plain'],
+    ];
+
+    /**
      * @return array<int, Field>
      */
     protected static function fields(): array

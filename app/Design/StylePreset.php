@@ -52,13 +52,13 @@ enum StylePreset: string
     public function blockVariantDefaults(): array
     {
         return match ($this) {
-            self::WarmCraft => ['hero' => 'left-text-right-image', 'features' => 'alternating', 'testimonials' => 'grid', 'gallery' => 'masonry', 'cta' => 'boxed', 'contact' => 'split', 'header' => 'centered', 'footer' => 'columns', 'offerings' => 'list', 'prose' => 'side-heading', 'faq' => 'list', 'steps' => 'list', 'stats' => 'grid', 'team' => 'portraits', 'pricing' => 'simple'],
-            self::ProfessionalMinimal => ['hero' => 'centered-minimal', 'features' => 'grid', 'testimonials' => 'grid', 'gallery' => 'grid', 'cta' => 'banner', 'contact' => 'split', 'header' => 'simple', 'footer' => 'minimal', 'offerings' => 'list', 'prose' => 'stacked', 'faq' => 'list', 'steps' => 'list', 'stats' => 'grid', 'team' => 'portraits', 'pricing' => 'tiers'],
-            self::FreshModern => ['hero' => 'left-text-right-image', 'features' => 'grid', 'testimonials' => 'carousel', 'gallery' => 'grid', 'cta' => 'banner', 'contact' => 'split', 'header' => 'simple', 'footer' => 'columns', 'offerings' => 'cards', 'prose' => 'stacked', 'faq' => 'grid', 'steps' => 'timeline', 'stats' => 'grid', 'team' => 'tiles', 'pricing' => 'tiers'],
-            self::BoldEditorial => ['hero' => 'full-bleed-overlay', 'features' => 'list', 'testimonials' => 'spotlight', 'gallery' => 'masonry', 'cta' => 'banner', 'contact' => 'stacked', 'header' => 'centered', 'footer' => 'minimal', 'offerings' => 'cards', 'prose' => 'side-heading', 'faq' => 'grid', 'steps' => 'list', 'stats' => 'band', 'team' => 'tiles', 'pricing' => 'simple'],
-            self::CalmCoastal => ['hero' => 'centered-minimal', 'features' => 'grid', 'testimonials' => 'carousel', 'gallery' => 'grid', 'cta' => 'boxed', 'contact' => 'stacked', 'header' => 'simple', 'footer' => 'columns', 'offerings' => 'list', 'prose' => 'stacked', 'faq' => 'list', 'steps' => 'timeline', 'stats' => 'grid', 'team' => 'portraits', 'pricing' => 'simple'],
-            self::PlayfulFriendly => ['hero' => 'full-bleed-overlay', 'features' => 'grid', 'testimonials' => 'carousel', 'gallery' => 'filmstrip', 'cta' => 'banner', 'contact' => 'stacked', 'header' => 'centered', 'footer' => 'columns', 'offerings' => 'cards', 'prose' => 'stacked', 'faq' => 'grid', 'steps' => 'list', 'stats' => 'band', 'team' => 'portraits', 'pricing' => 'simple'],
-            self::NightLounge => ['hero' => 'full-bleed-overlay', 'features' => 'alternating', 'testimonials' => 'spotlight', 'gallery' => 'masonry', 'cta' => 'banner', 'contact' => 'stacked', 'header' => 'inverted', 'footer' => 'minimal', 'offerings' => 'cards', 'prose' => 'side-heading', 'faq' => 'list', 'steps' => 'list', 'stats' => 'band', 'team' => 'tiles', 'pricing' => 'simple'],
+            self::WarmCraft => ['hero' => 'left-text-right-image', 'features' => 'alternating', 'testimonials' => 'grid', 'gallery' => 'masonry', 'cta' => 'banner', 'header' => 'centered', 'footer' => 'columns', 'prose' => 'side-heading', 'steps' => 'list'],
+            self::ProfessionalMinimal => ['hero' => 'centered-minimal', 'features' => 'grid', 'testimonials' => 'grid', 'gallery' => 'grid', 'cta' => 'banner', 'header' => 'simple', 'footer' => 'minimal', 'prose' => 'stacked', 'steps' => 'list'],
+            self::FreshModern => ['hero' => 'left-text-right-image', 'features' => 'grid', 'testimonials' => 'carousel', 'gallery' => 'grid', 'cta' => 'banner', 'header' => 'simple', 'footer' => 'columns', 'prose' => 'stacked', 'steps' => 'timeline'],
+            self::BoldEditorial => ['hero' => 'full-bleed-overlay', 'features' => 'grid', 'testimonials' => 'spotlight', 'gallery' => 'masonry', 'cta' => 'banner', 'header' => 'centered', 'footer' => 'minimal', 'prose' => 'side-heading', 'steps' => 'list'],
+            self::CalmCoastal => ['hero' => 'centered-minimal', 'features' => 'grid', 'testimonials' => 'carousel', 'gallery' => 'grid', 'cta' => 'banner', 'header' => 'simple', 'footer' => 'columns', 'prose' => 'stacked', 'steps' => 'timeline'],
+            self::PlayfulFriendly => ['hero' => 'full-bleed-overlay', 'features' => 'grid', 'testimonials' => 'carousel', 'gallery' => 'filmstrip', 'cta' => 'banner', 'header' => 'centered', 'footer' => 'columns', 'prose' => 'stacked', 'steps' => 'list'],
+            self::NightLounge => ['hero' => 'full-bleed-overlay', 'features' => 'alternating', 'testimonials' => 'spotlight', 'gallery' => 'masonry', 'cta' => 'banner', 'header' => 'inverted', 'footer' => 'minimal', 'prose' => 'side-heading', 'steps' => 'list'],
         };
     }
 
@@ -94,12 +94,16 @@ enum StylePreset: string
      * get the same background; the DRAFT path routes through
      * `StampPresetDefaults::fill()`, which walks the list in order and flips a
      * repeating base/muted fallback, so a fresh generation no longer produces
-     * the flat stack. Genuine view-aware alternation still needs PHP to know
-     * the default tone of every type×variant pair, and those defaults live in
-     * the Blade views; promoting them to a queryable contract is its own
-     * change.
+     * the flat stack. The per-view defaults themselves are now a queryable
+     * contract (`BlockType::axisDefault()`), which is what `fill()` seeds its
+     * alternation state from.
      *
-     * @return array<string, array{tone?: string, spacing?: string}>
+     * Values may name any layout axis the type declares ({@see \App\Site\Blocks\LayoutAxis}),
+     * not only tone and spacing — the entries that carry `columns`/`item_style`/
+     * `width`/`align`/`image_shape` opinions are how each preset keeps the looks
+     * the retired variants used to provide.
+     *
+     * @return array<string, array<string, string>>
      */
     public function blockAppearanceDefaults(): array
     {
@@ -109,20 +113,20 @@ enum StylePreset: string
             // spacing token wants generous sections to match.
             self::WarmCraft => [
                 'features' => ['tone' => 'muted', 'spacing' => 'airy'],
-                'offerings' => ['tone' => 'base', 'spacing' => 'airy'],
+                'offerings' => ['tone' => 'base', 'spacing' => 'airy', 'width' => 'narrow', 'align' => 'start', 'columns' => 'one', 'item_style' => 'plain'],
                 'gallery' => ['tone' => 'base', 'spacing' => 'airy'],
                 'testimonials' => ['tone' => 'muted'],
                 'prose' => ['spacing' => 'airy'],
                 'faq' => ['tone' => 'muted'],
                 'contact' => ['tone' => 'muted', 'spacing' => 'airy'],
-                'cta' => ['tone' => 'muted'],
+                'cta' => ['tone' => 'muted', 'item_style' => 'card'],
             ],
             // Sells trust, so it spends nothing on decoration: almost every
             // section sits on the page background, including testimonials, whose
             // view shades itself by default. The restraint IS the look.
             self::ProfessionalMinimal => [
                 'features' => ['tone' => 'base'],
-                'offerings' => ['tone' => 'base'],
+                'offerings' => ['tone' => 'base', 'width' => 'narrow', 'align' => 'start', 'columns' => 'one', 'item_style' => 'plain'],
                 'gallery' => ['tone' => 'base'],
                 'testimonials' => ['tone' => 'base'],
                 'faq' => ['tone' => 'base'],
@@ -135,7 +139,8 @@ enum StylePreset: string
                 'offerings' => ['tone' => 'base'],
                 'gallery' => ['tone' => 'muted'],
                 'testimonials' => ['tone' => 'base'],
-                'faq' => ['tone' => 'muted'],
+                'faq' => ['tone' => 'muted', 'width' => 'wide', 'align' => 'center', 'columns' => 'two'],
+                'team' => ['item_style' => 'card', 'image_shape' => 'portrait'],
                 'contact' => ['tone' => 'base'],
             ],
             // The one preset that uses the dark tone as a design element:
@@ -144,22 +149,25 @@ enum StylePreset: string
             self::BoldEditorial => [
                 'gallery' => ['tone' => 'inverted', 'spacing' => 'tight'],
                 'testimonials' => ['tone' => 'inverted'],
-                'features' => ['tone' => 'base', 'spacing' => 'tight'],
+                'features' => ['tone' => 'base', 'spacing' => 'tight', 'width' => 'narrow', 'align' => 'start', 'columns' => 'one', 'item_style' => 'plain'],
                 'offerings' => ['tone' => 'muted', 'spacing' => 'tight'],
                 'prose' => ['spacing' => 'tight'],
-                'faq' => ['tone' => 'base', 'spacing' => 'tight'],
-                'contact' => ['tone' => 'inverted'],
+                'faq' => ['tone' => 'base', 'spacing' => 'tight', 'width' => 'wide', 'align' => 'center', 'columns' => 'two'],
+                'stats' => ['tone' => 'inverted'],
+                'team' => ['item_style' => 'card', 'image_shape' => 'portrait'],
+                'contact' => ['tone' => 'inverted', 'width' => 'narrow', 'align' => 'center', 'columns' => 'one'],
             ],
             // Air is the whole point: every content section gets the roomiest
             // step, and nothing is ever dark — wellness and care do not shout.
             self::CalmCoastal => [
                 'features' => ['tone' => 'base', 'spacing' => 'airy'],
-                'offerings' => ['tone' => 'muted', 'spacing' => 'airy'],
+                'offerings' => ['tone' => 'muted', 'spacing' => 'airy', 'width' => 'narrow', 'align' => 'start', 'columns' => 'one', 'item_style' => 'plain'],
+                'cta' => ['item_style' => 'card'],
                 'gallery' => ['tone' => 'base', 'spacing' => 'airy'],
                 'testimonials' => ['tone' => 'muted', 'spacing' => 'airy'],
                 'prose' => ['spacing' => 'airy'],
                 'faq' => ['tone' => 'base', 'spacing' => 'airy'],
-                'contact' => ['tone' => 'muted', 'spacing' => 'airy'],
+                'contact' => ['tone' => 'muted', 'spacing' => 'airy', 'width' => 'narrow', 'align' => 'center', 'columns' => 'one'],
             ],
             // Colour-forward and busy on purpose: the brand tone shows up on the
             // call to action, and shaded bands keep the page lively.
@@ -168,8 +176,9 @@ enum StylePreset: string
                 'offerings' => ['tone' => 'base'],
                 'gallery' => ['tone' => 'muted'],
                 'testimonials' => ['tone' => 'muted'],
-                'faq' => ['tone' => 'base'],
-                'contact' => ['tone' => 'muted'],
+                'faq' => ['tone' => 'base', 'width' => 'wide', 'align' => 'center', 'columns' => 'two'],
+                'stats' => ['tone' => 'inverted'],
+                'contact' => ['tone' => 'muted', 'width' => 'narrow', 'align' => 'center', 'columns' => 'one'],
                 'cta' => ['tone' => 'accent'],
             ],
             // The whole site is already dark (NoirGold base), so this preset
@@ -182,7 +191,9 @@ enum StylePreset: string
                 'gallery' => ['tone' => 'base', 'spacing' => 'tight'],
                 'testimonials' => ['tone' => 'muted', 'spacing' => 'airy'],
                 'faq' => ['tone' => 'muted'],
-                'contact' => ['tone' => 'base'],
+                'stats' => ['tone' => 'inverted'],
+                'team' => ['item_style' => 'card', 'image_shape' => 'portrait'],
+                'contact' => ['tone' => 'base', 'width' => 'narrow', 'align' => 'center', 'columns' => 'one'],
                 'cta' => ['tone' => 'accent', 'spacing' => 'tight'],
             ],
         };

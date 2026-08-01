@@ -184,10 +184,7 @@ describe('acceptChatFiles', () => {
     it('counts existing chips against the cap', () => {
         const { accepted, rejected } = acceptChatFiles(
             3,
-            [
-                file('a.jpg', 10, 'image/jpeg'),
-                file('b.jpg', 10, 'image/jpeg'),
-            ],
+            [file('a.jpg', 10, 'image/jpeg'), file('b.jpg', 10, 'image/jpeg')],
             LIMITS,
         );
 

@@ -48,9 +48,14 @@ final class Team extends Block
     /**
      * @var array<string, string>
      */
-    protected static array $variants = [
-        'portraits' => 'Portrait circles',
-        'tiles' => 'Photo tiles',
+    protected static array $axes = [
+        'tone' => 'base',
+        'spacing' => 'normal',
+        'width' => 'wide',
+        'align' => 'center',
+        'columns' => 'three',
+        'item_style' => 'plain',
+        'image_shape' => 'circle',
     ];
 
     /**

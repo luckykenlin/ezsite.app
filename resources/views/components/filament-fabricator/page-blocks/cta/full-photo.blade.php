@@ -9,13 +9,18 @@
     'secondary_url' => null,
     'image_url' => null,
 ])
+@php
+    $layout = \App\Site\Blocks\SectionLayout::for('cta', 'full-photo')->resolve($appearance);
+
+    $centered = str_contains($layout->heading(), 'text-center');
+@endphp
 {{-- Modeled on hero/full-bleed-overlay: the artwork rides the shell's
      `backdrop` slot so `-z-10` resolves in the stacking context that
      `isolate` creates here, outside the padding wrapper. --}}
 <x-site.section
     :appearance="$appearance"
-    tone="inverted"
-    spacing="tall"
+    :tone="$layout->toneDefault()"
+    :spacing="$layout->spacingDefault()"
     class="relative isolate overflow-hidden"
 >
     <x-slot:backdrop>
@@ -27,14 +32,14 @@
         @endif
     </x-slot:backdrop>
 
-    <div class="mx-auto flex max-w-2xl flex-col items-center px-6 text-center">
+    <div @class([$layout->container(), 'flex flex-col', 'items-center text-center' => $centered, 'items-start' => ! $centered])>
         <h2 data-editor-field="heading" class="site-display">{{ $heading }}</h2>
 
         @if ($body)
             <p data-editor-field="body" class="site-intro mt-6 opacity-80">{{ $body }}</p>
         @endif
 
-        <div class="mt-10 flex flex-wrap items-center justify-center gap-4">
+        <div @class(['mt-10 flex flex-wrap items-center gap-4', 'justify-center' => $centered])>
             @if ($cta_label && $cta_url)
                 <a href="{{ $cta_url }}" class="btn btn-primary">{{ $cta_label }}</a>
             @endif

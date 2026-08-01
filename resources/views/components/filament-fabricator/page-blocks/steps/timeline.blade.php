@@ -6,23 +6,20 @@
     'steps' => [],
 ])
 @php
+    $layout = \App\Site\Blocks\SectionLayout::for('steps', 'timeline')->resolve($appearance);
+
     // Repeater state may be a uuid-keyed map (Filament) or a plain list (AI
     // output) — iterate whatever array arrives, defensively.
     $items = array_values(array_filter(is_array($steps) ? $steps : [], 'is_array'));
 @endphp
-<x-site.section :appearance="$appearance" tone="base" spacing="normal">
-    <div class="mx-auto max-w-3xl px-6">
-        @if ($heading)
-            <h2 class="site-h2 text-center">{{ $heading }}</h2>
-        @endif
-
-        @if ($intro)
-            <p class="site-intro mx-auto mt-4 max-w-2xl text-center text-base-content/70">{{ $intro }}</p>
-        @endif
+<x-site.section :appearance="$appearance" :tone="$layout->toneDefault()" :spacing="$layout->spacingDefault()">
+    <div class="{{ $layout->container() }}">
+        <x-site.section-header :layout="$layout" :heading="$heading" :intro="$intro" />
 
         {{-- An <ol> because the order IS the content — it is what separates this
              block from features, and a screen reader should hear "list, 3 items"
-             rather than three unrelated headings. --}}
+             rather than three unrelated headings. The rail is this variant's
+             structure — the columns axis deliberately does not reach it. --}}
         <ol class="relative mt-12 space-y-10 border-l-2 border-base-300 pl-8">
             @foreach ($items as $item)
                 @continue(! ($item['title'] ?? null))

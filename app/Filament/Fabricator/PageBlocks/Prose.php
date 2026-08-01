@@ -53,6 +53,23 @@ final class Prose extends Block
     ];
 
     /**
+     * @var array<string, string>
+     */
+    protected static array $axes = [
+        'tone' => 'base',
+        'spacing' => 'normal',
+        'width' => 'narrow',
+        'align' => 'start',
+    ];
+
+    /**
+     * @var array<string, array<string, string>>
+     */
+    protected static array $variantAxes = [
+        'side-heading' => ['width' => 'wide'],
+    ];
+
+    /**
      * @var array<string, mixed>
      */
     protected static array $sample = [

@@ -6,6 +6,7 @@ namespace App\Site\Blocks;
 
 use App\Enums\BindType;
 use App\Enums\ChromeSlot;
+use InvalidArgumentException;
 
 /**
  * One block type's machine-readable contract.
@@ -55,6 +56,17 @@ final readonly class BlockType
      * @param  string|null  $itemMediaField  the media-id key inside one of those
      *                                       items (`media_id`, `avatar_media_id`);
      *                                       set exactly when `$itemsField` is
+     * @param  array<string, string>  $axes  the layout axes this type supports,
+     *                                       as `LayoutAxis value => default value`.
+     *                                       These are the view defaults that used
+     *                                       to live as literals in the blade files
+     *                                       — declared here so tools, presets and
+     *                                       the inspector can QUERY them (the
+     *                                       StampPresetDefaults known-limit this
+     *                                       fixes). Chrome declares none.
+     * @param  array<string, array<string, string>>  $variantAxes  per-variant
+     *                                                             default overrides,
+     *                                                             `variant => [axis => value]`
      */
     public function __construct(
         public string $type,
@@ -69,8 +81,50 @@ final readonly class BlockType
         public ?string $mediaField = null,
         public ?string $itemsField = null,
         public ?string $itemMediaField = null,
+        public array $axes = [],
+        public array $variantAxes = [],
     ) {
         //
+    }
+
+    /**
+     * Whether this type takes the given layout axis at all — what the restyle
+     * tool's "columns is not an axis of a hero block" correction reads.
+     */
+    public function supportsAxis(LayoutAxis $axis): bool
+    {
+        return array_key_exists($axis->value, $this->axes);
+    }
+
+    /**
+     * The axes this type supports, in {@see LayoutAxis} declaration order —
+     * which is also the stored-key order and the inspector's field order.
+     *
+     * @return list<LayoutAxis>
+     */
+    public function supportedAxes(): array
+    {
+        return array_values(array_filter(
+            LayoutAxis::cases(),
+            fn (LayoutAxis $axis): bool => $this->supportsAxis($axis),
+        ));
+    }
+
+    /**
+     * The DEFAULT value for an axis — the variant's override when it has one,
+     * else the type's. Throws on an unsupported axis: only views and presets
+     * ask, and both asking for an axis the type never declared is our bug,
+     * not tenant data (the from()-vs-tryFrom asymmetry, one level up).
+     */
+    public function axisDefault(LayoutAxis $axis, ?string $variant = null): string
+    {
+        $default = $variant !== null
+            ? ($this->variantAxes[$variant][$axis->value] ?? $this->axes[$axis->value] ?? null)
+            : ($this->axes[$axis->value] ?? null);
+
+        return $default ?? throw new InvalidArgumentException(
+            sprintf("A '%s' block declares no %s axis.", $this->type, $axis->value),
+        );
     }
 
     /**

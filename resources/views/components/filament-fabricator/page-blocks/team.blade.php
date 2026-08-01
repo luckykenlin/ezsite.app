@@ -6,21 +6,22 @@
     'members' => [],
 ])
 @php
+    $layout = \App\Site\Blocks\SectionLayout::for('team')->resolve($appearance);
+
     // Repeater state may be a uuid-keyed map (Filament) or a plain list (AI
     // output) — iterate whatever array arrives, defensively.
     $items = array_values(array_filter(is_array($members) ? $members : [], 'is_array'));
+
+    // The two old variants live on as axis combinations: portrait circles are
+    // image_shape=circle on plain items (centred), photo tiles are a squarer
+    // crop on cards (left-aligned, photo bleeding to the card edge).
+    $circle = str_contains($layout->image(), 'rounded-full');
 @endphp
-<x-site.section :appearance="$appearance" tone="base" spacing="normal">
-    <div class="mx-auto max-w-6xl px-6">
-        @if ($heading)
-            <h2 class="site-h2 text-center">{{ $heading }}</h2>
-        @endif
+<x-site.section :appearance="$appearance" :tone="$layout->toneDefault()" :spacing="$layout->spacingDefault()">
+    <div class="{{ $layout->container() }}">
+        <x-site.section-header :layout="$layout" :heading="$heading" :intro="$intro" />
 
-        @if ($intro)
-            <p class="site-intro mx-auto mt-4 max-w-2xl text-center text-base-content/70">{{ $intro }}</p>
-        @endif
-
-        <div class="mt-12 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+        <div class="mt-12 grid gap-8 {{ $layout->grid() }}">
             @foreach ($items as $item)
                 @continue(! ($item['name'] ?? null))
                 @php
@@ -32,24 +33,29 @@
                     // mb_* because a tenant's names are not necessarily ASCII.
                     $initials = mb_strtoupper(mb_substr(trim($item['name']), 0, 1));
                 @endphp
-                <div class="card overflow-hidden bg-base-200">
+                <div @class([$layout->item(), 'overflow-hidden' => $layout->isCard(), 'text-center' => ! $layout->isCard()])>
                     @if ($avatar)
                         {{-- Decorative: the name below is the accessible label, so
                              an alt here would be announced twice. --}}
-                        <img src="{{ $avatar }}" alt="" loading="lazy" class="aspect-[4/5] w-full object-cover" />
+                        <img
+                            src="{{ $avatar }}"
+                            alt=""
+                            loading="lazy"
+                            @class([$layout->image(), 'object-cover', 'mx-auto size-28' => $circle, 'w-full' => ! $circle])
+                        />
                     @else
                         <span
-                            class="flex aspect-[4/5] items-center justify-center bg-base-300 text-5xl font-bold text-base-content/40"
+                            @class(['flex items-center justify-center bg-base-300 font-bold text-base-content/50', $layout->image(), 'mx-auto size-28 text-3xl' => $circle, 'w-full text-5xl' => ! $circle])
                             aria-hidden="true"
                         >{{ $initials }}</span>
                     @endif
-                    <div class="card-body">
-                        <h3 class="card-title">{{ $item['name'] }}</h3>
+                    <div @class(['card-body' => $layout->isCard()])>
+                        <h3 @class(['card-title' => $layout->isCard(), 'mt-4 text-lg font-semibold' => ! $layout->isCard()])>{{ $item['name'] }}</h3>
                         @if ($item['role'] ?? null)
                             <p class="text-sm font-medium text-primary">{{ $item['role'] }}</p>
                         @endif
                         @if ($item['bio'] ?? null)
-                            <p class="text-base-content/70">{{ $item['bio'] }}</p>
+                            <p @class(['text-base-content/70', 'mt-2' => ! $layout->isCard()])>{{ $item['bio'] }}</p>
                         @endif
                     </div>
                 </div>

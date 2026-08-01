@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 use App\Design\StylePreset;
 use App\Site\Blocks\BlockVocabulary;
-use App\Site\Blocks\SectionSpacing;
+use App\Site\Blocks\LayoutAxis;
 use App\Site\Blocks\SectionTone;
 
 it('bundles complete, self-referencing tokens for every preset', function (StylePreset $preset): void {
@@ -93,21 +93,24 @@ it('gives every variant-bearing block type a default', function (StylePreset $pr
  * considered default rather than a degradation. Totality here would force six
  * opinions about every future block type, most of which should have none.
  */
-it('only defaults appearances for page block types, with values from the scales', function (StylePreset $preset): void {
+it('only defaults appearances for page block types, with axes the type declares and values from the scales', function (StylePreset $preset): void {
     $vocabulary = resolve(BlockVocabulary::class);
 
     foreach ($preset->blockAppearanceDefaults() as $type => $appearance) {
         // Chrome renders outside the section shell, so an entry for it would be
         // a setting with nowhere to land.
         expect($vocabulary->isAddableToPage($type))->toBeTrue()
-            ->and(array_keys($appearance))->each->toBeIn(['tone', 'spacing']);
+            ->and(array_keys($appearance))->each->toBeIn(array_column(LayoutAxis::cases(), 'value'));
 
-        if (array_key_exists('tone', $appearance)) {
-            expect(SectionTone::tryFrom($appearance['tone']))->toBeInstanceOf(SectionTone::class);
-        }
+        $contract = $vocabulary->get($type);
 
-        if (array_key_exists('spacing', $appearance)) {
-            expect(SectionSpacing::tryFrom($appearance['spacing']))->toBeInstanceOf(SectionSpacing::class);
+        foreach ($appearance as $key => $value) {
+            $axis = LayoutAxis::from($key);
+
+            // A typo here would reach a class attribute; an axis the type never
+            // declared would be a setting its view cannot render.
+            expect($axis->resolve($value))->not->toBeNull()
+                ->and($contract->supportsAxis($axis))->toBeTrue();
         }
     }
 })->with(StylePreset::cases());
@@ -149,13 +152,19 @@ it('gives the presets genuinely different section rhythms', function (): void {
  * menu of three.
  */
 it('reserves the dark tone for the one preset whose whole idea it is', function (): void {
+    // The stats band is exempt: a statement band was dark in every preset that
+    // chose it back when that darkness was a VARIANT ('band'), and moving it
+    // into the tone axis must not read as new presets reaching for drama.
     $withInverted = array_values(array_filter(
         StylePreset::cases(),
-        static fn (StylePreset $preset): bool => in_array(
-            SectionTone::Inverted->value,
-            array_column($preset->blockAppearanceDefaults(), 'tone'),
-            true,
-        ),
+        static function (StylePreset $preset): bool {
+            $tones = array_column(
+                array_diff_key($preset->blockAppearanceDefaults(), ['stats' => null]),
+                'tone',
+            );
+
+            return in_array(SectionTone::Inverted->value, $tones, true);
+        },
     ));
 
     expect($withInverted)->toBe([StylePreset::BoldEditorial]);

@@ -10,8 +10,7 @@ use App\Models\Location;
 use App\Site\Blocks\BlockIntent;
 use App\Site\Blocks\BlockShape;
 use App\Site\Blocks\BlockType;
-use App\Site\Blocks\SectionSpacing;
-use App\Site\Blocks\SectionTone;
+use App\Site\Blocks\LayoutAxis;
 use Awcodes\Curator\Components\Forms\CuratorPicker;
 use Filament\Forms\Components\Builder\Block as BuilderBlock;
 use Filament\Forms\Components\Field;
@@ -69,6 +68,26 @@ abstract class Block extends PageBlock
      * its own narrative content. See {@see BindType}.
      */
     protected static ?BindType $bindType = null;
+
+    /**
+     * The layout axes this type supports, as `LayoutAxis value => default
+     * value` — the defaults that used to be literals in the blade views,
+     * moved here so they are a queryable contract ({@see BlockType::$axes}).
+     * Every page block declares at least tone + spacing; chrome declares
+     * nothing (its views bypass the section shell).
+     *
+     * @var array<string, string>
+     */
+    protected static array $axes = [];
+
+    /**
+     * Per-variant overrides of those defaults, `variant => [axis => value]` —
+     * for the handful of variants whose look IS a different default (the
+     * full-bleed hero is inverted and tall; the centered one airy).
+     *
+     * @var array<string, array<string, string>>
+     */
+    protected static array $variantAxes = [];
 
     /**
      * The icon representing this block type in the editor's block library and
@@ -156,6 +175,8 @@ abstract class Block extends PageBlock
             mediaField: $mediaField,
             itemsField: $itemsField,
             itemMediaField: $itemMediaField,
+            axes: static::$axes,
+            variantAxes: static::$variantAxes,
         );
     }
 
@@ -226,10 +247,18 @@ abstract class Block extends PageBlock
             return [];
         }
 
-        return [
-            static::appearanceField(BlockShape::TONE_KEY, 'Background', SectionTone::options()),
-            static::appearanceField(BlockShape::SPACING_KEY, 'Vertical space', SectionSpacing::options()),
-        ];
+        // One select per axis the type's contract declares, in LayoutAxis
+        // order — tone and spacing first, then the parametric axes. The
+        // labels and options both come off the axis registry, so a new axis
+        // reaches the inspector by being declared, not by being wired.
+        return array_map(
+            static fn (LayoutAxis $axis): Select => static::appearanceField(
+                $axis->value,
+                $axis->label(),
+                $axis->enumClass()::options(),
+            ),
+            static::contract()->supportedAxes(),
+        );
     }
 
     /**

@@ -41,7 +41,7 @@ it('sets both dimensions on a block that had no appearance', function (): void {
         // Copy and layout are untouched: this tool only ever writes the one key.
         ->and($draft->blocks()[0]['data']['heading'])->toBe('Hello')
         ->and($draft->blocks()[0]['data']['variant'])->toBe('centered-minimal')
-        ->and($result)->toContain('the inverted background and tall vertical spacing')
+        ->and($result)->toContain('the inverted background, tall vertical spacing')
         ->and($result)->toContain('Current page blocks:');
 });
 
@@ -67,7 +67,7 @@ it('hands a dimension back to the layout default, and drops the key when both ar
     // No empty array left behind: the editor's commit strips those, and an
     // empty one would count as a change against RecordPageRevision's `===`.
     expect($draft->blocks()[1]['data'])->not->toHaveKey('appearance')
-        ->and($result)->toContain("its layout's own background and spacing");
+        ->and($result)->toContain("its layout's own defaults");
 });
 
 /*
@@ -106,7 +106,7 @@ it('requires at least one dimension', function (): void {
     $result = appearanceTool($draft)->handle(new Request(['key' => 'k1']));
 
     expect($draft->blocks())->toBe(appearanceDraft()->blocks())
-        ->and($result)->toContain('set a background, a vertical spacing, or both');
+        ->and($result)->toContain('send at least one layout axis');
 });
 
 it('rejects a value outside the scale, and names the real ones', function (array $arguments, string $expected, string $listed): void {
@@ -119,7 +119,8 @@ it('rejects a value outside the scale, and names the real ones', function (array
         ->and($result)->toContain($listed);
 })->with([
     'unknown tone' => [['tone' => 'neon'], "'neon' is not a background", 'base, muted, accent, inverted, plain'],
-    'unknown spacing' => [['spacing' => 'enormous'], "'enormous' is not a spacing", 'flush, tight, normal, airy, tall'],
+    'unknown spacing' => [['spacing' => 'enormous'], "'enormous' is not a vertical space", 'flush, tight, normal, airy, tall'],
+    'unknown width' => [['width' => 'gigantic'], "'gigantic' is not a content width", 'narrow, normal, wide'],
 ]);
 
 it('refuses to restyle site chrome', function (): void {
@@ -170,4 +171,59 @@ it('publishes both scales plus the reset sentinel, with guidance on when to use 
         ->and($serialized['tone']['description'])->toContain('dramatic')
         ->and($serialized['spacing']['description'])->toContain('the default, and right for most sections')
         ->and($tool->description())->toContain('rhythm');
+});
+
+it('rejects an invalid value for an axis the type does declare', function (): void {
+    $draft = appearanceDraft();
+
+    $result = appearanceTool($draft)->handle(new Request(['key' => 'k2', 'columns' => 'five']));
+
+    expect($draft->blocks())->toBe(appearanceDraft()->blocks())
+        ->and($result)->toContain("'five' is not a columns")
+        ->and($result)->toContain('one, two, three, four');
+});
+
+it('sets, keeps and resets the parametric axes independently', function (): void {
+    $draft = appearanceDraft();
+    $tool = appearanceTool($draft);
+
+    $result = $tool->handle(new Request(['key' => 'k2', 'columns' => 'two', 'item_style' => 'plain']));
+
+    // Stored keys land in LayoutAxis order, whatever order the call used —
+    // repeated edits must never reorder the JSON.
+    expect($draft->blocks()[1]['data']['appearance'])
+        ->toBe(['tone' => 'muted', 'spacing' => 'tight', 'columns' => 'two', 'item_style' => 'plain'])
+        ->and($result)->toContain('columns two');
+
+    $tool->handle(new Request(['key' => 'k2', 'columns' => 'layout-default', 'align' => 'start']));
+
+    expect($draft->blocks()[1]['data']['appearance'])
+        ->toBe(['tone' => 'muted', 'spacing' => 'tight', 'align' => 'start', 'item_style' => 'plain']);
+});
+
+/*
+ * Which axes a type takes is the CONTRACT's fact, and the correction must name
+ * the real ones — a model told only "no" retries by vibe.
+ */
+it('refuses an axis the block type never declared, naming the ones it has', function (): void {
+    $draft = appearanceDraft();
+
+    $result = appearanceTool($draft)->handle(new Request(['key' => 'k1', 'columns' => 'two']));
+
+    expect($draft->blocks())->toBe(appearanceDraft()->blocks())
+        ->and($result)->toContain('columns is not a layout axis of a hero block')
+        ->and($result)->toContain("hero block's axes are: tone, spacing, width, align, image_shape");
+});
+
+it('publishes every axis with the reset sentinel in its schema', function (): void {
+    $serialized = json_decode(json_encode(array_map(
+        fn ($type): array => $type->toArray(),
+        appearanceTool(appearanceDraft())->schema(new JsonSchemaTypeFactory),
+    )), associative: true);
+
+    expect(array_keys($serialized))->toBe(['key', 'tone', 'spacing', 'width', 'align', 'columns', 'item_style', 'image_shape'])
+        ->and($serialized['columns']['enum'])->toBe(['one', 'two', 'three', 'four', 'layout-default'])
+        ->and($serialized['item_style']['enum'])->toBe(['plain', 'card', 'outline', 'layout-default'])
+        // The load-bearing clause: only the mentioned axes change.
+        ->and(appearanceTool(appearanceDraft())->description())->toContain('Send only the axes you want to change');
 });

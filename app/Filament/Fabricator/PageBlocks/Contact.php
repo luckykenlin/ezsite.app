@@ -40,9 +40,12 @@ final class Contact extends Block
     /**
      * @var array<string, string>
      */
-    protected static array $variants = [
-        'split' => 'Intro beside details',
-        'stacked' => 'Stacked, centered',
+    protected static array $axes = [
+        'tone' => 'base',
+        'spacing' => 'normal',
+        'width' => 'wide',
+        'align' => 'start',
+        'columns' => 'two',
     ];
 
     protected static ?BindType $bindType = BindType::Location;

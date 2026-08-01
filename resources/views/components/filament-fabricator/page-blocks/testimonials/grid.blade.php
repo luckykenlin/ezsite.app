@@ -5,19 +5,19 @@
     'testimonials' => [],
 ])
 @php
+    $layout = \App\Site\Blocks\SectionLayout::for('testimonials', 'grid')->resolve($appearance);
+
     $items = is_array($testimonials) ? $testimonials : [];
 @endphp
-<x-site.section :appearance="$appearance" tone="muted" spacing="normal">
-    <div class="mx-auto max-w-6xl px-6">
-        @if ($heading)
-            <h2 class="site-h2 text-center">{{ $heading }}</h2>
-        @endif
+<x-site.section :appearance="$appearance" :tone="$layout->toneDefault()" :spacing="$layout->spacingDefault()">
+    <div class="{{ $layout->container() }}">
+        <x-site.section-header :layout="$layout" :heading="$heading" />
 
-        <div class="mt-12 grid gap-8 md:grid-cols-2">
+        <div class="mt-12 grid gap-8 {{ $layout->grid() }}">
             @foreach ($items as $item)
                 @continue(! is_array($item))
-                <figure class="card bg-base-100">
-                    <div class="card-body">
+                <figure class="{{ $layout->item() }}">
+                    <div @class(['card-body' => $layout->isCard()])>
                         <blockquote class="text-lg leading-relaxed">&ldquo;{{ $item['quote'] ?? '' }}&rdquo;</blockquote>
                         <figcaption class="mt-4 flex items-center gap-3">
                             @if ($item['avatar_url'] ?? null)

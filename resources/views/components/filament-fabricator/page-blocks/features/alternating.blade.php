@@ -6,20 +6,18 @@
     'features' => [],
 ])
 @php
+    $layout = \App\Site\Blocks\SectionLayout::for('features', 'alternating')->resolve($appearance);
+
     // Repeater state may be a uuid-keyed map (Filament) or a plain list (AI
     // output) — iterate whatever array arrives, defensively.
     $items = array_values(array_filter(is_array($features) ? $features : [], 'is_array'));
 @endphp
-<x-site.section :appearance="$appearance" tone="base" spacing="normal">
-    <div class="mx-auto max-w-6xl px-6">
-        @if ($heading)
-            <h2 class="site-h2 text-center">{{ $heading }}</h2>
-        @endif
+<x-site.section :appearance="$appearance" :tone="$layout->toneDefault()" :spacing="$layout->spacingDefault()">
+    <div class="{{ $layout->container() }}">
+        <x-site.section-header :layout="$layout" :heading="$heading" :intro="$intro" />
 
-        @if ($intro)
-            <p class="site-intro mx-auto mt-4 max-w-2xl text-center text-base-content/70">{{ $intro }}</p>
-        @endif
-
+        {{-- The row itself is the structure this variant exists for — the
+             columns axis deliberately does not reach it. --}}
         <div class="mt-12 space-y-16 md:space-y-20">
             @foreach ($items as $item)
                 @php
@@ -35,9 +33,9 @@
                         @if ($image)
                             {{-- Decorative: the title beside it is the accessible
                                  name, so an alt here would be read out twice. --}}
-                            <img src="{{ $image }}" alt="" loading="lazy" class="w-full rounded-box object-cover aspect-[4/3]">
+                            <img src="{{ $image }}" alt="" loading="lazy" class="{{ $layout->image() }} w-full rounded-box object-cover">
                         @else
-                            <div class="flex aspect-[4/3] items-center justify-center rounded-box bg-base-200">
+                            <div class="flex {{ $layout->image() }} items-center justify-center rounded-box bg-base-200">
                                 <span class="text-6xl" aria-hidden="true">{{ $item['icon'] ?? '✦' }}</span>
                             </div>
                         @endif

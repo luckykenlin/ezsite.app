@@ -166,7 +166,7 @@ it('renders a selectable placeholder for a block the live site would skip', func
         "This block can't be rendered",
     ],
     'unresolved bind (no business)' => [
-        ['type' => 'contact', 'data' => ['variant' => 'split', 'heading' => 'Find us']],
+        ['type' => 'contact', 'data' => ['heading' => 'Find us']],
         'needs business details',
     ],
 ]);

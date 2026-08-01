@@ -5,21 +5,23 @@
     'testimonials' => [],
 ])
 @php
+    $layout = \App\Site\Blocks\SectionLayout::for('testimonials', 'carousel')->resolve($appearance);
+
     $items = is_array($testimonials) ? $testimonials : [];
 @endphp
-<x-site.section :appearance="$appearance" tone="muted" spacing="normal">
-    <div class="mx-auto max-w-7xl px-6">
-        @if ($heading)
-            <h2 class="site-h2 text-center">{{ $heading }}</h2>
-        @endif
+<x-site.section :appearance="$appearance" :tone="$layout->toneDefault()" :spacing="$layout->spacingDefault()">
+    <div class="{{ $layout->container() }}">
+        <x-site.section-header :layout="$layout" :heading="$heading" />
 
+        {{-- The snap scroller is this variant's structure — the columns axis
+             deliberately does not reach it. --}}
         <div class="carousel mt-12 w-full gap-6">
             @foreach ($items as $item)
                 @continue(! is_array($item))
                 <figure class="carousel-item w-full sm:w-96">
-                    <div class="card w-full bg-base-100">
-                        <div class="card-body">
-                            <blockquote class="leading-relaxed">&ldquo;{{ $item['quote'] ?? '' }}&rdquo;</blockquote>
+                    <div class="w-full {{ $layout->item() }}">
+                        <div @class(['card-body' => $layout->isCard()])>
+                            <blockquote class="text-lg leading-relaxed">&ldquo;{{ $item['quote'] ?? '' }}&rdquo;</blockquote>
                             <figcaption class="mt-4 flex items-center gap-3">
                                 @if ($item['avatar_url'] ?? null)
                                     <img src="{{ $item['avatar_url'] }}" alt="{{ $item['author'] ?? '' }}" class="size-10 rounded-full object-cover" />

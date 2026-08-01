@@ -30,6 +30,16 @@ final class Heading extends Block
     protected static ?BlockIntent $intent = BlockIntent::Introduce;
 
     /**
+     * @var array<string, string>
+     */
+    protected static array $axes = [
+        'tone' => 'plain',
+        'spacing' => 'flush',
+        'width' => 'wide',
+        'align' => 'start',
+    ];
+
+    /**
      * @var array<string, mixed>
      */
     protected static array $sample = [

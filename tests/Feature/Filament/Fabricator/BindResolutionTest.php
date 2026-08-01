@@ -11,7 +11,7 @@ it('resolves every bound block on a page with a single business query and a sing
     $this->createTenantBusiness($tenant, ['name' => 'Corner Cafe'], 2);
     $this->createTenantPage($tenant, [
         ['type' => 'header', 'data' => ['variant' => 'simple']],
-        ['type' => 'contact', 'data' => ['variant' => 'split', 'heading' => 'Visit us']],
+        ['type' => 'contact', 'data' => ['heading' => 'Visit us']],
         ['type' => 'footer', 'data' => ['variant' => 'columns']],
     ]);
 

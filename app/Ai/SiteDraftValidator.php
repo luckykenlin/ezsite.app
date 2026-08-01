@@ -9,9 +9,8 @@ use App\Exceptions\SiteDraftUnusable;
 use App\Site\Blocks\BlockShape;
 use App\Site\Blocks\BlockType;
 use App\Site\Blocks\BlockVocabulary;
-use App\Site\Blocks\SectionAppearance;
-use App\Site\Blocks\SectionSpacing;
-use App\Site\Blocks\SectionTone;
+use App\Site\Blocks\LayoutAxis;
+use App\Site\Blocks\SectionLayout;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
@@ -246,10 +245,18 @@ final readonly class SiteDraftValidator
             }
 
             $stored = is_array($raw[BlockShape::APPEARANCE_KEY] ?? null) ? $raw[BlockShape::APPEARANCE_KEY] : [];
-            $appearance = SectionAppearance::store(
-                $this->tone($type, $block[BlockShape::TONE_KEY] ?? $stored[BlockShape::TONE_KEY] ?? null, $index),
-                $this->spacing($type, $block[BlockShape::SPACING_KEY] ?? $stored[BlockShape::SPACING_KEY] ?? null, $index),
-            );
+            $axes = [];
+
+            foreach (LayoutAxis::cases() as $axis) {
+                $axes[$axis->value] = $this->axis(
+                    $pageTypes[$type],
+                    $axis,
+                    $block[$axis->value] ?? $stored[$axis->value] ?? null,
+                    $index,
+                );
+            }
+
+            $appearance = SectionLayout::store($axes);
 
             if ($appearance !== null) {
                 $data[BlockShape::APPEARANCE_KEY] = $appearance;
@@ -283,33 +290,30 @@ final readonly class SiteDraftValidator
         return null;
     }
 
-    private function tone(string $type, mixed $raw, int $index): ?SectionTone
+    /**
+     * A validated axis value, or null. Present-but-invalid logs with the
+     * offered value, and so does an axis the type never declared — both are
+     * the model-fidelity telemetry to watch, and neither may reach a class
+     * attribute.
+     */
+    private function axis(BlockType $type, LayoutAxis $axis, mixed $raw, int $index): ?string
     {
         if (! is_string($raw) || $raw === '') {
             return null;
         }
 
-        $tone = SectionTone::tryFrom($raw);
+        if ($axis->resolve($raw) === null) {
+            Log::info('site_draft.layout_dropped', ['dimension' => $axis->value, 'type' => $type->type, 'value' => $raw, 'index' => $index]);
 
-        if ($tone === null) {
-            Log::info('site_draft.layout_dropped', ['dimension' => BlockShape::TONE_KEY, 'type' => $type, 'value' => $raw, 'index' => $index]);
-        }
-
-        return $tone;
-    }
-
-    private function spacing(string $type, mixed $raw, int $index): ?SectionSpacing
-    {
-        if (! is_string($raw) || $raw === '') {
             return null;
         }
 
-        $spacing = SectionSpacing::tryFrom($raw);
+        if (! $type->supportsAxis($axis)) {
+            Log::info('site_draft.layout_dropped', ['dimension' => $axis->value, 'type' => $type->type, 'value' => $raw, 'index' => $index, 'reason' => 'axis_not_applicable']);
 
-        if ($spacing === null) {
-            Log::info('site_draft.layout_dropped', ['dimension' => BlockShape::SPACING_KEY, 'type' => $type, 'value' => $raw, 'index' => $index]);
+            return null;
         }
 
-        return $spacing;
+        return $raw;
     }
 }

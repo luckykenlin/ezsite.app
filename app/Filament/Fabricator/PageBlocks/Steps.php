@@ -56,6 +56,24 @@ final class Steps extends Block
     ];
 
     /**
+     * @var array<string, string>
+     */
+    protected static array $axes = [
+        'tone' => 'base',
+        'spacing' => 'normal',
+        'width' => 'normal',
+        'align' => 'center',
+        'columns' => 'one',
+    ];
+
+    /**
+     * @var array<string, array<string, string>>
+     */
+    protected static array $variantAxes = [
+        'timeline' => ['width' => 'narrow'],
+    ];
+
+    /**
      * @return array<int, Field>
      */
     protected static function fields(): array

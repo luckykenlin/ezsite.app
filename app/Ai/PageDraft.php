@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Ai;
 
 use App\Site\Blocks\BlockShape;
-use App\Site\Blocks\SectionAppearance;
+use App\Site\Blocks\SectionLayout;
 use Illuminate\Support\Str;
 
 /**
@@ -86,8 +86,10 @@ final class PageDraft
             // Appearance joins the variant in the parenthesised header rather
             // than the content JSON: both are presentation the model sets
             // through their own tools, and leaving them inline invited it to
-            // write them back as though they were content fields.
-            $appearance = SectionAppearance::describeStored($data[BlockShape::APPEARANCE_KEY] ?? null);
+            // write them back as though they were content fields. The layout
+            // axes read name=value ("columns=two"); tone and spacing keep
+            // their bare-value form.
+            $appearance = SectionLayout::describeStored($data[BlockShape::APPEARANCE_KEY] ?? null);
 
             unset(
                 $data[BlockShape::VARIANT_KEY],

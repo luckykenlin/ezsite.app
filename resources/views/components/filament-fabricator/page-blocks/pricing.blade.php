@@ -6,12 +6,14 @@
     'plans' => [],
 ])
 @php
+    $layout = \App\Site\Blocks\SectionLayout::for('pricing')->resolve($appearance);
+
     // Repeater state may be a uuid-keyed map (Filament) or a plain list (AI
     // output) — iterate whatever array arrives, defensively.
     //
-    // Unnamed plans are dropped HERE rather than skipped in the loop, for the
-    // same reason as the simple variant: a half-finished entry the operator is
-    // still typing must not claim a column.
+    // Unnamed plans are dropped HERE rather than skipped in the loop, because a
+    // half-finished entry the operator is still typing would otherwise claim a
+    // column and leave the real plan rendering at half width.
     $items = array_values(array_filter(
         is_array($plans) ? $plans : [],
         static fn (mixed $plan): bool => is_array($plan) && ($plan['name'] ?? null),
@@ -30,19 +32,12 @@
         }
     }
 @endphp
-<x-site.section :appearance="$appearance" tone="base" spacing="normal">
-    <div class="mx-auto max-w-6xl px-6">
-        @if ($heading)
-            <h2 class="site-h2 text-center">{{ $heading }}</h2>
-        @endif
+<x-site.section :appearance="$appearance" :tone="$layout->toneDefault()" :spacing="$layout->spacingDefault()">
+    <div class="{{ $layout->container() }}">
+        <x-site.section-header :layout="$layout" :heading="$heading" :intro="$intro" />
 
-        @if ($intro)
-            <p class="site-intro mx-auto mt-4 max-w-2xl text-center text-base-content/70">{{ $intro }}</p>
-        @endif
-
-        {{-- items-center rather than items-start: the featured tier reads as the
-             tallest card only when its neighbours float at mid-height. --}}
-        <div class="mt-12 grid gap-8 lg:grid-cols-3 lg:items-center">
+        {{-- Capped at the plan count: one plan across the full width, never a third of a grid. --}}
+        <div class="mt-12 grid items-start gap-8 {{ $layout->gridFor(count($items)) }}">
             @foreach ($items as $index => $item)
                 @php
                     $isFeatured = $index === $featured;
@@ -55,15 +50,16 @@
                     ));
                 @endphp
                 <div @class([
-                    'card bg-base-200',
-                    'ring-2 ring-primary' => $isFeatured,
+                    $layout->item(),
+                    'h-full' => $layout->isCard(),
+                    'ring-2 ring-primary' => $isFeatured && $layout->isCard(),
                 ])>
-                    <div class="card-body">
+                    <div @class(['card-body' => $layout->isCard()])>
                         @if ($isFeatured)
-                            <span class="site-eyebrow text-primary">{{ __('Most popular') }}</span>
+                            <span class="badge badge-primary self-start">Recommended</span>
                         @endif
 
-                        <h3 class="card-title">{{ $item['name'] }}</h3>
+                        <h3 @class(['card-title' => $layout->isCard(), 'text-lg font-semibold' => ! $layout->isCard()])>{{ $item['name'] }}</h3>
 
                         @if ($item['price'] ?? null)
                             <p class="mt-2">
@@ -90,10 +86,10 @@
                         @endif
 
                         @if (($item['cta_label'] ?? null) && ($item['cta_url'] ?? null))
-                            <div class="card-actions mt-6">
+                            <div @class(['card-actions mt-6' => $layout->isCard(), 'mt-6' => ! $layout->isCard()])>
                                 <a
                                     href="{{ $item['cta_url'] }}"
-                                    @class(['btn w-full', 'btn-primary' => $isFeatured, 'btn-ghost' => ! $isFeatured])
+                                    @class(['btn w-full', 'btn-primary' => $isFeatured, 'btn-outline' => ! $isFeatured])
                                 >{{ $item['cta_label'] }}</a>
                             </div>
                         @endif

@@ -14,6 +14,7 @@ use App\Enums\ChromeSlot;
 use App\Models\Business;
 use App\Models\Page;
 use App\Site\Blocks\BlockType;
+use App\Site\Blocks\LayoutAxis;
 use App\Site\SiteContext;
 use Stringable;
 
@@ -156,7 +157,7 @@ final readonly class PageEditPrompt implements Stringable
             }
 
             $lines[] = sprintf(
-                '- %s — %s%s%s%s',
+                '- %s — %s%s%s%s%s',
                 $type,
                 $contract->description,
                 "\n  fields: ".($contract->fields === [] ? '(none)' : implode(', ', $contract->fields)),
@@ -164,6 +165,13 @@ final readonly class PageEditPrompt implements Stringable
                 // lookup tool: "make the hero full-width" must not cost a round
                 // trip, and it is ~5 tokens per type actually on the page.
                 $contract->variants === [] ? '' : ' — layouts: '.implode(', ', $contract->variants),
+                // Axis NAMES only (~8 tokens/type): the values and their
+                // guidance live once, in SetBlockAppearance's schema — the
+                // same division of labour as the appearance paragraph below.
+                $contract->axes === [] ? '' : ' — axes: '.implode(', ', array_map(
+                    static fn (LayoutAxis $axis): string => $axis->value,
+                    $contract->supportedAxes(),
+                )),
                 $contract->bind instanceof BindType
                     ? ' — also shows live '.$contract->bind->value.' details automatically; write only its narrative fields'
                     : '',
@@ -184,9 +192,12 @@ final readonly class PageEditPrompt implements Stringable
             // for blocks that have one stored — silence there means the block
             // renders whatever its own layout was designed to do, NOT that it is
             // unstyled and waiting to be fixed.
-            ."\nEvery section also has a background and a vertical spacing, set with "
-            .'SetBlockAppearance. The page outline names them only where they have been set; a '
-            .'section without them uses what its layout was designed to do, which is usually right.';
+            ."\nEvery section also has layout axes — its background, vertical spacing, and the "
+            .'axes listed on its vocabulary line (content width, header alignment, columns, item '
+            .'style, image shape) — all set with SetBlockAppearance. "Two columns", "left-align '
+            .'the heading", "drop the cards" are axis changes, not layout switches. The page '
+            .'outline names axes only where they have been set; a section without them uses what '
+            .'its layout was designed to do, which is usually right.';
     }
 
     /**

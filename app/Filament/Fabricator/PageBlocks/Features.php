@@ -45,9 +45,29 @@ final class Features extends Block
      */
     protected static array $variants = [
         'grid' => 'Three-column cards',
-        'list' => 'Stacked list',
         'alternating' => 'Alternating rows',
         'icon-rows' => 'Icon rows',
+    ];
+
+    /**
+     * @var array<string, string>
+     */
+    protected static array $axes = [
+        'tone' => 'base',
+        'spacing' => 'normal',
+        'width' => 'wide',
+        'align' => 'center',
+        'columns' => 'three',
+        'item_style' => 'card',
+        'image_shape' => 'wide',
+    ];
+
+    /**
+     * @var array<string, array<string, string>>
+     */
+    protected static array $variantAxes = [
+        'alternating' => ['item_style' => 'plain', 'image_shape' => 'standard'],
+        'icon-rows' => ['width' => 'normal', 'columns' => 'two', 'item_style' => 'plain'],
     ];
 
     /**

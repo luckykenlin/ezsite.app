@@ -6,24 +6,21 @@
     'steps' => [],
 ])
 @php
+    $layout = \App\Site\Blocks\SectionLayout::for('steps', 'list')->resolve($appearance);
+
     // Repeater state may be a uuid-keyed map (Filament) or a plain list (AI
     // output) — iterate whatever array arrives, defensively.
     $items = array_values(array_filter(is_array($steps) ? $steps : [], 'is_array'));
 @endphp
-<x-site.section :appearance="$appearance" tone="base" spacing="normal">
-    <div class="mx-auto max-w-4xl px-6">
-        @if ($heading)
-            <h2 class="site-h2 text-center">{{ $heading }}</h2>
-        @endif
-
-        @if ($intro)
-            <p class="site-intro mx-auto mt-4 max-w-2xl text-center text-base-content/70">{{ $intro }}</p>
-        @endif
+<x-site.section :appearance="$appearance" :tone="$layout->toneDefault()" :spacing="$layout->spacingDefault()">
+    <div class="{{ $layout->container() }}">
+        <x-site.section-header :layout="$layout" :heading="$heading" :intro="$intro" />
 
         {{-- An <ol> because the order IS the content — it is what separates this
              block from features, and a screen reader should hear "list, 3 items"
-             rather than three unrelated headings. --}}
-        <ol class="mt-12 space-y-8">
+             rather than three unrelated headings. Multi-column steps keep their
+             reading order down each column. --}}
+        <ol @class(['mt-12', 'space-y-8' => $layout->grid() === 'grid-cols-1', 'grid gap-8' => $layout->grid() !== 'grid-cols-1', $layout->grid() => $layout->grid() !== 'grid-cols-1'])>
             @foreach ($items as $item)
                 @continue(! ($item['title'] ?? null))
                 <li class="flex gap-5">

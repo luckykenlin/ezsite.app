@@ -75,6 +75,26 @@ enum SectionTone: string
     }
 
     /**
+     * The card surface that stays visible ON this tone — what
+     * {@see SectionItemStyle::Card} composes with.
+     *
+     * A card's whole job is to lift an item off the band behind it, so its
+     * surface must be chosen against that band: `bg-base-200` cards on a
+     * muted (`bg-base-200`) section simply vanish — the exact latent bug the
+     * hard-coded views carried. On the dark and accent tones the card also
+     * re-asserts its own foreground, because the section's light-on-dark text
+     * colour would otherwise bleed into a light card.
+     */
+    public function itemSurface(): string
+    {
+        return match ($this) {
+            self::Base, self::Plain => 'bg-base-200',
+            self::Muted => 'bg-base-100',
+            self::Accent, self::Inverted => 'bg-base-100 text-base-content',
+        };
+    }
+
+    /**
      * The operator-facing label, for the panel's Select.
      */
     public function label(): string

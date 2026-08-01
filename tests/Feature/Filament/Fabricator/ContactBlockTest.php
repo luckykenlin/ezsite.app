@@ -6,7 +6,7 @@ use App\Models\Location;
 use App\Models\SiteSetting;
 use App\Models\Tenant;
 
-it('renders each contact variant with the bound location NAP, hours and directions link', function (string $variant, string $marker): void {
+it('renders each contact arrangement with the bound location NAP, hours and directions link', function (array $appearance, string $marker): void {
     $tenant = Tenant::factory()->withDomain('acme')->create();
     $business = $this->createTenantBusiness($tenant, [
         'contact_phone' => '+1 555 000 1111',
@@ -27,7 +27,7 @@ it('renders each contact variant with the bound location NAP, hours and directio
         'longitude' => -122.0,
     ]));
     $this->createTenantPage($tenant, [
-        ['type' => 'contact', 'data' => ['variant' => $variant, 'heading' => 'Visit us', 'intro' => 'Drop by any time.']],
+        ['type' => 'contact', 'data' => ['appearance' => $appearance, 'heading' => 'Visit us', 'intro' => 'Drop by any time.']],
     ]);
 
     $this->get(sprintf('http://acme.%s/', $this->centralDomain()))
@@ -42,8 +42,10 @@ it('renders each contact variant with the bound location NAP, hours and directio
         ->assertSee('https://www.google.com/maps/search/?api=1&amp;query=37.5', false)
         ->assertSee($marker, false);
 })->with([
-    'split' => ['split', 'lg:grid-cols-2'],
-    'stacked' => ['stacked', 'max-w-2xl'],
+    // The two old variants, re-expressed as axis combinations: the form beside
+    // the details, and everything stacked down a narrow centred spine.
+    'split' => [[], 'sm:grid-cols-2'],
+    'stacked' => [['columns' => 'one', 'width' => 'narrow', 'align' => 'center'], 'max-w-3xl'],
 ]);
 
 it('renders the explicitly bound location instead of the primary', function (): void {
@@ -69,7 +71,7 @@ it('renders the explicitly bound location instead of the primary', function (): 
     // legitimately carries the PRIMARY location's address (it describes the
     // business, not this block), which would defeat the assertion below.
     $this->createTenantPage($tenant, [
-        ['type' => 'contact', 'data' => ['variant' => 'split', 'bind' => ['location_id' => $secondary->id]]],
+        ['type' => 'contact', 'data' => ['bind' => ['location_id' => $secondary->id]]],
     ], 'visit');
 
     $this->get(sprintf('http://acme.%s/visit', $this->centralDomain()))

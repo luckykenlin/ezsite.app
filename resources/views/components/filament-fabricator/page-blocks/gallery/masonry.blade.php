@@ -5,14 +5,19 @@
     'images' => [],
 ])
 @php
+    $layout = \App\Site\Blocks\SectionLayout::for('gallery', 'masonry')->resolve($appearance);
+
     $items = is_array($images) ? $images : [];
 @endphp
-<x-site.section :appearance="$appearance" tone="base" spacing="normal">
-    <div class="mx-auto max-w-7xl px-6">
+<x-site.section :appearance="$appearance" :tone="$layout->toneDefault()" :spacing="$layout->spacingDefault()">
+    <div class="{{ $layout->container() }}">
         @if ($heading)
             <h2 class="site-h2 text-center">{{ $heading }}</h2>
         @endif
 
+        {{-- CSS columns are this variant's structure; the columns axis and the
+             image-shape axis deliberately do not reach it — masonry's whole
+             point is every photo at its natural ratio. --}}
         <div class="mt-12 columns-2 gap-4 sm:columns-3 [&>figure]:mb-4">
             @foreach ($items as $item)
                 @continue(! is_array($item) || ! ($item['url'] ?? null))

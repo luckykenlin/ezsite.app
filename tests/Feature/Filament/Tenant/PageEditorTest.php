@@ -252,7 +252,7 @@ it('edits a bound block through the dotted bind path', function (): void {
     $locations = Location::query()->orderByDesc('is_primary')->orderBy('id')->pluck('id')->all();
 
     $page = editorPage([
-        ['type' => 'contact', 'data' => ['variant' => 'split', 'heading' => 'Find us', 'bind' => ['location_id' => $locations[1]]]],
+        ['type' => 'contact', 'data' => ['heading' => 'Find us', 'bind' => ['location_id' => $locations[1]]]],
     ]);
 
     $component = Livewire::test(PageEditor::class, ['record' => $page->id]);

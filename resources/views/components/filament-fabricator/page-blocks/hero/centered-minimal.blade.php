@@ -8,8 +8,15 @@
     'cta_url' => null,
     'image_url' => null,
 ])
-<x-site.section :appearance="$appearance" tone="base" spacing="airy">
-    <div class="mx-auto flex max-w-3xl flex-col items-center px-6 text-center">
+@php
+    $layout = \App\Site\Blocks\SectionLayout::for('hero', 'centered-minimal')->resolve($appearance);
+
+    // A hero's headline has its own display scale, so the align axis lands on
+    // the flex column rather than through the shared section header.
+    $centered = str_contains($layout->heading(), 'text-center');
+@endphp
+<x-site.section :appearance="$appearance" :tone="$layout->toneDefault()" :spacing="$layout->spacingDefault()">
+    <div @class([$layout->container(), 'flex flex-col', 'items-center text-center' => $centered, 'items-start' => ! $centered])>
         @if ($eyebrow)
             <p data-editor-field="eyebrow" class="site-eyebrow mb-4 text-primary">{{ $eyebrow }}</p>
         @endif

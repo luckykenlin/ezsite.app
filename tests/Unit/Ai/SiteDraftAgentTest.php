@@ -35,7 +35,7 @@ it('constrains the structured output to presets and non-chrome vocabulary types'
     // The layout keys the draft agent now owns: variants are the union of every
     // PAGE type's layouts — chrome layouts must never enter the enum — and
     // tone/spacing mirror the appearance enums exactly.
-    expect($blockItems['variant']['enum'])->toContain('full-bleed-overlay', 'grid', 'boxed', 'masonry')
+    expect($blockItems['variant']['enum'])->toContain('full-bleed-overlay', 'grid', 'carousel', 'masonry')
         ->and($blockItems['variant']['enum'])->not->toContain('columns')
         ->and($blockItems['variant']['enum'])->not->toContain('centered')
         ->and($blockItems['tone']['enum'])->toBe(SectionTone::values())
