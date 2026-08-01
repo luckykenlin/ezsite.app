@@ -145,6 +145,32 @@
 
 **踩坑记录**:CuratorPicker 在 action 弹窗里不能用 `fillForm(media 数组)`(渲染期 `Undefined array key "ext"`),要 `->set('mountedActions.0.data.<field>', [$media->toArray()])`;`assertActionDataSet`/`setActionData` 已废弃(filacheck 会拦),用 `assertSchemaStateSet`/`fillForm`;deferLoading 表格测试必须先 `->call('loadTable')`;在 tenancy 内创建的模型实例记着 `tenant` 连接名,跨 tenancy 读关系/`is()` 前要重新查一次。
 
+## 迭代 8 「AI 词汇量扩容」【进行中】
+
+> 起因:运营视角的"blocks 太少、AI 能改的不多"。诊断后拆成四层,`块类型少`只排第三:
+> (1) 块级外观维度=0 —— 18 个块视图各自硬编码 `bg-base-100` + `py-20/28`,一个 8 段
+> 页面就是 8 条一样的白带,"把这段做成深色"在数据模型里无处可放;(2) 编辑器能改而 AI
+> 摸不到的三块地:chrome、页面级、媒体库;(3) 真缺的内容形状(steps/stats/team/logos/
+> pricing);(4) `image_id` 在 AI 词汇表里却无从得知合法 id。
+> 原则同前:一项一 PR,依次推进。
+
+| # | 改进 | 说明 | 状态 |
+|---|---|---|---|
+| 1 | 块级 Appearance 层 | `BlockShape` 第三个 reserved key `appearance` → 嵌套 `{tone, spacing}`;`SectionTone`(base/muted/accent/inverted/plain)+ `SectionSpacing`(flush→tall 五档)两个枚举,case 本身就是 Tailwind class 串;共享外壳 `<x-site.section>`(backdrop 具名 slot 供 full-bleed hero 的绝对定位图用),18 个页面块视图外层全部改走它,chrome 4 个视图故意不走;`Block` 基类在**内容字段之后**自动注入两个可选 Select;新工具 `SetBlockAppearance`(含 `layout-default` 哨兵值用于撤销)。**零回归靠"视图声明自己的默认档位"**:`resolve()` 对我方默认用 `from()`(fail loud)、对租户数据用 `tryFrom()`(fail safe) | ✅ 2026-07-31 |
+| 2 | Preset 带 appearance 节奏 | `StylePreset::blockAppearanceDefaults()` 每个预设逐类型声明 tone/spacing;`StampVariantDefaults` 改名 **`StampPresetDefaults`** 并新增 `stamp()`(变体+外观一次盖完,聊天路径与整站生成路径共用),`SetSiteStyle` 的 `align_layouts` 现在同时对齐外观。**规则与 variant 相反:appearance 故意不要求全覆盖**——缺失回落到视图自己的默认(那是设计好的值,不是退化),所以"预设没提到的类型"绝不动运营手设的值。`hero`/`heading` 两个类型**任何预设都不设**(hero 的变体已决定强弱;heading 是页内分隔不是色带),有测试钉住;`inverted` 只有 BoldEditorial 独占 | ✅ 2026-07-31 |
+| 3 | 媒体动词(**用户 2026-07-31 明确跳过,择机再做**) | `ListSiteImages` / `SetBlockImage`,并把 `*_media_id`/`image_id` 从 `UpdateBlockContent` 可写字段里排除(现在模型只能编一个 id,悬空后静默无图) | 待做 |
+| 4 | 五个新块 | steps / stats / team / logos / pricing,块类型 **10 → 15**。全部**无变体**(遵守"新块从一个版式开始"),故不需给 6 个预设加 variant 默认;全部走 `<x-site.section>`,自动继承 appearance 与预设节奏。互斥说法:steps↔features 靠**顺序**(order 有意义才用 steps)、pricing↔offerings 靠**是否互为替代**(少数几档并列对比 vs 逐项清单)。`stats`/`team`/`logos` 的 description 主要花在**禁止编造**上(数字可被核实、人名和合作方是法律问题)。**`pricing.plans[].features` 是换行分隔的字符串而非嵌套 repeater**——两层嵌套会把 `BlockDataSanitizer` 那个"currently inert"的白名单缺口变成真问题 | ✅ 2026-07-31 |
+| 5 | prose / faq 补第 2 变体 | prose 加 `side-heading`(标题左侧 sticky,editorial about 构图),faq 加 `grid`(两栏)。**faq 仍然不做 accordion**:画布捕获阶段 preventDefault,`<details>` 永远打不开,运营看不到 AI 刚写的答案——这条论证对任何变体都成立,不只是默认变体。视图目录化(`prose.blade.php` → `prose/stacked.blade.php`),旧数据无 variant 时回落第一个 = 原样。6 个预设按气质各补 prose/faq 默认(守卫测试逼出来的) | ✅ 2026-07-31 |
+| 6 | chrome 动词 | 新增第三个 turn-scoped 暂存 **`SiteChromeDraft`**(与 `SiteStyleDraft` 同构)+ **`UpdateChrome`** 工具(content 与 variant 合一个工具,但校验不合:variant 按 slot 自身选项校验,content 走 sanitizer 剥 reserved keys)。回传链路:`ChatEditPage` → `CacheChatTurn`(新 `chrome` 键 + 防御归一化)→ `ChatEditPageJob` → `pollChatTurn` → `applyTurn(blocks, design, chrome)` → `HasSiteChromeDraft::applyChromeDraft()`。**只回传被改过的 slot**(运营手改 footer 时 header-only 的 turn 不能覆盖它)。**chrome 故意不进 undo 栈**——它从来就不在,只让 AI 路径可撤销会让同一份状态有两套历史;它和手改 chrome 一样:画布可见、Save 才落库 | ✅ 2026-07-31 |
+| 7 | 页面级动词 | **只给"建"不给"删/发布"**——用户定的:删页面波及站点结构且无法回滚。我按安全性补了另两条:(a) **不跳转**,AI 在 worker 里跑,turn 返回时编辑器往往有未保存改动(可能就是这个 turn 自己写的),自动跳转会丢掉它;新页面作为卡片出现在**站点画布**上,回复里指路。(b) **不能发布**,发布是唯一让内容公开可索引的动作,unpublish 撤不回已发生的曝光,且 AI 刚写的文案可能含编造事实——让它既写又批准等于自己审自己。落地:`CreatePage`(强制 Draft + 可选 `sections` 骨架,套已保存 preset 的变体与节奏,**不是**本 turn 暂存的那个)+ `DuplicatePage`(复制**屏幕上的草稿**而非磁盘版本,为此给 `DuplicatePage` action 加了可选 `?array $blocks`)。这是 AI 第一个**直接写库**的动词,论证写在 `CreatePage` docblock:页面无法暂存(要么存在要么不存在),所以靠"永远是隐藏草稿 + 可一键删除 + 不导航"三条使写入安全 | ✅ 2026-07-31 |
+
+**第 2 项的已知取舍**:appearance 默认是 per **TYPE** 而非 per **POSITION**,所以同一页两个 `features` 块背景相同,不会奇偶交替。真正的自适应交替需要 PHP 知道每个 type×variant 的默认 tone,而那些默认写在 18 个 blade 里(`tone="muted"`),要先把它提升为可查询的 PHP 契约——那是独立一项。手工指定的 tone 已经能表达节奏(features 白 / testimonials 深 / faq 灰),只是不随块数自适应;对结构相对固定的 SMB 页面够用。
+
+**第 1 项的两个非显然坑(都已加守卫测试)**:
+
+1. `site.css` 有**显式 `@source`**,只覆盖 `components/filament-fabricator/**`。档位类移进 PHP 枚举后不在扫描范围内,不补 `@source` 会导致每个块**没有背景也没有 padding**,而所有 PHP 测试照旧全绿(它们断言 class 名,class 名照样输出)。守卫:*"the section shell's Tailwind sources are declared"*。
+2. 两个可选 Select 共享父键,空值照样 dehydrate → 每个保存过的块都带 `appearance: {tone: null, spacing: null}`。字段级 `->dehydrated(fn ($state) => filled($state))` 消掉 null,但父键仍留 `appearance: {}` —— 真正的落点是 `CreatePage` 从不跑 `BlockData::pruned`,而 `PageEditor` 一直跑。**这个不一致先前就存在**,appearance 只是第一个让它显形的可选字段;两条路径形状不同会让 `RecordPageRevision` 的 `===` 记下运营从没做过的版本。
+
 ## NOT NOW(明确推迟,及理由)
 
 | 提案 | 推迟理由 |
@@ -158,7 +184,7 @@
 | 块库分组 + BlockCategory/description | 9 个块不需要分组;图标先行;description 对 AI 词汇表有复利,待真正需要时随 contract 一起加 |
 | CSS 迷你缩略图 | 先看迭代 2 图标+摘要效果 |
 | Design 页 live 小样/字体真实渲染/预设色卡 | 大部分价值被迭代 3 Design 弹窗取代;若做,随弹窗 schema 抽取一起最省 |
-| Per-block tone(块级底色枚举) | 唯一扩宽块数据模型的提案,动 Token+Variant 设计哲学——按约定先与用户确认再排期 |
+| ✅ Per-block tone(块级底色枚举)【2026-07-31 已完成,见迭代 8】 | 曾因"唯一扩宽块数据模型的提案,动 Token+Variant 设计哲学"而挂起待确认;用户确认后作为迭代 8 第一项落地,并从 tone 扩到 tone+spacing 两维 |
 | chrome-clicked 通知加跳转按钮 | 被迭代 3 线 B 完全取代;仅当线 B 排期超一个月才值得做过渡版 |
 | 自动保存 | 显式 Save + dirty guard + beforeunload 已成体系;迭代 2 撤销栈先补"误操作恢复"更缺的板 |
 
