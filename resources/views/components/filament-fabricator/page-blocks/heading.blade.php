@@ -1,5 +1,6 @@
 @aware(['page'])
 @props([
+    'appearance' => null,
     'content' => null,
     'level' => 'h2',
 ])
@@ -16,8 +17,8 @@
     ];
     $tag = array_key_exists($level, $scale) ? $level : 'h2';
 @endphp
-<section class="px-4 py-8 md:py-12">
+<x-site.section :appearance="$appearance" tone="plain" spacing="flush" class="px-4">
     <div class="mx-auto max-w-7xl">
         <{{ $tag }} class="text-balance tracking-tight text-base-content {{ $scale[$tag] }}">{{ $content }}</{{ $tag }}>
     </div>
-</section>
+</x-site.section>

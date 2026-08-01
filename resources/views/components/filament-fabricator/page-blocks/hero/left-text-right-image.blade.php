@@ -1,5 +1,6 @@
 @aware(['page'])
 @props([
+    'appearance' => null,
     'eyebrow' => null,
     'heading' => null,
     'subheading' => null,
@@ -7,8 +8,8 @@
     'cta_url' => null,
     'image_url' => null,
 ])
-<section class="bg-base-100 text-base-content">
-    <div class="mx-auto grid max-w-7xl items-center gap-12 px-6 py-20 md:grid-cols-2 md:py-28">
+<x-site.section :appearance="$appearance" tone="base" spacing="normal">
+    <div class="mx-auto grid max-w-7xl items-center gap-12 px-6 md:grid-cols-2">
         <div>
             @if ($eyebrow)
                 <p class="mb-4 text-sm font-semibold uppercase tracking-widest text-primary">{{ $eyebrow }}</p>
@@ -31,4 +32,4 @@
             </div>
         @endif
     </div>
-</section>
+</x-site.section>

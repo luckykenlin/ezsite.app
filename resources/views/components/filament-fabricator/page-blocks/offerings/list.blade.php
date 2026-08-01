@@ -1,5 +1,6 @@
 @aware(['page'])
 @props([
+    'appearance' => null,
     'heading' => null,
     'intro' => null,
     'items' => [],
@@ -20,10 +21,10 @@
         $groups[is_string($group) ? trim($group) : ''][] = $entry;
     }
 @endphp
-<section class="bg-base-100 text-base-content">
+<x-site.section :appearance="$appearance" tone="base" spacing="normal">
     {{-- A reading measure, not the 7xl grid width: this is a scannable
          name-to-price column, and a long leader line is hard to follow. --}}
-    <div class="mx-auto max-w-3xl px-6 py-20 md:py-28">
+    <div class="mx-auto max-w-3xl px-6">
         @if ($heading)
             <h2 class="text-balance text-3xl font-bold tracking-tight md:text-4xl">{{ $heading }}</h2>
         @endif
@@ -58,4 +59,4 @@
             </div>
         @endforeach
     </div>
-</section>
+</x-site.section>

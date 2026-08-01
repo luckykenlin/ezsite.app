@@ -1,5 +1,6 @@
 @aware(['page'])
 @props([
+    'appearance' => null,
     'eyebrow' => null,
     'heading' => null,
     'subheading' => null,
@@ -7,13 +8,24 @@
     'cta_url' => null,
     'image_url' => null,
 ])
-<section class="relative isolate overflow-hidden bg-neutral text-neutral-content">
-    @if ($image_url)
-        <img src="{{ $image_url }}" alt="{{ $heading }}" class="absolute inset-0 -z-10 h-full w-full object-cover" />
-        <div class="absolute inset-0 -z-10 bg-neutral/60"></div>
-    @endif
+{{-- The only view that uses the shell's `backdrop` slot: the artwork is
+     absolutely positioned against the section itself and must sit OUTSIDE the
+     padding wrapper, so `-z-10` resolves in the same stacking context that
+     `isolate` creates here. --}}
+<x-site.section
+    :appearance="$appearance"
+    tone="inverted"
+    spacing="tall"
+    class="relative isolate overflow-hidden"
+>
+    <x-slot:backdrop>
+        @if ($image_url)
+            <img src="{{ $image_url }}" alt="{{ $heading }}" class="absolute inset-0 -z-10 h-full w-full object-cover" />
+            <div class="absolute inset-0 -z-10 bg-neutral/60"></div>
+        @endif
+    </x-slot:backdrop>
 
-    <div class="mx-auto flex max-w-4xl flex-col items-start px-6 py-32 md:py-48">
+    <div class="mx-auto flex max-w-4xl flex-col items-start px-6">
         @if ($eyebrow)
             <p class="mb-4 text-sm font-semibold uppercase tracking-widest">{{ $eyebrow }}</p>
         @endif
@@ -28,4 +40,4 @@
             <a href="{{ $cta_url }}" class="btn btn-primary mt-10">{{ $cta_label }}</a>
         @endif
     </div>
-</section>
+</x-site.section>

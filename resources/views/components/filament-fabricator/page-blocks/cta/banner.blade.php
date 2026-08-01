@@ -1,5 +1,6 @@
 @aware(['page'])
 @props([
+    'appearance' => null,
     'heading' => null,
     'body' => null,
     'cta_label' => null,
@@ -7,8 +8,8 @@
     'secondary_label' => null,
     'secondary_url' => null,
 ])
-<section class="bg-primary text-primary-content">
-    <div class="mx-auto flex max-w-5xl flex-col items-center px-6 py-16 text-center md:py-20">
+<x-site.section :appearance="$appearance" tone="accent" spacing="tight">
+    <div class="mx-auto flex max-w-5xl flex-col items-center px-6 text-center">
         <h2 class="text-balance text-3xl font-bold tracking-tight md:text-4xl">{{ $heading }}</h2>
 
         @if ($body)
@@ -24,4 +25,4 @@
             @endif
         </div>
     </div>
-</section>
+</x-site.section>

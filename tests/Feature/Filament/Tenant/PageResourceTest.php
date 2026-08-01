@@ -31,6 +31,39 @@ test('can create a page scoped to the current tenant', function (): void {
 
     $page = Page::query()->where('slug', '/')->firstOrFail();
 
+    // The exact stored shape matters, not just the content: this path dehydrates
+    // every field in a block's schema, so without CreatePage's BlockData::pruned
+    // an untouched block arrives carrying empty optional keys — and the editor,
+    // which prunes, would then see a different shape for the same block. See the
+    // comment on mutateFormDataBeforeCreate() for why that manufactures
+    // revisions nobody made.
     expect($page->tenant_id)->toBe($this->tenant->id)
         ->and($page->blocks)->toBe([['type' => 'heading', 'data' => ['content' => 'Welcome', 'level' => 'h3']]]);
+});
+
+test('an appearance chosen on the create form is stored, one dimension at a time', function (): void {
+    Livewire::test(CreatePage::class)
+        ->fillForm([
+            'title' => 'About',
+            'slug' => 'about',
+            'layout' => 'main',
+            'blocks' => [
+                ['type' => 'heading', 'data' => [
+                    'content' => 'Our story',
+                    'level' => 'h2',
+                    // Only the background; the spacing select stays empty and
+                    // must not leave a null behind it.
+                    'appearance' => ['tone' => 'muted'],
+                ]],
+            ],
+        ])
+        ->call('create')
+        ->assertHasNoFormErrors();
+
+    expect(Page::query()->where('slug', 'about')->firstOrFail()->blocks)
+        ->toBe([['type' => 'heading', 'data' => [
+            'content' => 'Our story',
+            'level' => 'h2',
+            'appearance' => ['tone' => 'muted'],
+        ]]]);
 });

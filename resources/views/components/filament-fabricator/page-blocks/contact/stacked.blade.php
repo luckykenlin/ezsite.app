@@ -1,5 +1,6 @@
 @aware(['page'])
 @props([
+    'appearance' => null,
     'heading' => null,
     'intro' => null,
     'business' => null,
@@ -18,8 +19,8 @@
     $hours = $location->opening_hours?->forWeek() ?? [];
     $hasCoordinates = $location->latitude !== null && $location->longitude !== null;
 @endphp
-<section class="bg-base-100 text-base-content">
-    <div class="mx-auto flex max-w-2xl flex-col items-center px-6 py-20 text-center md:py-28">
+<x-site.section :appearance="$appearance" tone="base" spacing="normal">
+    <div class="mx-auto flex max-w-2xl flex-col items-center px-6 text-center">
         @if ($heading)
             <h2 class="text-balance text-3xl font-bold tracking-tight md:text-4xl">{{ $heading }}</h2>
         @endif
@@ -73,4 +74,4 @@
             </div>
         @endif
     </div>
-</section>
+</x-site.section>

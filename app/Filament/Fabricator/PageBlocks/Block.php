@@ -5,9 +5,12 @@ declare(strict_types=1);
 namespace App\Filament\Fabricator\PageBlocks;
 
 use App\Enums\BindType;
+use App\Enums\ChromeSlot;
 use App\Models\Location;
 use App\Site\Blocks\BlockShape;
 use App\Site\Blocks\BlockType;
+use App\Site\Blocks\SectionSpacing;
+use App\Site\Blocks\SectionTone;
 use Filament\Forms\Components\Builder\Block as BuilderBlock;
 use Filament\Forms\Components\Field;
 use Filament\Forms\Components\Select;
@@ -140,11 +143,15 @@ abstract class Block extends PageBlock
     /**
      * Compose the Filament Builder block: a required variant selector (only when
      * the block declares variants), a location picker (only for Location-bound
-     * blocks), then the subclass's content fields.
+     * blocks), the subclass's content fields, then the appearance selectors.
+     *
+     * Appearance goes LAST because it is the only optional group: the operator
+     * opens a block to write words, and a section that has never been restyled
+     * should not have two empty selects standing between them and the headline.
      */
     final public static function defineBlock(BuilderBlock $block): BuilderBlock
     {
-        $schema = static::fields();
+        $schema = [...static::fields(), ...static::appearanceFields()];
 
         if (static::$bindType === BindType::Location) {
             $schema = [static::bindField(), ...$schema];
@@ -173,6 +180,68 @@ abstract class Block extends PageBlock
             ->selectablePlaceholder(false)
             ->live()
             ->required();
+    }
+
+    /**
+     * The auto-injected appearance selectors: which background this section
+     * paints, and how much vertical room it takes. Their dotted names nest the
+     * values into `data.appearance.{tone,spacing}` — one reserved key, so
+     * {@see BlockShape::reservedKeys()} covers both.
+     *
+     * Empty on site chrome. A header and footer are not sections in a page's
+     * rhythm — they are the frame around every page — and their views
+     * deliberately do not go through the `<x-site.section>` shell, so offering
+     * the selects would be offering a control that does nothing.
+     *
+     * Both are optional, and that is the whole zero-regression contract: unset
+     * means "whatever this layout was designed to do", which is precisely the
+     * hard-coded value each view had before appearance existed. Live without a
+     * debounce for the same reason as {@see variantField()} — a background
+     * change is the second most visual edit in the editor.
+     *
+     * @return array<int, Field>
+     */
+    protected static function appearanceFields(): array
+    {
+        if (ChromeSlot::tryFrom(static::getName()) instanceof ChromeSlot) {
+            return [];
+        }
+
+        return [
+            static::appearanceField(BlockShape::TONE_KEY, 'Background', SectionTone::options()),
+            static::appearanceField(BlockShape::SPACING_KEY, 'Vertical space', SectionSpacing::options()),
+        ];
+    }
+
+    /**
+     * One appearance selector.
+     *
+     * The conditional dehydration is the load-bearing part. Every other
+     * auto-injected field is either required or nested under a key that only
+     * exists when it is set, so an empty one costs nothing; these two are
+     * OPTIONAL and share a parent key, which means dehydrating an empty one
+     * writes `appearance: {tone: null, spacing: null}` into `pages.blocks` for
+     * every block anyone ever saves. That is not merely noise:
+     * {@see \App\Actions\Pages\RecordPageRevision} compares stored blocks with
+     * `===`, and the page editor's commit prunes nulls while Fabricator's own
+     * create form does not — so the two write paths would disagree on the shape
+     * of an untouched block and manufacture a revision out of nothing.
+     *
+     * Filament REBUILDS a builder item's data from its dehydrated fields rather
+     * than merging into what was stored, so skipping an empty one is also how
+     * clearing a select removes the key and hands the dimension back to the
+     * layout default — the panel's equivalent of `SetBlockAppearance`'s reset.
+     *
+     * @param  array<string, string>  $options
+     */
+    protected static function appearanceField(string $dimension, string $label, array $options): Select
+    {
+        return Select::make(BlockShape::APPEARANCE_KEY.'.'.$dimension)
+            ->label($label)
+            ->options($options)
+            ->placeholder('Layout default')
+            ->dehydrated(fn (?string $state): bool => filled($state))
+            ->live();
     }
 
     /**

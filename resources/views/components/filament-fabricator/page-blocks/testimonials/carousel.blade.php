@@ -1,13 +1,14 @@
 @aware(['page'])
 @props([
+    'appearance' => null,
     'heading' => null,
     'testimonials' => [],
 ])
 @php
     $items = is_array($testimonials) ? $testimonials : [];
 @endphp
-<section class="bg-base-200 text-base-content">
-    <div class="mx-auto max-w-7xl px-6 py-20 md:py-28">
+<x-site.section :appearance="$appearance" tone="muted" spacing="normal">
+    <div class="mx-auto max-w-7xl px-6">
         @if ($heading)
             <h2 class="text-balance text-center text-3xl font-bold tracking-tight md:text-4xl">{{ $heading }}</h2>
         @endif
@@ -36,4 +37,4 @@
             @endforeach
         </div>
     </div>
-</section>
+</x-site.section>

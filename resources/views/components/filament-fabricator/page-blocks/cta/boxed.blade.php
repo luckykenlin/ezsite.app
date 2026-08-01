@@ -1,5 +1,6 @@
 @aware(['page'])
 @props([
+    'appearance' => null,
     'heading' => null,
     'body' => null,
     'cta_label' => null,
@@ -7,8 +8,8 @@
     'secondary_label' => null,
     'secondary_url' => null,
 ])
-<section class="bg-base-100 text-base-content">
-    <div class="mx-auto max-w-5xl px-6 py-16 md:py-20">
+<x-site.section :appearance="$appearance" tone="base" spacing="tight">
+    <div class="mx-auto max-w-5xl px-6">
         <div class="card bg-base-200">
             <div class="card-body items-center gap-4 py-12 text-center">
                 <h2 class="card-title text-balance text-3xl tracking-tight md:text-4xl">{{ $heading }}</h2>
@@ -28,4 +29,4 @@
             </div>
         </div>
     </div>
-</section>
+</x-site.section>

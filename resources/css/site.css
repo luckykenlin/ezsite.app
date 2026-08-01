@@ -12,6 +12,19 @@
 
 @source '../views/components/filament-fabricator/**/*.blade.php';
 
+/*
+ * The shared section shell, and the two enums whose cases ARE Tailwind class
+ * strings (`bg-base-200 text-base-content`, `py-20 md:py-28`).
+ *
+ * Both are load-bearing: a section's background and vertical rhythm now live
+ * only in App\Site\Blocks\SectionTone / SectionSpacing, so without the PHP
+ * source every page block would render with no background and no padding.
+ * Guarded by "the section shell's Tailwind sources are declared" in
+ * tests/Arch/ConventionsTest.php.
+ */
+@source '../views/components/site/**/*.blade.php';
+@source '../../app/Site/Blocks/Section*.php';
+
 @theme {
     --font-sans:
         'Instrument Sans', ui-sans-serif, system-ui, sans-serif,

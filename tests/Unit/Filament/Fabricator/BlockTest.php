@@ -9,6 +9,8 @@ use App\Filament\Fabricator\PageBlocks\Hero;
 use App\Models\Location;
 use App\Models\Tenant;
 use App\Site\Blocks\BlockShape;
+use App\Site\Blocks\SectionSpacing;
+use App\Site\Blocks\SectionTone;
 use Filament\Forms\Components\Builder\Block;
 use Filament\Forms\Components\Field;
 use Filament\Forms\Components\Select;
@@ -50,7 +52,10 @@ it('auto-injects a location picker between the variant selector and content fiel
         ->and($bindSelect->isRequired())->toBeFalse()
         ->and(array_values($bindSelect->getOptions()))->toBe(['Main spot'])
         ->and(array_map(fn (Field $field): string => $field->getName(), array_slice($components, 2)))
-        ->toBe(['heading', 'intro', 'show_form', 'success_message']);
+        // Appearance goes after the content, not before it: an operator opens a
+        // block to write words, and two empty selects should not stand between
+        // them and the headline.
+        ->toBe(['heading', 'intro', 'show_form', 'success_message', 'appearance.tone', 'appearance.spacing']);
 
     // Both auto-injected selects are explicitly live WITHOUT a debounce, so
     // they override the page editor's debounced section binding — switching
@@ -67,6 +72,10 @@ it('does not inject a location picker on Business-bound blocks', function (): vo
         containerizedBlockComponents(Header::getBlockSchema()),
     );
 
+    // Chrome gets no appearance selects either, and for a reason of its own: a
+    // header is the frame around every page, not a section in one page's
+    // rhythm, so its view deliberately stays outside the section shell. Offering
+    // the selects would offer a control that does nothing.
     expect($fieldNames)->toBe([BlockShape::VARIANT_KEY, 'nav_links', 'cta_label', 'cta_url']);
 });
 
@@ -84,7 +93,40 @@ it("auto-injects a required variant selector ahead of a variant block's content 
         ->and($variantSelect->getDefaultState())->toBe('centered-minimal')
         ->and($variantSelect->isRequired())->toBeTrue()
         ->and(array_map(fn (Field $field): string => $field->getName(), array_slice($components, 1)))
-        ->toBe(['eyebrow', 'heading', 'subheading', 'cta_label', 'cta_url', 'image_id', 'image_url']);
+        ->toBe([
+            'eyebrow', 'heading', 'subheading', 'cta_label', 'cta_url', 'image_id', 'image_url',
+            'appearance.tone', 'appearance.spacing',
+        ]);
+});
+
+/*
+ * The appearance selects nest into `data.appearance.{tone,spacing}` and are
+ * OPTIONAL, which is the whole zero-regression contract: unset means "whatever
+ * this layout was designed to do", i.e. exactly the value each view hard-coded
+ * before the shell existed. Live without a debounce for the same reason as the
+ * variant select — a background change is a high-contrast edit to sit and wait
+ * half a second for.
+ */
+it('auto-injects optional, immediately-live appearance selects after the content fields', function (): void {
+    $components = containerizedBlockComponents(Heading::getBlockSchema());
+
+    /** @var Select $tone */
+    $tone = $components[2];
+    /** @var Select $spacing */
+    $spacing = $components[3];
+
+    expect($tone->getName())->toBe(BlockShape::APPEARANCE_KEY.'.'.BlockShape::TONE_KEY)
+        ->and($tone->getOptions())->toBe(SectionTone::options())
+        ->and($tone->isRequired())->toBeFalse()
+        ->and($tone->getDefaultState())->toBeNull()
+        ->and($tone->isLive())->toBeTrue()
+        ->and($tone->isLiveDebounced())->toBeFalse()
+        ->and($spacing->getName())->toBe(BlockShape::APPEARANCE_KEY.'.'.BlockShape::SPACING_KEY)
+        ->and($spacing->getOptions())->toBe(SectionSpacing::options())
+        ->and($spacing->isRequired())->toBeFalse()
+        ->and($spacing->getDefaultState())->toBeNull()
+        ->and($spacing->isLive())->toBeTrue()
+        ->and($spacing->isLiveDebounced())->toBeFalse();
 });
 
 it('composes a no-variant block from its content fields only, without a variant selector', function (): void {
@@ -92,5 +134,5 @@ it('composes a no-variant block from its content fields only, without a variant 
     $fieldNames = array_map(fn (Field $field): string => $field->getName(), containerizedBlockComponents($schema));
 
     expect($schema->getName())->toBe('heading')
-        ->and($fieldNames)->toBe(['content', 'level']);
+        ->and($fieldNames)->toBe(['content', 'level', 'appearance.tone', 'appearance.spacing']);
 });

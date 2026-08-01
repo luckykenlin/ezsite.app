@@ -149,3 +149,48 @@ test('the builder Alpine modules are loaded panel-wide, never scoped to their pa
         ->not->toContain('scopes: PageEditor')
         ->not->toContain('scopes: PageCanvas');
 });
+
+test('every page block view renders through the shared section shell', function (): void {
+    // A block view that hand-rolls its own <section> is a block whose background
+    // and spacing the operator and the assistant cannot touch — the appearance
+    // dimension only exists where <x-site.section> does. Site chrome is exempt
+    // by design: a header/footer is the frame around pages, not a section in a
+    // page's rhythm, so it keeps its own element.
+    $dir = dirname(__DIR__, 2).'/resources/views/components/filament-fabricator/page-blocks';
+    $chrome = ['header', 'footer'];
+
+    $views = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS),
+    );
+
+    foreach ($views as $view) {
+        if ($view->getExtension() !== 'php') {
+            continue;
+        }
+
+        $slot = basename(dirname($view->getPathname()));
+
+        if (in_array($slot, $chrome, true)) {
+            continue;
+        }
+
+        expect(file_get_contents($view->getPathname()))
+            ->toContain('<x-site.section')
+            ->toContain("'appearance' => null")
+            // The shell owns the outer element, so a stray <section> here means
+            // a second, unstyleable one nested inside it.
+            ->not->toContain('<section');
+    }
+});
+
+test("the section shell's Tailwind sources are declared", function (): void {
+    // A section's background and vertical padding now live ONLY as class strings
+    // inside two PHP enums plus one view outside the page-blocks tree. Tailwind
+    // compiles the public site from site.css, whose explicit @source list does
+    // not reach either — so without these lines every block renders with no
+    // background and no padding, and no PHP test can see it (they assert on the
+    // class names, which are still emitted).
+    expect(file_get_contents(dirname(__DIR__, 2).'/resources/css/site.css'))
+        ->toContain("@source '../views/components/site/**/*.blade.php';")
+        ->toContain("@source '../../app/Site/Blocks/Section*.php';");
+});

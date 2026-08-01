@@ -1,5 +1,6 @@
 @aware(['page'])
 @props([
+    'appearance' => null,
     'heading' => null,
     'intro' => null,
     'questions' => [],
@@ -7,9 +8,9 @@
 @php
     $entries = array_values(array_filter(is_array($questions) ? $questions : [], 'is_array'));
 @endphp
-<section class="bg-base-100 text-base-content">
+<x-site.section :appearance="$appearance" tone="base" spacing="normal">
     {{-- A reading measure: answers are prose. --}}
-    <div class="mx-auto max-w-3xl px-6 py-20 md:py-28">
+    <div class="mx-auto max-w-3xl px-6">
         @if ($heading)
             <h2 class="text-balance text-3xl font-bold tracking-tight md:text-4xl">{{ $heading }}</h2>
         @endif
@@ -37,4 +38,4 @@
             @endforeach
         </dl>
     </div>
-</section>
+</x-site.section>

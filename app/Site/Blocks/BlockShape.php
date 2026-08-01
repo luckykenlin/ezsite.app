@@ -22,13 +22,31 @@ final class BlockShape
 
     public const string BIND_KEY = 'bind';
 
+    public const string APPEARANCE_KEY = 'appearance';
+
     /**
-     * Both reserved keys, for stripping them out of author-supplied data.
+     * The two keys nested under {@see APPEARANCE_KEY}. Nested rather than two
+     * more top-level keys so the whole dimension is one thing to reserve, one
+     * thing to strip, and one thing the editor's `withoutNulls` commit drops
+     * when the operator clears both selects.
+     */
+    public const string TONE_KEY = 'tone';
+
+    public const string SPACING_KEY = 'spacing';
+
+    /**
+     * Every reserved key, for stripping them out of author-supplied data.
+     *
+     * Only the TOP-LEVEL names belong here: this list is what
+     * {@see \App\Ai\BlockDataSanitizer} refuses to let the model write, and
+     * `appearance` covers its nested pair. Writing an appearance goes through
+     * {@see \App\Ai\Tools\SetBlockAppearance}, exactly as a variant goes through
+     * `SetBlockVariant` — one validating door per server-owned key.
      *
      * @return list<string>
      */
     public static function reservedKeys(): array
     {
-        return [self::VARIANT_KEY, self::BIND_KEY];
+        return [self::VARIANT_KEY, self::BIND_KEY, self::APPEARANCE_KEY];
     }
 }

@@ -1,5 +1,6 @@
 @aware(['page'])
 @props([
+    'appearance' => null,
     'heading' => null,
     'paragraphs' => [],
 ])
@@ -8,11 +9,11 @@
     // output) — iterate whatever array arrives, defensively.
     $items = is_array($paragraphs) ? $paragraphs : [];
 @endphp
-<section class="bg-base-100 text-base-content">
+<x-site.section :appearance="$appearance" tone="base" spacing="normal">
     {{-- max-w-3xl, not the 7xl the grid blocks use: this is a measure for
          READING, and a line of prose stops being comfortable past ~75
          characters. --}}
-    <div class="mx-auto max-w-3xl px-6 py-20 md:py-28">
+    <div class="mx-auto max-w-3xl px-6">
         @if ($heading)
             <h2 class="text-balance text-3xl font-bold tracking-tight md:text-4xl">{{ $heading }}</h2>
         @endif
@@ -29,4 +30,4 @@
             @endforeach
         </div>
     </div>
-</section>
+</x-site.section>

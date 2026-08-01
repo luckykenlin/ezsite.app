@@ -1,5 +1,6 @@
 @aware(['page'])
 @props([
+    'appearance' => null,
     'eyebrow' => null,
     'heading' => null,
     'subheading' => null,
@@ -7,8 +8,8 @@
     'cta_url' => null,
     'image_url' => null,
 ])
-<section class="bg-base-100 text-base-content">
-    <div class="mx-auto flex max-w-3xl flex-col items-center px-6 py-24 text-center md:py-32">
+<x-site.section :appearance="$appearance" tone="base" spacing="airy">
+    <div class="mx-auto flex max-w-3xl flex-col items-center px-6 text-center">
         @if ($eyebrow)
             <p class="mb-4 text-sm font-semibold uppercase tracking-widest text-primary">{{ $eyebrow }}</p>
         @endif
@@ -23,4 +24,4 @@
             <a href="{{ $cta_url }}" class="btn btn-primary mt-10">{{ $cta_label }}</a>
         @endif
     </div>
-</section>
+</x-site.section>
