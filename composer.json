@@ -110,6 +110,7 @@
         "test:lint": [
             "pint --parallel --test",
             "rector --dry-run",
+            "filacheck",
             "npm run test:lint"
         ],
         "test:unit": "XDEBUG_MODE=\"coverage\" pest --parallel --processes=8 --coverage --exactly=100.0 --tia --exclude-testsuite=Browser",
