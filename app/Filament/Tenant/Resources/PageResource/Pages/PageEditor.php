@@ -269,9 +269,10 @@ final class PageEditor extends Page
      * look-alike types ("features" vs "offerings"), which is exactly the
      * question a human browser has.
      *
-     * A type with no intent would be dropped here, which is why the arch test
-     * "every page block declares a library intent" exists — the failure mode
-     * is a block that silently cannot be added, not an error anyone sees.
+     * A type with no intent would be dropped here, which is why
+     * BlockRegistryTest's "gives every page block a library intent, and chrome
+     * none" exists — the failure mode is a block that silently cannot be
+     * added, not an error anyone sees.
      *
      * @return array<string, array{label: string, types: array<string, array{label: string, icon: string|null, description: string}>}>
      */

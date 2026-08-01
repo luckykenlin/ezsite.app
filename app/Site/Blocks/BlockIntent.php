@@ -14,9 +14,10 @@ namespace App\Site\Blocks;
  * roughly the top-to-bottom order of a typical page.
  *
  * Chrome (header/footer) declares no intent: it is never offered in the
- * library at all. Every page-level block must declare one — enforced by the
- * arch test "every page block declares a library intent" — since a block
- * without a group would silently vanish from the library.
+ * library at all. Every page-level block must declare one — enforced by
+ * "gives every page block a library intent, and chrome none" in
+ * tests/Unit/Filament/Fabricator/BlockRegistryTest.php — since a block without
+ * a group would silently vanish from the library.
  */
 enum BlockIntent: string
 {

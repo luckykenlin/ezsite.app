@@ -1049,7 +1049,7 @@ it('groups the library by intent, in top-of-page-first order, covering every typ
         ->and($groups['showcase']['types']['features']['description'])->not->toBeEmpty();
 
     // Nothing falls between the groups: every addable type is exactly once in
-    // exactly one group. (The arch test pins that every type HAS an intent;
+    // exactly one group. (BlockRegistryTest pins that every type HAS an intent;
     // this pins that the grouping loses none of them.)
     $grouped = array_merge(...array_map(
         static fn (array $group): array => array_keys($group['types']),

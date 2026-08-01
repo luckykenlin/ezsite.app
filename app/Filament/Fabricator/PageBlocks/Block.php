@@ -78,7 +78,8 @@ abstract class Block extends PageBlock
     /**
      * Which block-library group this type is browsed under — see
      * {@see BlockIntent}. Null only on chrome (never in the library); every
-     * page block must declare one, arch-test enforced, because a null here
+     * page block must declare one — pinned by BlockRegistryTest's "gives every
+     * page block a library intent, and chrome none" — because a null here
      * silently drops the type from the library.
      */
     protected static ?BlockIntent $intent = null;
