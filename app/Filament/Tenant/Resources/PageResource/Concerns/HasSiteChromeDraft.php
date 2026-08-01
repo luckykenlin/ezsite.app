@@ -101,6 +101,31 @@ trait HasSiteChromeDraft
     }
 
     /**
+     * The whole chrome draft, hydrated from stored site settings — what both
+     * "open the editor" and "discard the draft" start from.
+     *
+     * Derived from {@see ChromeSlot::cases()} rather than written out per slot,
+     * so a third slot is one enum case rather than an edit in two files that
+     * must not drift.
+     *
+     * @return array<string, array{type: string, data: array<string, mixed>}|null>
+     */
+    private function hydratedChrome(): array
+    {
+        // Read once and passed down, rather than once per slot: the row is the
+        // same for both, and this runs on every mount.
+        $settings = SiteSetting::query()->first();
+
+        $chrome = [];
+
+        foreach (ChromeSlot::cases() as $slot) {
+            $chrome[$slot->value] = $this->hydratedChromeSlot($slot, $settings);
+        }
+
+        return $chrome;
+    }
+
+    /**
      * The STORED chrome entry for a slot, or null when the tenant relies on
      * the default chrome — a null slot stays null on save, so merely opening
      * the editor never materializes the default into site settings. The
@@ -108,9 +133,8 @@ trait HasSiteChromeDraft
      *
      * @return array{type: string, data: array<string, mixed>}|null
      */
-    private function hydratedChromeSlot(ChromeSlot $slot): ?array
+    private function hydratedChromeSlot(ChromeSlot $slot, ?SiteSetting $settings): ?array
     {
-        $settings = SiteSetting::query()->first();
         $stored = $slot === ChromeSlot::Header ? $settings?->header : $settings?->footer;
         $entry = is_array($stored) ? ($stored[0] ?? null) : null;
 

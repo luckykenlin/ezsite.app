@@ -174,10 +174,7 @@ final class PageEditor extends Page
 
         $this->previewToken = Str::random(40);
         $this->blocks = $this->hydratedBlocks();
-        $this->chrome = [
-            ChromeSlot::Header->value => $this->hydratedChromeSlot(ChromeSlot::Header),
-            ChromeSlot::Footer->value => $this->hydratedChromeSlot(ChromeSlot::Footer),
-        ];
+        $this->chrome = $this->hydratedChrome();
 
         // An earlier session's unsaved work wins over the stored page — that is
         // the whole point. It carries its own selection and inspector state, so
@@ -804,17 +801,10 @@ final class PageEditor extends Page
      */
     public function restoreRevision(int $revision): void
     {
-        $stored = PageRevision::query()
-            ->where('page_id', $this->pageRecord()->id)
-            ->whereKey($revision)
-            ->first();
+        $stored = $this->revisionOrNull($revision);
 
         if (! $stored instanceof PageRevision) {
-            Notification::make()
-                ->title(__('That version is no longer available'))
-                ->body(__('It may have been pruned while this page was open.'))
-                ->warning()
-                ->send();
+            $this->notifyRevisionGone();
 
             return;
         }
@@ -859,10 +849,7 @@ final class PageEditor extends Page
      */
     public function nameRevision(int $revision, string $label): void
     {
-        $stored = PageRevision::query()
-            ->where('page_id', $this->pageRecord()->id)
-            ->whereKey($revision)
-            ->first();
+        $stored = $this->revisionOrNull($revision);
 
         if (! $stored instanceof PageRevision) {
             return;
@@ -892,17 +879,10 @@ final class PageEditor extends Page
      */
     public function publishRevision(int $revision): void
     {
-        $stored = PageRevision::query()
-            ->where('page_id', $this->pageRecord()->id)
-            ->whereKey($revision)
-            ->first();
+        $stored = $this->revisionOrNull($revision);
 
         if (! $stored instanceof PageRevision) {
-            Notification::make()
-                ->title(__('That version is no longer available'))
-                ->body(__('It may have been pruned while this page was open.'))
-                ->warning()
-                ->send();
+            $this->notifyRevisionGone();
 
             return;
         }
@@ -1036,6 +1016,38 @@ final class PageEditor extends Page
                 ->disabled(fn (): bool => ! $this->isDirty)
                 ->action(fn () => $this->save()),
         ];
+    }
+
+    /**
+     * One saved version of THIS page, or null.
+     *
+     * The `page_id` clause is the security half, not a convenience: every
+     * revision verb is reachable with an id the browser supplies, so without it
+     * a stale DOM — or a crafted call — could restore or publish another page's
+     * blocks onto this one. One derivation, three callers, one place to get it
+     * right (`PageEditorTest`: "refuses to restore another page's version").
+     */
+    private function revisionOrNull(int $revision): ?PageRevision
+    {
+        return PageRevision::query()
+            ->where('page_id', $this->pageRecord()->id)
+            ->whereKey($revision)
+            ->first();
+    }
+
+    /**
+     * The history window is pruned ({@see RecordPageRevision::prune()}), so a
+     * version listed when the modal opened can be gone by the time it is
+     * chosen. Restore and publish both say so the same way; naming stays silent,
+     * because a rename nobody sees fail costs nothing.
+     */
+    private function notifyRevisionGone(): void
+    {
+        Notification::make()
+            ->title(__('That version is no longer available'))
+            ->body(__('It may have been pruned while this page was open.'))
+            ->warning()
+            ->send();
     }
 
     /**

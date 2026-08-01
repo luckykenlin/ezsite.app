@@ -175,7 +175,7 @@ final readonly class ChatEditPage
 
             $reply = __("Sorry — I couldn't reach the assistant just then. Your page is unchanged; please try again.");
 
-            $this->record($page, $user, ChatRole::Assistant, $reply, failed: true);
+            $this->transcript->handle($page, $user, ChatRole::Assistant, $reply, failed: true);
 
             // `design` and `chrome` are explicitly null, not merely absent: a turn
             // that chose a palette or rewrote the navigation and then died must not
@@ -190,7 +190,7 @@ final readonly class ChatEditPage
         // The apology path above deliberately records NO activity: a failed
         // turn's edits were discarded, and "edits you made" lines describing
         // them would feed the model a memory of changes that never landed.
-        $this->record($page, $user, ChatRole::Assistant, $reply, $changed, activity: $activity);
+        $this->transcript->handle($page, $user, ChatRole::Assistant, $reply, $changed, activity: $activity);
 
         return [
             'blocks' => $edited,
@@ -473,13 +473,5 @@ final readonly class ChatEditPage
             'html_input' => 'strip',
             'allow_unsafe_links' => false,
         ]);
-    }
-
-    /**
-     * @param  list<string>|null  $activity
-     */
-    private function record(Page $page, ?User $user, ChatRole $role, string $content, ?int $changed = null, bool $failed = false, ?array $activity = null): void
-    {
-        $this->transcript->handle($page, $user, $role, $content, $changed, $failed, $activity);
     }
 }

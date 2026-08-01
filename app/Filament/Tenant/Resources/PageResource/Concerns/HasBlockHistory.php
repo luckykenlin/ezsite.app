@@ -96,8 +96,19 @@ trait HasBlockHistory
     {
         $stored = $this->historyStacks();
 
-        $this->undoDepth = count($stored['history']);
-        $this->redoDepth = count($stored['future']);
+        $this->setDepths(['history' => count($stored['history']), 'future' => count($stored['future'])]);
+    }
+
+    /**
+     * Mirror the two stack depths onto the component — the only part of the
+     * history the blade ever reads (it enables/disables the buttons).
+     *
+     * @param  array{history: int, future: int}  $depths
+     */
+    private function setDepths(array $depths): void
+    {
+        $this->undoDepth = $depths['history'];
+        $this->redoDepth = $depths['future'];
     }
 
     /**
@@ -156,16 +167,19 @@ trait HasBlockHistory
      * Persist both stacks and mirror their depths onto the component, which is the
      * only part of them the blade ever needed.
      *
+     * The depths come back from the write rather than from a follow-up read: the
+     * cache action already holds the capped arrays, and re-reading them here cost
+     * a second round trip that deserialised and re-normalised up to 100 block
+     * snapshots — on every structural mutation.
+     *
      * @param  list<array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, selectedBlockKey: string|null, design: array<string, string|null>|null, chrome: array<string, array{type: string, data: array<string, mixed>}|null>|null, chromeDirty: bool}>  $history
      * @param  list<array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, selectedBlockKey: string|null, design: array<string, string|null>|null, chrome: array<string, array{type: string, data: array<string, mixed>}|null>|null, chromeDirty: bool}>  $future
      */
     private function writeHistory(array $history, array $future): void
     {
-        resolve(CacheBlockHistory::class)->handle((int) $this->pageRecord()->id, $history, $future);
-
-        $stored = $this->historyStacks();
-        $this->undoDepth = count($stored['history']);
-        $this->redoDepth = count($stored['future']);
+        $this->setDepths(
+            resolve(CacheBlockHistory::class)->handle((int) $this->pageRecord()->id, $history, $future),
+        );
     }
 
     /**

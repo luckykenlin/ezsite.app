@@ -59,16 +59,15 @@ final readonly class ReorderBlocks implements Tool
         $unknown = array_diff($given, $current);
 
         if ($missing !== [] || $unknown !== [] || count($given) !== count($current)) {
-            return sprintf(
-                "That order was rejected: it must list every key on the page exactly once.%s%s\n\n%s",
+            return $this->draft->reply(sprintf(
+                'That order was rejected: it must list every key on the page exactly once.%s%s',
                 $missing === [] ? '' : ' Missing: '.implode(', ', $missing).'.',
                 $unknown === [] ? '' : ' Not on this page: '.implode(', ', $unknown).'.',
-                $this->draft->outline(),
-            );
+            ));
         }
 
         $this->draft->replace($this->reorder->handle($this->draft->blocks(), $given));
 
-        return "Reordered the page.\n\n".$this->draft->outline();
+        return $this->draft->reply('Reordered the page.');
     }
 }

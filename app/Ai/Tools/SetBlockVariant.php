@@ -72,11 +72,10 @@ final readonly class SetBlockVariant implements Tool
     public function handle(Request $request): string
     {
         $arguments = $request->toArray();
-        $key = $arguments['key'] ?? null;
-        $block = is_string($key) ? $this->draft->find($key) : null;
+        $block = $this->draft->locate($arguments['key'] ?? null);
 
-        if (! is_string($key) || $block === null) {
-            return "There is no block with that key on this page.\n\n".$this->draft->outline();
+        if ($block === null) {
+            return $this->draft->reply('There is no block with that key on this page.');
         }
 
         $requested = $arguments['variant'] ?? null;
@@ -90,27 +89,21 @@ final readonly class SetBlockVariant implements Tool
         $resolved = $type?->resolveVariant($requested);
 
         if ($resolved === null || $resolved !== $requested) {
-            return sprintf(
-                "A %s block has no such layout, so nothing changed. %s\n\n%s",
+            return $this->draft->reply(sprintf(
+                'A %s block has no such layout, so nothing changed. %s',
                 $block['type'],
                 $offered === []
                     ? 'That block type has a single fixed layout.'
                     : 'Its layouts are: '.implode(', ', $offered).'.',
-                $this->draft->outline(),
-            );
+            ));
         }
 
         $data = $block['data'];
         $data[BlockShape::VARIANT_KEY] = $resolved;
 
-        $this->draft->replace($this->update->handle($this->draft->blocks(), $key, $data));
+        $this->draft->replace($this->update->handle($this->draft->blocks(), $block['key'], $data));
 
-        return sprintf(
-            "Set the %s block layout to %s.\n\n%s",
-            $block['type'],
-            $resolved,
-            $this->draft->outline(),
-        );
+        return $this->draft->reply(sprintf('Set the %s block layout to %s.', $block['type'], $resolved));
     }
 
     /**

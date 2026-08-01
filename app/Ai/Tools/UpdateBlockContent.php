@@ -57,27 +57,25 @@ final readonly class UpdateBlockContent implements Tool
     public function handle(Request $request): string
     {
         $arguments = $request->toArray();
-        $key = $arguments['key'] ?? null;
-        $block = is_string($key) ? $this->draft->find($key) : null;
+        $block = $this->draft->locate($arguments['key'] ?? null);
 
-        if (! is_string($key) || $block === null) {
-            return "There is no block with that key on this page.\n\n".$this->draft->outline();
+        if ($block === null) {
+            return $this->draft->reply('There is no block with that key on this page.');
         }
 
         $incoming = $arguments['content'] ?? null;
 
         if (! is_array($incoming) || $incoming === []) {
-            return "No content fields were given, so nothing changed.\n\n".$this->draft->outline();
+            return $this->draft->reply('No content fields were given, so nothing changed.');
         }
 
         $clean = $this->sanitizer->handle($block['type'], $incoming);
 
         if ($clean === []) {
-            return sprintf(
-                "None of those field names exist on a '%s' block, so nothing changed. Check the vocabulary and try again.\n\n%s",
+            return $this->draft->reply(sprintf(
+                "None of those field names exist on a '%s' block, so nothing changed. Check the vocabulary and try again.",
                 $block['type'],
-                $this->draft->outline(),
-            );
+            ));
         }
 
         // Reserved keys are never authored by the model, so they are carried
@@ -90,13 +88,12 @@ final readonly class UpdateBlockContent implements Tool
             }
         }
 
-        $this->draft->replace($this->update->handle($this->draft->blocks(), $key, $merged));
+        $this->draft->replace($this->update->handle($this->draft->blocks(), $block['key'], $merged));
 
-        return sprintf(
-            "Updated the %s block (%s).\n\n%s",
+        return $this->draft->reply(sprintf(
+            'Updated the %s block (%s).',
             $block['type'],
             implode(', ', array_keys($clean)),
-            $this->draft->outline(),
-        );
+        ));
     }
 }

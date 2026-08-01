@@ -66,6 +66,34 @@ final class PageDraft
     }
 
     /**
+     * The block a tool ARGUMENT addresses, or null.
+     *
+     * Tool arguments arrive as `mixed` straight from the model, so the
+     * is-it-even-a-string check belongs with the lookup rather than repeated in
+     * front of every caller. A found block carries its own `key` back, so the
+     * caller needs no narrowed copy of the argument.
+     *
+     * @return array{key: string, type: string, data: array<string, mixed>}|null
+     */
+    public function locate(mixed $key): ?array
+    {
+        return is_string($key) ? $this->find($key) : null;
+    }
+
+    /**
+     * A tool's return value: what it did, then the page as it now stands.
+     *
+     * Every tool answers in this shape — the outline is how the model re-reads
+     * real state after each edit instead of tracking it in its head — so the
+     * join lives here rather than as a `sprintf` tail repeated at ~25 call
+     * sites. These strings are prompt surface: keep them byte-identical.
+     */
+    public function reply(string $message): string
+    {
+        return $message."\n\n".$this->outline();
+    }
+
+    /**
      * The page as the model should see it: one line per block with its
      * position, addressable key, type, layout variant and content. This is
      * every tool's return value, so the model always re-reads the real state

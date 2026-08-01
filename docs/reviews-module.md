@@ -2,7 +2,7 @@
 
 > 状态：**设计定稿，待实现**。这是"从建站工具升级为华人获客操作系统"落地的第一个 growth-OS 模块，也是 `business-data-model.md` 里预留的 `reviews` 表的填肉方案。
 > 依赖：[tenant-write-context.md](./tenant-write-context.md)（cron/webhook 写必须走三道闸）必须**先落地**。
-> 关联：[PLAN.md](../PLAN.md)（建站，保持不变）· [business-data-model.md](./business-data-model.md)（reviews 预留表）· [2026-07-17 评审快照](./archive/2026-07-17-review.md)
+> 关联：[PLAN.md](./archive/PLAN.md)（建站，保持不变）· [business-data-model.md](./business-data-model.md)（reviews 预留表）· [2026-07-17 评审快照](./archive/2026-07-17-review.md)
 
 ## 0. 为什么是评论,为什么现在
 

@@ -103,22 +103,20 @@ final readonly class SetBlockAppearance implements Tool
     public function handle(Request $request): string
     {
         $arguments = $request->toArray();
-        $key = $arguments['key'] ?? null;
-        $block = is_string($key) ? $this->draft->find($key) : null;
+        $block = $this->draft->locate($arguments['key'] ?? null);
 
-        if (! is_string($key) || $block === null) {
-            return "There is no block with that key on this page.\n\n".$this->draft->outline();
+        if ($block === null) {
+            return $this->draft->reply('There is no block with that key on this page.');
         }
 
         // Site chrome renders outside the section shell, so it has no appearance
         // to set. It should never reach a page draft at all — this is the same
         // belt-and-braces check AddPageBlock makes, for the same reason.
         if (! $this->vocabulary->isAddableToPage($block['type'])) {
-            return sprintf(
-                "A %s block's appearance is not yours to set — it is part of the site frame, not a section of this page.\n\n%s",
+            return $this->draft->reply(sprintf(
+                "A %s block's appearance is not yours to set — it is part of the site frame, not a section of this page.",
                 $block['type'],
-                $this->draft->outline(),
-            );
+            ));
         }
 
         $contract = $this->vocabulary->get($block['type']);
@@ -134,8 +132,8 @@ final readonly class SetBlockAppearance implements Tool
             // An axis the type never declared: name the ones it has, so the
             // model's next call is a real one instead of a retry by vibe.
             if ($contract instanceof BlockType && ! $contract->supportsAxis($axis)) {
-                return sprintf(
-                    "%s is not a layout axis of a %s block, so nothing changed. A %s block's axes are: %s.\n\n%s",
+                return $this->draft->reply(sprintf(
+                    "%s is not a layout axis of a %s block, so nothing changed. A %s block's axes are: %s.",
                     $axis->value,
                     $block['type'],
                     $block['type'],
@@ -143,25 +141,23 @@ final readonly class SetBlockAppearance implements Tool
                         static fn (LayoutAxis $supported): string => $supported->value,
                         $contract->supportedAxes(),
                     )),
-                    $this->draft->outline(),
-                );
+                ));
             }
 
             if ($value !== self::RESET && $axis->resolve($value) === null) {
-                return sprintf(
-                    "'%s' is not a %s you can set, so nothing changed. The values are: %s.\n\n%s",
+                return $this->draft->reply(sprintf(
+                    "'%s' is not a %s you can set, so nothing changed. The values are: %s.",
                     $value,
                     mb_strtolower($axis->label()),
                     implode(', ', $axis->values()),
-                    $this->draft->outline(),
-                );
+                ));
             }
 
             $requested[$axis->value] = $value;
         }
 
         if ($requested === []) {
-            return "Nothing changed: send at least one layout axis to set or reset.\n\n".$this->draft->outline();
+            return $this->draft->reply('Nothing changed: send at least one layout axis to set or reset.');
         }
 
         $data = $block['data'];
@@ -173,16 +169,15 @@ final readonly class SetBlockAppearance implements Tool
             $data[BlockShape::APPEARANCE_KEY] = $appearance;
         }
 
-        $this->draft->replace($this->update->handle($this->draft->blocks(), $key, $data));
+        $this->draft->replace($this->update->handle($this->draft->blocks(), $block['key'], $data));
 
-        return sprintf(
-            "Set the %s block to %s.\n\n%s",
+        return $this->draft->reply(sprintf(
+            'Set the %s block to %s.',
             $block['type'],
             $appearance === []
                 ? "its layout's own defaults"
                 : $this->summarize($appearance),
-            $this->draft->outline(),
-        );
+        ));
     }
 
     /**

@@ -1,7 +1,7 @@
 # 商家数据模型 — Brainstorm 存档
 
 > 状态：**v1 已落地** —— `businesses` + `locations` 两张表、模型、工厂、RLS/隔离测试已建。三个开放问题已拍板（见下）。**营业时间已落地**（`locations.opening_hours` JSON 列 + `spatie/opening-hours`，见下方"营业时间"）。**Filament 后台与 block 绑定已落地**（2026-07，见文末"bind 机制（已落地）"）。社交/口碑预留表仍待做。
-> 关联文档：[PLAN.md](../PLAN.md)（网站构建器第一阶段）、[.claude/docs/tenancy.md](../.claude/docs/tenancy.md)（多租户内部机制）。
+> 关联文档：[PLAN.md](./archive/PLAN.md)（网站构建器第一阶段）、[.claude/docs/tenancy.md](../.claude/docs/tenancy.md)（多租户内部机制）。
 
 ## 背景与目标
 

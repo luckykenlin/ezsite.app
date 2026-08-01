@@ -70,28 +70,23 @@ final readonly class SetBlockImage implements Tool
     public function handle(Request $request): string
     {
         $arguments = $request->toArray();
-        $key = $arguments['key'] ?? null;
-        $block = is_string($key) ? $this->draft->find($key) : null;
+        $block = $this->draft->locate($arguments['key'] ?? null);
 
-        if (! is_string($key) || $block === null) {
-            return "There is no block with that key on this page.\n\n".$this->draft->outline();
+        if ($block === null) {
+            return $this->draft->reply('There is no block with that key on this page.');
         }
 
         $type = $this->vocabulary->get($block['type']);
 
         if (! $type instanceof BlockType || ! $type->acceptsMedia()) {
-            return sprintf(
-                "A '%s' block has no image slot, so nothing changed.\n\n%s",
-                $block['type'],
-                $this->draft->outline(),
-            );
+            return $this->draft->reply(sprintf("A '%s' block has no image slot, so nothing changed.", $block['type']));
         }
 
         $mediaId = $arguments['media_id'] ?? null;
         $media = is_int($mediaId) ? Media::query()->find($mediaId) : null;
 
         if (! $media instanceof Media) {
-            return "There is no media with that id in the library — use a media id announced in this conversation.\n\n".$this->draft->outline();
+            return $this->draft->reply('There is no media with that id in the library — use a media id announced in this conversation.');
         }
 
         $itemIndex = $arguments['item_index'] ?? null;
@@ -102,17 +97,12 @@ final readonly class SetBlockImage implements Tool
             : $this->placeOnBlock($block['data'], $type, $mediaId);
 
         if (is_string($data)) {
-            return $data."\n\n".$this->draft->outline();
+            return $this->draft->reply($data);
         }
 
-        $this->draft->replace($this->update->handle($this->draft->blocks(), $key, $data));
+        $this->draft->replace($this->update->handle($this->draft->blocks(), $block['key'], $data));
 
-        return sprintf(
-            "Placed media %d on the %s block.\n\n%s",
-            $mediaId,
-            $block['type'],
-            $this->draft->outline(),
-        );
+        return $this->draft->reply(sprintf('Placed media %d on the %s block.', $mediaId, $block['type']));
     }
 
     /**

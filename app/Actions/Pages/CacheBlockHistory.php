@@ -60,15 +60,27 @@ final readonly class CacheBlockHistory
     }
 
     /**
+     * Returns the depth of each stack AS STORED — i.e. after the cap above.
+     * The caller mirrors those two ints onto the component for the undo/redo
+     * buttons, and they are the only part of the stacks the UI ever reads:
+     * handing them back here is what lets the caller skip a second cache read
+     * (which would deserialise and re-normalise up to 100 block snapshots) on
+     * every structural mutation.
+     *
      * @param  list<array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, selectedBlockKey: string|null, design: array<string, string|null>|null, chrome: array<string, array{type: string, data: array<string, mixed>}|null>|null, chromeDirty: bool}>  $history
      * @param  list<array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, selectedBlockKey: string|null, design: array<string, string|null>|null, chrome: array<string, array{type: string, data: array<string, mixed>}|null>|null, chromeDirty: bool}>  $future
+     * @return array{history: int, future: int}
      */
-    public function handle(int $pageId, array $history, array $future): void
+    public function handle(int $pageId, array $history, array $future): array
     {
-        Cache::put(self::key($pageId), [
+        $stored = [
             'history' => array_slice($history, -self::LIMIT),
             'future' => array_slice($future, -self::LIMIT),
-        ], now()->addHours(self::TTL_HOURS));
+        ];
+
+        Cache::put(self::key($pageId), $stored, now()->addHours(self::TTL_HOURS));
+
+        return ['history' => count($stored['history']), 'future' => count($stored['future'])];
     }
 
     /**

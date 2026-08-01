@@ -85,11 +85,10 @@ final readonly class AddBlock implements Tool
 
         $this->draft->replace($blocks);
 
-        return sprintf(
-            "Added a %s block with key %s. It currently holds placeholder copy — replace it with UpdateBlockContent.\n\n%s",
+        return $this->draft->reply(sprintf(
+            'Added a %s block with key %s. It currently holds placeholder copy — replace it with UpdateBlockContent.',
             $type,
             $key,
-            $this->draft->outline(),
-        );
+        ));
     }
 }

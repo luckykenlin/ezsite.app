@@ -6,7 +6,6 @@ namespace App\Filament\Tenant\Resources\PageResource\Concerns;
 
 use App\Actions\Pages\ReadPageEditorDraft;
 use App\Actions\Pages\SavePageEditorDraft;
-use App\Enums\ChromeSlot;
 use App\Enums\DesignDraftSource;
 use App\Site\Blocks\BlockData;
 use Filament\Notifications\Notification;
@@ -58,10 +57,7 @@ trait RestoresEditorDraft
         resolve(SavePageEditorDraft::class)->handle($this->pageRecord(), null);
 
         $this->blocks = $this->hydratedBlocks();
-        $this->chrome = [
-            ChromeSlot::Header->value => $this->hydratedChromeSlot(ChromeSlot::Header),
-            ChromeSlot::Footer->value => $this->hydratedChromeSlot(ChromeSlot::Footer),
-        ];
+        $this->chrome = $this->hydratedChrome();
         $this->chromeDirty = false;
         $this->isDirty = false;
         $this->draftRestored = false;

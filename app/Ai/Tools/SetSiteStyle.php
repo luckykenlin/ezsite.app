@@ -93,23 +93,22 @@ final readonly class SetSiteStyle implements Tool
         $preset = is_string($requestedPreset) ? StylePreset::tryFrom($requestedPreset) : null;
 
         if (is_string($requestedPreset) && ! $preset instanceof StylePreset) {
-            return sprintf(
-                "There is no '%s' style, so nothing changed. The styles are: %s.\n\n%s",
+            return $this->draft->reply(sprintf(
+                "There is no '%s' style, so nothing changed. The styles are: %s.",
                 $requestedPreset,
                 implode(', ', array_map(static fn (StylePreset $case): string => $case->value, StylePreset::cases())),
-                $this->draft->outline(),
-            );
+            ));
         }
 
         $changes = TokenSelection::changes($arguments);
         $rejected = $this->rejectedTokens($changes);
 
         if ($rejected !== null) {
-            return $rejected."\n\n".$this->draft->outline();
+            return $this->draft->reply($rejected);
         }
 
         if (! $preset instanceof StylePreset && $changes === []) {
-            return "No style was given, so nothing changed.\n\n".$this->draft->outline();
+            return $this->draft->reply('No style was given, so nothing changed.');
         }
 
         if ($preset instanceof StylePreset) {
@@ -126,12 +125,11 @@ final readonly class SetSiteStyle implements Tool
             $this->draft->replace($this->alignedBlocks($preset));
         }
 
-        return sprintf(
-            "The site style is now %s%s. It is staged on the canvas only — tell the operator it affects every page and that they need to apply it.\n\n%s",
+        return $this->draft->reply(sprintf(
+            'The site style is now %s%s. It is staged on the canvas only — tell the operator it affects every page and that they need to apply it.',
             $this->style->current()->describe(),
             $aligned ? ", and this page's section layouts and backgrounds were aligned to it" : '',
-            $this->draft->outline(),
-        );
+        ));
     }
 
     /**

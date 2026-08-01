@@ -45,15 +45,14 @@ final readonly class RemoveBlock implements Tool
 
     public function handle(Request $request): string
     {
-        $key = $request->toArray()['key'] ?? null;
-        $block = is_string($key) ? $this->draft->find($key) : null;
+        $block = $this->draft->locate($request->toArray()['key'] ?? null);
 
-        if (! is_string($key) || $block === null) {
-            return "There is no block with that key on this page.\n\n".$this->draft->outline();
+        if ($block === null) {
+            return $this->draft->reply('There is no block with that key on this page.');
         }
 
-        $this->draft->replace($this->remove->handle($this->draft->blocks(), $key));
+        $this->draft->replace($this->remove->handle($this->draft->blocks(), $block['key']));
 
-        return sprintf("Removed the %s block.\n\n%s", $block['type'], $this->draft->outline());
+        return $this->draft->reply(sprintf('Removed the %s block.', $block['type']));
     }
 }
