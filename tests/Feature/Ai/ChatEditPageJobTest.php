@@ -16,6 +16,7 @@ use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use Laravel\Ai\Prompts\AgentPrompt;
 use Laravel\Ai\Responses\Data\ToolCall;
 
 /*
@@ -348,7 +349,7 @@ it('forwards its attachment payload into the turn', function (): void {
 
     // The attachments reached the prompt (the announcement section) — proof the
     // payload crossed the queue boundary rather than dying in the constructor.
-    PageEditorAgent::assertPrompted(fn (Laravel\Ai\Prompts\AgentPrompt $prompt): bool => $prompt->contains('media id 42'));
+    PageEditorAgent::assertPrompted(fn (AgentPrompt $prompt): bool => $prompt->contains('media id 42'));
 
     $question = $this->runInTenant($this->tenant, fn () => PageChatMessage::query()->orderBy('id')->first());
 

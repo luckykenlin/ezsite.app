@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Actions\FetchWebPageText;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 
 function fetcher(array $resolvesTo = ['93.184.216.34']): FetchWebPageText
@@ -82,7 +83,7 @@ it('reports a failing page as an error, not as content', function (): void {
 })->throws(RuntimeException::class, 'HTTP 404');
 
 it('reports a connection failure in operator terms', function (): void {
-    Http::fake(fn () => throw new Illuminate\Http\Client\ConnectionException('Connection refused'));
+    Http::fake(fn () => throw new ConnectionException('Connection refused'));
 
     fetcher()->handle('https://example.com/dead');
 })->throws(RuntimeException::class, 'could not be fetched');

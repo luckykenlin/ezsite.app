@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Actions\ImportChatAttachment;
 use App\Actions\Pages\CacheBlockHistory;
 use App\Actions\Pages\CacheChatTurn;
 use App\Actions\Pages\CachePageEditorPreview;
@@ -2821,7 +2822,7 @@ it('imports composer uploads on send and records them on the question', function
         ->and($question->attachments[0]['name'])->toBe('kitchen.jpg')
         ->and($question->attachments[0]['media_id'])->toBe((int) $media->id)
         // Consumed: the next message starts with an empty strip.
-        ->and($component->get('chatUploads'))->toBe([]);
+        ->and($component->get('chatUploads'))->toBeEmpty();
 });
 
 it('sends an attachment alone, under a stand-in message', function (): void {
@@ -2856,7 +2857,7 @@ it('rejects a composer upload the moment it lands, and drops the batch', functio
         ->assertHasErrors('chatUploads.0');
 
     // The property is emptied so the composer cannot send what it showed red.
-    expect($component->get('chatUploads'))->toBe([]);
+    expect($component->get('chatUploads'))->toBeEmpty();
 });
 
 it('rejects a value that is not a file at all', function (): void {
@@ -2924,7 +2925,7 @@ it('keeps the message and starts no turn when an import fails', function (): voi
 
     // The action is final, so the failure is injected as a stand-in — the
     // trait resolves it from the container and duck-types the call.
-    $this->app->bind(App\Actions\ImportChatAttachment::class, fn (): object => new class
+    $this->app->bind(ImportChatAttachment::class, fn (): object => new class
     {
         public function handle(UploadedFile $file): never
         {

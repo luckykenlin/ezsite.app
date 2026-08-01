@@ -39,7 +39,7 @@ it('emits the full deterministic --type-* variable set for every style', functio
         expect($variables[$size])->toEndWith('rem');
     }
 
-    expect($style->description())->not->toBe('');
+    expect($style->description())->not->toBeEmpty();
 })->with(TypeStyle::cases());
 
 it('classic emits exactly the site.css fallback values, so an untouched site cannot change', function (): void {

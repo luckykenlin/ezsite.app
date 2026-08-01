@@ -60,8 +60,8 @@ final readonly class SiteDraftAgent implements Agent, HasStructuredOutput
 
     private const string INSTRUCTIONS = 'You are a web designer composing a small-business website from a fixed '
         .'component vocabulary. You select components, pick a style preset, '
-        .'choose each section\'s layout from the layouts its type offers, set a '
-        .'section\'s background tone and vertical spacing where the page\'s '
+        ."choose each section's layout from the layouts its type offers, set a "
+        ."section's background tone and vertical spacing where the page's "
         .'rhythm calls for it, and write marketing copy. You never output HTML, '
         .'CSS, Markdown or code. '
         .'Only use the block types and field names listed in the vocabulary. '
@@ -123,22 +123,22 @@ final readonly class SiteDraftAgent implements Agent, HasStructuredOutput
                                 ->description('The background band this section sits on. Most sections should omit this; give at most ONE section on the page "accent" or "inverted" — see Design guidance.'),
                             'spacing' => $schema->string()
                                 ->enum(SectionSpacing::values())
-                                ->description('The vertical breathing room. Omit for the layout\'s own default.'),
+                                ->description("The vertical breathing room. Omit for the layout's own default."),
                             'width' => $schema->string()
                                 ->enum(SectionWidth::values())
-                                ->description('The content column width: narrow reads, wide shows. Omit for the layout\'s own default.'),
+                                ->description("The content column width: narrow reads, wide shows. Omit for the layout's own default."),
                             'align' => $schema->string()
                                 ->enum(SectionAlign::values())
-                                ->description('The section header alignment. Omit for the layout\'s own default.'),
+                                ->description("The section header alignment. Omit for the layout's own default."),
                             'columns' => $schema->string()
                                 ->enum(SectionColumns::values())
-                                ->description('How many columns the section\'s items flow into, where the type takes items. Omit for the layout\'s own default.'),
+                                ->description("How many columns the section's items flow into, where the type takes items. Omit for the layout's own default."),
                             'item_style' => $schema->string()
                                 ->enum(SectionItemStyle::values())
-                                ->description('Whether items sit on cards or run plain. Omit for the layout\'s own default.'),
+                                ->description("Whether items sit on cards or run plain. Omit for the layout's own default."),
                             'image_shape' => $schema->string()
                                 ->enum(SectionImageShape::values())
-                                ->description('The crop item images render in. Omit for the layout\'s own default.'),
+                                ->description("The crop item images render in. Omit for the layout's own default."),
                             'data' => $schema->object()
                                 ->description('Content fields for this block type, per the vocabulary.')
                                 ->required(),

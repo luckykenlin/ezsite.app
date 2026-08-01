@@ -3,12 +3,14 @@
 declare(strict_types=1);
 
 use App\Filament\Fabricator\PageBlocks\Contact;
+use App\Filament\Fabricator\PageBlocks\Features;
 use App\Filament\Fabricator\PageBlocks\Header;
 use App\Filament\Fabricator\PageBlocks\Heading;
 use App\Filament\Fabricator\PageBlocks\Hero;
 use App\Models\Location;
 use App\Models\Tenant;
 use App\Site\Blocks\BlockShape;
+use App\Site\Blocks\LayoutAxis;
 use App\Site\Blocks\SectionSpacing;
 use App\Site\Blocks\SectionTone;
 use Filament\Forms\Components\Builder\Block;
@@ -136,7 +138,7 @@ it('composes a no-variant block from its content fields only, without a variant 
 });
 
 it('injects one select per contract axis, options straight off the axis enum', function (): void {
-    $components = containerizedBlockComponents(App\Filament\Fabricator\PageBlocks\Features::getBlockSchema());
+    $components = containerizedBlockComponents(Features::getBlockSchema());
 
     $selects = [];
 
@@ -150,7 +152,7 @@ it('injects one select per contract axis, options straight off the axis enum', f
     expect(array_keys($selects))->toBe(['tone', 'spacing', 'width', 'align', 'columns', 'item_style', 'image_shape']);
 
     foreach ($selects as $key => $select) {
-        $axis = App\Site\Blocks\LayoutAxis::from($key);
+        $axis = LayoutAxis::from($key);
 
         expect($select->getOptions())->toBe($axis->enumClass()::options())
             ->and($select->isRequired())->toBeFalse()

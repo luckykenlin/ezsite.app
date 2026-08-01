@@ -257,7 +257,7 @@ abstract class Block extends PageBlock
                 $axis->label(),
                 $axis->enumClass()::options(),
             ),
-            static::contract()->supportedAxes(),
+            self::contract()->supportedAxes(),
         );
     }
 
@@ -322,7 +322,9 @@ abstract class Block extends PageBlock
      */
     private static function mediaFields(): array
     {
-        $mediaField = $itemsField = $itemMediaField = null;
+        $mediaField = null;
+        $itemsField = null;
+        $itemMediaField = null;
 
         foreach (static::fields() as $field) {
             if ($field instanceof CuratorPicker) {

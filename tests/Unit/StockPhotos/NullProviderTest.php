@@ -13,7 +13,7 @@ it('finds nothing and tracks nothing, keeping keyless environments inert', funct
 
     $provider->trackDownload($photo);
 
-    expect($provider->search('anything', PhotoOrientation::Landscape, 5))->toBe([]);
+    expect($provider->search('anything', PhotoOrientation::Landscape, 5))->toBeEmpty();
 });
 
 it('is the bound provider when no pexels key is configured', function (): void {

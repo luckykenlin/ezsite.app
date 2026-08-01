@@ -26,6 +26,7 @@ use Illuminate\Validation\Rules\File;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Livewire\WithFileUploads;
 use Throwable;
 
@@ -87,7 +88,7 @@ trait InteractsWithPageChat
      * ({@see updatedChatUploads()}) and consumed by {@see sendChatMessage()},
      * which imports them and clears this list.
      *
-     * @var list<\Livewire\Features\SupportFileUploads\TemporaryUploadedFile>
+     * @var list<TemporaryUploadedFile>
      */
     public array $chatUploads = [];
 

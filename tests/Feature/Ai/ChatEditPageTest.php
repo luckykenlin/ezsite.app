@@ -10,6 +10,7 @@ use App\Design\StylePreset;
 use App\Enums\ChatRole;
 use App\Enums\PageStatus;
 use App\Models\Business;
+use App\Models\Media;
 use App\Models\Page;
 use App\Models\PageChatMessage;
 use App\Models\SiteSetting;
@@ -761,7 +762,7 @@ it('keeps a clean thread on the default chain', function (): void {
 });
 
 it('shows the transcript attachments as chips, with thumbs only for library images', function (): void {
-    $media = $this->runInTenant($this->tenant, fn (): App\Models\Media => App\Models\Media::factory()->create([
+    $media = $this->runInTenant($this->tenant, fn (): Media => Media::factory()->create([
         'tenant_id' => $this->tenant->id,
     ]));
 

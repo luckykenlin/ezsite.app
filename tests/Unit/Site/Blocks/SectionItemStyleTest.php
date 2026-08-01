@@ -39,6 +39,6 @@ it('re-asserts a readable foreground on the dark and accent bands', function ():
 });
 
 it('paints nothing for plain and a thin border for outline', function (): void {
-    expect(SectionItemStyle::Plain->classes(SectionTone::Base))->toBe('')
+    expect(SectionItemStyle::Plain->classes(SectionTone::Base))->toBeEmpty()
         ->and(SectionItemStyle::Outline->classes(SectionTone::Base))->toBe('card border border-base-300');
 });

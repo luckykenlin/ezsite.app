@@ -205,7 +205,7 @@ final readonly class StampPresetDefaults
     /**
      * @param  array<array-key, mixed>  $stored
      */
-    private static function storedTone(array $stored): ?SectionTone
+    private function storedTone(array $stored): ?SectionTone
     {
         $value = $stored[BlockShape::TONE_KEY] ?? null;
 
@@ -215,7 +215,7 @@ final readonly class StampPresetDefaults
     /**
      * @param  array<array-key, mixed>  $stored
      */
-    private static function storedSpacing(array $stored): ?SectionSpacing
+    private function storedSpacing(array $stored): ?SectionSpacing
     {
         $value = $stored[BlockShape::SPACING_KEY] ?? null;
 
@@ -254,8 +254,8 @@ final readonly class StampPresetDefaults
         $variant = is_string($data[BlockShape::VARIANT_KEY] ?? null) ? $data[BlockShape::VARIANT_KEY] : null;
 
         $stored = is_array($data[BlockShape::APPEARANCE_KEY] ?? null) ? $data[BlockShape::APPEARANCE_KEY] : [];
-        $modelTone = self::storedTone($stored);
-        $modelSpacing = self::storedSpacing($stored);
+        $modelTone = $this->storedTone($stored);
+        $modelSpacing = $this->storedSpacing($stored);
 
         $declared = $this->appearanceFor($type, $preset) ?? [];
         $presetTone = isset($declared[BlockShape::TONE_KEY]) ? SectionTone::from($declared[BlockShape::TONE_KEY]) : null;
@@ -264,7 +264,7 @@ final readonly class StampPresetDefaults
         $tone = $modelTone;
         $fallbackTone = null;
 
-        if ($tone === null) {
+        if (! $tone instanceof SectionTone) {
             // The contract default is what the view will actually render when
             // nothing is written — the alternation must compare against THAT.
             $candidate = $presetTone

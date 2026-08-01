@@ -42,7 +42,7 @@ function generateFor(Tenant $tenant): Page
     );
 }
 
-it('persists a draft home page where the model\'s layout choices survive and the preset fills its silences', function (): void {
+it("persists a draft home page where the model's layout choices survive and the preset fills its silences", function (): void {
     SiteDraftAgent::fake([fakeDraftResponse()])->preventStrayPrompts();
 
     $tenant = Tenant::factory()->create();
@@ -83,7 +83,7 @@ it('persists a draft home page where the model\'s layout choices survive and the
     SiteDraftAgent::assertPrompted(fn (AgentPrompt $prompt): bool => $prompt->contains('Corner Cafe'));
 });
 
-it('keeps the model\'s block-level tone and spacing, and falls back on an invalid variant', function (): void {
+it("keeps the model's block-level tone and spacing, and falls back on an invalid variant", function (): void {
     SiteDraftAgent::fake([fakeDraftResponse(['pages' => [['blocks' => [
         ['type' => 'hero', 'data' => ['heading' => 'Welcome friends'], 'variant' => 'no-such-layout'],
         ['type' => 'features', 'data' => ['heading' => 'Why us', 'features' => [['title' => 'Handmade']]], 'variant' => 'grid', 'tone' => 'inverted', 'spacing' => 'tight'],

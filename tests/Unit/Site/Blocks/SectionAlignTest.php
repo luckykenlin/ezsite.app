@@ -20,6 +20,6 @@ it('gives every alignment a label, a description and both class treatments', fun
 it('centres the heading and intro only for the centred case', function (): void {
     expect(SectionAlign::Center->headingClasses())->toBe('text-center')
         ->and(SectionAlign::Center->introClasses())->toContain('mx-auto')->toContain('text-center')
-        ->and(SectionAlign::Start->headingClasses())->toBe('')
+        ->and(SectionAlign::Start->headingClasses())->toBeEmpty()
         ->and(SectionAlign::Start->introClasses())->not->toContain('text-center');
 });

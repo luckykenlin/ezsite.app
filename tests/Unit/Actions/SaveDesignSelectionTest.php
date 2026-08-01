@@ -8,6 +8,7 @@ use App\Design\FontPair;
 use App\Design\RadiusScale;
 use App\Design\SpacingDensity;
 use App\Design\StylePreset;
+use App\Design\TokenKey;
 use App\Models\Business;
 use App\Models\Tenant;
 use App\Tenancy\RunInTenant;
@@ -37,7 +38,7 @@ function selectionFor(StylePreset $preset): array
     $tokens = $preset->tokens();
     $selection = ['preset' => $preset->value];
 
-    foreach (App\Design\TokenKey::cases() as $key) {
+    foreach (TokenKey::cases() as $key) {
         $selection[$key->value] = $key->valueOn($tokens);
     }
 

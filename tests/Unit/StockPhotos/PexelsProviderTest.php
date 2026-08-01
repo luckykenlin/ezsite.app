@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\StockPhotos\PexelsProvider;
 use App\StockPhotos\PhotoOrientation;
+use App\StockPhotos\StockPhoto;
 use App\StockPhotos\StockPhotoProvider;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
@@ -61,7 +62,7 @@ it('answers an empty list on a provider error, with a log', function (): void {
     Log::spy();
     Http::fake(['api.pexels.com/*' => Http::response(['error' => 'nope'], 500)]);
 
-    expect(new PexelsProvider('test-key')->search('anything', PhotoOrientation::Landscape, 3))->toBe([]);
+    expect(new PexelsProvider('test-key')->search('anything', PhotoOrientation::Landscape, 3))->toBeEmpty();
 
     Log::shouldHaveReceived('warning')
         ->withArgs(fn (string $message, array $context): bool => $message === 'stock_photos.search_failed'
@@ -73,7 +74,7 @@ it('answers an empty list when the connection itself fails', function (): void {
     Log::spy();
     Http::fake(['api.pexels.com/*' => fn () => throw new ConnectionException('the wire is down')]);
 
-    expect(new PexelsProvider('test-key')->search('anything', PhotoOrientation::Landscape, 3))->toBe([]);
+    expect(new PexelsProvider('test-key')->search('anything', PhotoOrientation::Landscape, 3))->toBeEmpty();
 
     Log::shouldHaveReceived('warning')
         ->withArgs(fn (string $message): bool => $message === 'stock_photos.search_failed')
@@ -91,7 +92,7 @@ it('stops searching when the app-side hourly rate limit is exhausted', function 
     expect($provider->search('first', PhotoOrientation::Landscape, 1))->toHaveCount(1)
         // The second search never reaches the provider — a burst degrades to
         // photo-less drafts instead of provider 429s.
-        ->and($provider->search('second', PhotoOrientation::Landscape, 1))->toBe([]);
+        ->and($provider->search('second', PhotoOrientation::Landscape, 1))->toBeEmpty();
 
     Http::assertSentCount(1);
 
@@ -104,7 +105,7 @@ it('reports no downloads to pexels — their API requires no ping', function ():
     Http::fake();
 
     new PexelsProvider('test-key')->trackDownload(
-        new App\StockPhotos\StockPhoto('pexels', '1', 'https://images.pexels.com/photos/1/photo.jpeg', 100, 100, 'x'),
+        new StockPhoto('pexels', '1', 'https://images.pexels.com/photos/1/photo.jpeg', 100, 100, 'x'),
     );
 
     // The interface hook exists for Unsplash-style compliance pings; the

@@ -64,7 +64,7 @@ final readonly class FetchWebPageText
                     ->withOptions(['allow_redirects' => false])
                     ->get($url);
             } catch (ConnectionException $connectionException) {
-                throw new RuntimeException("The page could not be fetched: {$connectionException->getMessage()}");
+                throw new RuntimeException("The page could not be fetched: {$connectionException->getMessage()}", $connectionException->getCode(), $connectionException);
             }
 
             if ($response->redirect()) {
@@ -139,12 +139,12 @@ final readonly class FetchWebPageText
             // ::1 loopback, fc00::/7 unique-local, fe80::/10 link-local.
             $blocked = $hex === '0'.str_repeat('0', 30).'1'
                 || in_array(mb_substr($hex, 0, 2), ['fc', 'fd'], true)
-                || in_array(mb_substr($hex, 0, 2), ['fe'], true) && in_array($hex[2], ['8', '9', 'a', 'b'], true);
+                || mb_substr($hex, 0, 2) === 'fe' && in_array($hex[2], ['8', '9', 'a', 'b'], true);
 
             // A v4-mapped address (::ffff:a.b.c.d) is re-checked as its
             // embedded IPv4.
             if (! $blocked && str_starts_with($hex, '00000000000000000000ffff')) {
-                $this->guardIp((string) long2ip((int) hexdec(mb_substr($hex, 24))));
+                $this->guardIp(long2ip((int) hexdec(mb_substr($hex, 24))));
 
                 return;
             }

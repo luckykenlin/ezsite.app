@@ -27,7 +27,7 @@ final class AppServiceProvider extends ServiceProvider
         // Keyed by configuration, not environment: with no Pexels key the
         // NullProvider makes the whole stock-photo pipeline inert-but-safe,
         // so nothing else needs to know whether photos are available.
-        $this->app->bind(StockPhotoProvider::class, static function (): StockPhotoProvider {
+        $this->app->bind(static function (): StockPhotoProvider {
             $key = config('services.pexels.key');
 
             return is_string($key) && $key !== ''

@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Design\ColorPalette;
 use App\Design\StylePreset;
 use App\Design\ThemeVariables;
 use App\Models\Business;
@@ -54,12 +55,12 @@ it('tells the browser the palette scheme, so native UI follows a dark site', fun
 
     $light = ThemeVariables::variablesFor($business->design_tokens, $business);
     $dark = ThemeVariables::variablesFor(
-        $business->design_tokens->with(palette: App\Design\ColorPalette::Midnight),
+        $business->design_tokens->with(palette: ColorPalette::Midnight),
         $business,
     );
 
     expect($light['color-scheme'])->toBe('light')
         ->and($dark['color-scheme'])->toBe('dark')
-        ->and(ThemeVariables::styleFor($business->design_tokens->with(palette: App\Design\ColorPalette::Midnight), $business)->toHtml())
+        ->and(ThemeVariables::styleFor($business->design_tokens->with(palette: ColorPalette::Midnight), $business)->toHtml())
         ->toContain('color-scheme: dark;');
 });

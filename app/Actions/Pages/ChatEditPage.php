@@ -290,7 +290,7 @@ final readonly class ChatEditPage
         foreach ($entry->attachments ?? [] as $stored) {
             $attachment = ChatAttachment::fromArray($stored);
 
-            if ($attachment === null) {
+            if (! $attachment instanceof ChatAttachment) {
                 continue;
             }
 

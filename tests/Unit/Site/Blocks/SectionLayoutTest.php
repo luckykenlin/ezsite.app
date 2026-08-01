@@ -26,7 +26,7 @@ it('resolves each axis independently, so one stored choice keeps the other defau
     $layout = SectionLayout::for('features', 'grid')->resolve(['columns' => 'two', 'item_style' => 'plain']);
 
     expect($layout->grid())->toBe('grid-cols-1 sm:grid-cols-2')
-        ->and($layout->item())->toBe('')
+        ->and($layout->item())->toBeEmpty()
         ->and($layout->isCard())->toBeFalse()
         // Untouched axes stay on the contract defaults.
         ->and($layout->container())->toContain('max-w-7xl')

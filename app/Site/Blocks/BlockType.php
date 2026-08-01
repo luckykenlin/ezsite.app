@@ -106,7 +106,7 @@ final readonly class BlockType
     {
         return array_values(array_filter(
             LayoutAxis::cases(),
-            fn (LayoutAxis $axis): bool => $this->supportsAxis($axis),
+            $this->supportsAxis(...),
         ));
     }
 
