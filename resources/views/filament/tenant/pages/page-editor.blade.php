@@ -503,7 +503,11 @@
                 </div>
 
                 <div class="pe-toolbar-group">
-                    @foreach ([0.5 => '50%', 0.75 => '75%', 1 => '100%'] as $level => $label)
+                    {{-- Label => level, NOT level => label: PHP truncates float
+                         array keys to int, so 0.5 and 0.75 both collapsed to 0
+                         — the 50% button vanished and "75%" emitted zoom = 0,
+                         scaling the canvas to nothing. --}}
+                    @foreach (['50%' => 0.5, '75%' => 0.75, '100%' => 1] as $label => $level)
                         <button
                             type="button"
                             class="pe-device-button"

@@ -2942,3 +2942,18 @@ it('keeps the message and starts no turn when an import fails', function (): voi
         ->and($component->get('chatInput'))->toBe('Use this photo')
         ->and(PageChatMessage::query()->count())->toBe(0);
 });
+
+/*
+ * The zoom toolbar, pinned as rendered markup because the bug it guards is a
+ * Blade-literal one no type checker can see: written level => label, PHP
+ * truncates the float keys to int, 0.5 and 0.75 both collapse to 0, the 50%
+ * button disappears and "75%" emits `zoom = 0` — scale(0), canvas gone.
+ */
+it('offers all three zoom levels, each setting its own scale', function (): void {
+    $component = Livewire::test(PageEditor::class, ['record' => editorPage([])->id]);
+
+    foreach (['50%' => '0.5', '75%' => '0.75', '100%' => '1'] as $label => $level) {
+        $component->assertSee('x-on:click="zoom = '.$level.'"', false)
+            ->assertSee('>'.$label.'</button>', false);
+    }
+});
