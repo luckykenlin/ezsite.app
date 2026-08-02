@@ -10,7 +10,7 @@
 --}}
 <x-filament-panels::page>
     <div class="grid gap-6 lg:grid-cols-2">
-        @foreach ($this->cards() as $card)
+        @foreach ($this->cards as $card)
             <x-filament::section :heading="$card['location']->label">
                 @if ($card['url'] === null)
                     <p class="text-sm text-gray-500 dark:text-gray-400">
@@ -18,18 +18,17 @@
                     </p>
 
                     <x-filament::button
-                        :href="$card['settingsUrl']"
+                        :href="$this->settingsUrl()"
                         tag="a"
                         color="gray"
                         class="mt-4"
                     >{{ __('Add it on the branch') }}</x-filament::button>
                 @else
                     <div class="flex flex-col gap-4 sm:flex-row sm:items-start">
-                        {{-- The QR is generated markup, not tenant-authored content:
-                             chillerlan emits its own SVG and the only variable in it
-                             is a URL this app built. --}}
+                        {{-- An HtmlString: the "this markup is trusted" judgement
+                             lives on RenderReviewQr, not in this template. --}}
                         <div class="w-40 shrink-0 [&>svg]:h-auto [&>svg]:w-full">
-                            {!! $card['qr'] !!}
+                            {{ $card['qr'] }}
                         </div>
 
                         <div class="min-w-0 flex-1">

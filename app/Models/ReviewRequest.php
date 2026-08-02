@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\ReviewChannel;
 use App\Enums\ReviewRequestStatus;
 use App\Tenancy\RequiresTenantContext;
 use Carbon\CarbonImmutable;
@@ -32,7 +33,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $tenant_id
  * @property int|null $business_id
  * @property int|null $location_id
- * @property string $channel
+ * @property ReviewChannel $channel
  * @property string|null $recipient
  * @property ReviewRequestStatus $status
  * @property string $token
@@ -98,6 +99,7 @@ final class ReviewRequest extends Model
     protected function casts(): array
     {
         return [
+            'channel' => ReviewChannel::class,
             'status' => ReviewRequestStatus::class,
             'sent_at' => 'immutable_datetime',
             'clicked_at' => 'immutable_datetime',

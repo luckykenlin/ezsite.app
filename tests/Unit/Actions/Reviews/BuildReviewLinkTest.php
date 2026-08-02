@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use App\Actions\Reviews\BuildReviewLink;
+use App\Enums\ReviewChannel;
+use App\Enums\ReviewRequestStatus;
 use App\Models\Business;
 use App\Models\Location;
 use App\Models\ReviewRequest;
@@ -37,7 +39,11 @@ it('mints one durable link per branch rather than a row per page load', function
 
         expect($second?->id)->toBe($first?->id)
             ->and(ReviewRequest::query()->count())->toBe(1)
-            ->and($first?->getUrl())->toBe('/r/'.$first->token);
+            ->and($first?->getUrl())->toBe('/r/'.$first->token)
+            // The starting state is written explicitly, not left to the column
+            // default — RecordReviewClick owns the only transition out of it.
+            ->and($first?->status)->toBe(ReviewRequestStatus::Queued)
+            ->and($first?->channel)->toBe(ReviewChannel::Link);
     });
 });
 
@@ -68,32 +74,6 @@ it('gives each branch its own link', function (): void {
             ->map(fn (?ReviewRequest $request): ?string => $request?->token);
 
         expect($tokens->unique())->toHaveCount(2);
-    });
-});
-
-it('points a token at the branch own review composer', function (): void {
-    $tenant = Tenant::factory()->create();
-
-    $this->runInTenant($tenant, function () use ($tenant): void {
-        $links = resolve(BuildReviewLink::class);
-        $request = $links->handle(branch($tenant, 'ChIJ needs+encoding'));
-
-        expect($links->destination($request))
-            ->toBe('https://search.google.com/local/writereview?placeid=ChIJ+needs%2Bencoding');
-    });
-});
-
-it('has no destination once the place id is cleared', function (): void {
-    $tenant = Tenant::factory()->create();
-
-    $this->runInTenant($tenant, function () use ($tenant): void {
-        $links = resolve(BuildReviewLink::class);
-        $location = branch($tenant, 'ChIJplace');
-        $request = $links->handle($location);
-
-        $location->update(['google_place_id' => null]);
-
-        expect($links->destination($request->refresh()))->toBeNull();
     });
 });
 

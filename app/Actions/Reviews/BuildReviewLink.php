@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Actions\Reviews;
 
+use App\Enums\ReviewChannel;
+use App\Enums\ReviewRequestStatus;
 use App\Models\Location;
 use App\Models\ReviewRequest;
 use Illuminate\Support\Str;
@@ -20,6 +22,9 @@ use Illuminate\Support\Str;
  * "review us" button pointing at a search results page is worse than no button:
  * the customer has to find the business themselves, and most give up.
  *
+ * Where the link SENDS a customer is {@see BuildReviewDestinationUrl}'s job —
+ * the redirect route needs that half without any of this create machinery.
+ *
  * COMPLIANCE, from docs/reviews-module.md's red lines and not negotiable: this asks
  * real customers for honest reviews. There is no filtering step and there must
  * never be one — review gating (asking only the happy ones) is banned outright by
@@ -29,15 +34,9 @@ use Illuminate\Support\Str;
 final readonly class BuildReviewLink
 {
     /**
-     * Google's own write-a-review entry point. Not an API — a public URL that opens
-     * the review composer against a place, which is why this needs no approval.
-     */
-    private const string GOOGLE_WRITE_REVIEW = 'https://search.google.com/local/writereview?placeid=%s';
-
-    /**
      * The durable link for a branch, or null when it has no place id yet.
      */
-    public function handle(Location $location, string $channel = 'link'): ?ReviewRequest
+    public function handle(Location $location, ReviewChannel $channel = ReviewChannel::Link): ?ReviewRequest
     {
         if (blank($location->google_place_id)) {
             return null;
@@ -57,20 +56,14 @@ final readonly class BuildReviewLink
             'business_id' => $location->business_id,
             'location_id' => $location->id,
             'channel' => $channel,
+            // Written explicitly rather than left to the column default, so the
+            // row's starting state is visible here next to the transition that
+            // RecordReviewClick owns.
+            'status' => ReviewRequestStatus::Queued,
             // 12 of Str::random's alphabet is ~71 bits — far past guessing, and short
             // enough to print on a receipt. Not the place id itself: that would leak
             // which profile a link points at and make every tenant's link forgeable.
             'token' => Str::random(12),
         ]);
-    }
-
-    /**
-     * Where the token sends a customer: Google's review composer for that branch.
-     */
-    public function destination(ReviewRequest $request): ?string
-    {
-        $placeId = $request->location?->google_place_id;
-
-        return blank($placeId) ? null : sprintf(self::GOOGLE_WRITE_REVIEW, urlencode($placeId));
     }
 }
