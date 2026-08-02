@@ -37,6 +37,12 @@ final class TenantPanelProvider extends PanelProvider
             ->path('admin')
             ->viteTheme('resources/css/filament/tenant/theme.css')
             ->login()
+            // Filament only mails the link to a user its `canAccessPanel()`
+            // returns true for, so a member of another tenant asking for a reset
+            // on this domain gets the same neutral confirmation and no email —
+            // no cross-tenant account probing, and no link that would land on a
+            // 403 after being spent.
+            ->passwordReset()
             ->profile()
             ->colors([
                 'primary' => Color::Emerald,

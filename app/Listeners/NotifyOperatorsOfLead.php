@@ -6,11 +6,11 @@ namespace App\Listeners;
 
 use App\Events\LeadCaptured;
 use App\Filament\Tenant\Resources\Leads\LeadResource;
+use App\Models\Tenant;
 use App\Models\User;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Support\Icons\Heroicon;
-use Illuminate\Database\Eloquent\Builder;
 
 /**
  * Puts a new enquiry in the panel's notification bell, linked to the inbox.
@@ -23,16 +23,17 @@ use Illuminate\Database\Eloquent\Builder;
 final readonly class NotifyOperatorsOfLead
 {
     /**
-     * Panel members are found through the `tenant_user` pivot, which is
-     * exempt from RLS on purpose — so this works whatever the current
-     * connection is. A tenant with no members yet simply gets no
+     * Panel members come from {@see User::memberOf()}, which resolves them
+     * through the RLS-exempt `tenant_user` pivot — so this works whatever the
+     * current connection is. A tenant with no members yet simply gets no
      * notification; the lead is already safely stored.
      */
     public function handle(LeadCaptured $event): void
     {
-        $users = User::query()
-            ->whereHas('tenants', fn (Builder $query): Builder => $query->whereKey(tenant('id')))
-            ->get();
+        /** @var Tenant $tenant */
+        $tenant = tenant();
+
+        $users = User::query()->memberOf($tenant->id)->get();
 
         if ($users->isEmpty()) {
             return;

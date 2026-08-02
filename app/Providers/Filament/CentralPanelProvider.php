@@ -29,6 +29,11 @@ final class CentralPanelProvider extends PanelProvider
         return $panel
             ->default()
             ->login()
+            // Gated the same way the login is: `canAccessPanel('central')`
+            // requires `is_super_admin`, so a tenant operator who wanders onto
+            // the central domain gets no reset mail here — theirs is issued on
+            // their own site's domain.
+            ->passwordReset()
             ->profile()
             ->id('central')
             ->path('admin')

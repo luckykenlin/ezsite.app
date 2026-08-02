@@ -6,12 +6,14 @@ use App\Actions\CaptureLead;
 use App\Enums\LeadSource;
 use App\Enums\LeadStatus;
 use App\Events\LeadCaptured;
+use App\Jobs\SendLeadEmailsJob;
 use App\Models\Lead;
 use App\Models\Location;
 use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Queue;
 
 it('stores the enquiry against the current tenant', function (): void {
     $tenant = Tenant::factory()->create();
@@ -104,6 +106,22 @@ it('notifies every member of the tenant with a link to the inbox', function (): 
     expect($body)->toContain('New enquiry from Mei')
         ->and($body)->toContain('+1 555 0100')
         ->and($body)->toContain('/admin/leads');
+});
+
+it('hands the enquiry to the mail queue', function (): void {
+    // The channel that reaches an operator who is not looking at the panel. The
+    // link it carries is asserted in tests/Feature/Http/LeadCaptureTest, where a
+    // real request host exists for `route()` to read.
+    Queue::fake();
+
+    $tenant = Tenant::factory()->create();
+
+    $lead = $this->runInTenant($tenant, fn (): Lead => resolve(CaptureLead::class)->handle(['name' => 'Mei']));
+
+    Queue::assertPushed(
+        SendLeadEmailsJob::class,
+        fn (SendLeadEmailsJob $job): bool => $job->leadId === $lead->id,
+    );
 });
 
 it('still stores the enquiry for a tenant with no panel members yet', function (): void {

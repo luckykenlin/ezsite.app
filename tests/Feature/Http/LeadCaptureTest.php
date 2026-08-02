@@ -2,10 +2,12 @@
 
 declare(strict_types=1);
 
+use App\Jobs\SendLeadEmailsJob;
 use App\Models\Lead;
 use App\Models\Location;
 use App\Models\Page;
 use App\Models\Tenant;
+use Illuminate\Support\Facades\Queue;
 
 /**
  * Create a tenant with a business, a location and a published home page whose
@@ -75,6 +77,30 @@ it('captures a submitted enquiry for the tenant whose domain was posted to', fun
     tenancy()->end();
 
     expect($visibleToOther)->toBe(0);
+});
+
+it('queues the enquiry emails with an inbox link on the domain that was posted to', function (): void {
+    // The inbox URL must be resolved while a request still knows the host. On a
+    // queue worker `route()` falls back to app.url — the CENTRAL domain, where
+    // /admin is a different panel the operator has no access to. This is why
+    // App\Listeners\QueueLeadEmails builds the link instead of the job.
+    Queue::fake();
+
+    tenantWithContactForm();
+
+    $this->post(sprintf('http://acme.%s/_leads', $this->centralDomain()), [
+        'name' => 'Mei',
+        'email' => 'mei@example.com',
+        'message' => 'Do you take walk-ins?',
+    ])->assertRedirect();
+
+    $lead = Lead::query()->sole();
+
+    Queue::assertPushed(
+        SendLeadEmailsJob::class,
+        fn (SendLeadEmailsJob $job): bool => $job->leadId === $lead->id
+            && $job->inboxUrl === sprintf('http://acme.%s/admin/leads', $this->centralDomain()),
+    );
 });
 
 it('shows the thank-you message after a submission', function (): void {
