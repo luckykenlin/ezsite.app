@@ -18,6 +18,7 @@ use App\Models\Tenant;
 use App\StockPhotos\StockPhotoProvider;
 use App\Templates\SiteTemplate;
 use App\Tenancy\RunInTenant;
+use Illuminate\Database\Eloquent\Builder;
 
 /**
  * Build (or rebuild) the published showcase site behind one industry
@@ -122,7 +123,7 @@ final readonly class ProvisionDemoSite
     private function tenant(SiteTemplate $template): Tenant
     {
         $existing = Tenant::query()
-            ->whereHas('domains', fn ($query) => $query->where('domain', $template->demoSubdomain()))
+            ->whereHas('domains', fn (Builder $query): Builder => $query->where('domain', $template->demoSubdomain()))
             ->first();
 
         if ($existing instanceof Tenant) {

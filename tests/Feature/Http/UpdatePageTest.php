@@ -102,6 +102,55 @@ it('emits an Offer node when the update is an offer with real dates', function (
         ->toContain('availabilityEnds');
 });
 
+it('emits an Event node for an event, and none for one with no dates', function (): void {
+    // Asserted through the rendered page rather than the action: SchemaCollection
+    // holds builder closures and only becomes JSON-LD at render time. An event with
+    // a real date range is the one genuinely rich-result-eligible thing here; an
+    // event with no dates is an announcement, and an incomplete node is worse than
+    // none because a validator flags it.
+    $tenant = tenantWithUpdates();
+
+    $this->runInTenant($tenant, function () use ($tenant): void {
+        Post::factory()->published()->create([
+            'tenant_id' => $tenant->id,
+            'kind' => PostKind::Event,
+            'title' => 'Open evening',
+            'slug' => 'open-evening',
+            'starts_at' => now()->addWeek(),
+            'ends_at' => now()->addWeek()->addHours(3),
+        ]);
+    });
+
+    $response = $this->get(updateUrl('open-evening'))->assertOk();
+
+    expect($response->content())
+        ->toContain('"@type":"Event"')
+        ->toContain('startDate')
+        ->toContain('endDate')
+        // Referenced from the business, never copied into the update.
+        ->toContain('"organizer"')
+        ->toContain('Jade Nails');
+});
+
+it('emits no dated node for an event with no dates', function (): void {
+    $tenant = tenantWithUpdates();
+
+    $this->runInTenant($tenant, fn (): Post => Post::factory()->published()->create([
+        'tenant_id' => $tenant->id,
+        'kind' => PostKind::Event,
+        'slug' => 'someday',
+        'starts_at' => null,
+        'ends_at' => null,
+    ]));
+
+    $response = $this->get(updateUrl('someday'))->assertOk();
+
+    expect($response->content())
+        ->not->toContain('"@type":"Event"')
+        // Article and breadcrumbs stay unconditional.
+        ->toContain('"@type":"Article"');
+});
+
 it('shows the coupon code and the button on a running offer', function (): void {
     $tenant = tenantWithUpdates();
 

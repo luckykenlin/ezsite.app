@@ -330,6 +330,40 @@ describe('page settings', function (): void {
             ->and($saved->slug)->toBe('about');
     });
 
+    it('refuses a slug the site itself already answers on', function (): void {
+        // The guard has to be on the FREE-TEXT FIELD, not only in UniquePageSlug:
+        // typing is the path that actually happens, and a root page slugged
+        // `updates` would save, show a plausible URL in the helper text, and then
+        // be permanently shadowed by the real /updates route. Silently.
+        $page = editorPage([]);
+
+        Livewire::test(PageEditor::class, ['record' => $page->id])
+            ->callAction('pageSettings', [
+                'title' => 'Updates',
+                'slug' => 'updates',
+                'layout' => 'main',
+                'parent_id' => null,
+            ])
+            ->assertHasFormErrors(['slug']);
+    });
+
+    it('allows the reserved name on a child page, where no route claims it', function (): void {
+        // /services/updates is nobody else's address.
+        // Both through this file's own helper: createTenantPage() ends tenancy on
+        // the way out, and these tests run with it initialized.
+        $parent = editorPage([]);
+        $child = editorPage([], 'child');
+
+        Livewire::test(PageEditor::class, ['record' => $child->id])
+            ->callAction('pageSettings', [
+                'title' => 'Updates',
+                'slug' => 'updates',
+                'layout' => 'main',
+                'parent_id' => $parent->id,
+            ])
+            ->assertHasNoFormErrors();
+    });
+
     it('opens the search and sharing settings with the page as-is', function (): void {
         $page = editorPage([]);
 

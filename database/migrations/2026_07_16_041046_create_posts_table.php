@@ -45,13 +45,20 @@ return new class extends Migration
             $table->string('kind')->default('update');   // App\Enums\PostKind
             $table->string('status')->default('draft');  // App\Enums\PostStatus
 
-            $table->timestampTz('published_at')->nullable();
+            // `timestamp`, not `timestampTz`, matching every other datetime column in
+            // this schema and `timestamps()` on this very table. It is not cosmetic:
+            // app.timezone is UTC and the datetime cast writes 'Y-m-d H:i:s' with no
+            // offset, so a timestamptz column has Postgres reinterpret that string in
+            // the SESSION timezone — shifting the instant by the server's offset on
+            // every write. An operator toggling publish twice would walk their own
+            // publication date four hours at a time.
+            $table->timestamp('published_at')->nullable();
 
             // The window. Required for Offer AND Event — Google wants the `event{}`
             // object for both — and what an expired update is computed from, since
             // there is no cron to stamp a status.
-            $table->timestampTz('starts_at')->nullable();
-            $table->timestampTz('ends_at')->nullable();
+            $table->timestamp('starts_at')->nullable();
+            $table->timestamp('ends_at')->nullable();
 
             $table->string('cta_action')->nullable();          // App\Enums\PostCtaAction
             $table->string('cta_url', 2048)->nullable();       // guarded by App\Site\UrlScheme
