@@ -69,12 +69,14 @@ DatabaseSessionBootstrapper, PostgresRLSBootstrapper.
   `HasDomains`, but no actual per-tenant DB is provisioned (RLS-only).
   `domain()` returns the oldest domain. Kept flat under `App\Models` (no
   `Central` sub-namespace) — keep new tenancy models flat too.
-- `Post` is the reference "tenant-scoped" model: no `BelongsToTenant` trait,
-  no global scope — isolation is enforced entirely by RLS, not app code.
-  Follow this pattern for new tenant-owned models unless there's a reason
-  to scope in PHP as well. `Page`, `Business`, and `Location` are the same:
-  all RLS-only, each with its own direct `tenant_id` (see the single-hop rule
-  under RLS conventions above).
+- `SiteSetting` is the reference *minimal* "tenant-scoped" model: no
+  `BelongsToTenant` trait, no global scope — isolation is enforced entirely by
+  RLS, not app code — and it is `tenant_id` plus three json columns, so it will
+  not grow out of the role. Follow this pattern for new tenant-owned models
+  unless there's a reason to scope in PHP as well. `Post`, `Page`, `Business`,
+  and `Location` are the same: all RLS-only, each with its own direct
+  `tenant_id` (see the single-hop rule under RLS conventions above). `Post` used
+  to hold this role while it was a two-column stub; it is now the updates model.
 
 ## Authorization
 Panel access is a separate concern from RLS — RLS only scopes rows, not

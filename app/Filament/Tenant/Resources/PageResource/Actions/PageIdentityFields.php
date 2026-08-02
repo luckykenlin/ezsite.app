@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Tenant\Resources\PageResource\Actions;
 
 use App\Models\Page as PageModel;
+use App\Site\ReservedSlugs;
 use Closure;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -60,6 +61,20 @@ final readonly class PageIdentityFields
             ->rule(fn (): Closure => function (string $attribute, mixed $value, Closure $fail): void {
                 if ($value !== '/' && is_string($value) && (str_starts_with($value, '/') || str_ends_with($value, '/'))) {
                     $fail('The slug cannot start or end with a slash.');
+                }
+            })
+            // The free-text field is the path that actually happens, so the
+            // reserved-route guard has to be here as well as in UniquePageSlug: a
+            // root page slugged `updates` would save, show a plausible URL in the
+            // helper text below, and then be permanently shadowed by the real
+            // /updates route.
+            ->rule(fn (Get $get): Closure => function (string $attribute, mixed $value, Closure $fail) use ($get): void {
+                $parent = $get('parent_id');
+
+                if (is_string($value) && ReservedSlugs::isReserved($value, is_numeric($parent) ? (int) $parent : null)) {
+                    $fail(__('That address is taken by the site itself. Reserved: :list.', [
+                        'list' => ReservedSlugs::describe(),
+                    ]));
                 }
             })
             ->unique(

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Fabricator\Fields;
 
 use App\Models\Page;
+use App\Models\Post;
 use App\Site\UrlScheme;
 use Closure;
 use Filament\Forms\Components\TextInput;
@@ -39,10 +40,21 @@ final class LinkInput
                 }
             })
             // Lazy: building the schema (e.g. for contract()) never queries.
-            ->datalist(fn (): array => Page::query()
-                ->orderBy('title')
-                ->get()
-                ->map(static fn (Page $page): string => $page->getUrl())
-                ->all());
+            //
+            // Published updates join the pages, so a hero CTA can point at "this
+            // week's offer" without anyone copying a slug by hand — which is also
+            // the only way an operator discovers that an update HAS an address.
+            ->datalist(fn (): array => [
+                ...Page::query()
+                    ->orderBy('title')
+                    ->get()
+                    ->map(static fn (Page $page): string => $page->getUrl())
+                    ->all(),
+                ...Post::query()
+                    ->published()
+                    ->get()
+                    ->map(static fn (Post $post): string => $post->getUrl())
+                    ->all(),
+            ]);
     }
 }

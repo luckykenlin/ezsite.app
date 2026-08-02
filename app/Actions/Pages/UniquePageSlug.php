@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Actions\Pages;
 
 use App\Models\Page;
+use App\Site\ReservedSlugs;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Str;
 
@@ -32,7 +33,10 @@ final readonly class UniquePageSlug
      */
     public function handle(string $base, ?string $tenantId = null, ?int $parentId = null): string
     {
-        $base = $this->normalise($base);
+        // Sidestep a slug a route already owns before looking for collisions:
+        // `/updates` is a real route, so a page slugged `updates` would save fine
+        // and then be unreachable. See App\Site\ReservedSlugs.
+        $base = ReservedSlugs::avoid($this->normalise($base), $parentId);
         $slug = $base;
 
         for ($suffix = 2; $this->taken($slug, $tenantId, $parentId); $suffix++) {

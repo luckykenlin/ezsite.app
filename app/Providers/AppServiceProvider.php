@@ -12,6 +12,7 @@ use App\Site\Blocks\BlockVocabulary;
 use App\Site\LeadFormIds;
 use App\Site\MediaResolver;
 use App\Site\OnboardingProgress;
+use App\Site\PostFeed;
 use App\Site\SiteCapture;
 use App\Site\SiteChrome;
 use App\Site\SiteContext;
@@ -35,6 +36,10 @@ final class AppServiceProvider extends ServiceProvider
         $this->app->scoped(SiteChrome::class);
         $this->app->scoped(SiteContext::class);
         $this->app->scoped(SiteSettingsLoader::class);
+        // Four surfaces ask about updates on one public page load — the home
+        // page's block, the nav entry, the offer popup and the hours notice —
+        // and PostFeed answers all four from a single windowed read.
+        $this->app->scoped(PostFeed::class);
 
         // Keyed by configuration, not environment: with no Pexels key the
         // NullProvider makes the whole stock-photo pipeline inert-but-safe,

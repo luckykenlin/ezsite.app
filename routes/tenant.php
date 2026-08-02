@@ -6,11 +6,14 @@ use App\Http\Controllers\ClaimSiteController;
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\PageEditorChatStreamController;
 use App\Http\Controllers\PageEditorPreviewController;
+use App\Http\Controllers\PostController;
+use App\Http\Controllers\PostIndexController;
 use App\Http\Controllers\RobotsController;
 use App\Http\Controllers\SharedPagePreviewController;
 use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\StoreLeadController;
 use App\Http\Middleware\RememberLeadAttribution;
+use App\Models\Post;
 use Illuminate\Support\Facades\Route;
 use Stancl\Tenancy\Middleware\InitializeTenancyByDomainOrSubdomain;
 use Stancl\Tenancy\Middleware\PreventAccessFromUnwantedDomains;
@@ -52,6 +55,17 @@ Route::middleware([
 
     Route::get('/sitemap.xml', SitemapController::class)->name('sitemap');
     Route::get('/robots.txt', RobotsController::class)->name('robots');
+
+    // The updates surface. Explicit routes, above the Fabricator catch-all below
+    // — which is registered `->fallback()`, so Laravel places it last whatever
+    // the declaration order and these win. `/updates` is reserved in both slug
+    // paths (PageIdentityFields and UniquePageSlug) so an operator's page can
+    // never silently vanish behind it.
+    //
+    // Binding on `{post:slug}` is RLS-scoped, so another tenant's slug 404s here
+    // with no filtering — the same property the sitemap relies on.
+    Route::get('/'.Post::PATH_PREFIX, PostIndexController::class)->name('posts.index');
+    Route::get('/'.Post::PATH_PREFIX.'/{post:slug}', PostController::class)->name('posts.show');
 
     // The public contact form. Throttled per IP: a handful of enquiries a
     // minute is generous for a human and useless for a bot.

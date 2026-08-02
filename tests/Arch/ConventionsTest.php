@@ -17,6 +17,18 @@ use App\Models\Post;
 use App\Models\SiteSetting;
 use App\Templates\SiteTemplate;
 
+/**
+ * A view's markup with its Blade comments removed.
+ *
+ * Every guard below that scans view SOURCE needs this, because the views that
+ * explain a rule quote the thing the rule forbids — `{!! !!}`, `.site-card` — and
+ * a guard that fails on its own documentation is a guard somebody deletes.
+ */
+function stripBladeComments(string $markup): string
+{
+    return (string) preg_replace('/\{\{--.*?--\}\}/s', '', $markup);
+}
+
 arch('all app code declares strict types')
     ->expect('App')
     ->toUseStrictTypes();
@@ -78,20 +90,34 @@ arch('the design module and block registry classes are final')
     ])
     ->toBeFinal();
 
-test('page block views never use unescaped output', function (): void {
+test('public site views never use unescaped output', function (): void {
     // Block views output AI-influenced content, so Blade's raw `{!! !!}` is
     // forbidden — it would be a stored-XSS hole on the shared, server-rendered
     // tenant sites.
-    $dir = dirname(__DIR__, 2).'/resources/views/components/filament-fabricator/page-blocks';
+    //
+    // `views/site` is scanned for the same reason: /updates renders a body an
+    // operator (or the drafting agent) typed, and it is not a Fabricator page, so
+    // nothing else here would have covered it. `views/components/site` is NOT in
+    // this list — the base layout it wraps legitimately emits the SEO package's
+    // pre-rendered tags.
+    $dirs = [
+        dirname(__DIR__, 2).'/resources/views/components/filament-fabricator/page-blocks',
+        dirname(__DIR__, 2).'/resources/views/site',
+    ];
 
-    $views = new RecursiveIteratorIterator(
-        new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS),
-    );
+    foreach ($dirs as $dir) {
+        $views = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS),
+        );
 
-    foreach ($views as $view) {
-        if ($view->getExtension() === 'php') {
-            expect(file_get_contents($view->getPathname()))
-                ->not->toContain('{!!');
+        foreach ($views as $view) {
+            if ($view->getExtension() === 'php') {
+                // Blade comments first, same as the CSS-prefix guard below: a view
+                // that documents WHY raw output is forbidden mentions `{!! !!}` in
+                // prose, and a rule that punishes explaining itself gets deleted.
+                expect(stripBladeComments((string) file_get_contents($view->getPathname())))
+                    ->not->toContain('{!!');
+            }
         }
     }
 });
@@ -245,22 +271,32 @@ test('the page-block views type through the shared site-* classes, never utility
         'bg-neutral/60',
     ];
 
-    $views = new RecursiveIteratorIterator(
-        new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS),
-    );
-
     $offenders = [];
 
-    foreach ($views as $view) {
-        if ($view->getExtension() !== 'php' || in_array(basename(dirname((string) $view->getPathname())), $chrome, true)) {
-            continue;
-        }
+    // `views/site` joins the scan because /updates is a public, tenant-themed page
+    // that is NOT a Fabricator page: it composes from the same `site-*` classes
+    // and resolves its container through the same SectionLayout, and without this
+    // it would be a brand-new unenforced typography surface in a product whose
+    // stated moat is that the operator never picks a font size.
+    foreach ([$dir, dirname(__DIR__, 2).'/resources/views/site'] as $scanRoot) {
+        $views = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($scanRoot, FilesystemIterator::SKIP_DOTS),
+        );
 
-        $contents = (string) file_get_contents($view->getPathname());
+        foreach ($views as $view) {
+            if ($view->getExtension() !== 'php' || in_array(basename(dirname((string) $view->getPathname())), $chrome, true)) {
+                continue;
+            }
 
-        foreach ($literals as $literal) {
-            if (str_contains($contents, $literal)) {
-                $offenders[] = basename((string) $view->getPathname()).' hand-rolls "'.$literal.'"';
+            // Comments stripped for the same reason as the raw-output guard: a view
+            // explaining that `.site-card` belongs to SectionItemStyle rather than
+            // to a view is documenting the rule, not breaking it.
+            $contents = stripBladeComments((string) file_get_contents($view->getPathname()));
+
+            foreach ($literals as $literal) {
+                if (str_contains($contents, $literal)) {
+                    $offenders[] = basename((string) $view->getPathname()).' hand-rolls "'.$literal.'"';
+                }
             }
         }
     }
@@ -282,7 +318,12 @@ test("the section shell's Tailwind sources are declared", function (): void {
         // one of its own, and it lives outside the original @source list — so
         // the landing page compiles to unstyled HTML without these two.
         ->toContain("@source '../views/central/**/*.blade.php';")
-        ->toContain("@source '../views/components/central/**/*.blade.php';");
+        ->toContain("@source '../views/components/central/**/*.blade.php';")
+        // The standalone public pages (/updates and its permalinks, the
+        // coming-soon notice) are not Fabricator pages, so no glob above reaches
+        // them. Without this line they ship unstyled — and no request test can
+        // see it, because those assert on class names, which are still emitted.
+        ->toContain("@source '../views/site/**/*.blade.php';");
 });
 
 test('the central controllers never reach for a tenant-scoped model', function (): void {

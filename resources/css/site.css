@@ -26,6 +26,16 @@
 @source '../../app/Site/Blocks/Section*.php';
 
 /*
+ * The standalone public pages that are not Fabricator pages — `/updates` and its
+ * permalinks, and the coming-soon notice. They render through the same
+ * `x-site.document` shell and the same `site-*` classes, but they live outside
+ * every glob above, so without this line they ship with no styling at all and no
+ * test can see it (a PHP request test asserts on class NAMES, which are still
+ * emitted). Guarded by the same arch test as the two lines above.
+ */
+@source '../views/site/**/*.blade.php';
+
+/*
  * The CENTRAL marketing site, which dogfoods this stylesheet rather than
  * carrying one of its own — the pitch is "one closed design system", and a
  * landing page built out of different CSS would be arguing against itself.
@@ -231,6 +241,47 @@
                 0 2px 4px oklch(0% 0 0 / 0.05),
                 0 16px 32px -16px oklch(0% 0 0 / 0.18);
         }
+    }
+
+    /*
+     * The closure / changed-hours notice bar, above the header.
+     *
+     * Themed from the tenant's own accent rather than a fixed amber, because it
+     * sits directly above their logo and a stock warning colour would be the one
+     * thing on the page the design system did not choose. It reads as
+     * information, not as an error: this is "closed Monday for Lunar New Year",
+     * which a visitor is grateful to see.
+     */
+    .site-notice-bar {
+        background-color: var(--color-neutral);
+        color: var(--color-neutral-content);
+        font-size: 0.875rem;
+        line-height: 1.4;
+    }
+
+    .site-notice-bar-inner {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 0.25rem 0.75rem;
+        max-width: 80rem;
+        margin-inline: auto;
+        padding: 0.625rem 1.5rem;
+    }
+
+    .site-notice-bar-label {
+        font-weight: 600;
+    }
+
+    .site-notice-bar-detail {
+        opacity: 0.8;
+    }
+
+    .site-notice-bar-link {
+        margin-inline-start: auto;
+        text-decoration: underline;
+        text-underline-offset: 0.2em;
+        white-space: nowrap;
     }
 
     /*
