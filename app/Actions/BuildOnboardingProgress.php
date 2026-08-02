@@ -5,10 +5,9 @@ declare(strict_types=1);
 namespace App\Actions;
 
 use App\Enums\PageStatus;
-use App\Models\Business;
-use App\Models\Location;
 use App\Models\Page;
 use App\Models\Tenant;
+use App\Site\BindResolver;
 use App\Site\OnboardingProgress;
 use App\Site\OnboardingTask;
 use App\Site\SiteCapture;
@@ -26,7 +25,12 @@ use RuntimeException;
  */
 final readonly class BuildOnboardingProgress
 {
-    public function __construct(private SiteCapture $capture) {}
+    public function __construct(
+        private SiteCapture $capture,
+        private BindResolver $bindResolver,
+    ) {
+        //
+    }
 
     public function handle(): OnboardingProgress
     {
@@ -43,8 +47,11 @@ final readonly class BuildOnboardingProgress
             self::class,
         ));
 
-        $business = Business::query()->first();
-        $location = Location::query()->where('is_primary', true)->first();
+        // Through BindResolver — the request-scoped reader every render-path
+        // consumer already shares — rather than an eighth ad-hoc
+        // `Business::query()->first()`.
+        $business = $this->bindResolver->business();
+        $location = $this->bindResolver->location(null);
 
         return new OnboardingProgress([
             OnboardingTask::PublishSite->value => Page::query()
@@ -56,7 +63,12 @@ final readonly class BuildOnboardingProgress
             // outstanding work rather than a missing feature.
             OnboardingTask::SiteAddress->value => filled($location?->address_line1),
 
-            OnboardingTask::PhoneNumber->value => $this->hasOwnPhone($tenant, $business?->contact_phone),
+            // Same write-time policy as the address: provisioning stores the
+            // owner's number or nothing, so "is it filled" IS the question.
+            // (It used to store the template demo's number when the wizard's
+            // field was skipped, which forced this row to reverse-engineer
+            // whose number it was looking at.)
+            OnboardingTask::PhoneNumber->value => filled($business?->contact_phone),
 
             // Through logoUrl(), not a column: the panel's picker writes
             // `logo_media_id` and `logo_path` is only the legacy fallback, so
@@ -69,31 +81,5 @@ final readonly class BuildOnboardingProgress
             OnboardingTask::CaptureSurface->value => $this->capture->popupEnabled()
                 || $this->capture->callBarEnabled(),
         ]);
-    }
-
-    /**
-     * Whether the number on the site is the owner's own.
-     *
-     * The sharp case: `ProvisionSiteFromTemplate` falls back to the template
-     * demo profile's phone when the wizard's optional phone field is skipped, so
-     * a real business can go live advertising an invented one's number. Nothing
-     * else in the product would ever tell them.
-     *
-     * A site with no template recorded (hand-built, or drafted by the assistant)
-     * has no example number to inherit, so any number it has is its own.
-     */
-    private function hasOwnPhone(Tenant $tenant, ?string $phone): bool
-    {
-        if ($phone === null) {
-            return false;
-        }
-
-        $template = $tenant->template;
-
-        if ($template === null) {
-            return true;
-        }
-
-        return $phone !== $template->definition()->demoProfile->phone;
     }
 }

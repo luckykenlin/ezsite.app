@@ -4,16 +4,13 @@ declare(strict_types=1);
 
 namespace App\Providers\Filament;
 
-use App\Filament\Tenant\Resources\PageResource;
-use App\Models\Tenant;
-use App\Site\OnboardingProgress;
+use App\Filament\Tenant\Navigation\VisitSiteItem;
+use App\Filament\Tenant\RenderHooks\SiteNotLiveBanner;
 use Awcodes\Curator\CuratorPlugin;
-use Filament\Facades\Filament;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
-use Filament\Navigation\NavigationItem;
 use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
@@ -64,8 +61,10 @@ final class TenantPanelProvider extends PanelProvider
             ->widgets([
                 AccountWidget::class,
             ])
-            // The site-is-not-live banner, panel-wide.
-            ->renderHook(PanelsRenderHook::TOPBAR_AFTER, fn (): string => $this->siteNotLiveBanner())
+            // The site-is-not-live banner, panel-wide. The class owns the
+            // panel-id and auth guards — renderHook() is global, not
+            // panel-scoped (see its docblock).
+            ->renderHook(PanelsRenderHook::TOPBAR_AFTER, SiteNotLiveBanner::render(...))
             ->plugins([
                 FilamentFabricatorPlugin::make(),
                 CuratorPlugin::make()
@@ -73,10 +72,7 @@ final class TenantPanelProvider extends PanelProvider
                     ->navigationIcon(Heroicon::OutlinedPhoto),
             ])
             ->navigationItems([
-                NavigationItem::make('Visit site')
-                    ->icon(Heroicon::OutlinedArrowTopRightOnSquare)
-                    ->url(fn (): ?string => $this->currentTenantDomainUrl(), shouldOpenInNewTab: true)
-                    ->sort(99),
+                VisitSiteItem::make(),
             ])
             ->middleware([
                 InitializeTenancyByDomainOrSubdomain::class,
@@ -96,51 +92,5 @@ final class TenantPanelProvider extends PanelProvider
             ])
             ->databaseNotifications()
             ->spa();
-    }
-
-    /**
-     * The bar that tells an owner their site does not answer yet, or an empty
-     * string when it has nothing to say.
-     */
-    private function siteNotLiveBanner(): string
-    {
-        if (! $this->shouldWarnThatSiteIsNotLive()) {
-            return '';
-        }
-
-        return view('filament.tenant.site-not-live-banner', [
-            'pagesUrl' => PageResource::getUrl('index'),
-        ])->render();
-    }
-
-    /**
-     * Three things have to hold before the banner is drawn.
-     *
-     * The PANEL check is the one that is easy to get wrong: `renderHook()` on a
-     * panel is not scoped to that panel — the panel forwards it to the global
-     * FilamentView registry when it boots, so once a tenant request has booted
-     * this panel the hook stays registered for every later request in the same
-     * process. Under php-fpm that process dies at the end of the request, but
-     * under Octane (and in the test suite, which reuses one application) a
-     * central-panel page would render it, and `PageResource::getUrl()` would then
-     * look for a route on the wrong panel and throw.
-     *
-     * The AUTH check matters because this hook also fires on the panel's own
-     * login and password-reset pages, where the viewer may be anybody at all and
-     * must be told nothing about the state of someone else's site.
-     */
-    private function shouldWarnThatSiteIsNotLive(): bool
-    {
-        return Filament::getCurrentOrDefaultPanel()?->getId() === 'tenant'
-            && Filament::auth()->check()
-            && ! resolve(OnboardingProgress::class)->isLive();
-    }
-
-    private function currentTenantDomainUrl(): ?string
-    {
-        /** @var Tenant|null $currentTenant */
-        $currentTenant = tenant();
-
-        return $currentTenant?->domain?->getUrl();
     }
 }

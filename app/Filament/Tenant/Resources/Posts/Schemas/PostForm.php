@@ -8,11 +8,11 @@ use App\Enums\PostCtaAction;
 use App\Enums\PostKind;
 use App\Filament\Fabricator\Fields\ImageInput;
 use App\Filament\Fabricator\Fields\LinkInput;
+use App\Filament\Fabricator\Fields\SeoFields;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
@@ -111,22 +111,16 @@ final class PostForm
                             ->required(fn (Get $get): bool => self::needsCtaUrl($get)),
                     ]),
 
-                Section::make('Search and sharing')
+                Section::make(SeoFields::SECTION_HEADING)
                     ->schema([
                         TextInput::make('author_name')
                             ->label('Signed by')
                             ->maxLength(120)
                             ->placeholder('Mei, owner')
                             ->helperText('Optional. A name makes an update read like a person wrote it.'),
-                        TextInput::make('seo_title')
-                            ->label('Search title')
-                            ->maxLength(120),
-                        Textarea::make('seo_description')
-                            ->label('Search description')
-                            ->rows(2)
-                            ->maxLength(160),
-                        Toggle::make('is_indexable')
-                            ->label('Let search engines index this')
+                        SeoFields::title(),
+                        SeoFields::description(),
+                        SeoFields::indexable()
                             ->default(true),
                     ])
                     ->collapsed(),

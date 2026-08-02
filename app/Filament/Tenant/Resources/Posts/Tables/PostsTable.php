@@ -4,16 +4,14 @@ declare(strict_types=1);
 
 namespace App\Filament\Tenant\Resources\Posts\Tables;
 
-use App\Actions\Posts\PublishPost;
 use App\Enums\PostKind;
 use App\Enums\PostStatus;
+use App\Filament\Tenant\Resources\Posts\Actions\PublishPostAction;
 use App\Models\Post;
-use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
-use Filament\Notifications\Notification;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
@@ -66,22 +64,9 @@ final class PostsTable
                     ->options(PostKind::class),
             ])
             ->recordActions([
-                // Publishes the LAST SAVED content — the same asymmetry PublishPage
-                // documents for pages (the table publishes what is stored, the
-                // composer publishes what you are looking at), through one action.
-                Action::make('publish')
-                    ->label(fn (Post $record): string => $record->isPublished() ? __('Unpublish') : __('Publish'))
-                    ->icon(fn (Post $record): Heroicon => $record->isPublished() ? Heroicon::OutlinedEyeSlash : Heroicon::OutlinedRocketLaunch)
-                    ->color(fn (Post $record): string => $record->isPublished() ? 'gray' : 'primary')
-                    ->requiresConfirmation(fn (Post $record): bool => $record->isPublished())
-                    ->action(function (Post $record, PublishPost $publish): void {
-                        $post = $publish->handle($record, ! $record->isPublished());
-
-                        Notification::make()
-                            ->title($post->isPublished() ? __('Update published') : __('Update unpublished'))
-                            ->success()
-                            ->send();
-                    }),
+                // No before-publish hook: the table publishes the LAST SAVED
+                // content, the composer saves what you are looking at first.
+                PublishPostAction::make(),
                 EditAction::make(),
                 DeleteAction::make(),
             ])

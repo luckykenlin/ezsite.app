@@ -14,12 +14,9 @@ use BackedEnum;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
-use Filament\Notifications\Notification;
-use Filament\Pages\Page;
 use Filament\Schemas\Components\Group;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
-use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 
 /**
@@ -30,18 +27,9 @@ use Filament\Support\Icons\Heroicon;
  * page's vertical rhythm, and these float above every page instead. They share
  * a screen because they are one decision ("how hard do I chase a visitor who
  * hasn't contacted me?") and one stored column.
- *
- * @property-read Schema $form
  */
-final class CaptureSettings extends Page
+final class CaptureSettings extends SettingsPage
 {
-    /**
-     * @var array<string, mixed>
-     */
-    public array $data = [];
-
-    protected string $view = 'filament.tenant.pages.capture-settings';
-
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedMegaphone;
 
     protected static ?string $title = 'Popup & call bar';
@@ -67,87 +55,83 @@ final class CaptureSettings extends Page
         ]);
     }
 
-    public function form(Schema $schema): Schema
+    protected function components(): array
     {
-        return $schema
-            ->statePath('data')
-            ->components([
-                Section::make('Offer popup')
-                    ->description('A small window offering something in return for an email or a phone number. It only works if it gives the visitor a reason — a discount, a quote, a callback.')
-                    ->schema([
-                        Toggle::make('popup.enabled')
-                            ->label('Show the popup')
+        return [
+            Section::make('Offer popup')
+                ->description('A small window offering something in return for an email or a phone number. It only works if it gives the visitor a reason — a discount, a quote, a callback.')
+                ->schema([
+                    Toggle::make('popup.enabled')
+                        ->label('Show the popup')
+                        ->live(),
+                    // One visibility rule for everything the toggle governs —
+                    // hidden fields are not validated, so `required` below
+                    // only bites while the popup is on.
+                    Group::make([
+                        Toggle::make('popup.follow_offer')
+                            ->label('Use my latest offer')
+                            ->helperText('When an offer update is running, the popup shows that instead of the wording below — and goes back to it the moment the offer ends. Nothing to remember to switch off.'),
+                        TextInput::make('popup.heading')
+                            ->label('Heading')
+                            ->maxLength(120)
+                            ->required(),
+                        CaptureFields::offer('popup.offer'),
+                        CaptureFields::fields(LeadFieldSet::Email, 'popup.fields')
+                            ->helperText('One field converts best in a popup. Anything longer belongs on the page.'),
+                        CaptureFields::buttonLabel('popup.button_label')
+                            ->placeholder(SiteCapture::DEFAULT_BUTTON_LABEL),
+                        CaptureFields::successMessage('popup.success_message'),
+                        CaptureFields::finePrint('popup.fine_print'),
+                        Select::make('popup.trigger')
+                            ->label('Show it')
+                            ->options(PopupTrigger::options())
+                            ->default(PopupTrigger::Delay->value)
+                            ->selectablePlaceholder(false)
                             ->live(),
-                        // One visibility rule for everything the toggle governs —
-                        // hidden fields are not validated, so `required` below
-                        // only bites while the popup is on.
-                        Group::make([
-                            Toggle::make('popup.follow_offer')
-                                ->label('Use my latest offer')
-                                ->helperText('When an offer update is running, the popup shows that instead of the wording below — and goes back to it the moment the offer ends. Nothing to remember to switch off.'),
-                            TextInput::make('popup.heading')
-                                ->label('Heading')
-                                ->maxLength(120)
-                                ->required(),
-                            CaptureFields::offer('popup.offer'),
-                            CaptureFields::fields(LeadFieldSet::Email, 'popup.fields')
-                                ->helperText('One field converts best in a popup. Anything longer belongs on the page.'),
-                            CaptureFields::buttonLabel('popup.button_label')
-                                ->placeholder(SiteCapture::DEFAULT_BUTTON_LABEL),
-                            CaptureFields::successMessage('popup.success_message'),
-                            CaptureFields::finePrint('popup.fine_print'),
-                            Select::make('popup.trigger')
-                                ->label('Show it')
-                                ->options(PopupTrigger::options())
-                                ->default(PopupTrigger::Delay->value)
-                                ->selectablePlaceholder(false)
-                                ->live(),
-                            TextInput::make('popup.trigger_value')
-                                ->label('After')
-                                ->numeric()
-                                ->suffix(fn (Get $get): string => $this->trigger($get)->valueLabel())
-                                ->placeholder(fn (Get $get): string => (string) $this->trigger($get)->defaultValue())
-                                ->visible(fn (Get $get): bool => $this->trigger($get)->takesValue()),
-                            TextInput::make('popup.frequency_days')
-                                ->label('Then leave them alone for')
-                                ->numeric()
-                                ->suffix('days')
-                                ->placeholder('7')
-                                ->helperText('A visitor who has seen it — or already got in touch — will not see it again until this many days have passed. 0 shows it every visit.'),
-                        ])->visible(fn (Get $get): bool => $get('popup.enabled') === true),
-                    ]),
-                Section::make('Mobile call bar')
-                    ->description('A button fixed to the bottom of the screen on phones, dialling the number from your business profile. Most people who find a local business on a phone would rather call than fill in a form.')
-                    ->schema([
-                        Toggle::make('call_bar.enabled')
-                            ->label('Show the call bar')
-                            ->live(),
-                        Group::make([
-                            TextInput::make('call_bar.label')
-                                ->label('Button')
-                                ->maxLength(40)
-                                ->placeholder(SiteCapture::DEFAULT_CALL_BAR_LABEL),
-                            Toggle::make('call_bar.show_popup_button')
-                                ->label('Also offer the popup form')
-                                ->helperText('Adds a second button for visitors who would rather write than call. Needs the popup switched on.'),
-                        ])->visible(fn (Get $get): bool => $get('call_bar.enabled') === true),
-                    ]),
-            ]);
+                        TextInput::make('popup.trigger_value')
+                            ->label('After')
+                            ->numeric()
+                            ->suffix(fn (Get $get): string => $this->trigger($get)->valueLabel())
+                            ->placeholder(fn (Get $get): string => (string) $this->trigger($get)->defaultValue())
+                            ->visible(fn (Get $get): bool => $this->trigger($get)->takesValue()),
+                        TextInput::make('popup.frequency_days')
+                            ->label('Then leave them alone for')
+                            ->numeric()
+                            ->suffix('days')
+                            ->placeholder('7')
+                            ->helperText('A visitor who has seen it — or already got in touch — will not see it again until this many days have passed. 0 shows it every visit.'),
+                    ])->visible(fn (Get $get): bool => $get('popup.enabled') === true),
+                ]),
+            Section::make('Mobile call bar')
+                ->description('A button fixed to the bottom of the screen on phones, dialling the number from your business profile. Most people who find a local business on a phone would rather call than fill in a form.')
+                ->schema([
+                    Toggle::make('call_bar.enabled')
+                        ->label('Show the call bar')
+                        ->live(),
+                    Group::make([
+                        TextInput::make('call_bar.label')
+                            ->label('Button')
+                            ->maxLength(40)
+                            ->placeholder(SiteCapture::DEFAULT_CALL_BAR_LABEL),
+                        Toggle::make('call_bar.show_popup_button')
+                            ->label('Also offer the popup form')
+                            ->helperText('Adds a second button for visitors who would rather write than call. Needs the popup switched on.'),
+                    ])->visible(fn (Get $get): bool => $get('call_bar.enabled') === true),
+                ]),
+        ];
     }
 
-    public function save(): void
+    protected function persist(array $state): void
     {
-        $data = $this->form->getState();
-
         resolve(SaveSiteCapture::class)->handle(
-            $this->group($data, 'popup'),
-            $this->group($data, 'call_bar'),
+            $this->group($state, 'popup'),
+            $this->group($state, 'call_bar'),
         );
+    }
 
-        Notification::make()
-            ->title('Capture settings saved')
-            ->success()
-            ->send();
+    protected function savedNotificationTitle(): string
+    {
+        return 'Capture settings saved';
     }
 
     /**

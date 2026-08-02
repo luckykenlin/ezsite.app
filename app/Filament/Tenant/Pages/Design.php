@@ -14,13 +14,10 @@ use BackedEnum;
 use Filament\Forms\Components\ColorPicker;
 use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Select;
-use Filament\Notifications\Notification;
-use Filament\Pages\Page;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
-use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\HtmlString;
 
@@ -28,18 +25,9 @@ use Illuminate\Support\HtmlString;
  * The tenant's design settings: pick a curated style preset, then fine-tune
  * within the enumerated token space. Hidden until a Business profile exists
  * (tokens live on the business row).
- *
- * @property-read Schema $form
  */
-final class Design extends Page
+final class Design extends SettingsPage
 {
-    /**
-     * @var array<string, mixed>
-     */
-    public array $data = [];
-
-    protected string $view = 'filament.tenant.pages.design';
-
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedSwatch;
 
     public static function canAccess(): bool
@@ -66,88 +54,86 @@ final class Design extends Page
         ]);
     }
 
-    public function form(Schema $schema): Schema
+    protected function components(): array
     {
-        return $schema
-            ->statePath('data')
-            ->components([
-                Section::make('Style preset')
-                    ->description('A curated combination of colors, fonts, shapes and spacing. Applying one replaces the fine-tune choices below.')
-                    ->schema([
-                        Radio::make('preset')
-                            ->hiddenLabel()
-                            ->options(TokenOptions::presets())
-                            ->descriptions($this->presetSwatchDescriptions())
-                            ->live()
-                            // Selecting a preset only previews it into the
-                            // fine-tune fields — nothing persists (and the
-                            // live site doesn't change) until Save. A stray
-                            // click used to restyle the whole site instantly,
-                            // with no undo.
-                            ->afterStateUpdated(function (Set $set, mixed $state): void {
-                                $preset = is_string($state) ? StylePreset::tryFrom($state) : null;
+        return [
+            Section::make('Style preset')
+                ->description('A curated combination of colors, fonts, shapes and spacing. Applying one replaces the fine-tune choices below.')
+                ->schema([
+                    Radio::make('preset')
+                        ->hiddenLabel()
+                        ->options(TokenOptions::presets())
+                        ->descriptions($this->presetSwatchDescriptions())
+                        ->live()
+                        // Selecting a preset only previews it into the
+                        // fine-tune fields — nothing persists (and the
+                        // live site doesn't change) until Save. A stray
+                        // click used to restyle the whole site instantly,
+                        // with no undo.
+                        ->afterStateUpdated(function (Set $set, mixed $state): void {
+                            $preset = is_string($state) ? StylePreset::tryFrom($state) : null;
 
-                                if ($preset === null) {
-                                    return;
-                                }
+                            if ($preset === null) {
+                                return;
+                            }
 
-                                $tokens = $preset->tokens();
+                            $tokens = $preset->tokens();
 
-                                foreach (TokenKey::cases() as $key) {
-                                    $set($key->value, $key->valueOn($tokens));
-                                }
-                            }),
+                            foreach (TokenKey::cases() as $key) {
+                                $set($key->value, $key->valueOn($tokens));
+                            }
+                        }),
+                ]),
+            Section::make('Fine-tune')
+                ->description('Adjusting any of these detaches the preset — the combination becomes your own.')
+                ->schema([
+                    Grid::make(2)->schema(array_map(
+                        static fn (TokenKey $key): Select => Select::make($key->value)
+                            ->label($key->label())
+                            ->options(TokenOptions::for($key))
+                            ->selectablePlaceholder(false)
+                            // Only the palette is live, and only because the
+                            // Brand colors section below watches it. The rest
+                            // are read on Save, so a round trip per keystroke
+                            // would buy nothing.
+                            ->live($key === TokenKey::Palette)
+                            ->columnSpan(1),
+                        TokenKey::cases(),
+                    )),
+                ]),
+            Section::make('Brand colors')
+                ->description('Used when the palette is set to Brand.')
+                ->visible(fn (Get $get): bool => $get('palette') === ColorPalette::Brand->value)
+                ->schema([
+                    Grid::make(3)->schema([
+                        ColorPicker::make('brand_primary')
+                            ->columnSpan(1),
+                        ColorPicker::make('brand_secondary')
+                            ->columnSpan(1),
+                        ColorPicker::make('brand_accent')
+                            ->columnSpan(1),
                     ]),
-                Section::make('Fine-tune')
-                    ->description('Adjusting any of these detaches the preset — the combination becomes your own.')
-                    ->schema([
-                        Grid::make(2)->schema(array_map(
-                            static fn (TokenKey $key): Select => Select::make($key->value)
-                                ->label($key->label())
-                                ->options(TokenOptions::for($key))
-                                ->selectablePlaceholder(false)
-                                // Only the palette is live, and only because the
-                                // Brand colors section below watches it. The rest
-                                // are read on Save, so a round trip per keystroke
-                                // would buy nothing.
-                                ->live($key === TokenKey::Palette)
-                                ->columnSpan(1),
-                            TokenKey::cases(),
-                        )),
-                    ]),
-                Section::make('Brand colors')
-                    ->description('Used when the palette is set to Brand.')
-                    ->visible(fn (Get $get): bool => $get('palette') === ColorPalette::Brand->value)
-                    ->schema([
-                        Grid::make(3)->schema([
-                            ColorPicker::make('brand_primary')
-                                ->columnSpan(1),
-                            ColorPicker::make('brand_secondary')
-                                ->columnSpan(1),
-                            ColorPicker::make('brand_accent')
-                                ->columnSpan(1),
-                        ]),
-                    ]),
-            ]);
+                ]),
+        ];
     }
 
-    public function save(): void
+    protected function persist(array $state): void
     {
-        $data = $this->form->getState();
-
         $business = Business::query()->firstOrFail();
 
         // The whole form state goes through as-is: SaveDesignSelection owns
         // the brand-hex write too, so this page and the chat rail cannot
         // disagree about what a design save means.
-        resolve(SaveDesignSelection::class)->handle($business, $data);
+        resolve(SaveDesignSelection::class)->handle($business, $state);
 
+        // Refill from what was actually stored, so a preset applied through
+        // the fine-tune fields reads back as the preset.
         $this->mount();
+    }
 
-        Notification::make()
-            ->title('Design saved')
-            ->success()
-            ->send();
+    protected function savedNotificationTitle(): string
+    {
+        return 'Design saved';
     }
 
     /**

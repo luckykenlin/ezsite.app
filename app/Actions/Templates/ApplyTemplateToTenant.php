@@ -67,7 +67,12 @@ final readonly class ApplyTemplateToTenant
                         'name' => $details->businessName,
                         'tagline' => $details->tagline ?? $definition->demoProfile->tagline,
                         'contact_email' => $details->email,
-                        'contact_phone' => $details->phone ?? $definition->demoProfile->phone,
+                        // No demo-profile fallback: the template's number belongs
+                        // to its invented business, and a real site advertising it
+                        // sends calls nowhere. Blank is honest — the onboarding
+                        // checklist reads exactly this column (same policy as
+                        // address_line1 below).
+                        'contact_phone' => $details->phone,
                     ] : []),
                 ],
             );
@@ -84,7 +89,7 @@ final readonly class ApplyTemplateToTenant
                         // the location form is the first thing the editor offers.
                         'address_line1' => null,
                         'postal_code' => null,
-                        'phone' => $details->phone ?? $definition->demoProfile->phone,
+                        'phone' => $details->phone,
                         'email' => $details->email,
                     ] : []),
                 ],

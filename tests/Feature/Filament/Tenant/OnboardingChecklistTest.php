@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Actions\SaveSiteCapture;
+use App\Filament\Tenant\Support\OnboardingTaskUrls;
 use App\Filament\Tenant\Widgets\OnboardingChecklist;
 use App\Models\Business;
 use App\Models\Location;
@@ -55,7 +56,7 @@ it('lists what is left with the reason for each, and links somewhere useful', fu
     Livewire::test(OnboardingChecklist::class)
         ->assertSee(OnboardingTask::Logo->label())
         ->assertSee(OnboardingTask::Logo->why())
-        ->assertSee(OnboardingChecklist::urlFor(OnboardingTask::Logo))
+        ->assertSee(OnboardingTaskUrls::for(OnboardingTask::Logo))
         // A finished task keeps its row but loses the lecture.
         ->assertSee(OnboardingTask::PublishSite->label())
         ->assertDontSee(OnboardingTask::PublishSite->why())
@@ -74,9 +75,9 @@ it('shows for a site that still has work outstanding', function (): void {
 });
 
 it('sends every task somewhere in this panel', function (OnboardingTask $task): void {
-    // The `match` in urlFor() has no default arm, so a new task without a
-    // destination throws here rather than rendering a dead row.
-    expect(OnboardingChecklist::urlFor($task))->toContain('/admin/');
+    // The `match` in OnboardingTaskUrls has no default arm, so a new task
+    // without a destination throws here rather than rendering a dead row.
+    expect(OnboardingTaskUrls::for($task))->toContain('/admin/');
 })->with(fn (): array => array_map(
     fn (OnboardingTask $task): array => [$task],
     OnboardingTask::cases(),

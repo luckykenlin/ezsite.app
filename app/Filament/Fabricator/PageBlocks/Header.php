@@ -6,8 +6,8 @@ namespace App\Filament\Fabricator\PageBlocks;
 
 use App\Enums\BindType;
 use App\Filament\Fabricator\Fields\LinkInput;
+use App\Filament\Fabricator\Fields\NavLinksRepeater;
 use Filament\Forms\Components\Field;
-use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\TextInput;
 use Filament\Support\Icons\Heroicon;
 
@@ -52,18 +52,7 @@ final class Header extends Block
     protected static function fields(): array
     {
         return [
-            Repeater::make('nav_links')
-                ->schema([
-                    TextInput::make('label')
-                        ->required()
-                        ->maxLength(60),
-                    LinkInput::make('url')
-                        ->required(),
-                ])
-                ->itemLabel(static fn (array $state): ?string => is_string($state['label'] ?? null) ? $state['label'] : null)
-                ->addActionLabel(__('Add link'))
-                ->reorderableWithButtons()
-                ->collapsible(),
+            NavLinksRepeater::make(),
             TextInput::make('cta_label')
                 ->maxLength(60),
             LinkInput::make('cta_url'),

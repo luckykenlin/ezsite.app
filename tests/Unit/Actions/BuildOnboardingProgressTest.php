@@ -45,11 +45,10 @@ it('reports every task outstanding for a site a real signup just produced', func
 
     // Each of these is something the pipeline deliberately does NOT do on the
     // owner's behalf: pages stay Draft so they review before going live, the
-    // template's street address belonged to an invented business, the phone fell
-    // back to that business's number because the wizard's field is optional, and
-    // no logo or capture surface exists until somebody adds one. Which is to say
-    // a brand-new site owes all five — and until this list existed, nothing in
-    // the product said so.
+    // template's street address and phone belonged to an invented business so
+    // both are left blank, and no logo or capture surface exists until somebody
+    // adds one. Which is to say a brand-new site owes all five — and until this
+    // list existed, nothing in the product said so.
     expect(onboardingFor($tenant)->remaining())->toBe(OnboardingTask::cases());
 });
 
@@ -86,26 +85,17 @@ it('accepts the address once the primary location has a street', function (?stri
     'the owner filled it in' => ['24 Baker Street', true],
 ]);
 
-it('accepts the phone number once it is not the template example any more', function (): void {
-    // The sharp case this task exists for: skip the wizard's optional phone
-    // field and the site goes live advertising the template demo's number.
+it('accepts the phone number once the owner has filled it in', function (): void {
+    // Provisioning leaves the column blank when the wizard's optional field is
+    // skipped (the template demo's number belongs to an invented business), so
+    // this row reads state instead of reverse-engineering whose number it is.
     $tenant = Tenant::factory()->create(['template' => SiteTemplate::NailSalon]);
-    $example = SiteTemplate::NailSalon->definition()->demoProfile->phone;
 
-    $this->createTenantBusiness($tenant, ['contact_phone' => $example]);
+    $this->createTenantBusiness($tenant, ['contact_phone' => null]);
 
     expect(onboardingFor($tenant)->isDone(OnboardingTask::PhoneNumber))->toBeFalse();
 
     $this->runInTenant($tenant, fn (): bool => Business::query()->firstOrFail()->update(['contact_phone' => '+1 555 0100']));
-
-    expect(onboardingFor($tenant)->isDone(OnboardingTask::PhoneNumber))->toBeTrue();
-});
-
-it('has no example number to warn about when no template was used', function (): void {
-    // A hand-built site, or one the assistant drafted: nothing was inherited, so
-    // whatever number it carries is its own.
-    $tenant = Tenant::factory()->create(['template' => null]);
-    $this->createTenantBusiness($tenant, ['contact_phone' => '+1 555 0100']);
 
     expect(onboardingFor($tenant)->isDone(OnboardingTask::PhoneNumber))->toBeTrue();
 });

@@ -5,12 +5,11 @@ declare(strict_types=1);
 namespace App\Filament\Tenant\Resources\PageResource\Actions;
 
 use App\Filament\Fabricator\Fields\ImageInput;
+use App\Filament\Fabricator\Fields\SeoFields;
 use App\Filament\Tenant\Resources\PageResource\Pages\PageEditor;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Section;
 use Z3d0X\FilamentFabricator\Facades\FilamentFabricator;
@@ -70,25 +69,19 @@ final readonly class PageSettingsAction
      */
     private static function seoSection(PageEditor $editor): Section
     {
-        return Section::make('Search & sharing')
+        return Section::make(SeoFields::SECTION_HEADING)
             ->description('How this page looks on Google and when its link is shared.')
             ->collapsed()
             ->schema([
-                TextInput::make('seo_title')
-                    ->label('Search title')
+                SeoFields::title()
                     ->placeholder(fn (): string => $editor->pageRecord()->title)
                     ->helperText('Your business name is appended automatically.'),
-                Textarea::make('seo_description')
-                    ->label('Search description')
-                    ->rows(2)
-                    ->maxLength(320)
-                    ->placeholder(fn (): ?string => $editor->business()?->tagline)
-                    ->helperText('Around 155 characters show up in Google.'),
+                SeoFields::description()
+                    ->placeholder(fn (): ?string => $editor->business()?->tagline),
                 ImageInput::make('seo_image_media_id')
                     ->label('Share image')
                     ->helperText('Shown when the link is posted on social media. Defaults to your logo.'),
-                Toggle::make('is_indexable')
-                    ->label('Allow search engines to index this page')
+                SeoFields::indexable()
                     ->helperText('Turn off for thank-you or campaign-only pages.'),
             ]);
     }

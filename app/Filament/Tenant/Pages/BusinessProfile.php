@@ -16,10 +16,8 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
-use Filament\Pages\Page;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
-use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use RuntimeException;
 
@@ -27,18 +25,9 @@ use RuntimeException;
  * Singleton settings page for the tenant's Business (unique tenant_id — a
  * list resource would only ever hold one row). First save creates the row,
  * later saves update it.
- *
- * @property-read Schema $form
  */
-final class BusinessProfile extends Page
+final class BusinessProfile extends SettingsPage
 {
-    /**
-     * @var array<string, mixed>
-     */
-    public array $data = [];
-
-    protected string $view = 'filament.tenant.pages.business-profile';
-
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBuildingStorefront;
 
     protected static ?string $title = 'Business profile';
@@ -64,100 +53,96 @@ final class BusinessProfile extends Page
         $this->form->fill($attributes);
     }
 
-    public function form(Schema $schema): Schema
+    protected function components(): array
     {
-        return $schema
-            ->statePath('data')
-            ->components([
-                Section::make('Identity')
-                    ->schema([
-                        Grid::make(2)->schema([
-                            TextInput::make('name')
-                                ->required()
-                                ->maxLength(255)
-                                ->columnSpan(1),
-                            TextInput::make('category')
-                                ->maxLength(255)
-                                ->columnSpan(1),
-                            TextInput::make('tagline')
-                                ->maxLength(255)
-                                ->columnSpanFull(),
-                            Textarea::make('description')
-                                ->rows(4)
-                                ->columnSpanFull(),
-                            CuratorPicker::make('logo_media_id')
-                                ->label('Logo')
-                                ->buttonLabel('Choose logo')
-                                ->columnSpanFull(),
-                        ]),
+        return [
+            Section::make('Identity')
+                ->schema([
+                    Grid::make(2)->schema([
+                        TextInput::make('name')
+                            ->required()
+                            ->maxLength(255)
+                            ->columnSpan(1),
+                        TextInput::make('category')
+                            ->maxLength(255)
+                            ->columnSpan(1),
+                        TextInput::make('tagline')
+                            ->maxLength(255)
+                            ->columnSpanFull(),
+                        Textarea::make('description')
+                            ->rows(4)
+                            ->columnSpanFull(),
+                        CuratorPicker::make('logo_media_id')
+                            ->label('Logo')
+                            ->buttonLabel('Choose logo')
+                            ->columnSpanFull(),
                     ]),
-                Section::make('Brand colors')
-                    ->schema([
-                        Grid::make(3)->schema([
-                            ColorPicker::make('brand_primary')
-                                ->columnSpan(1),
-                            ColorPicker::make('brand_secondary')
-                                ->columnSpan(1),
-                            ColorPicker::make('brand_accent')
-                                ->columnSpan(1),
-                        ]),
+                ]),
+            Section::make('Brand colors')
+                ->schema([
+                    Grid::make(3)->schema([
+                        ColorPicker::make('brand_primary')
+                            ->columnSpan(1),
+                        ColorPicker::make('brand_secondary')
+                            ->columnSpan(1),
+                        ColorPicker::make('brand_accent')
+                            ->columnSpan(1),
                     ]),
-                Section::make('Contact & locale')
-                    ->schema([
-                        Grid::make(2)->schema([
-                            TextInput::make('contact_email')
-                                ->email()
-                                ->maxLength(255)
-                                ->columnSpan(1),
-                            TextInput::make('contact_phone')
-                                ->maxLength(255)
-                                ->columnSpan(1),
-                            TextInput::make('website_url')
-                                ->url()
-                                ->maxLength(2048)
-                                ->columnSpanFull(),
-                            Select::make('timezone')
-                                ->options(array_combine(timezone_identifiers_list(), timezone_identifiers_list()))
-                                ->searchable()
-                                ->columnSpan(1),
-                            TextInput::make('locale')
-                                ->maxLength(10)
-                                ->helperText('e.g. en, zh_TW')
-                                ->columnSpan(1),
-                            TextInput::make('currency')
-                                ->length(3)
-                                ->helperText('ISO 4217, e.g. USD')
-                                ->columnSpan(1),
-                            Select::make('status')
-                                ->options([
-                                    'draft' => 'Draft',
-                                    'active' => 'Active',
-                                    'archived' => 'Archived',
-                                ])
-                                ->default('draft')
-                                ->selectablePlaceholder(false)
-                                ->columnSpan(1),
-                        ]),
+                ]),
+            Section::make('Contact & locale')
+                ->schema([
+                    Grid::make(2)->schema([
+                        TextInput::make('contact_email')
+                            ->email()
+                            ->maxLength(255)
+                            ->columnSpan(1),
+                        TextInput::make('contact_phone')
+                            ->maxLength(255)
+                            ->columnSpan(1),
+                        TextInput::make('website_url')
+                            ->url()
+                            ->maxLength(2048)
+                            ->columnSpanFull(),
+                        Select::make('timezone')
+                            ->options(array_combine(timezone_identifiers_list(), timezone_identifiers_list()))
+                            ->searchable()
+                            ->columnSpan(1),
+                        TextInput::make('locale')
+                            ->maxLength(10)
+                            ->helperText('e.g. en, zh_TW')
+                            ->columnSpan(1),
+                        TextInput::make('currency')
+                            ->length(3)
+                            ->helperText('ISO 4217, e.g. USD')
+                            ->columnSpan(1),
+                        Select::make('status')
+                            ->options([
+                                'draft' => 'Draft',
+                                'active' => 'Active',
+                                'archived' => 'Archived',
+                            ])
+                            ->default('draft')
+                            ->selectablePlaceholder(false)
+                            ->columnSpan(1),
                     ]),
-            ]);
+                ]),
+        ];
     }
 
-    public function save(): void
+    protected function persist(array $state): void
     {
-        $data = $this->form->getState();
-
         $business = Business::query()->first();
 
         if ($business === null) {
-            Business::query()->create([...$data, 'tenant_id' => tenant('id')]);
+            Business::query()->create([...$state, 'tenant_id' => tenant('id')]);
         } else {
-            $business->update($data);
+            $business->update($state);
         }
+    }
 
-        Notification::make()
-            ->title('Business profile saved')
-            ->success()
-            ->send();
+    protected function savedNotificationTitle(): string
+    {
+        return 'Business profile saved';
     }
 
     /**

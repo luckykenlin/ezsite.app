@@ -121,8 +121,15 @@ it('ships the example content when the wizard was skipped entirely', function ()
     $this->runInTenant($tenant, function () use ($definition): void {
         $copy = json_encode(Page::query()->pluck('blocks'));
 
+        $business = Business::query()->sole();
+
         expect($copy)->toContain($definition->extraFields[0]->example)
-            ->and(Business::query()->sole()->tagline)->toBe($definition->demoProfile->tagline);
+            ->and($business->tagline)->toBe($definition->demoProfile->tagline)
+            // The COPY falls back to the example content; the phone does not —
+            // a real site advertising the demo business's number would send
+            // calls nowhere, so a skipped field stays blank and the onboarding
+            // checklist points at it.
+            ->and($business->contact_phone)->toBeNull();
     });
 });
 

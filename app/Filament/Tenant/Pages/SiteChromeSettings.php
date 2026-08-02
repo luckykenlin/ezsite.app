@@ -10,10 +10,7 @@ use App\Filament\Fabricator\PageBlocks\Header;
 use App\Models\SiteSetting;
 use BackedEnum;
 use Filament\Forms\Components\Builder;
-use Filament\Notifications\Notification;
-use Filament\Pages\Page;
 use Filament\Schemas\Components\Section;
-use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 
 /**
@@ -22,18 +19,9 @@ use Filament\Support\Icons\Heroicon;
  * included — and stores exactly the Fabricator block-entry shape the render
  * loop consumes. An emptied slot stores null, falling back to the default
  * chrome.
- *
- * @property-read Schema $form
  */
-final class SiteChromeSettings extends Page
+final class SiteChromeSettings extends SettingsPage
 {
-    /**
-     * @var array<string, mixed>
-     */
-    public array $data = [];
-
-    protected string $view = 'filament.tenant.pages.site-chrome-settings';
-
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedWindow;
 
     protected static ?string $title = 'Header & footer';
@@ -48,44 +36,41 @@ final class SiteChromeSettings extends Page
         ]);
     }
 
-    public function form(Schema $schema): Schema
+    protected function components(): array
     {
-        return $schema
-            ->statePath('data')
-            ->components([
-                Section::make('Header')
-                    ->description('Shown at the top of every page. Leave empty to use the default header.')
-                    ->schema([
-                        Builder::make('header')
-                            ->hiddenLabel()
-                            ->blocks([Header::getBlockSchema()])
-                            ->maxItems(1),
-                    ]),
-                Section::make('Footer')
-                    ->description('Shown at the bottom of every page. Leave empty to use the default footer.')
-                    ->schema([
-                        Builder::make('footer')
-                            ->hiddenLabel()
-                            ->blocks([Footer::getBlockSchema()])
-                            ->maxItems(1),
-                    ]),
-            ]);
+        return [
+            Section::make('Header')
+                ->description('Shown at the top of every page. Leave empty to use the default header.')
+                ->schema([
+                    Builder::make('header')
+                        ->hiddenLabel()
+                        ->blocks([Header::getBlockSchema()])
+                        ->maxItems(1),
+                ]),
+            Section::make('Footer')
+                ->description('Shown at the bottom of every page. Leave empty to use the default footer.')
+                ->schema([
+                    Builder::make('footer')
+                        ->hiddenLabel()
+                        ->blocks([Footer::getBlockSchema()])
+                        ->maxItems(1),
+                ]),
+        ];
     }
 
-    public function save(): void
+    protected function persist(array $state): void
     {
-        $data = $this->form->getState();
-        $header = $data['header'] ?? null;
-        $footer = $data['footer'] ?? null;
+        $header = $state['header'] ?? null;
+        $footer = $state['footer'] ?? null;
 
         resolve(SaveSiteChrome::class)->handle(
             is_array($header) ? $header : null,
             is_array($footer) ? $footer : null,
         );
+    }
 
-        Notification::make()
-            ->title('Site header & footer saved')
-            ->success()
-            ->send();
+    protected function savedNotificationTitle(): string
+    {
+        return 'Site header & footer saved';
     }
 }
