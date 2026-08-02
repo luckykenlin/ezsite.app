@@ -24,11 +24,15 @@ final readonly class OnboardingTaskUrls
 {
     public static function for(OnboardingTask $task): string
     {
-        return match ($task) {
+        // Assigned before returning: parallel coverage mis-marks a bare
+        // `return match (…) {` line as uncovered.
+        $url = match ($task) {
             OnboardingTask::PublishSite => PageResource::getUrl('index'),
             OnboardingTask::SiteAddress => LocationResource::getUrl('index'),
             OnboardingTask::PhoneNumber, OnboardingTask::Logo => BusinessProfile::getUrl(),
             OnboardingTask::CaptureSurface => CaptureSettings::getUrl(),
         };
+
+        return $url;
     }
 }
