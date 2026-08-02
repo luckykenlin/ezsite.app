@@ -4,35 +4,33 @@ declare(strict_types=1);
 
 namespace App\Actions;
 
-use App\Actions\Pages\StampPresetDefaults;
 use App\Ai\Agents\SiteDraftAgent;
 use App\Ai\Prompts\SiteDraftPrompt;
 use App\Ai\SiteDraftValidator;
 use App\Design\StylePreset;
-use App\Enums\PageStatus;
 use App\Exceptions\SiteDraftRefused;
 use App\Exceptions\SiteDraftUnusable;
 use App\Models\Business;
 use App\Models\Location;
 use App\Models\Page;
-use App\Models\SiteSetting;
 use App\Site\Blocks\BlockVocabulary;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Laravel\Ai\Responses\StructuredAgentResponse;
 
 /**
- * The AI draft pipeline: prompt → validate → persist. Runs inside tenant
- * context (the RequiresTenantContext guards on Page/Business enforce it —
- * dispatch out-of-band callers through GenerateSiteDraftJob/RunInTenant).
+ * The AI half of the draft pipeline: prompt → validate → hand to
+ * {@see ApplySiteDraft}. Runs inside tenant context (the RequiresTenantContext
+ * guards on Page/Business enforce it — dispatch out-of-band callers through
+ * GenerateSiteDraftJob/RunInTenant).
  *
  * The AI chooses a preset, a block sequence, per-section layout variants and
  * appearances, and copy; the validator lets only enum-checked layout choices
- * through, and {@see StampPresetDefaults::fill()} back-fills the preset's
- * defaults for whatever the model omitted (position-aware, so even a silent
- * model gets an alternating rhythm). This action applies the preset tokens
- * and upserts the home page as a draft. An already-published home page is
- * never overwritten.
+ * through. Persistence — the preset back-fill, the page upserts and the
+ * navigation stamp — lives in `ApplySiteDraft`, which the hand-curated
+ * templates share, so a generated site and a template site land identically.
+ * What stays here is what only the AI path has: the provider call, the one
+ * retry, and the refusal to overwrite a published home page.
  */
 final readonly class GenerateSiteDraft
 {
@@ -40,8 +38,7 @@ final readonly class GenerateSiteDraft
         private SiteDraftValidator $validator,
         private ApplyStylePreset $applyStylePreset,
         private BlockVocabulary $vocabulary,
-        private StampPresetDefaults $stampPresetDefaults,
-        private SaveSiteChrome $saveSiteChrome,
+        private ApplySiteDraft $applySiteDraft,
     ) {
         //
     }
@@ -74,110 +71,13 @@ final readonly class GenerateSiteDraft
             'The home page is already published; refusing to overwrite it.',
         );
 
+        // One transaction around both halves: a site whose tokens changed but
+        // whose pages did not land is a visibly broken restyle.
         return DB::transaction(function () use ($business, $draft): Page {
             $this->applyStylePreset->handle($business, $draft['preset']);
 
-            $home = null;
-            $navigable = [];
-
-            foreach ($draft['pages'] as $page) {
-                $saved = $this->upsertPage($business, $page, $draft['preset']);
-
-                if (! $saved instanceof Page) {
-                    continue;
-                }
-
-                $navigable[] = ['slug' => $page['slug'], 'title' => $page['title']];
-
-                if ($page['slug'] === '/') {
-                    $home = $saved;
-                }
-            }
-
-            // The validator guarantees a home page survives, and upsertPage()
-            // only ever skips non-home slugs — so this cannot fire. Belt for
-            // those two braces, since the alternative is returning null into
-            // a signature every caller trusts.
-            throw_unless($home instanceof Page, SiteDraftUnusable::class, 'The draft landed no home page.');
-
-            $this->stampNavigation($navigable);
-
-            return $home;
+            return $this->applySiteDraft->handle($business, $draft);
         });
-    }
-
-    /**
-     * Land one generated page: update the existing draft at its slug, create
-     * a missing one, or — for a PUBLISHED extra page — skip it entirely. The
-     * live /about someone wrote by hand outranks anything a regeneration
-     * composes; only the home page's collision is loud (see handle()).
-     *
-     * @param  array{slug: string, title: string, metaDescription: string|null, blocks: list<array{type: string, data: array<string, mixed>}>}  $page
-     */
-    private function upsertPage(Business $business, array $page, StylePreset $preset): ?Page
-    {
-        $existing = Page::query()->where('slug', $page['slug'])->whereNull('parent_id')->first();
-
-        if ($existing !== null && ! $existing->isDraft() && $page['slug'] !== '/') {
-            Log::info('site_draft.page_skipped', ['slug' => $page['slug'], 'reason' => 'already_published']);
-
-            return null;
-        }
-
-        $blocks = $this->stampPresetDefaults->fill($page['blocks'], $preset);
-
-        // A regenerated draft replaces the copy, but never wipes a
-        // description the operator wrote when the model omitted one.
-        $seo = $page['metaDescription'] === null ? [] : ['seo_description' => $page['metaDescription']];
-
-        if ($existing !== null) {
-            $existing->update([
-                'title' => $page['title'],
-                'blocks' => $blocks,
-                'status' => PageStatus::Draft,
-                ...$seo,
-            ]);
-
-            return $existing;
-        }
-
-        return Page::query()->create([
-            'tenant_id' => $business->tenant_id,
-            'title' => $page['title'],
-            'slug' => $page['slug'],
-            'layout' => 'main',
-            'blocks' => $blocks,
-            'status' => PageStatus::Draft,
-            ...$seo,
-        ]);
-    }
-
-    /**
-     * Stamp the header navigation with links to the generated pages — the
-     * "pages, navigation, copy in under a minute" half of the first-run
-     * moment. ONLY when the tenant has no stored header: a navigation someone
-     * already shaped by hand outranks a generated one, and null-header tenants
-     * are exactly the ones being onboarded here.
-     *
-     * @param  list<array{slug: string, title: string}>  $pages
-     */
-    private function stampNavigation(array $pages): void
-    {
-        $settings = SiteSetting::query()->first();
-
-        if ($settings?->header !== null) {
-            return;
-        }
-
-        $links = array_map(static fn (array $page): array => [
-            'label' => $page['slug'] === '/' ? __('Home') : $page['title'],
-            'url' => $page['slug'],
-        ], $pages);
-
-        $this->saveSiteChrome->handle(
-            [['type' => 'header', 'data' => ['nav_links' => $links]]],
-            $settings?->footer,
-        );
     }
 
     /**
