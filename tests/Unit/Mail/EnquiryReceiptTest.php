@@ -31,7 +31,7 @@ test('a site with no profile filled in still sends a coherent receipt', function
 
     $mailable = new EnquiryReceipt($lead, new SiteMailIdentity('Golden Dragon'));
 
-    expect($mailable->envelope()->replyTo)->toBe([]);
+    expect($mailable->envelope()->replyTo)->toBeEmpty();
 
     $mailable->assertSeeInHtml('Hi Mei Chen')
         ->assertDontSeeInHtml('What you sent us')

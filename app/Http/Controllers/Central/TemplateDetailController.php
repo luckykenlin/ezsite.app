@@ -7,7 +7,9 @@ namespace App\Http\Controllers\Central;
 use App\Actions\Templates\FillTemplatePlaceholders;
 use App\Http\Controllers\Controller;
 use App\Templates\SiteTemplate;
+use App\Templates\TemplateGallery;
 use Illuminate\Contracts\View\View;
+use RalphJSmit\Laravel\SEO\Support\SEOData;
 
 /**
  * One template in full: a large screenshot, what the look is, what the
@@ -21,9 +23,10 @@ use Illuminate\Contracts\View\View;
  */
 final class TemplateDetailController extends Controller
 {
-    public function __invoke(SiteTemplate $template, FillTemplatePlaceholders $fillPlaceholders): View
+    public function __invoke(SiteTemplate $template, FillTemplatePlaceholders $fillPlaceholders, TemplateGallery $gallery): View
     {
         $definition = $template->definition();
+        $desktop = $gallery->screenshot($template, TemplateGallery::DESKTOP_WIDTH);
 
         return view('central.templates.show', [
             'template' => $template,
@@ -33,6 +36,17 @@ final class TemplateDetailController extends Controller
             // marketing site. Filling with no answers yields the demo
             // profile's copy, which is what the demo site behind the link says.
             'pages' => $fillPlaceholders->handle($definition)['pages'],
+            'desktop' => $desktop,
+            'mobile' => $gallery->screenshot($template, TemplateGallery::MOBILE_WIDTH),
+            'demoUrl' => $gallery->demoUrl($template),
+            'seo' => new SEOData(
+                title: $template->label().' website template',
+                description: $template->description(),
+                image: $desktop,
+                url: route('central.templates.show', $template),
+                enableTitleSuffix: false,
+                site_name: config()->string('app.name'),
+            ),
         ]);
     }
 }

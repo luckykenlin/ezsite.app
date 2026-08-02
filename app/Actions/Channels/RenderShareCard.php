@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace App\Actions\Channels;
 
+use App\Actions\StoreMedia;
+use App\Images\OptimizedImage;
 use App\Models\Media;
 use App\Models\Post;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 use Intervention\Image\ImageManager;
 use Throwable;
 
@@ -52,6 +53,11 @@ final readonly class RenderShareCard
      * decoration on somebody else's page, not the photograph itself.
      */
     private const int QUALITY = 82;
+
+    public function __construct(private StoreMedia $storeMedia)
+    {
+        //
+    }
 
     /**
      * Renders the card for an update and returns the media id, or null.
@@ -137,33 +143,27 @@ final readonly class RenderShareCard
         }
     }
 
-    private function store(Post $post, Media $cover, string $encoded): int
+    /**
+     * StoreMedia's public visibility is load-bearing here: a scraper fetches
+     * this URL unauthenticated, and a Google Business Profile post accepts a
+     * `sourceUrl` only — there is no multipart upload into a local post.
+     */
+    private function store(Post $post, Media $cover, string $encoded): ?int
     {
-        $disk = config()->string('curator.default_disk');
-        $name = 'share-'.Str::uuid();
-        $path = 'share-cards/'.$name.'.jpg';
+        try {
+            $card = $this->storeMedia->handle(
+                new OptimizedImage($encoded, self::WIDTH, self::HEIGHT, 'jpg', 'image/jpeg'),
+                directory: 'share-cards',
+                prefix: 'share',
+                extra: ['alt' => $post->title, 'title' => $this->fingerprint($cover)],
+            );
+        } catch (Throwable $throwable) {
+            // The never-throws contract above outranks StoreMedia's fail-loud
+            // default: a card that cannot be written is just no card.
+            Log::warning('share_card.store_failed', ['post_id' => $post->id, 'reason' => $throwable->getMessage()]);
 
-        Storage::disk($disk)->put($path, $encoded);
-
-        $card = Media::query()->create([
-            'disk' => $disk,
-            'directory' => 'share-cards',
-            // Public, and load-bearing: a scraper fetches this URL unauthenticated,
-            // and a Google Business Profile post accepts a `sourceUrl` only — there
-            // is no multipart upload into a local post.
-            'visibility' => 'public',
-            'name' => $name,
-            'path' => $path,
-            'width' => self::WIDTH,
-            'height' => self::HEIGHT,
-            // '8bit' is what makes this a byte count rather than a character count
-            // under pint's mb_str_functions, same as AdoptLibraryPhoto.
-            'size' => mb_strlen($encoded, '8bit'),
-            'type' => 'image/jpeg',
-            'ext' => 'jpg',
-            'alt' => $post->title,
-            'title' => $this->fingerprint($cover),
-        ]);
+            return null;
+        }
 
         return (int) $card->id;
     }

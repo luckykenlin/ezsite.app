@@ -51,7 +51,7 @@ test('an enquiry from a phone-only surface says so instead of inviting a reply',
 
     $mailable = new NewEnquiry($lead, new SiteMailIdentity('Golden Dragon'), 'http://acme.ezsite.test/admin/leads');
 
-    expect($mailable->envelope()->replyTo)->toBe([]);
+    expect($mailable->envelope()->replyTo)->toBeEmpty();
 
     $mailable->assertHasSubject('New enquiry from +1 555 0100')
         ->assertSeeInHtml('left no email address')

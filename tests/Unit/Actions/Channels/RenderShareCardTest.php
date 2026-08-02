@@ -90,6 +90,7 @@ it('cuts a fresh card when the photograph changes', function (): void {
         ]);
 
         $post->update(['share_card_media_id' => resolve(RenderShareCard::class)->handle($post)]);
+
         $first = $post->share_card_media_id;
 
         $post->update(['cover_media_id' => coverMedia($tenant, 1600, 900)->id]);
@@ -141,6 +142,31 @@ it('degrades rather than throwing when the bytes are not an image', function ():
 
         expect(resolve(RenderShareCard::class)->handle($post))->toBeNull();
     });
+});
+
+it('degrades rather than throwing when the card cannot be written', function (): void {
+    // StoreMedia fails loud on a refused write; this class's contract is the
+    // opposite — no card is a worse crop, not a failed publish. The refused
+    // write here is real: outside tenant context, Media's
+    // RequiresTenantContext guard rejects the row (every class in the chain is
+    // final, so nothing is mocked).
+    $tenant = Tenant::factory()->create();
+
+    [$cover, $post] = $this->runInTenant($tenant, function () use ($tenant): array {
+        $cover = coverMedia($tenant);
+
+        return [$cover, Post::factory()->create(['tenant_id' => $tenant->id, 'cover_media_id' => $cover->id])];
+    });
+
+    // Re-write the cover's file at the CENTRAL storage path, so the render gets
+    // past the source read and fails exactly at the media write.
+    Storage::disk($cover->disk)->put(
+        $cover->path,
+        (string) ImageManager::gd()->create(800, 600)->fill('b91c1c')->toJpeg(),
+    );
+
+    expect(resolve(RenderShareCard::class)->handle($post))->toBeNull()
+        ->and(Media::query()->where('directory', 'share-cards')->count())->toBe(0);
 });
 
 it('has nothing to cut when the cover reference is dangling', function (): void {

@@ -27,7 +27,7 @@ test('the job rebuilds the tenant context the emails are written from', function
         'email' => 'mei@example.com',
     ]));
 
-    SendLeadEmailsJob::dispatchSync($tenant->id, $lead->id, 'http://acme.ezsite.test/admin/leads');
+    dispatch_sync(new SendLeadEmailsJob($tenant->id, $lead->id, 'http://acme.ezsite.test/admin/leads'));
 
     Mail::assertSent(NewEnquiry::class, fn (NewEnquiry $mail): bool => $mail->hasTo($member->email)
         && $mail->envelope()->subject === 'New enquiry from Mei Chen'
@@ -45,7 +45,7 @@ test('an enquiry deleted before delivery is dropped quietly', function (): void 
     $tenant = Tenant::factory()->create();
     User::factory()->memberOf($tenant)->create();
 
-    SendLeadEmailsJob::dispatchSync($tenant->id, 404, 'http://acme.ezsite.test/admin/leads');
+    dispatch_sync(new SendLeadEmailsJob($tenant->id, 404, 'http://acme.ezsite.test/admin/leads'));
 
     Mail::assertNothingSent();
 });

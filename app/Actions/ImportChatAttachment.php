@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Actions;
 
 use App\Ai\ChatAttachment;
-use App\Models\Media;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -31,8 +30,10 @@ use RuntimeException;
  */
 final readonly class ImportChatAttachment
 {
-    public function __construct(private OptimizeImage $optimizeImage)
-    {
+    public function __construct(
+        private OptimizeImage $optimizeImage,
+        private StoreMedia $storeMedia,
+    ) {
         //
     }
 
@@ -49,43 +50,24 @@ final readonly class ImportChatAttachment
 
     private function importImage(UploadedFile $file, string $name): ChatAttachment
     {
-        $disk = config()->string('curator.default_disk');
-
         // Downscaled and re-encoded before it is stored, like every other
         // image this app writes. This is the path a phone photograph arrives
         // on — the chat rules allow 8 MB and four of them per message — and an
         // attachment the assistant drops into a block is served to the public
         // site verbatim, so it has to be sized for one.
-        //
-        // `put()` with bytes rather than `putFileAs()` with the upload,
-        // because the bytes are no longer the ones on the temp file. The
-        // extension is the OPTIMIZED image's, not the sniffed upload's, for
-        // the same reason.
         $optimized = $this->optimizeImage->handle((string) $file->get());
 
-        $basename = 'chat-'.Str::uuid();
-        $path = 'chat/'.$basename.'.'.$optimized->extension;
-
-        throw_unless(Storage::disk($disk)->put($path, $optimized->bytes), RuntimeException::class, 'The attached image could not be stored.');
-
-        $media = Media::query()->create([
-            'disk' => $disk,
-            'directory' => 'chat',
-            'visibility' => 'public',
-            'name' => $basename,
-            'path' => $path,
-            'width' => $optimized->width,
-            'height' => $optimized->height,
-            'size' => $optimized->size(),
-            'type' => $optimized->mimeType,
-            'ext' => $optimized->extension,
-            'alt' => Str::headline(pathinfo($name, PATHINFO_FILENAME)),
-        ]);
+        $media = $this->storeMedia->handle(
+            $optimized,
+            directory: 'chat',
+            prefix: 'chat',
+            extra: ['alt' => Str::headline(pathinfo($name, PATHINFO_FILENAME))],
+        );
 
         return new ChatAttachment(
             kind: ChatAttachment::KIND_IMAGE,
             name: $name,
-            file: Image::fromStorage($path, $disk)->as($name)->toArray(),
+            file: Image::fromStorage($media->path, $media->disk)->as($name)->toArray(),
             mediaId: (int) $media->id,
             width: $optimized->width,
             height: $optimized->height,

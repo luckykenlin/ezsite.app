@@ -49,7 +49,7 @@ enum OnboardingTask: string
         return match ($this) {
             self::PublishSite => __('Your pages are only visible in here. Anyone who follows a link to your site gets a "page not found" until you publish.'),
             self::SiteAddress => __('Your template left this blank on purpose — its address belonged to an invented business. Google needs yours before it will show you in local results.'),
-            self::PhoneNumber => __('Sites built from a template start out carrying the example business\'s number, so calls would go nowhere until you replace it.'),
+            self::PhoneNumber => __("Sites built from a template start out carrying the example business's number, so calls would go nowhere until you replace it."),
             self::Logo => __('Until you add one, your header and your share previews fall back to your business name set in type.'),
             self::CaptureSurface => __('The offer popup and the sticky mobile call bar are both switched off. Each one gives a visitor who is not ready to phone a second way to reach you.'),
         };

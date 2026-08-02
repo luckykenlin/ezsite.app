@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Central;
 
 use App\Http\Controllers\Controller;
+use App\Site\SitemapDocument;
 use App\Templates\SiteTemplate;
 use Illuminate\Http\Response;
 
@@ -18,24 +19,16 @@ use Illuminate\Http\Response;
  */
 final class SitemapController extends Controller
 {
-    public function __invoke(): Response
+    public function __invoke(SitemapDocument $document): Response
     {
-        $urls = collect([route('central.home'), route('central.templates')])
-            ->merge(array_map(
-                static fn (SiteTemplate $template): string => route('central.templates.show', $template),
-                SiteTemplate::cases(),
-            ))
-            ->map(fn (string $url): string => sprintf('    <url><loc>%s</loc></url>', e($url)))
-            ->implode("\n");
-
-        return response(
-            <<<XML
-                <?xml version="1.0" encoding="UTF-8"?>
-                <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-                {$urls}
-                </urlset>
-
-                XML,
-        )->header('Content-Type', 'application/xml');
+        return $document->respond(
+            collect([route('central.home'), route('central.templates')])
+                ->merge(array_map(
+                    static fn (SiteTemplate $template): string => route('central.templates.show', $template),
+                    SiteTemplate::cases(),
+                ))
+                ->map(static fn (string $url): array => ['loc' => $url, 'lastmod' => null])
+                ->all(),
+        );
     }
 }

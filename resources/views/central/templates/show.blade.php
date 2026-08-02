@@ -7,21 +7,6 @@
     loads; here it is one, and it is the difference between believing the
     screenshot and not.
 --}}
-@php
-    $gallery = resolve(\App\Templates\TemplateGallery::class);
-    $desktop = $gallery->screenshot($template, \App\Templates\TemplateGallery::DESKTOP_WIDTH);
-    $mobile = $gallery->screenshot($template, \App\Templates\TemplateGallery::MOBILE_WIDTH);
-    $demoUrl = $gallery->demoUrl($template);
-
-    $seo = new \RalphJSmit\Laravel\SEO\Support\SEOData(
-        title: $template->label().' website template',
-        description: $template->description(),
-        image: $desktop,
-        url: route('central.templates.show', $template),
-        enableTitleSuffix: false,
-        site_name: config('app.name'),
-    );
-@endphp
 <x-central.layout :seo="$seo">
     <x-site.section tone="base" spacing="airy">
         <div class="mx-auto grid max-w-7xl items-start gap-12 px-6 lg:grid-cols-[1fr_1.2fr]">

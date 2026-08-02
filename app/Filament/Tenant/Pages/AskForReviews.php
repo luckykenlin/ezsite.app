@@ -91,13 +91,13 @@ final class AskForReviews extends Page
      */
     private function qr(string $url): string
     {
-        $svg = (new QRCode(new QROptions([
+        $svg = new QRCode(new QROptions([
             'outputInterface' => QRMarkupSVG::class,
             'eccLevel' => EccLevel::L,
             'outputBase64' => false,
             'svgUseFillAttributes' => false,
             'addQuietzone' => true,
-        ])))->render($url);
+        ]))->render($url);
 
         // render() is documented as returning the output interface's own type, which
         // the library types as mixed; QRMarkupSVG returns markup.

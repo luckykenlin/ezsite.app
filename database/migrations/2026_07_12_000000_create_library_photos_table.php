@@ -56,8 +56,12 @@ return new class extends Migration
             $table->string('type');
             $table->unsignedInteger('size')->nullable();
 
-            $table->unsignedInteger('width')->nullable();
-            $table->unsignedInteger('height')->nullable();
+            // Never null in practice: FindOrImportLibraryPhoto is the single
+            // door into this table and always records the optimized image's
+            // dimensions — and AdoptLibraryPhoto's OptimizedImage handoff
+            // depends on them being present.
+            $table->unsignedInteger('width');
+            $table->unsignedInteger('height');
             $table->string('orientation')->nullable()->index();
 
             $table->string('alt')->nullable();

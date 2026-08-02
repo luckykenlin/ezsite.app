@@ -66,7 +66,7 @@ final readonly class PhotoAnnouncement
     {
         $facts = array_filter([
             $photo->orientation?->value,
-            $photo->width !== null && $photo->height !== null ? sprintf('%dx%d', $photo->width, $photo->height) : null,
+            sprintf('%dx%d', $photo->width, $photo->height),
             $photo->category?->value,
             $photo->dominant_color,
             $photo->is_dark ? 'dark enough for overlaid text' : 'too light for overlaid text',

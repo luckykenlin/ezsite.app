@@ -8,6 +8,7 @@ use App\Models\Post;
 use App\Models\Tenant;
 use App\Site\PostFeed;
 use Illuminate\Support\Facades\DB;
+use Pest\Expectation;
 
 /**
  * Ask the feed a question INSIDE the tenant's RLS context, from a clean container.
@@ -79,7 +80,7 @@ it('shows only current updates, newest first', function (): void {
         Post::factory()->create(['tenant_id' => $tenant->id, 'title' => 'Draft']);
     });
 
-    withFeed($tenant, fn (PostFeed $feed) => expect($feed->latest(10)->pluck('title')->all())->toBe(['Newer', 'Older']));
+    withFeed($tenant, fn (PostFeed $feed): Expectation => expect($feed->latest(10)->pluck('title')->all())->toBe(['Newer', 'Older']));
 });
 
 it('honours a limit and a kind filter', function (): void {
@@ -90,7 +91,7 @@ it('honours a limit and a kind filter', function (): void {
         Post::factory()->offer()->create(['tenant_id' => $tenant->id, 'title' => 'The offer']);
     });
 
-    withFeed($tenant, fn (PostFeed $feed) => expect($feed->latest(2))->toHaveCount(2)
+    withFeed($tenant, fn (PostFeed $feed): Expectation => expect($feed->latest(2))->toHaveCount(2)
         ->and($feed->latest(10, PostKind::Offer)->pluck('title')->all())->toBe(['The offer']));
 });
 
@@ -102,7 +103,7 @@ it('finds the current offer and the current closure notice', function (): void {
         Post::factory()->hours()->create(['tenant_id' => $tenant->id]);
     });
 
-    withFeed($tenant, fn (PostFeed $feed) => expect($feed->currentOffer()?->title)->toBe('Ten percent off')
+    withFeed($tenant, fn (PostFeed $feed): Expectation => expect($feed->currentOffer()?->title)->toBe('Ten percent off')
         ->and($feed->currentHoursNotice()?->kind)->toBe(PostKind::Hours));
 });
 
@@ -121,7 +122,7 @@ it('advertises the LATEST offer, not the oldest one still technically running', 
         Post::factory()->offer()->create(['tenant_id' => $tenant->id, 'title' => 'This week']);
     });
 
-    withFeed($tenant, fn (PostFeed $feed) => expect($feed->currentOffer()?->title)->toBe('This week'));
+    withFeed($tenant, fn (PostFeed $feed): Expectation => expect($feed->currentOffer()?->title)->toBe('This week'));
 });
 
 it('finds nothing to offer or announce when there is nothing running', function (): void {
@@ -129,7 +130,7 @@ it('finds nothing to offer or announce when there is nothing running', function 
 
     $this->runInTenant($tenant, fn (): Post => Post::factory()->expired()->create(['tenant_id' => $tenant->id]));
 
-    withFeed($tenant, fn (PostFeed $feed) => expect($feed->currentOffer())->toBeNull()
+    withFeed($tenant, fn (PostFeed $feed): Expectation => expect($feed->currentOffer())->toBeNull()
         ->and($feed->currentHoursNotice())->toBeNull());
 });
 
@@ -142,7 +143,7 @@ it('waits for a second update before the nav is worth a link', function (int $co
         $this->runInTenant($tenant, fn () => Post::factory()->count($count)->published()->create(['tenant_id' => $tenant->id]));
     }
 
-    withFeed($tenant, fn (PostFeed $feed) => expect($feed->isWorthLinking())->toBe($worthLinking));
+    withFeed($tenant, fn (PostFeed $feed): Expectation => expect($feed->isWorthLinking())->toBe($worthLinking));
 })->with([
     'nothing published' => [0, false],
     'one update' => [1, false],
@@ -157,7 +158,7 @@ it('reports a site as stale once its newest update is old', function (): void {
 
     $this->runInTenant($tenant, fn (): Post => Post::factory()->stale()->create(['tenant_id' => $tenant->id]));
 
-    withFeed($tenant, fn (PostFeed $feed) => expect($feed->isFresh())->toBeFalse()
+    withFeed($tenant, fn (PostFeed $feed): Expectation => expect($feed->isFresh())->toBeFalse()
         ->and($feed->lastPublishedAt())->not->toBeNull());
 });
 
@@ -166,7 +167,7 @@ it('reports a site with nothing published as neither fresh nor linkable', functi
 
     $this->runInTenant($tenant, fn (): Post => Post::factory()->create(['tenant_id' => $tenant->id]));
 
-    withFeed($tenant, fn (PostFeed $feed) => expect($feed->isFresh())->toBeFalse()
+    withFeed($tenant, fn (PostFeed $feed): Expectation => expect($feed->isFresh())->toBeFalse()
         ->and($feed->lastPublishedAt())->toBeNull()
         ->and($feed->isWorthLinking())->toBeFalse());
 });
@@ -178,7 +179,7 @@ it('counts a finished offer as tending the site even though it is not shown', fu
 
     $this->runInTenant($tenant, fn (): Post => Post::factory()->expired()->create(['tenant_id' => $tenant->id]));
 
-    withFeed($tenant, fn (PostFeed $feed) => expect($feed->isFresh())->toBeTrue()
+    withFeed($tenant, fn (PostFeed $feed): Expectation => expect($feed->isFresh())->toBeTrue()
         ->and($feed->latest(10))->toBeEmpty());
 });
 
@@ -188,5 +189,5 @@ it('sees only the current tenant updates', function (): void {
 
     $tenant = Tenant::factory()->create();
 
-    withFeed($tenant, fn (PostFeed $feed) => expect($feed->latest(10))->toBeEmpty());
+    withFeed($tenant, fn (PostFeed $feed): Expectation => expect($feed->latest(10))->toBeEmpty());
 });

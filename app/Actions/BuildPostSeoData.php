@@ -8,7 +8,7 @@ use App\Enums\PostKind;
 use App\Models\Business;
 use App\Models\Post;
 use App\Site\BindResolver;
-use App\Site\MediaResolver;
+use App\Site\SeoFallbacks;
 use Illuminate\Support\Str;
 use RalphJSmit\Laravel\SEO\Schema\ArticleSchema;
 use RalphJSmit\Laravel\SEO\Schema\BreadcrumbListSchema;
@@ -23,8 +23,9 @@ use RalphJSmit\Laravel\SEO\Support\SEOData;
  * front of one extra caller would drag `Page` into an abstraction it does not
  * need, and — worse — risk emitting the site-scoped LocalBusiness node on an
  * update, where it would duplicate the home page's under the wrong URL. The
- * fallback chains are deliberately identical, because a visitor should not be
- * able to tell which kind of page they landed on from the share card.
+ * fallback chains are identical because both actions read {@see SeoFallbacks}
+ * — a visitor should not be able to tell which kind of page they landed on
+ * from the share card.
  *
  * This is also where the two schemas `ralphjsmit/laravel-seo` has always shipped
  * finally get used: an update is an `Article`, it has a real position in a
@@ -35,7 +36,7 @@ final readonly class BuildPostSeoData
 {
     public function __construct(
         private BindResolver $bindResolver,
-        private MediaResolver $mediaResolver,
+        private SeoFallbacks $fallbacks,
     ) {
         //
     }
@@ -43,11 +44,15 @@ final readonly class BuildPostSeoData
     public function handle(Post $post): SEOData
     {
         $business = $this->bindResolver->business();
-        $image = $this->image($post, $business);
+
+        // The generated 1200x630 rendition first — RenderShareCard writes it
+        // specifically so a scraper gets the aspect ratio it wants — then the
+        // raw cover for an update whose card has not been rendered yet.
+        $image = $this->fallbacks->image($business, $post->share_card_media_id, $post->cover_media_id);
 
         return new SEOData(
-            title: $this->title($post, $business),
-            description: $this->description($post, $business),
+            title: $this->fallbacks->title($post->seo_title ?? $post->title, $business),
+            description: $this->fallbacks->description($post->seo_description ?? $post->excerpt, $business),
             author: $post->author_name,
             image: $image,
             url: url($post->getUrl()),
@@ -59,46 +64,6 @@ final readonly class BuildPostSeoData
             site_name: $business?->name,
             robots: $post->is_indexable ? null : 'noindex, nofollow',
         );
-    }
-
-    private function title(Post $post, ?Business $business): string
-    {
-        $title = $post->seo_title ?? $post->title;
-
-        return $business instanceof Business
-            ? sprintf('%s - %s', $title, $business->name)
-            : $title;
-    }
-
-    /**
-     * The update's own line first, because it was written to be exactly this —
-     * one sentence describing one announcement — then the tenant's stock
-     * description, so a share card is never blank.
-     */
-    private function description(Post $post, ?Business $business): ?string
-    {
-        $description = $post->seo_description ?? $post->excerpt;
-
-        if ($description === null && $business instanceof Business) {
-            $description = $business->tagline ?? $business->description;
-        }
-
-        return $description === null ? null : Str::limit($description, 160);
-    }
-
-    /**
-     * The share image, generated rendition first.
-     *
-     * {@see Channels\RenderShareCard} writes a 1200x630 crop
-     * specifically so a scraper gets the aspect ratio it wants; the raw cover is
-     * the fallback for an update whose card has not been rendered yet, and the
-     * logo the fallback for one with no photo at all.
-     */
-    private function image(Post $post, ?Business $business): ?string
-    {
-        return $this->mediaResolver->url($post->share_card_media_id)
-            ?? $this->mediaResolver->url($post->cover_media_id)
-            ?? $business?->logoUrl();
     }
 
     /**

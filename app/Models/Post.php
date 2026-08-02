@@ -200,7 +200,7 @@ final class Post extends Model
     protected function published(Builder $query): void
     {
         $query->where('status', PostStatus::Published)
-            ->orderByDesc('published_at')
+            ->latest('published_at')
             ->orderByDesc('id');
     }
 

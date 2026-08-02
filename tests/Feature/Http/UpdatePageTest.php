@@ -2,10 +2,15 @@
 
 declare(strict_types=1);
 
+use App\Actions\Posts\PublishPost;
+use App\Actions\SaveSiteCapture;
 use App\Enums\PostKind;
 use App\Models\Business;
+use App\Models\Media;
 use App\Models\Post;
 use App\Models\Tenant;
+use Illuminate\Support\Facades\Storage;
+use Intervention\Image\ImageManager;
 
 /*
  * The public /updates surface: the permanent address that makes this feature worth
@@ -174,7 +179,7 @@ it('keeps an expired offer reachable but stops advertising it', function (): voi
 
     $this->runInTenant($tenant, fn (): Post => Post::factory()->offer()->expired()->create([
         'tenant_id' => $tenant->id,
-        'title' => 'Last month\'s deal',
+        'title' => "Last month's deal",
         'slug' => 'last-month',
     ]));
 
@@ -265,7 +270,7 @@ it('leaves an enquiry from an update out of the pages id space', function (): vo
     $tenant = tenantWithUpdates();
 
     $this->runInTenant($tenant, function () use ($tenant): void {
-        resolve(App\Actions\SaveSiteCapture::class)->handle(
+        resolve(SaveSiteCapture::class)->handle(
             ['enabled' => true, 'heading' => 'Get 10% off', 'fields' => 'email'],
             [],
         );
@@ -348,8 +353,8 @@ it('never lets a kind other than hours reach the notice bar', function (): void 
 
     $response = $this->get(sprintf('http://acme.%s/', $this->centralDomain()))->assertOk();
 
-    expect($response->content())->not->toContain('site-notice-bar');
-    expect(PostKind::Hours->requiresDateRange())->toBeFalse();
+    expect($response->content())->not->toContain('site-notice-bar')
+        ->and(PostKind::Hours->requiresDateRange())->toBeFalse();
 });
 
 it('lets the popup follow the current offer when the operator asks it to', function (): void {
@@ -360,7 +365,7 @@ it('lets the popup follow the current offer when the operator asks it to', funct
     $tenant = tenantWithUpdates();
 
     $this->runInTenant($tenant, function () use ($tenant): void {
-        resolve(App\Actions\SaveSiteCapture::class)->handle(
+        resolve(SaveSiteCapture::class)->handle(
             [
                 'enabled' => true,
                 'follow_offer' => true,
@@ -394,7 +399,7 @@ it('gives the popup its own wording back the moment the offer ends', function ()
     $tenant = tenantWithUpdates();
 
     $this->runInTenant($tenant, function () use ($tenant): void {
-        resolve(App\Actions\SaveSiteCapture::class)->handle(
+        resolve(SaveSiteCapture::class)->handle(
             ['enabled' => true, 'follow_offer' => true, 'heading' => 'Join our list', 'fields' => 'email'],
             [],
         );
@@ -418,7 +423,7 @@ it('leaves a configured popup alone unless the operator opted in', function (): 
     $tenant = tenantWithUpdates();
 
     $this->runInTenant($tenant, function () use ($tenant): void {
-        resolve(App\Actions\SaveSiteCapture::class)->handle(
+        resolve(SaveSiteCapture::class)->handle(
             ['enabled' => true, 'heading' => 'Join our list', 'fields' => 'email'],
             [],
         );
@@ -444,11 +449,11 @@ it('shares with the generated card rather than the raw photograph', function ():
     $tenant = tenantWithUpdates();
 
     $this->runInTenant($tenant, function () use ($tenant): void {
-        $bytes = (string) Intervention\Image\ImageManager::gd()->create(2000, 1200)->fill('b91c1c')->toJpeg();
+        $bytes = (string) ImageManager::gd()->create(2000, 1200)->fill('b91c1c')->toJpeg();
         $disk = config()->string('curator.default_disk');
-        Illuminate\Support\Facades\Storage::disk($disk)->put('covers/cover.jpg', $bytes);
+        Storage::disk($disk)->put('covers/cover.jpg', $bytes);
 
-        $cover = App\Models\Media::factory()->create([
+        $cover = Media::factory()->create([
             'tenant_id' => $tenant->id,
             'disk' => $disk,
             'path' => 'covers/cover.jpg',
@@ -463,7 +468,7 @@ it('shares with the generated card rather than the raw photograph', function ():
             'cover_media_id' => $cover->id,
         ]);
 
-        resolve(App\Actions\Posts\PublishPost::class)->handle($post);
+        resolve(PublishPost::class)->handle($post);
     });
 
     $this->get(updateUrl('spring-gel-sets'))

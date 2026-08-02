@@ -33,7 +33,7 @@ test('a site with every task done is complete and has nothing remaining', functi
     $progress = new OnboardingProgress($done);
 
     expect($progress->isComplete())->toBeTrue()
-        ->and($progress->remaining())->toBe([]);
+        ->and($progress->remaining())->toBeEmpty();
 });
 
 test('a task missing from the map counts as outstanding', function (): void {

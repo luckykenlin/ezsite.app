@@ -41,8 +41,8 @@ use Illuminate\Support\Facades\Storage;
  * @property string $ext
  * @property string $type
  * @property int|null $size
- * @property int|null $width
- * @property int|null $height
+ * @property int $width
+ * @property int $height
  * @property PhotoOrientation|null $orientation
  * @property string|null $alt
  * @property string|null $title

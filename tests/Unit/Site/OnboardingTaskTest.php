@@ -19,7 +19,7 @@ test('every task reads as its own distinct instruction with its own reason', fun
     // case added without copy throws UnhandledMatchError right here, which is
     // the failure mode worth catching — a blank row on the owner's dashboard.
     expect($labels)->not->toContain('')
-        ->and(array_unique($labels))->toHaveCount(count($labels))
+        ->and(array_unique($labels))->toHaveSameSize($labels)
         ->and($reasons)->not->toContain('')
-        ->and(array_unique($reasons))->toHaveCount(count($reasons));
+        ->and(array_unique($reasons))->toHaveSameSize($reasons);
 });

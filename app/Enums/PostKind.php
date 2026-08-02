@@ -31,7 +31,7 @@ enum PostKind: string implements HasColor, HasLabel
     public function getLabel(): string
     {
         return match ($this) {
-            self::Update => __('What\'s new'),
+            self::Update => __("What's new"),
             self::Offer => __('Offer'),
             self::Event => __('Event'),
             self::Hours => __('Opening hours notice'),
@@ -55,7 +55,7 @@ enum PostKind: string implements HasColor, HasLabel
     public function hint(): string
     {
         return match ($this) {
-            self::Update => __('This week\'s work, a new arrival, anything worth showing.'),
+            self::Update => __("This week's work, a new arrival, anything worth showing."),
             self::Offer => __('A discount or deal that runs between two dates.'),
             self::Event => __('Something happening on a specific day.'),
             self::Hours => __('A closure or a change of hours. Shows as a notice across your site.'),

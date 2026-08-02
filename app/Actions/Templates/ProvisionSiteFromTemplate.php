@@ -4,13 +4,8 @@ declare(strict_types=1);
 
 namespace App\Actions\Templates;
 
-use App\Actions\ApplySiteDraft;
 use App\Actions\CreateTenant;
-use App\Actions\SaveSiteChrome;
-use App\Ai\SiteDraftValidator;
 use App\Jobs\PopulateDraftImagesJob;
-use App\Models\Business;
-use App\Models\Location;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Templates\SignupDetails;
@@ -33,19 +28,16 @@ use Illuminate\Support\Facades\Hash;
  * first deliberate act. It is also the safety valve on placeholder copy that
  * did not fit the business someone actually runs.
  *
- * Ordering mirrors {@see ProvisionDemoSite} — chrome before the draft so the
- * template's own navigation survives, and the image job dispatched OUTSIDE the
- * transaction so a worker cannot pick it up before the rows it reads exist.
+ * The site itself is built by {@see ApplyTemplateToTenant}; this action owns
+ * only what is specific to a signup — the subdomain race, the account, and the
+ * image job.
  */
 final readonly class ProvisionSiteFromTemplate
 {
     public function __construct(
         private ValidateSubdomain $validateSubdomain,
         private CreateTenant $createTenant,
-        private SaveSiteChrome $saveSiteChrome,
-        private FillTemplatePlaceholders $fillPlaceholders,
-        private SiteDraftValidator $validator,
-        private ApplySiteDraft $applySiteDraft,
+        private ApplyTemplateToTenant $applyTemplate,
         private RunInTenant $runInTenant,
     ) {
         //
@@ -85,42 +77,7 @@ final readonly class ProvisionSiteFromTemplate
         });
 
         $this->runInTenant->handle($tenant, function () use ($tenant, $definition, $details): void {
-            DB::transaction(function () use ($tenant, $definition, $details): void {
-                $business = Business::query()->create([
-                    ...$definition->businessAttributes(),
-                    'tenant_id' => $tenant->id,
-                    'name' => $details->businessName,
-                    'tagline' => $details->tagline ?? $definition->demoProfile->tagline,
-                    'contact_email' => $details->email,
-                    'contact_phone' => $details->phone ?? $definition->demoProfile->phone,
-                ]);
-
-                Location::query()->create([
-                    ...$definition->locationAttributes(),
-                    'tenant_id' => $tenant->id,
-                    'business_id' => $business->id,
-                    'label' => $details->businessName,
-                    'city' => $details->city ?? $definition->demoProfile->city,
-                    // The template's street address belongs to its invented
-                    // business, not to this one — better blank than wrong, and
-                    // the location form is the first thing the editor offers.
-                    'address_line1' => null,
-                    'postal_code' => null,
-                    'phone' => $details->phone ?? $definition->demoProfile->phone,
-                    'email' => $details->email,
-                ]);
-
-                $content = $this->fillPlaceholders->handle($definition, $details->placeholders());
-
-                $this->saveSiteChrome->handle($content['header'], $content['footer']);
-
-                $draft = $this->validator->handle(
-                    ['preset' => $definition->preset->value, 'pages' => $content['pages']],
-                    $details->businessName,
-                );
-
-                $this->applySiteDraft->handle($business, $draft);
-            });
+            $this->applyTemplate->handle($tenant, $definition, $details);
         });
 
         // Outside every transaction: a worker is a different process and can

@@ -25,7 +25,7 @@ test('a reply to the site goes to the business address, under the site name', fu
 test('a site with no contact address gets no reply-to header at all', function (): void {
     // Better than a header pointing at our own sending address, which would
     // silently swallow a customer's reply.
-    expect(new SiteMailIdentity('Golden Dragon')->replyTo())->toBe([]);
+    expect(new SiteMailIdentity('Golden Dragon')->replyTo())->toBeEmpty();
 });
 
 test('the accent falls back to the default unless it is a six-digit hex', function (string $stored, string $expected): void {

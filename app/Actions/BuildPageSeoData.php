@@ -7,8 +7,7 @@ namespace App\Actions;
 use App\Models\Business;
 use App\Models\Page;
 use App\Site\BindResolver;
-use App\Site\MediaResolver;
-use Illuminate\Support\Str;
+use App\Site\SeoFallbacks;
 use RalphJSmit\Laravel\SEO\Schema\FaqPageSchema;
 use RalphJSmit\Laravel\SEO\SchemaCollection;
 use RalphJSmit\Laravel\SEO\Support\SEOData;
@@ -18,17 +17,15 @@ use RalphJSmit\Laravel\SEO\Support\SEOData;
  * ralphjsmit/laravel-seo renders into title/description/canonical/robots/
  * OpenGraph/Twitter/JSON-LD tags.
  *
- * The page's own SEO columns win; anything left empty falls back to the
- * tenant's Business, so a site is never shipped with a blank description or
- * share image. config/seo.php holds NO tenant-specific value (it is a central
- * singleton) — every per-tenant value is set here, including the title suffix,
- * which is why enableTitleSuffix is off.
+ * The page's own SEO columns win; anything left empty falls back through
+ * {@see SeoFallbacks} to the tenant's Business, so a site is never shipped
+ * with a blank description or share image.
  */
 final readonly class BuildPageSeoData
 {
     public function __construct(
         private BindResolver $bindResolver,
-        private MediaResolver $mediaResolver,
+        private SeoFallbacks $fallbacks,
         private BuildLocalBusinessSchema $buildLocalBusinessSchema,
         private CollectPageFaqs $collectPageFaqs,
     ) {
@@ -38,11 +35,11 @@ final readonly class BuildPageSeoData
     public function handle(Page $page): SEOData
     {
         $business = $this->bindResolver->business();
-        $image = $this->image($page, $business);
+        $image = $this->fallbacks->image($business, $page->seo_image_media_id);
 
         return new SEOData(
-            title: $this->title($page, $business),
-            description: $this->description($page, $business),
+            title: $this->fallbacks->title($page->seo_title ?? $page->title, $business),
+            description: $this->fallbacks->description($page->seo_description, $business),
             image: $image,
             url: url($page->getUrl()),
             enableTitleSuffix: false,
@@ -51,36 +48,6 @@ final readonly class BuildPageSeoData
             site_name: $business?->name,
             robots: $page->is_indexable ? null : 'noindex, nofollow',
         );
-    }
-
-    private function title(Page $page, ?Business $business): string
-    {
-        $title = $page->seo_title ?? $page->title;
-
-        return $business instanceof Business
-            ? sprintf('%s - %s', $title, $business->name)
-            : $title;
-    }
-
-    private function description(Page $page, ?Business $business): ?string
-    {
-        $description = $page->seo_description;
-
-        if ($description === null && $business instanceof Business) {
-            $description = $business->tagline ?? $business->description;
-        }
-
-        return $description === null ? null : Str::limit($description, 160);
-    }
-
-    /**
-     * The share image: the page's own pick, else the tenant's logo (which
-     * already resolves media-then-legacy-upload).
-     */
-    private function image(Page $page, ?Business $business): ?string
-    {
-        return $this->mediaResolver->url($page->seo_image_media_id)
-            ?? $business?->logoUrl();
     }
 
     /**

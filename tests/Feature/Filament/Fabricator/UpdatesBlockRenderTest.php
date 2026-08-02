@@ -27,7 +27,7 @@ function tenantShowingUpdates(string $variant = 'cards'): Tenant
     ]));
 
     test()->createTenantPage($tenant, [
-        ['type' => 'updates', 'data' => ['variant' => $variant, 'heading' => 'What\'s new', 'count' => 3]],
+        ['type' => 'updates', 'data' => ['variant' => $variant, 'heading' => "What's new", 'count' => 3]],
     ], slug: '/');
 
     return $tenant;
@@ -43,7 +43,7 @@ it('renders published updates in both variants', function (string $variant): voi
 
     $this->get(sprintf('http://acme.%s/', $this->centralDomain()))
         ->assertOk()
-        ->assertSee('What\'s new')
+        ->assertSee("What's new")
         ->assertSee('Spring gel sets')
         ->assertSee('New opening hours')
         // Linked, because the whole point of the section is the permalink.
@@ -57,7 +57,7 @@ it('renders nothing at all when nothing is published', function (): void {
 
     $this->get(sprintf('http://acme.%s/', $this->centralDomain()))
         ->assertOk()
-        ->assertDontSee('What\'s new')
+        ->assertDontSee("What's new")
         ->assertDontSee('Still a draft');
 });
 
@@ -75,7 +75,7 @@ it('hides itself once the newest update has gone stale', function (): void {
 
     $this->get(sprintf('http://acme.%s/', $this->centralDomain()))
         ->assertOk()
-        ->assertDontSee('What\'s new')
+        ->assertDontSee("What's new")
         ->assertDontSee('Ancient news');
 });
 
@@ -133,7 +133,7 @@ it('treats an unreadable kind filter as everything', function (): void {
     $tenant = Tenant::factory()->withDomain('acme')->create();
     $this->runInTenant($tenant, fn (): Business => Business::factory()->create(['tenant_id' => $tenant->id, 'name' => 'Jade Nails']));
     $this->createTenantPage($tenant, [
-        ['type' => 'updates', 'data' => ['variant' => 'cards', 'heading' => 'What\'s new', 'count' => 3, 'kind_filter' => 'nonsense']],
+        ['type' => 'updates', 'data' => ['variant' => 'cards', 'heading' => "What's new", 'count' => 3, 'kind_filter' => 'nonsense']],
     ], slug: '/');
 
     $this->runInTenant($tenant, fn (): Post => Post::factory()->published()->create([

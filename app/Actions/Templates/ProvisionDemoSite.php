@@ -4,15 +4,10 @@ declare(strict_types=1);
 
 namespace App\Actions\Templates;
 
-use App\Actions\ApplySiteDraft;
 use App\Actions\CreateTenant;
 use App\Actions\Library\FindOrImportLibraryPhoto;
 use App\Actions\Pages\PopulateDraftImages;
 use App\Actions\Pages\PublishPage;
-use App\Actions\SaveSiteChrome;
-use App\Ai\SiteDraftValidator;
-use App\Models\Business;
-use App\Models\Location;
 use App\Models\Page;
 use App\Models\Tenant;
 use App\StockPhotos\StockPhotoProvider;
@@ -31,20 +26,16 @@ use Illuminate\Database\Eloquent\Builder;
  * has never been looked at.
  *
  * IDEMPOTENT, because this runs on every deploy: the tenant is found by its
- * reserved subdomain, the business and location are `updateOrCreate`d, and the
- * draft lands with `overwritePublished: true` so last deploy's live pages are
- * replaced rather than skipped. Re-running produces no duplicates and no
- * second tenant.
+ * reserved subdomain, and {@see ApplyTemplateToTenant} `updateOrCreate`s the
+ * profile rows and lands the draft with `overwritePublished: true`, so last
+ * deploy's live pages are replaced rather than skipped. Re-running produces no
+ * duplicates and no second tenant.
  *
- * Two ordering constraints are load-bearing:
- *
- *  - Chrome is saved BEFORE the draft, because `ApplySiteDraft` only stamps a
- *    navigation when the tenant has none. Saving the template's own header
- *    first is what keeps its hand-written nav labels ("Work", "Visit") instead
- *    of page titles.
- *  - Photos are populated BEFORE publishing, and synchronously.
- *    {@see PopulateDraftImages} walks DRAFT pages only, so a demo site
- *    published first would be a demo site with no photographs — permanently.
+ * One ordering constraint is load-bearing here (the chrome-before-draft one
+ * lives in {@see ApplyTemplateToTenant}): photos are populated BEFORE
+ * publishing, and synchronously. {@see PopulateDraftImages} walks DRAFT pages
+ * only, so a demo site published first would be a demo site with no
+ * photographs — permanently.
  *
  * Demo tenants get no users attached: `User::canAccessPanel()` already limits
  * their panel to super admins, so there is nothing to sign in as and nothing
@@ -56,10 +47,7 @@ final readonly class ProvisionDemoSite
         private CreateTenant $createTenant,
         private StockPhotoProvider $provider,
         private FindOrImportLibraryPhoto $importPhoto,
-        private SaveSiteChrome $saveSiteChrome,
-        private FillTemplatePlaceholders $fillPlaceholders,
-        private SiteDraftValidator $validator,
-        private ApplySiteDraft $applySiteDraft,
+        private ApplyTemplateToTenant $applyTemplate,
         private PopulateDraftImages $populateImages,
         private PublishPage $publishPage,
         private RunInTenant $runInTenant,
@@ -82,26 +70,7 @@ final readonly class ProvisionDemoSite
         }
 
         $this->runInTenant->handle($tenant, function () use ($tenant, $definition, $skipPhotos): void {
-            $business = Business::query()->updateOrCreate(
-                ['tenant_id' => $tenant->id],
-                $definition->businessAttributes(),
-            );
-
-            Location::query()->updateOrCreate(
-                ['tenant_id' => $tenant->id, 'business_id' => $business->id, 'is_primary' => true],
-                $definition->locationAttributes(),
-            );
-
-            $content = $this->fillPlaceholders->handle($definition);
-
-            $this->saveSiteChrome->handle($content['header'], $content['footer']);
-
-            $draft = $this->validator->handle(
-                ['preset' => $definition->preset->value, 'pages' => $content['pages']],
-                $definition->demoProfile->name,
-            );
-
-            $this->applySiteDraft->handle($business, $draft, overwritePublished: true);
+            $business = $this->applyTemplate->handle($tenant, $definition, overwritePublished: true);
 
             if (! $skipPhotos) {
                 $this->populateImages->handle($business);

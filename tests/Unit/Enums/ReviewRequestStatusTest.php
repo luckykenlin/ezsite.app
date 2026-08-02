@@ -24,7 +24,7 @@ test('every state reads as its own word, in its own colour', function (): void {
     $colors = array_map(static fn (ReviewRequestStatus $status): string => $status->getColor(), ReviewRequestStatus::cases());
 
     expect($labels)->not->toContain('')
-        ->and(array_unique($labels))->toHaveCount(count($labels))
+        ->and(array_unique($labels))->toHaveSameSize($labels)
         ->and($colors)->not->toContain('')
         // Only the end state is celebrated; a card nobody has scanned is not a
         // failure, it is a card nobody has scanned.

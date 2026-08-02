@@ -4,11 +4,9 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Models\Post;
-use App\Site\BindResolver;
+use App\Actions\BuildPostIndexSeoData;
 use App\Site\PostFeed;
 use Illuminate\Contracts\View\View;
-use RalphJSmit\Laravel\SEO\Support\SEOData;
 
 /**
  * The list of a tenant's updates.
@@ -22,19 +20,11 @@ use RalphJSmit\Laravel\SEO\Support\SEOData;
  */
 final class PostIndexController extends Controller
 {
-    public function __invoke(PostFeed $feed, BindResolver $bindResolver): View
+    public function __invoke(PostFeed $feed, BuildPostIndexSeoData $seoData): View
     {
-        $business = $bindResolver->business();
-
         return view('site.updates.index', [
             'posts' => $feed->latest(PostFeed::PAGE_SIZE),
-            'seoData' => new SEOData(
-                title: $business === null ? __('Updates') : sprintf('%s - %s', __('Updates'), $business->name),
-                description: $business->tagline ?? $business->description ?? null,
-                url: url('/'.Post::PATH_PREFIX),
-                enableTitleSuffix: false,
-                site_name: $business?->name,
-            ),
+            'seoData' => $seoData->handle(),
         ]);
     }
 }

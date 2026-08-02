@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use App\Enums\PostKind;
 use App\Enums\PostStatus;
-use App\Models\Business;
 use App\Models\Location;
 use App\Models\Post;
 use App\Models\Tenant;

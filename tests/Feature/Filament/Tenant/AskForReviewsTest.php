@@ -35,7 +35,7 @@ it('hands the operator a printable link and QR per branch', function (): void {
         // An SVG payload, because this gets printed and has to survive being
         // blown up to fill an A5 card. Matched on the QR's own module markup rather
         // than on `<svg`, which the panel's icons emit everywhere.
-        ->assertSee('class="qr-', false)
+        ->assertSeeHtml('class="qr-')
         ->assertSee('Nobody has opened it yet');
 
     $request = ReviewRequest::query()->where('location_id', $location->id)->sole();

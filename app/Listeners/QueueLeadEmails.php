@@ -32,10 +32,6 @@ final readonly class QueueLeadEmails
         /** @var Tenant $tenant */
         $tenant = tenant();
 
-        SendLeadEmailsJob::dispatch(
-            $tenant->id,
-            $event->lead->id,
-            LeadResource::getUrl('index', panel: 'tenant'),
-        );
+        dispatch(new SendLeadEmailsJob($tenant->id, $event->lead->id, LeadResource::getUrl('index', panel: 'tenant')));
     }
 }

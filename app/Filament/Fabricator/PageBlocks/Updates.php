@@ -40,7 +40,7 @@ final class Updates extends Block
      * @var array<string, mixed>
      */
     protected static array $sample = [
-        'heading' => 'What\'s new',
+        'heading' => "What's new",
         'intro' => 'Offers, news and opening-hours changes.',
         'count' => 3,
     ];

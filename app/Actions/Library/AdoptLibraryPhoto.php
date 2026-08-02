@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace App\Actions\Library;
 
+use App\Actions\StoreMedia;
+use App\Images\OptimizedImage;
 use App\Models\LibraryPhoto;
 use App\Models\Media;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 
 /**
  * Take a photo out of the shared library and into the current tenant's own
@@ -39,6 +40,11 @@ use Illuminate\Support\Str;
  */
 final readonly class AdoptLibraryPhoto
 {
+    public function __construct(private StoreMedia $storeMedia)
+    {
+        //
+    }
+
     public function handle(LibraryPhoto $photo): ?Media
     {
         $existing = Media::query()->where('library_photo_id', $photo->id)->first();
@@ -57,36 +63,25 @@ final readonly class AdoptLibraryPhoto
             return null;
         }
 
-        $disk = config()->string('curator.default_disk');
-        $name = 'stock-'.Str::uuid();
-        $path = 'stock/'.$name.'.'.$photo->ext;
-
-        Storage::disk($disk)->put($path, $body);
-
-        $media = Media::query()->create([
-            'disk' => $disk,
-            'directory' => 'stock',
-            'visibility' => 'public',
-            'name' => $name,
-            'path' => $path,
-            'width' => $photo->width,
-            'height' => $photo->height,
-            // See FindOrImportLibraryPhoto: '8bit' is what makes this a byte
-            // count rather than a character count under pint's mb_str_functions.
-            'size' => mb_strlen($body, '8bit'),
-            'type' => $photo->type,
-            'ext' => $photo->ext,
-            'alt' => $photo->alt,
-            'title' => $photo->title,
-            'library_photo_id' => $photo->id,
-            // Provenance copied down rather than joined: attribution renders on
-            // the public page, which must never depend on a central table read.
-            'source_provider' => $photo->provider,
-            'source_id' => $photo->source_id,
-            'source_url' => $photo->source_url,
-            'photographer_name' => $photo->photographer_name,
-            'photographer_url' => $photo->photographer_url,
-        ]);
+        // The library already optimized these bytes on import; this value just
+        // carries them, with the catalogue row's own facts, to the shared writer.
+        $media = $this->storeMedia->handle(
+            new OptimizedImage($body, $photo->width, $photo->height, $photo->ext, $photo->type),
+            directory: 'stock',
+            prefix: 'stock',
+            extra: [
+                'alt' => $photo->alt,
+                'title' => $photo->title,
+                'library_photo_id' => $photo->id,
+                // Provenance copied down rather than joined: attribution renders on
+                // the public page, which must never depend on a central table read.
+                'source_provider' => $photo->provider,
+                'source_id' => $photo->source_id,
+                'source_url' => $photo->source_url,
+                'photographer_name' => $photo->photographer_name,
+                'photographer_url' => $photo->photographer_url,
+            ],
+        );
 
         // Ascending usage is the library's default search order, so this counter
         // is what stops one photograph spreading across every generated site.

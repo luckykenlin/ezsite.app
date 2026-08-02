@@ -34,9 +34,9 @@ test('every kind states what it is, in colour, with a reason to pick it', functi
     $colors = array_map(static fn (PostKind $kind): string => $kind->getColor(), PostKind::cases());
 
     expect($labels)->not->toContain('')
-        ->and(array_unique($labels))->toHaveCount(count($labels))
+        ->and(array_unique($labels))->toHaveSameSize($labels)
         ->and($hints)->not->toContain('')
-        ->and(array_unique($hints))->toHaveCount(count($hints))
+        ->and(array_unique($hints))->toHaveSameSize($hints)
         ->and($colors)->not->toContain('');
 });
 

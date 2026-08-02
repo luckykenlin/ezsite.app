@@ -30,5 +30,5 @@ test('every button reads as its own instruction', function (): void {
     $labels = array_map(static fn (PostCtaAction $action): string => $action->getLabel(), PostCtaAction::cases());
 
     expect($labels)->not->toContain('')
-        ->and(array_unique($labels))->toHaveCount(count($labels));
+        ->and(array_unique($labels))->toHaveSameSize($labels);
 });

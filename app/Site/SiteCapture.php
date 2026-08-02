@@ -69,7 +69,7 @@ final readonly class SiteCapture
     {
         $offer = $this->currentOffer();
 
-        if ($offer === null) {
+        if (! $offer instanceof Post) {
             return $this->string('popup', 'offer');
         }
 

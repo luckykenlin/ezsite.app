@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Central;
 
 use App\Http\Controllers\Controller;
+use App\Site\RobotsDocument;
 use Illuminate\Http\Response;
 
 /**
@@ -20,19 +21,8 @@ use Illuminate\Http\Response;
  */
 final class RobotsController extends Controller
 {
-    public function __invoke(): Response
+    public function __invoke(RobotsDocument $document): Response
     {
-        $sitemap = route('central.sitemap');
-
-        return response(
-            <<<TXT
-                User-agent: *
-                Allow: /
-                Disallow: /start
-
-                Sitemap: {$sitemap}
-
-                TXT,
-        )->header('Content-Type', 'text/plain; charset=UTF-8');
+        return $document->respond(['/start'], route('central.sitemap'));
     }
 }

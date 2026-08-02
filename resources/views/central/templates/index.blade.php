@@ -1,13 +1,4 @@
 {{-- The full gallery: every template, one card each. --}}
-@php
-    $seo = new \RalphJSmit\Laravel\SEO\Support\SEOData(
-        title: 'Website templates for small businesses',
-        description: 'Eight finished websites, one for each trade. Open the live demo, then make it yours in a few minutes.',
-        url: route('central.templates'),
-        enableTitleSuffix: false,
-        site_name: config('app.name'),
-    );
-@endphp
 <x-central.layout :seo="$seo">
     <x-site.section tone="base" spacing="airy">
         <div class="mx-auto max-w-7xl px-6">
