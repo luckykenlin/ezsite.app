@@ -5,13 +5,15 @@ declare(strict_types=1);
 namespace Database\Seeders;
 
 use App\Models\User;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 final class DatabaseSeeder extends Seeder
 {
-    use WithoutModelEvents;
-
+    /**
+     * Model events must stay ON here: a `Tenant`'s UUID primary key and its
+     * `data` column are both filled by `creating`/`saving` listeners, so
+     * `WithoutModelEvents` makes every demo site insert a null id.
+     */
     public function run(): void
     {
         User::factory()->superAdmin()->create([
