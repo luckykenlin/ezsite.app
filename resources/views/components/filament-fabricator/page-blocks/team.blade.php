@@ -41,11 +41,11 @@
                             src="{{ $avatar }}"
                             alt=""
                             loading="lazy"
-                            @class([$layout->image(), 'object-cover', 'mx-auto size-28' => $circle, 'w-full' => ! $circle])
+                            @class([$layout->image(), 'object-cover', 'mx-auto size-28 shadow-md ring-2 ring-base-100' => $circle, 'w-full' => ! $circle])
                         />
                     @else
                         <span
-                            @class(['flex items-center justify-center bg-base-300 font-bold text-base-content/50', $layout->image(), 'mx-auto size-28 text-3xl' => $circle, 'w-full text-5xl' => ! $circle])
+                            @class(['flex items-center justify-center bg-base-300 font-bold text-base-content/50', $layout->image(), 'mx-auto size-28 text-3xl shadow-md ring-2 ring-base-100' => $circle, 'w-full text-5xl' => ! $circle])
                             aria-hidden="true"
                         >{{ $initials }}</span>
                     @endif

@@ -18,6 +18,7 @@ it('lifts a card off every band it can sit on', function (SectionTone $tone): vo
     $card = SectionItemStyle::Card->classes($tone);
 
     expect($card)->toStartWith('card')
+        ->and($card)->toContain('site-card')
         ->and($tone->itemSurface())->not->toBeEmpty();
 
     if ($tone->classes() !== '' && $tone !== SectionTone::Accent) {

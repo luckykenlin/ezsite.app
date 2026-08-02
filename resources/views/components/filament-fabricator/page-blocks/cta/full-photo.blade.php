@@ -28,7 +28,7 @@
             {{-- Decorative: the heading carries the message, the photo sets
                  the mood behind the scrim. --}}
             <img src="{{ $image_url }}" alt="" loading="lazy" class="absolute inset-0 -z-10 h-full w-full object-cover" />
-            <div class="absolute inset-0 -z-10 bg-neutral/60"></div>
+            <div class="site-scrim absolute inset-0 -z-10"></div>
         @endif
     </x-slot:backdrop>
 
@@ -36,7 +36,7 @@
         <h2 data-editor-field="heading" class="site-display">{{ $heading }}</h2>
 
         @if ($body)
-            <p data-editor-field="body" class="site-intro mt-6 opacity-80">{{ $body }}</p>
+            <p data-editor-field="body" class="site-intro mt-6 opacity-90">{{ $body }}</p>
         @endif
 
         <div @class(['mt-10 flex flex-wrap items-center gap-4', 'justify-center' => $centered])>
@@ -44,7 +44,7 @@
                 <a href="{{ $cta_url }}" class="btn btn-primary">{{ $cta_label }}</a>
             @endif
             @if ($secondary_label && $secondary_url)
-                <a href="{{ $secondary_url }}" class="btn btn-ghost">{{ $secondary_label }}</a>
+                <a href="{{ $secondary_url }}" class="site-link-cta">{{ $secondary_label }}</a>
             @endif
         </div>
     </div>

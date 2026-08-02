@@ -17,13 +17,9 @@
 <footer class="bg-neutral text-neutral-content">
     <div class="footer mx-auto max-w-7xl px-6 py-12 sm:footer-horizontal">
         <aside>
-            <span class="text-lg font-bold">{{ $business->name }}</span>
+            <span class="font-heading text-lg font-bold">{{ $business->name }}</span>
             @if ($business->tagline)
                 <p class="max-w-xs opacity-70">{{ $business->tagline }}</p>
-            @endif
-            <p class="opacity-70">&copy; {{ now()->year }} {{ $business->name }}</p>
-            @if ($note)
-                <p class="max-w-xs text-sm opacity-60">{{ $note }}</p>
             @endif
         </aside>
 
@@ -49,5 +45,14 @@
                 <a href="mailto:{{ $email }}" class="link-hover link">{{ $email }}</a>
             @endif
         </address>
+    </div>
+
+    {{-- The legal line gets its own seamed tier so the columns above stay
+         about wayfinding, not small print. --}}
+    <div class="mx-auto max-w-7xl border-t border-neutral-content/10 px-6 py-6 text-sm">
+        <p class="opacity-70">&copy; {{ now()->year }} {{ $business->name }}</p>
+        @if ($note)
+            <p class="mt-1 opacity-60">{{ $note }}</p>
+        @endif
     </div>
 </footer>

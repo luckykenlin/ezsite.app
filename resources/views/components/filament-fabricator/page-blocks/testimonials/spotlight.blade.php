@@ -18,14 +18,15 @@
         <x-site.section-header :layout="$layout" :heading="$heading" />
 
         @if ($item)
+            {{-- The hung quote mark comes from .site-quote; centred here, it
+                 doubles as the variant's only ornament. --}}
             <figure @class(['mt-12' => (bool) $heading])>
-                <span class="site-display text-primary" aria-hidden="true">&ldquo;</span>
-                <blockquote class="site-h3">{{ $item['quote'] ?? '' }}</blockquote>
+                <blockquote class="site-quote site-h3">{{ $item['quote'] ?? '' }}</blockquote>
                 <figcaption class="mt-8 flex flex-col items-center gap-3">
                     @if ($item['avatar_url'] ?? null)
                         {{-- Decorative: the cite below is the accessible name, so
                              an alt here would be announced twice. --}}
-                        <img src="{{ $item['avatar_url'] }}" alt="" loading="lazy" class="size-14 rounded-full object-cover" />
+                        <img src="{{ $item['avatar_url'] }}" alt="" loading="lazy" class="size-14 rounded-full object-cover ring-1 ring-base-content/10" />
                     @endif
                     <div>
                         <cite class="not-italic font-semibold">{{ $item['author'] ?? '' }}</cite>

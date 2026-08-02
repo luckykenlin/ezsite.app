@@ -216,6 +216,13 @@ test('the page-block views type through the shared site-* classes, never utility
         'aspect-video',
         'aspect-square',
         'aspect-[4/5]',
+        // Card chrome comes from SectionItemStyle::Card; pasting the class
+        // into a view puts hover-lift cards on a block the item_style axis
+        // thinks is plain.
+        'site-card',
+        // Photo scrims go through .site-scrim (the graded overlay); the old
+        // flat overlay reads as a grey wash over the whole image.
+        'bg-neutral/60',
     ];
 
     $views = new RecursiveIteratorIterator(

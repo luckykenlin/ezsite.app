@@ -62,7 +62,7 @@ it('highlights only the first plan marked as recommended', function (): void {
     $response->assertSee('Starter')->assertSee('Standard')->assertSee('Premium');
 
     expect(mb_substr_count($response->getContent(), 'badge badge-primary'))->toBe(1)
-        ->and(mb_substr_count($response->getContent(), 'ring-2 ring-primary'))->toBe(1);
+        ->and(mb_substr_count($response->getContent(), 'ring-1 ring-primary'))->toBe(1);
 });
 
 it('renders no highlight at all when no plan claims one', function (): void {

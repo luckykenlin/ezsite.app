@@ -28,8 +28,10 @@
                          a hand-typed "2." survives the deletion of step one and
                          the page then lies. aria-hidden because the <ol> already
                          conveys the ordinal. --}}
+                    {{-- rounded-selector, not rounded-full: the chip follows the
+                         tenant's radius token, square on the sharp presets. --}}
                     <span
-                        class="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary font-bold text-primary-content"
+                        class="flex size-10 shrink-0 items-center justify-center rounded-selector bg-primary font-bold text-primary-content ring-4 ring-primary/10"
                         aria-hidden="true"
                     >{{ $loop->iteration }}</span>
                     <div>

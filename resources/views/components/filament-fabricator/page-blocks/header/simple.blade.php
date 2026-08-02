@@ -15,13 +15,13 @@
                 @if ($business->logoUrl())
                     <img src="{{ $business->logoUrl() }}" alt="{{ $business->name }}" class="h-8 w-auto" />
                 @endif
-                <span class="text-lg font-bold">{{ $business->name }}</span>
+                <span class="font-heading text-lg font-bold">{{ $business->name }}</span>
             </a>
         </div>
         <nav class="navbar-end flex-wrap gap-1">
             @foreach ($links as $link)
                 @continue(! is_array($link) || ! ($link['label'] ?? null) || ! ($link['url'] ?? null))
-                <a href="{{ $link['url'] }}" class="btn btn-ghost btn-sm">{{ $link['label'] }}</a>
+                <a href="{{ $link['url'] }}" class="px-3 py-2 text-sm font-medium underline-offset-8 opacity-75 transition hover:underline hover:opacity-100">{{ $link['label'] }}</a>
             @endforeach
 
             @if ($cta_label && $cta_url)

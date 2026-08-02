@@ -18,10 +18,10 @@
                 @continue(! is_array($item))
                 <figure class="{{ $layout->item() }}">
                     <div @class(['card-body' => $layout->isCard()])>
-                        <blockquote class="text-lg leading-relaxed">&ldquo;{{ $item['quote'] ?? '' }}&rdquo;</blockquote>
+                        <blockquote class="site-quote text-lg leading-relaxed">{{ $item['quote'] ?? '' }}</blockquote>
                         <figcaption class="mt-4 flex items-center gap-3">
                             @if ($item['avatar_url'] ?? null)
-                                <img src="{{ $item['avatar_url'] }}" alt="{{ $item['author'] ?? '' }}" class="size-10 rounded-full object-cover" />
+                                <img src="{{ $item['avatar_url'] }}" alt="{{ $item['author'] ?? '' }}" class="size-10 rounded-full object-cover ring-1 ring-base-content/10" />
                             @endif
                             <div>
                                 <span class="font-semibold">{{ $item['author'] ?? '' }}</span>

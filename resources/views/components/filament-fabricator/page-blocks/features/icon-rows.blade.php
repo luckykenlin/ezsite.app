@@ -22,7 +22,7 @@
                     $link = $item['link_url'] ?? null;
                 @endphp
                 <div @class(['relative flex gap-4', $layout->item()])>
-                    <span class="flex size-12 shrink-0 items-center justify-center rounded-selector bg-primary/10 text-2xl" aria-hidden="true">{{ $item['icon'] ?? '✦' }}</span>
+                    <span class="flex size-12 shrink-0 items-center justify-center rounded-selector border border-primary/20 bg-primary/10 text-2xl" aria-hidden="true">{{ $item['icon'] ?? '✦' }}</span>
                     <div>
                         <h3 class="font-semibold">
                             {{-- Same stretched-link pattern as the grid view. --}}

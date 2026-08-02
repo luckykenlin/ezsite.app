@@ -34,8 +34,10 @@
         </div>
 
         @if ($image_url)
-            <div class="overflow-hidden rounded-box">
-                <img src="{{ $image_url }}" alt="{{ $heading }}" class="{{ $layout->image() }} w-full object-cover" />
+            <div class="site-frame isolate">
+                <div class="overflow-hidden rounded-box">
+                    <img src="{{ $image_url }}" alt="{{ $heading }}" class="{{ $layout->image() }} w-full object-cover" />
+                </div>
             </div>
         @endif
     </div>

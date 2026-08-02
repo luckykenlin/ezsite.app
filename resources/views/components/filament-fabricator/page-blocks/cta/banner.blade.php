@@ -37,7 +37,7 @@
                     <a href="{{ $cta_url }}" @class(['btn', 'btn-primary' => $card, 'btn-neutral' => ! $card])>{{ $cta_label }}</a>
                 @endif
                 @if ($secondary_label && $secondary_url)
-                    <a href="{{ $secondary_url }}" class="btn btn-ghost">{{ $secondary_label }}</a>
+                    <a href="{{ $secondary_url }}" class="site-link-cta">{{ $secondary_label }}</a>
                 @endif
             </div>
         </div>

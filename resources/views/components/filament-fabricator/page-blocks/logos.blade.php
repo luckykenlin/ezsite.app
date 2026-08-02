@@ -39,7 +39,7 @@
                             src="{{ $item['url'] }}"
                             alt="{{ $item['name'] }}"
                             loading="lazy"
-                            class="h-10 w-auto opacity-70 grayscale transition hover:opacity-100 hover:grayscale-0"
+                            class="max-h-10 w-auto max-w-36 object-contain opacity-70 grayscale transition hover:opacity-100 hover:grayscale-0"
                         />
                     </a>
                 @else
@@ -47,7 +47,7 @@
                         src="{{ $item['url'] }}"
                         alt="{{ $item['name'] }}"
                         loading="lazy"
-                        class="h-10 w-auto opacity-70 grayscale"
+                        class="max-h-10 w-auto max-w-36 object-contain opacity-70 grayscale"
                     />
                 @endif
             @endforeach

@@ -26,7 +26,7 @@
     <x-slot:backdrop>
         @if ($image_url)
             <img src="{{ $image_url }}" alt="{{ $heading }}" class="absolute inset-0 -z-10 h-full w-full object-cover" />
-            <div class="absolute inset-0 -z-10 bg-neutral/60"></div>
+            <div class="site-scrim absolute inset-0 -z-10"></div>
         @endif
     </x-slot:backdrop>
 
@@ -38,7 +38,7 @@
         <h1 data-editor-field="heading" class="site-display-lg">{{ $heading }}</h1>
 
         @if ($subheading)
-            <p data-editor-field="subheading" class="site-intro mt-6 max-w-2xl opacity-80">{{ $subheading }}</p>
+            <p data-editor-field="subheading" class="site-intro mt-6 max-w-2xl opacity-90">{{ $subheading }}</p>
         @endif
 
         @if ($cta_label && $cta_url)

@@ -52,10 +52,15 @@
                 <div @class([
                     $layout->item(),
                     'h-full' => $layout->isCard(),
-                    'ring-2 ring-primary' => $isFeatured && $layout->isCard(),
+                    'relative ring-1 ring-primary' => $isFeatured && $layout->isCard(),
                 ])>
+                    {{-- The badge sits astride the card's top edge — a quieter
+                         highlight than doubling the ring weight. --}}
+                    @if ($isFeatured && $layout->isCard())
+                        <span class="badge badge-primary absolute -top-3 left-1/2 -translate-x-1/2">Recommended</span>
+                    @endif
                     <div @class(['card-body' => $layout->isCard()])>
-                        @if ($isFeatured)
+                        @if ($isFeatured && ! $layout->isCard())
                             <span class="badge badge-primary self-start">Recommended</span>
                         @endif
 

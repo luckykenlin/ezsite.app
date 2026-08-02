@@ -224,7 +224,7 @@ it('renders each block variant with its own layout', function (array $block, arr
             'heading' => 'By the numbers',
             'stats' => [['value' => '500+', 'label' => 'happy customers']],
         ]],
-        ['500+', 'happy customers'], 'tabular-nums text-primary', 'none',
+        ['500+', 'happy customers'], 'site-stat text-primary', 'none',
     ],
     'team renders a person with a role' => [
         ['type' => 'team', 'data' => [
@@ -622,3 +622,57 @@ it('skips a bound block with a warning when its bind cannot resolve, while sibli
         ['type' => 'footer', 'data' => ['variant' => 'minimal']], 'footer-center', true, 2,
     ],
 ]);
+
+/*
+ * The craft layer (resources/css/site.css) reaches the page through exactly
+ * these hooks — a scrim that replaced the flat overlay, the enum-injected
+ * card chrome, the offerings price leader, the hung testimonial quote, and
+ * the arrow-link secondary CTA. One page exercises all of them so a view
+ * refactor cannot silently drop a detail back to the DaisyUI default.
+ */
+it('renders the craft details through the shared site-* classes', function (): void {
+    $tenant = Tenant::factory()->withDomain('acme')->create();
+
+    $this->createTenantPage($tenant, [
+        ['type' => 'hero', 'data' => [
+            'variant' => 'full-bleed-overlay',
+            'heading' => 'Welcome friends',
+            'image_url' => 'https://example.com/hero.jpg',
+        ]],
+        ['type' => 'hero', 'data' => [
+            'variant' => 'left-text-right-image',
+            'heading' => 'Meet the bakery',
+            'image_url' => 'https://example.com/side.jpg',
+        ]],
+        ['type' => 'features', 'data' => [
+            'variant' => 'grid',
+            'features' => [['title' => 'Fast turnaround']],
+        ]],
+        ['type' => 'offerings', 'data' => [
+            'appearance' => ['columns' => 'one', 'item_style' => 'plain'],
+            'items' => [['name' => 'Espresso', 'price' => '$4']],
+        ]],
+        ['type' => 'testimonials', 'data' => [
+            'variant' => 'grid',
+            'testimonials' => [['quote' => 'Absolutely wonderful service', 'author' => 'Amy Chen']],
+        ]],
+        ['type' => 'cta', 'data' => [
+            'variant' => 'banner',
+            'heading' => 'Ready to book?',
+            'cta_label' => 'Book now',
+            'cta_url' => '/contact',
+            'secondary_label' => 'Call us',
+            'secondary_url' => 'tel:+15551234567',
+        ]],
+    ]);
+
+    $this->get(sprintf('http://acme.%s/', $this->centralDomain()))
+        ->assertOk()
+        ->assertSeeHtml('site-scrim')
+        ->assertDontSeeHtml('bg-neutral/60')
+        ->assertSeeHtml('site-frame')
+        ->assertSeeHtml('site-card')
+        ->assertSeeHtml('site-leaders')
+        ->assertSeeHtml('site-quote')
+        ->assertSeeHtml('site-link-cta');
+});

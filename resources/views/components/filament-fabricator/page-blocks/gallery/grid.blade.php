@@ -20,10 +20,14 @@
         <div class="mt-12 grid gap-4 {{ $layout->grid() }}">
             @foreach ($items as $item)
                 @continue(! is_array($item) || ! ($item['url'] ?? null))
-                <figure class="overflow-hidden rounded-box">
-                    <img src="{{ $item['url'] }}" alt="{{ $item['alt'] ?? '' }}" class="{{ $layout->image() }} w-full object-cover" loading="lazy" />
+                <figure class="group">
+                    {{-- The clip wrapper keeps the hover zoom inside the frame
+                         without clipping the caption below it. --}}
+                    <div class="overflow-hidden rounded-box">
+                        <img src="{{ $item['url'] }}" alt="{{ $item['alt'] ?? '' }}" class="{{ $layout->image() }} w-full object-cover transition duration-300 group-hover:scale-105 motion-reduce:transition-none motion-reduce:group-hover:scale-100" loading="lazy" />
+                    </div>
                     @if ($item['caption'] ?? null)
-                        <figcaption class="px-1 py-2 text-sm text-base-content/60">{{ $item['caption'] }}</figcaption>
+                        <figcaption class="px-1 pt-3 text-sm text-base-content/60">{{ $item['caption'] }}</figcaption>
                     @endif
                 </figure>
             @endforeach

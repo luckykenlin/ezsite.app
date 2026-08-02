@@ -10,7 +10,7 @@ it('resolves a section to its contract defaults when nothing is stored', functio
     expect($layout->container())->toBe('mx-auto px-6 max-w-7xl')
         ->and($layout->heading())->toBe('site-h2 text-center')
         ->and($layout->grid())->toBe('grid-cols-1 sm:grid-cols-2 lg:grid-cols-3')
-        ->and($layout->item())->toBe('card bg-base-200')
+        ->and($layout->item())->toBe('card bg-base-200 site-card')
         ->and($layout->isCard())->toBeTrue()
         ->and($layout->image())->toBe('aspect-video')
         ->and($layout->toneDefault())->toBe('base')
@@ -51,8 +51,8 @@ it('chooses card surfaces against the resolved tone, not in a vacuum', function 
     $onMuted = SectionLayout::for('features', 'grid')->resolve(['tone' => 'muted']);
     $onDark = SectionLayout::for('features', 'grid')->resolve(['tone' => 'inverted']);
 
-    expect($onMuted->item())->toBe('card bg-base-100')
-        ->and($onDark->item())->toBe('card bg-base-100 text-base-content');
+    expect($onMuted->item())->toBe('card bg-base-100 site-card')
+        ->and($onDark->item())->toBe('card bg-base-100 text-base-content site-card');
 });
 
 it('throws on a type or variant a view could only name by typo', function (): void {

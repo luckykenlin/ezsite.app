@@ -22,10 +22,14 @@
         <div class="-mx-6 mt-12 flex snap-x snap-mandatory gap-4 overflow-x-auto px-6 pb-4">
             @foreach ($items as $item)
                 @continue(! is_array($item) || ! ($item['url'] ?? null))
-                <figure class="w-72 shrink-0 snap-center md:w-96">
-                    <img src="{{ $item['url'] }}" alt="{{ $item['alt'] ?? '' }}" class="{{ $layout->image() }} w-full rounded-box object-cover" loading="lazy" />
+                <figure class="group w-72 shrink-0 snap-center md:w-96">
+                    {{-- The clip wrapper keeps the hover zoom inside the frame
+                         without clipping the caption below it. --}}
+                    <div class="overflow-hidden rounded-box">
+                        <img src="{{ $item['url'] }}" alt="{{ $item['alt'] ?? '' }}" class="{{ $layout->image() }} w-full object-cover transition duration-300 group-hover:scale-105 motion-reduce:transition-none motion-reduce:group-hover:scale-100" loading="lazy" />
+                    </div>
                     @if ($item['caption'] ?? null)
-                        <figcaption class="px-1 py-2 text-sm text-base-content/60">{{ $item['caption'] }}</figcaption>
+                        <figcaption class="px-1 pt-3 text-sm text-base-content/60">{{ $item['caption'] }}</figcaption>
                     @endif
                 </figure>
             @endforeach

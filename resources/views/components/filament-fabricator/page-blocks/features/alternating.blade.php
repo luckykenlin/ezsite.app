@@ -29,7 +29,7 @@
                 <div class="gap-8 md:grid md:grid-cols-2 md:items-center md:gap-12">
                     {{-- The alternation comes from the position, never from
                          stored content: even rows put the image second. --}}
-                    <div @class(['md:order-2' => $loop->even])>
+                    <div @class(['md:order-2' => $loop->even, 'site-frame isolate' => $image && $loop->odd])>
                         @if ($image)
                             {{-- Decorative: the title beside it is the accessible
                                  name, so an alt here would be read out twice. --}}

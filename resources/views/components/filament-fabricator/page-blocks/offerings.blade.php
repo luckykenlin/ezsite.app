@@ -55,6 +55,10 @@
                                     @endif
                                 </div>
                                 @if ($item['price'] ?? null)
+                                    {{-- The menu leader: an empty span the dots
+                                         fill, so name and price stay connected
+                                         however wide the row is. --}}
+                                    <span class="site-leaders" aria-hidden="true"></span>
                                     <span class="shrink-0 font-semibold tabular-nums">{{ $item['price'] }}</span>
                                 @endif
                             </div>

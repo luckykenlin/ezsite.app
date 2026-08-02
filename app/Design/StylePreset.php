@@ -53,7 +53,7 @@ enum StylePreset: string
     {
         return match ($this) {
             self::WarmCraft => ['hero' => 'left-text-right-image', 'features' => 'alternating', 'testimonials' => 'grid', 'gallery' => 'masonry', 'cta' => 'banner', 'header' => 'centered', 'footer' => 'columns', 'prose' => 'side-heading', 'steps' => 'list'],
-            self::ProfessionalMinimal => ['hero' => 'centered-minimal', 'features' => 'grid', 'testimonials' => 'grid', 'gallery' => 'grid', 'cta' => 'banner', 'header' => 'simple', 'footer' => 'minimal', 'prose' => 'stacked', 'steps' => 'list'],
+            self::ProfessionalMinimal => ['hero' => 'centered-minimal', 'features' => 'icon-rows', 'testimonials' => 'grid', 'gallery' => 'grid', 'cta' => 'banner', 'header' => 'simple', 'footer' => 'minimal', 'prose' => 'stacked', 'steps' => 'list'],
             self::FreshModern => ['hero' => 'left-text-right-image', 'features' => 'grid', 'testimonials' => 'carousel', 'gallery' => 'grid', 'cta' => 'banner', 'header' => 'simple', 'footer' => 'columns', 'prose' => 'stacked', 'steps' => 'timeline'],
             self::BoldEditorial => ['hero' => 'full-bleed-overlay', 'features' => 'grid', 'testimonials' => 'spotlight', 'gallery' => 'masonry', 'cta' => 'banner', 'header' => 'centered', 'footer' => 'minimal', 'prose' => 'side-heading', 'steps' => 'list'],
             self::CalmCoastal => ['hero' => 'centered-minimal', 'features' => 'grid', 'testimonials' => 'carousel', 'gallery' => 'grid', 'cta' => 'banner', 'header' => 'simple', 'footer' => 'columns', 'prose' => 'stacked', 'steps' => 'timeline'],
@@ -120,6 +120,8 @@ enum StylePreset: string
                 'faq' => ['tone' => 'muted'],
                 'contact' => ['tone' => 'muted', 'spacing' => 'airy'],
                 'cta' => ['tone' => 'muted', 'item_style' => 'card'],
+                'stats' => ['tone' => 'muted'],
+                'steps' => ['spacing' => 'airy'],
             ],
             // Sells trust, so it spends nothing on decoration: almost every
             // section sits on the page background, including testimonials, whose
@@ -131,6 +133,10 @@ enum StylePreset: string
                 'testimonials' => ['tone' => 'base'],
                 'faq' => ['tone' => 'base'],
                 'contact' => ['tone' => 'base'],
+                // Outline, not filled: plan cards drawn in one hairline are the
+                // most this preset ever spends on chrome.
+                'pricing' => ['item_style' => 'outline'],
+                'logos' => ['tone' => 'base'],
             ],
             // Alternating shade gives it pace without weight — the closest of the
             // six to a conventional SaaS page.
@@ -142,6 +148,7 @@ enum StylePreset: string
                 'faq' => ['tone' => 'muted', 'width' => 'wide', 'align' => 'center', 'columns' => 'two'],
                 'team' => ['item_style' => 'card', 'image_shape' => 'portrait'],
                 'contact' => ['tone' => 'base'],
+                'pricing' => ['tone' => 'muted'],
             ],
             // The one preset that uses the dark tone as a design element:
             // photographs and quotes go on black, and the compact spacing token
@@ -156,6 +163,7 @@ enum StylePreset: string
                 'stats' => ['tone' => 'inverted'],
                 'team' => ['item_style' => 'card', 'image_shape' => 'portrait'],
                 'contact' => ['tone' => 'inverted', 'width' => 'narrow', 'align' => 'center', 'columns' => 'one'],
+                'steps' => ['spacing' => 'tight'],
             ],
             // Air is the whole point: every content section gets the roomiest
             // step, and nothing is ever dark — wellness and care do not shout.
@@ -168,6 +176,8 @@ enum StylePreset: string
                 'prose' => ['spacing' => 'airy'],
                 'faq' => ['tone' => 'base', 'spacing' => 'airy'],
                 'contact' => ['tone' => 'muted', 'spacing' => 'airy', 'width' => 'narrow', 'align' => 'center', 'columns' => 'one'],
+                'stats' => ['tone' => 'muted'],
+                'steps' => ['spacing' => 'airy'],
             ],
             // Colour-forward and busy on purpose: the brand tone shows up on the
             // call to action, and shaded bands keep the page lively.
@@ -180,6 +190,9 @@ enum StylePreset: string
                 'stats' => ['tone' => 'inverted'],
                 'contact' => ['tone' => 'muted', 'width' => 'narrow', 'align' => 'center', 'columns' => 'one'],
                 'cta' => ['tone' => 'accent'],
+                // Square, not portrait: with the Full radius token the crop
+                // reads as a sticker — the playful cousin of the studio card.
+                'team' => ['item_style' => 'card', 'image_shape' => 'square'],
             ],
             // The whole site is already dark (NoirGold base), so this preset
             // never reaches for `inverted` — BoldEditorial keeps sole ownership
@@ -195,6 +208,7 @@ enum StylePreset: string
                 'team' => ['item_style' => 'card', 'image_shape' => 'portrait'],
                 'contact' => ['tone' => 'base', 'width' => 'narrow', 'align' => 'center', 'columns' => 'one'],
                 'cta' => ['tone' => 'accent', 'spacing' => 'tight'],
+                'logos' => ['tone' => 'base'],
             ],
         };
     }

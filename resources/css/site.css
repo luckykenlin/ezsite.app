@@ -140,6 +140,7 @@
     .site-intro {
         font-size: var(--type-intro-size, 1.125rem);
         line-height: calc(1.75 / 1.125);
+        text-wrap: pretty;
     }
 
     /*
@@ -184,6 +185,172 @@
        an overlap there would ride up over the site header. */
     section:first-child > .site-divider {
         display: none;
+    }
+
+    /*
+     * The craft layer — the shared finishing details that keep block views
+     * from reading as bare DaisyUI defaults. Same contract as the type
+     * classes above: every value derives from the tenant's tokens
+     * (--color-*, --radius-*, --type-*, --font-heading) or from
+     * currentColor, so one declaration holds across all palettes (including
+     * the dark ones) and across accent/inverted section tones, which
+     * re-assert their own `color`. Colour stays out of these classes for the
+     * same reason it stays out of .site-h2.
+     */
+
+    /*
+     * Card chrome. Applied by SectionItemStyle::Card (the enum, never a
+     * view — arch-tested) on top of the tone-picked surface: a
+     * currentColor hairline reads dark-on-light and light-on-dark without
+     * per-tone variants, and the hover lift is gated to real pointers.
+     */
+    .site-card {
+        border: 1px solid color-mix(in oklch, currentcolor 10%, transparent);
+        box-shadow:
+            0 1px 2px oklch(0% 0 0 / 0.04),
+            0 10px 24px -14px oklch(0% 0 0 / 0.12);
+        transition:
+            translate 0.2s ease,
+            box-shadow 0.2s ease;
+    }
+
+    @media (hover: hover) {
+        .site-card:hover {
+            translate: 0 -3px;
+            box-shadow:
+                0 2px 4px oklch(0% 0 0 / 0.05),
+                0 16px 32px -16px oklch(0% 0 0 / 0.18);
+        }
+    }
+
+    /*
+     * The menu-style dotted leader between an offering's name and its
+     * price. An empty flex-growing span so the dots always span exactly the
+     * gap; the baseline nudge sits the rule on the text baseline.
+     */
+    .site-leaders {
+        flex: 1 1 auto;
+        min-width: 2rem;
+        translate: 0 -0.3em;
+        border-bottom: 2px dotted
+            color-mix(in oklch, currentcolor 25%, transparent);
+    }
+
+    /*
+     * Testimonial quote mark, hung above the quote in the heading face.
+     * A fixed em height crops the glyph's descender space so the quote text
+     * tucks up under it regardless of the tenant's font pair.
+     */
+    .site-quote {
+        position: relative;
+    }
+
+    .site-quote::before {
+        content: '\201C';
+        display: block;
+        height: 0.55em;
+        font-family: var(--font-heading);
+        font-size: calc(3rem * var(--type-scale, 1));
+        font-weight: var(--type-display-weight, 700);
+        line-height: 1;
+        color: var(--color-primary);
+        opacity: 0.9;
+    }
+
+    /*
+     * Stat values get display-grade type without the .site-display
+     * responsive jump (a stat row holds three or four of them), and
+     * adjacent stats are seamed by a hairline once the grid goes
+     * multi-column.
+     */
+    .site-stat {
+        font-size: calc(3rem * var(--type-scale, 1));
+        line-height: 1;
+        font-weight: var(--type-display-weight, 700);
+        letter-spacing: var(--type-display-tracking, -0.025em);
+        font-variant-numeric: tabular-nums;
+    }
+
+    @media (width >= 48rem) {
+        .site-stat-item + .site-stat-item {
+            border-inline-start: 1px solid
+                color-mix(in oklch, currentcolor 14%, transparent);
+        }
+    }
+
+    /*
+     * The photo-overlay scrim (full-bleed hero, full-photo CTA). Bottom-
+     * weighted so the copy zone keeps at least the contrast the old flat
+     * bg-neutral/60 gave it while the top of the photo stays legible;
+     * tracks --color-neutral so dark palettes keep one coherent cast.
+     * The flat 60% overlay literal is arch-banned from views in its favour.
+     */
+    .site-scrim {
+        background: linear-gradient(
+            to top,
+            color-mix(in oklch, var(--color-neutral) 88%, transparent),
+            color-mix(in oklch, var(--color-neutral) 52%, transparent) 55%,
+            color-mix(in oklch, var(--color-neutral) 28%, transparent)
+        );
+    }
+
+    /*
+     * Secondary call-to-action as an arrow link instead of a second pill —
+     * two pills flatten the action hierarchy. Inherits currentColor so it
+     * needs no accent/inverted variants.
+     */
+    .site-link-cta {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.375rem;
+        font-weight: 600;
+        text-underline-offset: 4px;
+    }
+
+    .site-link-cta::after {
+        content: '\2192';
+        transition: translate 0.15s ease;
+    }
+
+    @media (hover: hover) {
+        .site-link-cta:hover {
+            text-decoration: underline;
+        }
+
+        .site-link-cta:hover::after {
+            translate: 3px 0;
+        }
+    }
+
+    /*
+     * Offset frame behind a hero/feature photo — a primary-tinted echo of
+     * the image's own radius. Needs `relative isolate` on the element so
+     * the -1 z-index stays inside the block's own stacking context.
+     */
+    .site-frame {
+        position: relative;
+    }
+
+    .site-frame::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        translate: 0.875rem 0.875rem;
+        z-index: -1;
+        border-radius: var(--radius-box, 1rem);
+        background: color-mix(in oklch, var(--color-primary) 14%, transparent);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .site-card,
+        .site-card:hover,
+        .site-link-cta::after {
+            transition: none;
+        }
+
+        .site-card:hover {
+            translate: none;
+        }
     }
 
     @media (width >= 48rem) {

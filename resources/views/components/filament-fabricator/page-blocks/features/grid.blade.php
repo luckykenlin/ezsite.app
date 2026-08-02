@@ -26,7 +26,7 @@
                     $image = $item['image_url'] ?? null;
                     $link = $item['link_url'] ?? null;
                 @endphp
-                <div @class(['relative', $layout->item(), 'transition hover:shadow-lg' => $link && $layout->isCard()])>
+                <div @class(['relative', $layout->item()])>
                     @if ($image)
                         {{-- Decorative: the title next to it is the accessible
                              name, so an alt here would be read out twice. --}}
@@ -36,7 +36,7 @@
                         {{-- The glyph is a stand-in for imagery; with a real
                              photo above it, it is just noise. --}}
                         @if (($item['icon'] ?? null) && ! $image)
-                            <span class="text-3xl" aria-hidden="true">{{ $item['icon'] }}</span>
+                            <span class="flex size-12 items-center justify-center rounded-selector bg-primary/10 text-2xl" aria-hidden="true">{{ $item['icon'] }}</span>
                         @endif
                         <h3 @class(['card-title' => $layout->isCard(), 'text-lg font-semibold' => ! $layout->isCard()])>
                             {{-- One link, labelled by the title, stretched over

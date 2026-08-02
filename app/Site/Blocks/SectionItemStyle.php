@@ -53,7 +53,7 @@ enum SectionItemStyle: string
     {
         return match ($this) {
             self::Plain => '',
-            self::Card => mb_trim('card '.$tone->itemSurface()),
+            self::Card => mb_trim('card '.$tone->itemSurface().' site-card'),
             self::Outline => 'card border border-base-300',
         };
     }
