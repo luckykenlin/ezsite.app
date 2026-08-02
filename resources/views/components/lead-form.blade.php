@@ -80,75 +80,21 @@
         </div>
 
         @if ($fields->showsName())
-            <div>
-                <label class="floating-label">
-                    <span>{{ __('Your name') }}</span>
-                    <input
-                        type="text"
-                        name="name"
-                        value="{{ old('name') }}"
-                        maxlength="120"
-                        autocomplete="name"
-                        placeholder="{{ __('Your name') }}"
-                        class="input input-bordered w-full @if ($bag->has('name')) input-error @endif"
-                    >
-                </label>
-                <x-lead-form-error :bag="$bag" field="name" />
-            </div>
+            <x-lead-form-field :bag="$bag" field="name" :label="__('Your name')" maxlength="120" autocomplete="name" />
         @endif
 
         <div @class(['grid gap-4', 'sm:grid-cols-2' => $side])>
             @if ($fields->showsPhone())
-                <div>
-                    <label class="floating-label">
-                        <span>{{ __('Phone') }}</span>
-                        <input
-                            type="tel"
-                            name="phone"
-                            value="{{ old('phone') }}"
-                            maxlength="40"
-                            autocomplete="tel"
-                            placeholder="{{ __('Phone') }}"
-                            class="input input-bordered w-full @if ($bag->has('phone')) input-error @endif"
-                        >
-                    </label>
-                    <x-lead-form-error :bag="$bag" field="phone" />
-                </div>
+                <x-lead-form-field :bag="$bag" field="phone" :label="__('Phone')" type="tel" maxlength="40" autocomplete="tel" />
             @endif
 
             @if ($fields->showsEmail())
-                <div>
-                    <label class="floating-label">
-                        <span>{{ __('Email') }}</span>
-                        <input
-                            type="email"
-                            name="email"
-                            value="{{ old('email') }}"
-                            maxlength="255"
-                            autocomplete="email"
-                            placeholder="{{ __('Email') }}"
-                            class="input input-bordered w-full @if ($bag->has('email')) input-error @endif"
-                        >
-                    </label>
-                    <x-lead-form-error :bag="$bag" field="email" />
-                </div>
+                <x-lead-form-field :bag="$bag" field="email" :label="__('Email')" type="email" maxlength="255" autocomplete="email" />
             @endif
         </div>
 
         @if ($fields->showsMessage())
-            <div>
-                <label class="floating-label">
-                    <span>{{ __('How can we help?') }}</span>
-                    <textarea
-                        name="message"
-                        rows="4"
-                        maxlength="2000"
-                        placeholder="{{ __('How can we help?') }}"
-                        class="textarea textarea-bordered w-full @if ($bag->has('message')) textarea-error @endif"
-                    >{{ old('message') }}</textarea>
-                </label>
-                <x-lead-form-error :bag="$bag" field="message" />
-            </div>
+            <x-lead-form-field :bag="$bag" field="message" :label="__('How can we help?')" :textarea="true" maxlength="2000" />
         @endif
 
         <button type="submit" class="btn btn-primary">

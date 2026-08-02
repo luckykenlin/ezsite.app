@@ -8,12 +8,7 @@
 ])
 @php
     $layout = \App\Site\Blocks\SectionLayout::for('updates', 'cards')->resolve($appearance);
-
-    $feed = resolve(\App\Site\PostFeed::class);
-    // Stored data, so tryFrom: an unreadable filter means "everything" rather
-    // than an empty section.
-    $kind = \App\Enums\PostKind::tryFrom(is_string($kindFilter) ? $kindFilter : '');
-    $posts = $feed->isFresh() ? $feed->latest(max(1, (int) $count), $kind) : collect();
+    $posts = resolve(\App\Site\PostFeed::class)->forBlock($count, $kindFilter);
 @endphp
 {{--
     Renders NOTHING when there is nothing recent — see PostFeed::isFresh().

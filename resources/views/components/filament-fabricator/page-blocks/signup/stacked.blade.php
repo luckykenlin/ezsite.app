@@ -10,9 +10,6 @@
 ])
 @php
     $layout = \App\Site\Blocks\SectionLayout::for('signup', 'stacked')->resolve($appearance);
-
-    $fieldSet = \App\Enums\LeadFieldSet::tryFrom((string) $fields) ?? \App\Enums\LeadFieldSet::Phone;
-    $formId = resolve(\App\Site\LeadFormIds::class)->next('signup');
     $centered = str_contains($layout->heading(), 'text-center');
 @endphp
 <x-site.section :appearance="$appearance" :tone="$layout->toneDefault()" :spacing="$layout->spacingDefault()">
@@ -28,12 +25,10 @@
             @endif
 
             <div @class(['mt-8 w-full', 'flex justify-center' => $centered])>
-                <x-lead-form
-                    :form-id="$formId"
+                <x-site.signup-form
                     class="max-w-md text-start"
                     :page="$page"
-                    :source="\App\Enums\LeadSource::InlineForm"
-                    :fields="$fieldSet"
+                    :fields="$fields"
                     :button-label="$button_label"
                     :success-message="$success_message"
                     :fine-print="$fine_print"

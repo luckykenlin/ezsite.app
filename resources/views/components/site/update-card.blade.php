@@ -23,12 +23,7 @@
     @endif
 
     <div @class(['card-body' => $layout->isCard(), 'mt-4' => ! $layout->isCard() && $coverUrl])>
-        <p class="site-eyebrow">
-            <time datetime="{{ $post->published_at?->toDateString() }}">{{ $post->published_at?->isoFormat('LL') }}</time>
-            @if ($post->kind !== \App\Enums\PostKind::Update)
-                <span class="site-tone-accent">{{ $post->kind->getLabel() }}</span>
-            @endif
-        </p>
+        <x-site.update-meta :post="$post" />
 
         <h3 @class(['card-title' => $layout->isCard(), 'site-h5' => ! $layout->isCard()])>
             <a href="{{ $post->getUrl() }}" class="after:absolute after:inset-0">{{ $post->title }}</a>

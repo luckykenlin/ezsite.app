@@ -18,20 +18,12 @@
 @php
     $layout = \App\Site\Blocks\SectionLayout::for('updates', 'list')->resolve(null);
     $coverUrl = resolve(\App\Site\MediaResolver::class)->url($post->cover_media_id);
-    // The phone for a CALL button comes from the business profile, never from the
-    // update: factual data is referenced, never copied.
-    $business = resolve(\App\Site\BindResolver::class)->business();
     $expired = $post->isExpired();
 @endphp
 <x-site.document :page="null" :title="$post->title" :seo-data="$seoData">
     <x-site.section :tone="$layout->toneDefault()" :spacing="$layout->spacingDefault()">
         <article class="{{ $layout->container() }}">
-            <p class="site-eyebrow">
-                <time datetime="{{ $post->published_at?->toDateString() }}">{{ $post->published_at?->isoFormat('LL') }}</time>
-                @if ($post->kind !== \App\Enums\PostKind::Update)
-                    <span class="site-tone-accent">{{ $post->kind->getLabel() }}</span>
-                @endif
-            </p>
+            <x-site.update-meta :post="$post" />
 
             <h1 class="site-h1 mt-2">{{ $post->title }}</h1>
 
@@ -45,7 +37,7 @@
                 </figure>
             @endif
 
-            @foreach ($post->paragraphs() as $paragraph)
+            @foreach ($paragraphs as $paragraph)
                 <p class="mt-6 text-base-content/80">{{ $paragraph }}</p>
             @endforeach
 
@@ -74,10 +66,7 @@
                         ]) }}
                     </p>
                 @elseif ($post->cta_action !== null)
-                    <a
-                        href="{{ $post->cta_action->requiresUrl() ? ($post->cta_url ?? '/') : ('tel:'.($business?->contact_phone ?? '')) }}"
-                        class="btn btn-primary"
-                    >{{ $post->cta_action->getLabel() }}</a>
+                    <a href="{{ $post->ctaHref($business) }}" class="btn btn-primary">{{ $post->cta_action->getLabel() }}</a>
                 @endif
             </div>
 

@@ -19,7 +19,6 @@
     compile to nothing.
 --}}
 @use('App\Design\StylePreset')
-@use('App\Design\ThemeVariables')
 @props(['seo' => null])
 @php
     // FreshModern for the marketing site: geometric, green-tinted and
@@ -41,9 +40,7 @@
         <title>{{ config('app.name') }}</title>
     @endif
 
-    @vite(['resources/css/site.css'])
-    {{ app(\Illuminate\Foundation\Vite::class)->fonts($tokens->fontPair->viteAliases()) }}
-    {{ ThemeVariables::styleFor($tokens) }}
+    <x-site.head-assets :tokens="$tokens" />
 
     @livewireStyles
 </head>

@@ -2,8 +2,10 @@
 
 declare(strict_types=1);
 
+use App\Enums\PostCtaAction;
 use App\Enums\PostKind;
 use App\Enums\PostStatus;
+use App\Models\Business;
 use App\Models\Location;
 use App\Models\Post;
 use App\Models\Tenant;
@@ -126,20 +128,17 @@ test('an update is current only while published and inside its window', function
     'scheduled to start later' => ['upcoming', true, false, false],
 ]);
 
-test('the body splits into paragraphs on blank lines', function (?string $body, array $paragraphs): void {
-    // The view renders one escaped <p> per entry rather than nl2br over the whole
-    // column, which keeps {!! !!} off a page built from tenant-authored text.
-    $post = Post::factory()->make(['body' => $body]);
+test('the button href references the business phone rather than copying it', function (): void {
+    // Factual data is referenced, never copied — and Google rejects a CALL
+    // action that carries a url, which is why the arms are exclusive.
+    $business = Business::factory()->make(['contact_phone' => '+1 555 0100']);
 
-    expect($post->paragraphs())->toBe($paragraphs);
-})->with([
-    'nothing written' => [null, []],
-    'one paragraph' => ['Just the one.', ['Just the one.']],
-    'two paragraphs' => ["First.\n\nSecond.", ['First.', 'Second.']],
-    'a single newline is not a break' => ["First\nstill first.", ["First\nstill first."]],
-    'runs of blank lines collapse' => ["First.\n\n\n\nSecond.", ['First.', 'Second.']],
-    'trailing whitespace is trimmed away' => ["  First.  \n\n  \n\nSecond.\n\n", ['First.', 'Second.']],
-]);
+    expect(Post::factory()->make(['cta_action' => PostCtaAction::Call])->ctaHref($business))->toBe('tel:+1 555 0100')
+        ->and(Post::factory()->make(['cta_action' => PostCtaAction::Call])->ctaHref(null))->toBe('tel:')
+        ->and(Post::factory()->make(['cta_action' => PostCtaAction::Book, 'cta_url' => '/contact'])->ctaHref($business))->toBe('/contact')
+        ->and(Post::factory()->make(['cta_action' => PostCtaAction::Book, 'cta_url' => null])->ctaHref($business))->toBe('/')
+        ->and(Post::factory()->make(['cta_action' => null])->ctaHref($business))->toBeNull();
+});
 
 test('the published scope returns only published updates, newest first', function (): void {
     $tenant = Tenant::factory()->create();

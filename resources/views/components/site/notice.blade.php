@@ -17,7 +17,6 @@
     source line and must not introduce utility classes of their own.
 --}}
 @use('App\Design\StylePreset')
-@use('App\Design\ThemeVariables')
 @use('App\Site\Favicon')
 @props(['business' => null, 'title', 'heading', 'body' => null, 'noindex' => false])
 @php
@@ -40,9 +39,7 @@
         <meta name="robots" content="noindex">
     @endif
 
-    @vite(['resources/css/site.css'])
-    {{ app(\Illuminate\Foundation\Vite::class)->fonts($tokens->fontPair->viteAliases()) }}
-    {{ ThemeVariables::styleFor($tokens, $business) }}
+    <x-site.head-assets :tokens="$tokens" :business="$business" />
 
     @if ($business)
         {{ Favicon::links($business) }}

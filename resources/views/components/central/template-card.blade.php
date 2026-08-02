@@ -24,14 +24,7 @@
                 class="h-full w-full object-cover object-top transition-transform duration-300 group-hover:scale-[1.02]"
             >
         @else
-            {{-- No capture yet: the template's own three brand hexes, which is
-                 at least the right colours for the site behind the link. --}}
-            <div
-                class="flex h-full w-full items-end p-6"
-                style="background-image: linear-gradient(135deg, {{ $definition->brandPrimary }}, {{ $definition->brandAccent }});"
-            >
-                <span class="site-h3 font-heading text-white drop-shadow">{{ $template->label() }}</span>
-            </div>
+            <x-central.template-placeholder :definition="$definition" :label="$template->label()" class="h-full p-6" />
         @endif
     </div>
 

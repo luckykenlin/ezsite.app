@@ -138,6 +138,26 @@ final class Post extends Model
     }
 
     /**
+     * Where the update's button sends a visitor, or null when there is no
+     * button.
+     *
+     * The phone for a CALL button comes from the business profile, never from
+     * the update — factual data is referenced, never copied
+     * (docs/business-data-model.md). Google rejects a CALL action carrying a
+     * url at all, which is why the two arms are exclusive.
+     */
+    public function ctaHref(?Business $business): ?string
+    {
+        if ($this->cta_action === null) {
+            return null;
+        }
+
+        return $this->cta_action->requiresUrl()
+            ? ($this->cta_url ?? '/')
+            : 'tel:'.($business->contact_phone ?? '');
+    }
+
+    /**
      * Whether the window has closed.
      *
      * Computed, never stored: with no scheduler there is nothing to stamp a
@@ -161,29 +181,6 @@ final class Post extends Model
         }
 
         return $this->starts_at === null || ! $this->starts_at->isFuture();
-    }
-
-    /**
-     * The body split into paragraphs on blank lines.
-     *
-     * The view renders one escaped `<p>` per entry rather than `nl2br` over the
-     * whole column, which keeps the markup structural and keeps `{!! !!}` out of
-     * a page built from tenant-authored text.
-     *
-     * @return list<string>
-     */
-    public function paragraphs(): array
-    {
-        if ($this->body === null) {
-            return [];
-        }
-
-        $paragraphs = preg_split('/\R{2,}/', mb_trim($this->body)) ?: [];
-
-        return array_values(array_filter(
-            array_map(mb_trim(...), $paragraphs),
-            static fn (string $paragraph): bool => $paragraph !== '',
-        ));
     }
 
     /**

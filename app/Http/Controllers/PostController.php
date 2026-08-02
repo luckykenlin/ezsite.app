@@ -6,6 +6,8 @@ namespace App\Http\Controllers;
 
 use App\Actions\BuildPostSeoData;
 use App\Models\Post;
+use App\Site\BindResolver;
+use App\Site\PostBody;
 use Illuminate\Contracts\View\View;
 
 /**
@@ -27,13 +29,18 @@ use Illuminate\Contracts\View\View;
  */
 final class PostController extends Controller
 {
-    public function __invoke(Post $post, BuildPostSeoData $seo): View
+    public function __invoke(Post $post, BuildPostSeoData $seo, BindResolver $bindResolver): View
     {
         abort_unless($post->isPublished(), 404);
 
         return view('site.updates.show', [
             'post' => $post,
             'seoData' => $seo->handle($post),
+            // The CALL button references the business's phone, never a copy on
+            // the update; resolved here so the view stays free of container
+            // lookups.
+            'business' => $bindResolver->business(),
+            'paragraphs' => new PostBody($post->body)->paragraphs(),
         ]);
     }
 }

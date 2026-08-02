@@ -8,10 +8,7 @@
 ])
 @php
     $layout = \App\Site\Blocks\SectionLayout::for('updates', 'list')->resolve($appearance);
-
-    $feed = resolve(\App\Site\PostFeed::class);
-    $kind = \App\Enums\PostKind::tryFrom(is_string($kindFilter) ? $kindFilter : '');
-    $posts = $feed->isFresh() ? $feed->latest(max(1, (int) $count), $kind) : collect();
+    $posts = resolve(\App\Site\PostFeed::class)->forBlock($count, $kindFilter);
 @endphp
 {{-- Hides itself when there is nothing recent, for the reason spelled out in
      the sibling `cards` view. --}}
@@ -23,12 +20,7 @@
             <ul class="mt-10 divide-y divide-base-content/10">
                 @foreach ($posts as $post)
                     <li class="relative py-5">
-                        <p class="site-eyebrow">
-                            <time datetime="{{ $post->published_at?->toDateString() }}">{{ $post->published_at?->isoFormat('LL') }}</time>
-                            @if ($post->kind !== \App\Enums\PostKind::Update)
-                                <span class="site-tone-accent">{{ $post->kind->getLabel() }}</span>
-                            @endif
-                        </p>
+                        <x-site.update-meta :post="$post" />
 
                         <h3 class="site-h5 mt-1">
                             <a href="{{ $post->getUrl() }}" class="after:absolute after:inset-0">{{ $post->title }}</a>

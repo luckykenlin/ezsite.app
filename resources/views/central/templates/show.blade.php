@@ -42,12 +42,12 @@
                         class="w-full rounded-box object-cover object-top"
                     >
                 @else
-                    <div
-                        class="flex aspect-[16/10] w-full items-end rounded-box p-8"
-                        style="background-image: linear-gradient(135deg, {{ $definition->brandPrimary }}, {{ $definition->brandAccent }});"
-                    >
-                        <span class="site-h2 font-heading text-white drop-shadow">{{ $definition->demoProfile->name }}</span>
-                    </div>
+                    <x-central.template-placeholder
+                        :definition="$definition"
+                        :label="$definition->demoProfile->name"
+                        label-class="site-h2"
+                        class="aspect-[16/10] rounded-box p-8"
+                    />
                 @endif
             </div>
         </div>

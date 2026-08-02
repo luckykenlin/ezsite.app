@@ -10,9 +10,6 @@
 ])
 @php
     $layout = \App\Site\Blocks\SectionLayout::for('signup', 'banner')->resolve($appearance);
-
-    $fieldSet = \App\Enums\LeadFieldSet::tryFrom((string) $fields) ?? \App\Enums\LeadFieldSet::Phone;
-    $formId = resolve(\App\Site\LeadFormIds::class)->next('signup');
     $centered = str_contains($layout->heading(), 'text-center');
 @endphp
 <x-site.section :appearance="$appearance" :tone="$layout->toneDefault()" :spacing="$layout->spacingDefault()">
@@ -29,12 +26,10 @@
                 @endif
             </div>
 
-            <x-lead-form
-                :form-id="$formId"
+            <x-site.signup-form
                 class="md:max-w-md"
                 :page="$page"
-                :source="\App\Enums\LeadSource::InlineForm"
-                :fields="$fieldSet"
+                :fields="$fields"
                 :button-label="$button_label"
                 :success-message="$success_message"
                 :fine-print="$fine_print"

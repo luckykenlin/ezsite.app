@@ -91,6 +91,27 @@ final class PostFeed
     }
 
     /**
+     * The slice the `updates` block's variants render, from the block's own
+     * STORED (and therefore untrusted) settings: an unreadable kind filter
+     * means "everything" rather than an empty section, a nonsense count still
+     * shows at least one, and a stale feed shows nothing at all — see
+     * {@see isFresh()} for why an old strip is worse than none.
+     *
+     * @return Collection<int, Post>
+     */
+    public function forBlock(mixed $count, mixed $kindFilter): Collection
+    {
+        if (! $this->isFresh()) {
+            return new Collection;
+        }
+
+        return $this->latest(
+            max(1, is_numeric($count) ? (int) $count : 1),
+            PostKind::tryFrom(is_string($kindFilter) ? $kindFilter : ''),
+        );
+    }
+
+    /**
      * The offer the site should be advertising right now, if any.
      */
     public function currentOffer(): ?Post
