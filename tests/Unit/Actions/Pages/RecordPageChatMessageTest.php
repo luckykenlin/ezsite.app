@@ -54,6 +54,21 @@ it('records how many blocks an answer changed', function (): void {
     expect(PageChatMessage::query()->findOrFail($message->getKey())->changedThePage())->toBeTrue();
 });
 
+it('records a chrome edit on its own flag, apart from the block count', function (): void {
+    // Chrome is site-wide, so the review badge words it differently — and a
+    // menu edit must not inflate changed_blocks, which revert semantics read.
+    $tenant = Tenant::factory()->create();
+    $page = $this->createTenantPage($tenant, []);
+
+    $message = $this->runInTenant($tenant, fn (): PageChatMessage => resolve(RecordPageChatMessage::class)
+        ->handle($page, null, ChatRole::Assistant, 'Added Services to the menu.', 0, changedChrome: true));
+
+    $stored = PageChatMessage::query()->findOrFail($message->getKey());
+
+    expect($stored->changed_chrome)->toBeTrue()
+        ->and($stored->changedThePage())->toBeFalse();
+});
+
 /*
  * Three places want the operator's question in the transcript — the editor when
  * it dispatches the turn, the action when it runs one, the job when it dies —

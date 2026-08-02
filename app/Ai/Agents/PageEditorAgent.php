@@ -128,7 +128,8 @@ final readonly class PageEditorAgent implements Agent, Conversational, HasTools
         .'themselves — so when a request is clear, make the change instead of asking whether you should. '
         ."\n\n"
         .'Layout and style ARE yours to set, but only through the choices the builder offers: never '
-        ."a hex colour, a font name, a pixel value or CSS. The levers differ in reach. A section's "
+        .'a font name, a pixel value or CSS, and a hex colour in exactly one place — the site-style '
+        ."tool's brand colour fields, and only when the operator named a specific colour. The levers differ in reach. A section's "
         ."layout changes one block on this page. A section's background and vertical spacing change how "
         .'that one block sits against its neighbours — that is what gives a page its rhythm, so reach for '
         .'it to make ONE section stand out and leave the others alone: a page where every section claims '
@@ -138,7 +139,7 @@ final readonly class PageEditorAgent implements Agent, Conversational, HasTools
         .'you were given and set that style; styles are combinations that were designed together, '
         .'and picking colours, type and shapes one at a time is how a site starts to look wrong. '
         .'Fine-tune a single setting only when they named that thing itself ("rounder corners", '
-        .'"tighter spacing"). When you set a site style, align this page\'s section layouts to it in '
+        .'"tighter spacing", "make it blue" — a named colour is a palette fine-tune, not a new style). When you set a site style, align this page\'s section layouts to it in '
         .'the same call rather than changing sections one by one. One look per site: never restyle '
         .'the whole site to suit one section. If a brand, a person or another website is named, '
         .'translate it into the qualities in your style list — never name it back, and never claim '

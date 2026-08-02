@@ -8,6 +8,7 @@ use App\Ai\ChatAttachment;
 use App\Ai\PageDraft;
 use App\Ai\SiteChromeDraft;
 use App\Ai\SiteStyleDraft;
+use App\Design\ColorPalette;
 use App\Design\StylePreset;
 use App\Enums\BindType;
 use App\Enums\ChromeSlot;
@@ -241,9 +242,9 @@ final readonly class PageEditPrompt implements Stringable
      *
      * Their CONTENT is listed, not just their field names, and that is the
      * difference between this and the vocabulary section: the commonest request
-     * here is "add X to the menu", which the model cannot do without knowing the
-     * links already there — `nav_links` is replaced whole, so a partial list
-     * silently deletes the rest of the navigation.
+     * here is "add X to the menu", and the model answers it better when it can
+     * see the menu — add_links merges server-side, but knowing what is already
+     * there is what stops it re-adding a link under a second label.
      */
     private function chromeSection(): ?string
     {
@@ -275,7 +276,8 @@ final readonly class PageEditPrompt implements Stringable
             ."say in your answer that the change is site-wide.\n"
             .$this->chrome->outline()
             ."\n".implode("\n", $lines)
-            ."\nnav_links is replaced as a whole list, so to add one link send every existing link too."
+            ."\nAdd or remove single menu links with add_links/remove_links; send content.nav_links "
+            .'only to reorder or rewrite the whole menu, because it replaces the list whole.'
             .' The brand name and logo come from the business profile and are not fields here.';
     }
 
@@ -296,17 +298,25 @@ final readonly class PageEditPrompt implements Stringable
     /**
      * The style menu, and where the site currently stands.
      *
-     * Present only when the design tools are — no Business profile means no
-     * token row to write to, so publishing the menu would invite a call that
-     * cannot land. ~150 tokens, and it is the whole grounding for "make it more
+     * The menu is published only when the design tools are — no Business
+     * profile means no token row to write to, so it would invite a call that
+     * cannot land. But that case still gets a SECTION: silence left the model
+     * improvising excuses for a verb it mysteriously lacked, where one line
+     * lets it say plainly why a style request cannot be served yet. ~150
+     * tokens with the menu, and it is the whole grounding for "make it more
      * premium": {@see StylePreset::vibes()} holds INDUSTRY nouns, so without
      * `synonyms()` in the prompt an adjective has nothing to match against and
-     * the model free-associates among six labels.
+     * the model free-associates among six labels. The palette lines do the
+     * same job for colours — "deep blue" has to land on a slug, and the slugs
+     * alone don't say which.
      */
-    private function styleSection(): ?string
+    private function styleSection(): string
     {
         if (! $this->style instanceof SiteStyleDraft) {
-            return null;
+            return "## Site style\n"
+                .'The site style cannot be changed until the business profile is set up — '
+                .'if they ask for a style or colour change, say that plainly and point them '
+                .'at the business profile.';
         }
 
         $lines = array_map(
@@ -319,12 +329,25 @@ final readonly class PageEditPrompt implements Stringable
             StylePreset::cases(),
         );
 
+        $palettes = array_map(
+            static fn (ColorPalette $palette): string => sprintf('- %s — %s', $palette->value, $palette->guide()),
+            ColorPalette::cases(),
+        );
+
         return "## Site style\n"
             .'The whole site currently uses: '.$this->style->current()->describe()."\n"
+            .($this->style->seededPreview()
+                ? "That style is a PREVIEW you staged earlier — the operator has not applied it yet. Refine it if asked; do not describe it as the site's saved style.\n"
+                : '')
             ."Changing this affects every page. The styles you can choose from:\n"
             .implode("\n", $lines)
             ."\nMatch the operator's own words against the \"Words\" list. A brand or website they "
-            .'name is translated into those words, never stored or repeated back.';
+            .'name is translated into those words, never stored or repeated back.'
+            ."\nThe colour palettes:\n"
+            .implode("\n", $palettes)
+            ."\nA colour request (\"make it blue\", \"a deep blue main colour\") is a palette "
+            .'fine-tune, NOT a style change: pick the palette whose words match theirs and leave '
+            .'the other settings alone.';
     }
 
     /**

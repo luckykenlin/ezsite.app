@@ -57,6 +57,12 @@ return new class extends Migration
             // blocks changed" affordance in the UI. Null for user messages.
             $table->unsignedSmallInteger('changed_blocks')->nullable();
 
+            // Whether the turn staged a header/footer edit. Its own flag rather
+            // than a count folded into changed_blocks, because chrome is
+            // site-wide: the review badge must say so, and revert semantics
+            // (blocks_before) must stay blocks-only.
+            $table->boolean('changed_chrome')->default(false);
+
             // Whether this assistant turn is an apology for a turn that never
             // finished (provider failure, dead worker). Persisted because the
             // retry affordance renders from the TRANSCRIPT — the cache entry

@@ -26,16 +26,6 @@ final class TokenOptions
     }
 
     /**
-     * The one-line "what this preset feels like" copy shown under each radio.
-     *
-     * @return array<string, string>
-     */
-    public static function presetDescriptions(): array
-    {
-        return self::map(StylePreset::cases(), static fn (StylePreset $preset): string => $preset->description());
-    }
-
-    /**
      * One token's options. Replaces the four near-identical per-token methods
      * that used to live here, so both design surfaces can render their
      * fine-tune fields by looping {@see TokenKey::cases()} instead of naming

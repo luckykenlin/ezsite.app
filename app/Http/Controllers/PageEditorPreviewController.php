@@ -6,8 +6,10 @@ namespace App\Http\Controllers;
 
 use App\Actions\Pages\AddPageBlock;
 use App\Actions\Pages\CachePageEditorPreview;
+use App\Design\ColorPalette;
 use App\Design\DesignTokens;
 use App\Design\ThemeVariables;
+use App\Design\TokenSelection;
 use App\Enums\ChromeSlot;
 use App\Models\Page;
 use App\Site\BindResolver;
@@ -189,6 +191,23 @@ final class PageEditorPreviewController extends Controller
 
         if ($business === null) {
             return null;
+        }
+
+        // A draft can carry unsaved brand hexes; compile against an in-memory
+        // copy so the staged colour previews without the row changing —
+        // ThemeVariables reads the hexes straight off the instance it is given.
+        $overrides = [];
+
+        foreach (TokenSelection::BRAND_KEYS as $key) {
+            $hex = ColorPalette::validHex(is_string($tokens[$key] ?? null) ? $tokens[$key] : null);
+
+            if ($hex !== null) {
+                $overrides[$key] = $hex;
+            }
+        }
+
+        if ($overrides !== []) {
+            $business = (clone $business)->forceFill($overrides);
         }
 
         return ThemeVariables::styleFor(DesignTokens::fromArray($tokens), $business, 'data-editor-theme-draft');

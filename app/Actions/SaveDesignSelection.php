@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Actions;
 
+use App\Design\ColorPalette;
 use App\Design\StylePreset;
 use App\Design\TokenKey;
 use App\Design\TokenSelection;
@@ -31,10 +32,31 @@ final readonly class SaveDesignSelection
     }
 
     /**
-     * @param  array<array-key, mixed>  $selection  raw form state: preset + every {@see TokenKey}
+     * @param  array<array-key, mixed>  $selection  raw form state: preset + every {@see TokenKey},
+     *                                              plus any {@see TokenSelection::BRAND_KEYS} hexes
      */
     public function handle(Business $business, array $selection): Business
     {
+        // Brand hexes first, so a selection that switches to the brand palette
+        // and names its colours in the same save renders from them immediately.
+        // Absent keys keep their current values (a hidden field is not an
+        // erasure), and this stays the single design write path — the Design
+        // page and the chat rail both pass their hexes through here.
+        $hexes = [];
+
+        foreach (TokenSelection::BRAND_KEYS as $key) {
+            $value = $selection[$key] ?? null;
+            $hex = ColorPalette::validHex(is_string($value) ? $value : null);
+
+            if ($hex !== null) {
+                $hexes[$key] = $hex;
+            }
+        }
+
+        if ($hexes !== []) {
+            $business->update($hexes);
+        }
+
         $preset = $this->preset($selection);
 
         if ($preset instanceof StylePreset && $this->matchesPreset($preset, $selection)) {

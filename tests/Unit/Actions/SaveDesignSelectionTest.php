@@ -45,6 +45,36 @@ function selectionFor(StylePreset $preset): array
     return $selection;
 }
 
+/*
+ * The single-write-path property, extended to the brand hexes: the Design page
+ * and the chat rail both pass their selection through here, so this is where a
+ * staged brand colour becomes a businesses-row colour.
+ */
+it('persists valid brand hexes and keeps the rest of the row for absent or junk ones', function (): void {
+    [$tenant, $business] = designSelectionBusiness();
+
+    $accentBefore = $business->brand_accent;
+
+    $this->runInTenant($tenant, function () use ($business): void {
+        $business->update(['brand_primary' => '#111111', 'brand_secondary' => '#222222']);
+
+        resolve(SaveDesignSelection::class)->handle($business, [
+            ...selectionFor(StylePreset::WarmCraft),
+            'brand_primary' => '#1A2B3C',
+            // Junk is ignored, not written: this string would land inside a
+            // <style> tag on the public site.
+            'brand_secondary' => 'red; } body { display: none',
+        ]);
+    });
+
+    $stored = Business::query()->findOrFail($business->getKey());
+
+    expect($stored->brand_primary)->toBe('#1a2b3c')
+        ->and($stored->brand_secondary)->toBe('#222222')
+        // Never named in the selection at all — untouched.
+        ->and($stored->brand_accent)->toBe($accentBefore);
+});
+
 it('saves an untouched preset as that preset', function (): void {
     [$tenant, $business] = designSelectionBusiness();
 

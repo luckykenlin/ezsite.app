@@ -12,6 +12,9 @@ use App\Ai\PageDraft;
 use App\Ai\Prompts\PageEditPrompt;
 use App\Ai\SiteChromeDraft;
 use App\Ai\SiteStyleDraft;
+use App\Design\ColorPalette;
+use App\Design\DesignTokens;
+use App\Design\TokenSelection;
 use App\Enums\ChatMode;
 use App\Enums\ChatRole;
 use App\Enums\ChromeSlot;
@@ -101,9 +104,10 @@ final readonly class ChatEditPage
      * @param  string|null  $selectedBlockKey  the block selected on the canvas when the turn
      *                                         was dispatched — the referent for requests that
      *                                         name no section (see PageEditPrompt)
-     * @param  (Closure(list<array{key: string, type: string, data: array<string, mixed>}>): void)|null  $onEdit  called with the draft's current blocks after
-     *                                                                                                            each tool finishes — what lets the canvas
-     *                                                                                                            repaint edit by edit instead of once at the end
+     * @param  (Closure(list<array{key: string, type: string, data: array<string, mixed>}>, array<string, string|null>|null, array<string, array{type: string, data: array<string, mixed>}>|null): void)|null  $onEdit  called with the draft's current blocks, staged
+     *                                                                                                                                                                                                                  style and staged chrome after each tool
+     *                                                                                                                                                                                                                  finishes — what lets the canvas repaint edit
+     *                                                                                                                                                                                                                  by edit instead of once at the end
      * @param  ChatMode  $mode  Ask runs the turn with no tools at all, so it can
      *                          answer questions with a structural guarantee of
      *                          changing nothing
@@ -111,6 +115,13 @@ final readonly class ChatEditPage
      *                                                   {@see ChatAttachment} array shapes —
      *                                                   arrays rather than objects because
      *                                                   they ride a queued job payload
+     * @param  array<string, string|null>|null  $designDraft  the editor's still-unapplied
+     *                                                        chat-staged style — the baseline
+     *                                                        this turn refines, so iterating
+     *                                                        on an unapplied preview works
+     * @param  array<string, array{type: string, data: array<string, mixed>}|null>|null  $chromeDraft  the editor's unsaved header/footer
+     *                                                                                                 draft, layered over the saved chrome
+     *                                                                                                 for the same reason
      * @return array{blocks: list<array{key: string, type: string, data: array<string, mixed>}>, reply: string, failed: bool, design: array<string, string|null>|null, chrome: array<string, array{type: string, data: array<string, mixed>}>|null}
      */
     public function handle(
@@ -124,6 +135,8 @@ final readonly class ChatEditPage
         ?Closure $onEdit = null,
         ChatMode $mode = ChatMode::Edit,
         array $attachments = [],
+        ?array $designDraft = null,
+        ?array $chromeDraft = null,
     ): array {
         // Hand the time budget to TURN_BUDGET_SECONDS instead: PHP's own limit
         // can only fail as an uncatchable fatal, and the default 30s is shorter
@@ -144,12 +157,36 @@ final readonly class ChatEditPage
         // so there is nowhere for a style to be applied — and the agent withholds
         // the design tool for the same reason.
         $business = $this->bindResolver->business();
-        $style = $business instanceof Business ? new SiteStyleDraft($business->design_tokens) : null;
+
+        // Seeded from the editor's still-unapplied chat draft when one rode in:
+        // the operator is LOOKING at that style, so "a bit darker" must refine
+        // it rather than silently restart from the saved tokens. The brand
+        // baselines ride along — the saved row's hexes make `palette: brand`
+        // legal, and the draft's hexes must survive a later fine-tune.
+        $style = $business instanceof Business
+            ? new SiteStyleDraft(
+                $business->design_tokens,
+                $designDraft === null ? null : DesignTokens::fromArray($designDraft),
+                $this->brandHexes([
+                    'brand_primary' => $business->brand_primary,
+                    'brand_secondary' => $business->brand_secondary,
+                    'brand_accent' => $business->brand_accent,
+                ]),
+                $this->brandHexes($designDraft ?? []),
+            )
+            : null;
 
         // Same condition as the style draft, different reason: SiteChrome renders
         // nothing at all without a Business, so there would be no header for an
-        // edit to appear in.
-        $chrome = $business instanceof Business ? new SiteChromeDraft($this->savedChrome()) : null;
+        // edit to appear in. The editor's unsaved per-slot draft wins over the
+        // saved chrome — a link staged last turn is on the canvas, and this
+        // turn's "add another" must not baseline from a menu that lacks it.
+        $chrome = $business instanceof Business
+            ? new SiteChromeDraft([
+                ...$this->savedChrome(),
+                ...array_filter($chromeDraft ?? []),
+            ])
+            : null;
 
         // Captured here as well as forwarded: the lines land on the reply row,
         // so the agent's conversation memory carries WHAT it changed — its
@@ -190,7 +227,15 @@ final readonly class ChatEditPage
         // The apology path above deliberately records NO activity: a failed
         // turn's edits were discarded, and "edits you made" lines describing
         // them would feed the model a memory of changes that never landed.
-        $this->transcript->handle($page, $user, ChatRole::Assistant, $reply, $changed, activity: $activity);
+        $this->transcript->handle(
+            $page,
+            $user,
+            ChatRole::Assistant,
+            $reply,
+            $changed,
+            activity: $activity,
+            changedChrome: $chrome?->toArray() !== null,
+        );
 
         return [
             'blocks' => $edited,
@@ -212,7 +257,7 @@ final readonly class ChatEditPage
      * operator's own turns are NOT rendered — their text is theirs, shown
      * verbatim and escaped.
      *
-     * @return list<array{id: int, role: string, content: string, html: string|null, changed: bool, failed: bool, revertible: bool, attachments: list<array{kind: string, name: string, thumb: string|null}>}>
+     * @return list<array{id: int, role: string, content: string, html: string|null, changed: bool, changedChrome: bool, failed: bool, revertible: bool, attachments: list<array{kind: string, name: string, thumb: string|null}>}>
      */
     public function transcript(Page $page): array
     {
@@ -241,6 +286,7 @@ final readonly class ChatEditPage
                 'content' => $entry->content,
                 'html' => $entry->role === ChatRole::Assistant ? $this->markdown($entry->content) : null,
                 'changed' => $entry->changedThePage(),
+                'changedChrome' => $entry->changed_chrome,
                 'failed' => $entry->failed,
                 'revertible' => $entry->blocks_before !== null,
                 'attachments' => $this->attachmentChips($entry),
@@ -314,6 +360,33 @@ final readonly class ChatEditPage
      * merely opening the editor never materialises a default); here the opposite is
      * right, because the model is being asked to change what is on screen.
      *
+     * @return array<string, array{type: string, data: array<string, mixed>}>
+     */
+    /**
+     * The valid brand hexes in an array, keyed by brand key — the shape both
+     * {@see SiteStyleDraft} baselines take. Invalid or absent values simply
+     * drop out; validity is decided by the same guard the render layer uses.
+     *
+     * @param  array<array-key, mixed>  $source
+     * @return array<string, string>
+     */
+    private function brandHexes(array $source): array
+    {
+        $hexes = [];
+
+        foreach (TokenSelection::BRAND_KEYS as $key) {
+            $value = $source[$key] ?? null;
+            $hex = ColorPalette::validHex(is_string($value) ? $value : null);
+
+            if ($hex !== null) {
+                $hexes[$key] = $hex;
+            }
+        }
+
+        return $hexes;
+    }
+
+    /**
      * @return array<string, array{type: string, data: array<string, mixed>}>
      */
     private function savedChrome(): array
@@ -426,9 +499,11 @@ final readonly class ChatEditPage
 
             // On the RESULT, not the call: ToolCall is announced before the tool
             // runs, so the draft only holds the edit once its result comes back —
-            // painting on the call would show the state from one edit ago.
+            // painting on the call would show the state from one edit ago. The
+            // staged style and chrome ride along so a recolour or a menu edit
+            // paints mid-turn too, not only the block edits.
             if ($event instanceof ToolResult && $onEdit instanceof Closure) {
-                $onEdit($draft->blocks());
+                $onEdit($draft->blocks(), $style?->toArray(), $chrome?->toArray());
             }
         }
 

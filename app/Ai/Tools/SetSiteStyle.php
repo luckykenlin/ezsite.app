@@ -7,12 +7,14 @@ namespace App\Ai\Tools;
 use App\Actions\Pages\StampPresetDefaults;
 use App\Ai\PageDraft;
 use App\Ai\SiteStyleDraft;
+use App\Design\ColorPalette;
 use App\Design\StylePreset;
 use App\Design\TokenKey;
 use App\Design\TokenOptions;
 use App\Design\TokenSelection;
 use BackedEnum;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
+use Illuminate\Support\Str;
 use Laravel\Ai\Contracts\Tool;
 use Laravel\Ai\Tools\Request;
 
@@ -78,8 +80,23 @@ final readonly class SetSiteStyle implements Tool
 
         foreach (TokenKey::cases() as $key) {
             $fields[$key->value] = $schema->string()
-                ->description($key->label().'. Only set this when the operator asked for this specific thing.')
+                ->description($key === TokenKey::Palette
+                    // The palette gets colour words, not just its label: "make it
+                    // deep blue" is the request this tool most often fails, and a
+                    // bare slug list gives the model nothing to match "blue" against.
+                    ? 'Palette. Only set this when the operator asked for a colour, matching their words against: '.$this->paletteGuide()
+                    : $key->label().'. Only set this when the operator asked for this specific thing.')
                 ->enum(array_keys(TokenOptions::for($key)));
+        }
+
+        // The exact-colour lever. Free-form by necessity — a specific colour
+        // has no enum — but validated against the same hex pattern that guards
+        // the businesses columns, and staged like every other design change.
+        foreach (TokenSelection::BRAND_KEYS as $key) {
+            $fields[$key] = $schema->string()
+                ->description(Str::headline($key).' as a six-digit hex like #1a2b3c. ONLY when the operator '
+                    .'asked for that specific colour ("make the main colour deep blue", a hex they pasted). '
+                    .'Setting any brand colour switches the palette to brand.');
         }
 
         return $fields;
@@ -100,19 +117,61 @@ final readonly class SetSiteStyle implements Tool
             ));
         }
 
-        $changes = TokenSelection::changes($arguments);
-        $rejected = $this->rejectedTokens($changes);
+        ['accepted' => $changes, 'rejected' => $rejected] = $this->partitionTokens(TokenSelection::changes($arguments));
 
-        if ($rejected !== null) {
-            return $this->draft->reply($rejected);
+        // The hexes are all-or-nothing, unlike the tokens: a specific colour IS
+        // the request, so applying half of it would report success on the half
+        // that failed.
+        $brand = [];
+
+        foreach (TokenSelection::BRAND_KEYS as $key) {
+            $value = $arguments[$key] ?? null;
+
+            if (! is_string($value) || $value === '') {
+                continue;
+            }
+
+            $hex = ColorPalette::validHex($value);
+
+            if ($hex === null) {
+                return $this->draft->reply(sprintf(
+                    "'%s' is not a colour this builder can use, so nothing changed. Brand colours are six-digit hex like #1a2b3c.",
+                    $value,
+                ));
+            }
+
+            $brand[$key] = $hex;
+        }
+
+        // A hex implies the brand palette — a staged colour nobody renders is a
+        // change the model would report and the operator would never see.
+        if ($brand !== []) {
+            $changes[TokenKey::Palette->value] = ColorPalette::Brand->value;
+        }
+
+        // The silent-fallback trap: `palette: brand` with no primary anywhere
+        // renders the Default palette while the reply claims a brand look.
+        // Refuse it with directions instead.
+        if (($changes[TokenKey::Palette->value] ?? null) === ColorPalette::Brand->value
+            && ($brand['brand_primary'] ?? $this->style->brand()['brand_primary'] ?? null) === null) {
+            return $this->draft->reply(
+                'The brand palette needs a primary colour first, so nothing changed. '
+                .'Give brand_primary as a hex, or tell the operator to set their brand colours on the business profile.',
+            );
         }
 
         if (! $preset instanceof StylePreset && $changes === []) {
-            return $this->draft->reply('No style was given, so nothing changed.');
+            return $this->draft->reply($rejected === []
+                ? 'No style was given, so nothing changed.'
+                : 'Nothing changed. '.implode(' ', $rejected));
         }
 
         if ($preset instanceof StylePreset) {
             $this->style->applyPreset($preset);
+        }
+
+        if ($brand !== []) {
+            $this->style->stageBrand($brand);
         }
 
         if ($changes !== []) {
@@ -126,9 +185,11 @@ final readonly class SetSiteStyle implements Tool
         }
 
         return $this->draft->reply(sprintf(
-            'The site style is now %s%s. It is staged on the canvas only — tell the operator it affects every page and that they need to apply it.',
+            'The site style is now %s%s%s.%s It is staged on the canvas only — tell the operator it affects every page and that they need to apply it.',
             $this->style->current()->describe(),
+            isset($brand['brand_primary']) ? ' with brand primary '.$brand['brand_primary'] : '',
             $aligned ? ", and this page's section layouts and backgrounds were aligned to it" : '',
+            $rejected === [] ? '' : ' '.implode(' ', $rejected),
         ));
     }
 
@@ -159,16 +220,21 @@ final readonly class SetSiteStyle implements Tool
     }
 
     /**
-     * An enumerated selection has no partial form, so an unrecognised value
-     * rejects the WHOLE call with the legal set rather than being dropped: a
-     * silent drop leaves the model believing it succeeded, so its next call
-     * builds on a false premise and its prose reports a change that never
-     * happened.
+     * Split the requested tokens into the ones that can apply and one line of
+     * report per one that cannot. Partial, not all-or-nothing: one bad value
+     * used to void the whole call and burn a step of `#[MaxSteps]` re-sending
+     * six good ones — but the rejection is REPORTED, never silently dropped,
+     * because a model that believes an unrecognised value landed builds its
+     * next call on a false premise.
      *
      * @param  array<string, string>  $changes
+     * @return array{accepted: array<string, string>, rejected: list<string>}
      */
-    private function rejectedTokens(array $changes): ?string
+    private function partitionTokens(array $changes): array
     {
+        $accepted = [];
+        $rejected = [];
+
         foreach (TokenKey::cases() as $key) {
             $value = $changes[$key->value] ?? null;
 
@@ -177,18 +243,38 @@ final readonly class SetSiteStyle implements Tool
             }
 
             if ($key->tryValue($value) instanceof BackedEnum) {
+                $accepted[$key->value] = $value;
+
                 continue;
             }
 
-            return sprintf(
-                "'%s' is not a valid %s, so nothing changed. The options are: %s.",
+            $rejected[] = sprintf(
+                "'%s' is not a valid %s and was not applied — the options are: %s.",
                 $value,
                 mb_strtolower($key->label()),
-                implode(', ', array_keys(TokenOptions::for($key))),
+                // The palette rejection repeats the colour guide, not just the
+                // slugs: a model that guessed "navy" needs the hue words to make
+                // its NEXT call the right one instead of a second guess.
+                $key === TokenKey::Palette
+                    ? $this->paletteGuide()
+                    : implode(', ', array_keys(TokenOptions::for($key))),
             );
         }
 
-        return null;
+        return ['accepted' => $accepted, 'rejected' => $rejected];
+    }
+
+    /**
+     * The palette menu the model matches a colour word against — the colour
+     * counterpart of {@see presetGuide()}, grounded on the enum for the same
+     * reason.
+     */
+    private function paletteGuide(): string
+    {
+        return implode(' ', array_map(
+            static fn (ColorPalette $palette): string => $palette->value.': '.$palette->guide().'.',
+            ColorPalette::cases(),
+        ));
     }
 
     /**

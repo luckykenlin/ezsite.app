@@ -22,14 +22,10 @@ use Illuminate\Support\Str;
  *
  * So a tool mutates this instead, and what it holds rides back into the same
  * `$chrome` draft the inspector edits — `SaveSiteChrome` behind the operator's
- * Save stays the single write path.
- *
- * The one asymmetry with the style draft is deliberate: chrome edits are NOT
- * undoable, because chrome has never been on the undo stack — structure-level
- * history covers page blocks only (see
- * {@see \App\Filament\Tenant\Resources\PageResource\Concerns\HasSiteChromeDraft}).
- * Making only the AI path undoable would mean two histories for one piece of
- * state.
+ * Save stays the single write path. Since chrome joined the editor's undo
+ * shape (E6), a turn that lands through
+ * {@see \App\Filament\Tenant\Resources\PageResource\Pages\PageEditor::applyTurn()}
+ * is one Undo away like everything else the assistant does.
  *
  * Mutable and therefore not `readonly`: several tools in one turn have to see
  * each other's work, exactly as with the other two drafts.

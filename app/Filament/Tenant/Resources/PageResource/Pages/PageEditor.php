@@ -654,12 +654,18 @@ final class PageEditor extends Page
     {
         $this->snapshot();
 
+        // Chrome BEFORE blocks: replaceBlocks() ends in markDirty(), whose
+        // preview push reads $this->chrome — applied after, a turn that moved
+        // both would paint the new copy under the old header.
+        $chromeChanged = $chrome !== null && $this->applyChromeDraft($chrome);
+
         if ($blocks !== null) {
             $this->replaceBlocks($blocks);
-        }
-
-        if ($chrome !== null) {
-            $this->applyChromeDraft($chrome);
+        } elseif ($chromeChanged) {
+            // A chrome-only turn still has to enable Save and repaint the
+            // canvas: chromeDirty alone drives neither, and a menu edit the
+            // operator can neither see nor save reads as the assistant lying.
+            $this->markDirty();
         }
 
         // Staging under the chat source is also what raises the rail's "Apply to

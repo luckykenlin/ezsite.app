@@ -114,7 +114,9 @@ final readonly class CreatePage implements Tool
             'Created "%s" as a hidden draft at /%s%s. It is not on the live site: the operator opens it '
             ."from the site canvas, and publishes it themselves when it is ready — you cannot publish or delete a page.\n\n"
             .'Tell them where it is and what is on it. The tools you have address the page currently open, '
-            .'so you cannot write copy into this one until they switch to it.',
+            ."so you cannot write copy into this one until they switch to it.\n\n"
+            .'The new page is not in the site navigation yet either — offer to add a menu link for it '
+            .'(UpdateChrome add_links), but only add one when they say yes, since the page is still a draft.',
             $page->title,
             $page->slug,
             $sections === [] ? ' with no sections yet' : ', with '.implode(', ', $sections),

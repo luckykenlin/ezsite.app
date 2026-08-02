@@ -89,3 +89,76 @@ it('serialises into the shape the editor previews and the writer consumes', func
 
     expect($draft->toArray())->toBe(StylePreset::ProfessionalMinimal->tokens()->toArray());
 });
+
+/*
+ * Cross-turn continuity. A previous turn's staged-but-unapplied style rides
+ * back in as the seed: "a bit darker" must refine what the operator is looking
+ * at, not silently restart from the saved tokens.
+ */
+it('reads from a seeded preview and fine-tunes on top of it', function (): void {
+    $seeded = StylePreset::BoldEditorial->tokens();
+    $draft = new SiteStyleDraft(DesignTokens::default(), $seeded);
+
+    expect($draft->current())->toBe($seeded)
+        ->and($draft->seededPreview())->toBeTrue()
+        // The saved side is untouched by the seed: a new page created this
+        // turn must still be laid out for the style the site actually has.
+        ->and($draft->saved())->toEqual(DesignTokens::default());
+
+    $draft->apply([TokenKey::Radius->value => RadiusScale::None->value]);
+
+    expect($draft->current()->radius)->toBe(RadiusScale::None)
+        ->and($draft->current()->palette)->toBe($seeded->palette);
+});
+
+/*
+ * The brand layer: staged hexes ride inside the one draft array, the seeded
+ * draft's hexes survive a later fine-tune, and the saved row's hexes count for
+ * "is the brand palette legal" without ever being re-emitted.
+ */
+it('carries staged brand hexes inside the draft array', function (): void {
+    $draft = new SiteStyleDraft(DesignTokens::default());
+
+    $draft->stageBrand(['brand_primary' => '#1a2b3c']);
+    $draft->apply([TokenKey::Palette->value => ColorPalette::Brand->value]);
+
+    expect($draft->toArray()['brand_primary'])->toBe('#1a2b3c')
+        ->and($draft->toArray()['palette'])->toBe(ColorPalette::Brand->value)
+        ->and($draft->brand())->toBe(['brand_primary' => '#1a2b3c']);
+});
+
+it('layers brand hexes staged over seeded over saved', function (): void {
+    $draft = new SiteStyleDraft(
+        DesignTokens::default(),
+        StylePreset::BoldEditorial->tokens(),
+        savedBrand: ['brand_primary' => '#111111', 'brand_secondary' => '#222222'],
+        seededBrand: ['brand_primary' => '#333333'],
+    );
+
+    expect($draft->brand())->toBe(['brand_primary' => '#333333', 'brand_secondary' => '#222222']);
+
+    $draft->stageBrand(['brand_primary' => '#444444']);
+
+    expect($draft->brand()['brand_primary'])->toBe('#444444')
+        // The seeded hex is re-emitted (the editor draft is replaced whole),
+        // the saved one is not (it is already on the row).
+        ->and($draft->toArray()['brand_primary'])->toBe('#444444')
+        ->and($draft->toArray())->not->toHaveKey('brand_secondary');
+});
+
+/*
+ * The gate half of seeding: a turn that merely STARTED from the preview must
+ * not hand it back — the editor already holds that draft, its Apply gate is
+ * already up, and a re-staged copy would snapshot an edit nobody made.
+ */
+it('does not re-stage a seeded preview the turn left alone', function (): void {
+    $draft = new SiteStyleDraft(DesignTokens::default(), StylePreset::BoldEditorial->tokens());
+
+    expect($draft->touched())->toBeFalse()
+        ->and($draft->toArray())->toBeNull();
+
+    $draft->apply([TokenKey::Radius->value => RadiusScale::None->value]);
+
+    expect($draft->touched())->toBeTrue()
+        ->and($draft->toArray())->not->toBeNull();
+});

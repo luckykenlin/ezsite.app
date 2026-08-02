@@ -40,6 +40,45 @@ enum ColorPalette: string
     private const string HEX_PATTERN = '/^#[0-9a-f]{6}$/i';
 
     /**
+     * A six-digit hex or nothing. Public because it doubles as the
+     * CSS-injection guard for every path that lets a brand colour in — the
+     * Design form, {@see \App\Ai\Tools\SetSiteStyle}'s brand arguments,
+     * {@see TokenSelection::normalise()} — and these strings end up inside a
+     * `<style>` tag, so one gate beats four copies of the regex.
+     */
+    public static function validHex(?string $color): ?string
+    {
+        return is_string($color) && preg_match(self::HEX_PATTERN, $color) === 1
+            ? mb_strtolower($color)
+            : null;
+    }
+
+    /**
+     * One line of colour words per palette — the grounding that lets a chat
+     * request like "make it deep blue" land on a palette instead of a
+     * coin-flip between bare slugs. Hue words describe the PRIMARY colour
+     * (what an operator means by "the main colour"), because the bases are
+     * near-white everywhere except the two dark palettes, which say so in
+     * capitals: picking one repaints the whole site dark, and that is a
+     * mistake no adjective justifies on its own.
+     */
+    public function guide(): string
+    {
+        return match ($this) {
+            self::Default => 'white base, indigo primary — indigo, violet, classic, clean',
+            self::WarmSand => 'warm cream base, terracotta primary — beige, sand, tan, earthy, terracotta, warm brown',
+            self::Forest => 'soft white base, deep green primary — green, forest, olive, natural, botanical',
+            self::Ocean => 'cool white base, blue primary — blue, navy, deep blue, sea, teal',
+            self::Plum => 'blush white base, purple primary — purple, plum, violet, wine, berry',
+            self::Charcoal => 'grey-white base, near-black primary, gold accent — black, grey, charcoal, monochrome',
+            self::Sunset => 'warm peach base, orange-red primary — orange, red, coral, pink, sunset',
+            self::Midnight => 'DARK navy base site-wide, light text — only for a deliberately dark site; navy, midnight blue',
+            self::NoirGold => 'DARK near-black base site-wide, gold primary — only for a deliberately dark site; black, gold, luxury',
+            self::Brand => "the business's own brand colours — requires the brand primary colour to be set",
+        };
+    }
+
+    /**
      * Whether this palette sits content on a dark base. Read by
      * {@see ThemeVariables} to emit `color-scheme`, so form controls,
      * scrollbars and default UI chrome follow the page instead of flashing
@@ -162,13 +201,6 @@ enum ColorPalette: string
             accent: $accent, accentContent: Contrast::contentFor($accent),
             neutral: 'oklch(14% 0.005 285.823)', neutralContent: 'oklch(92% 0.004 286.32)',
         );
-    }
-
-    private static function validHex(?string $color): ?string
-    {
-        return is_string($color) && preg_match(self::HEX_PATTERN, $color) === 1
-            ? mb_strtolower($color)
-            : null;
     }
 
     /**

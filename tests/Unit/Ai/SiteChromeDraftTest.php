@@ -66,8 +66,8 @@ it('always outlines both slots, with the reserved keys lifted out of the content
 
     expect($outline)->toContain('- header (simple)')
         ->and($outline)->toContain('- footer (minimal)')
-        // The model needs the links it already has: nav_links is replaced whole,
-        // so a partial list silently deletes the rest of the navigation.
+        // The model needs the links it already has: seeing the menu is what
+        // stops add_links re-adding an existing link under a second label.
         ->and($outline)->toContain('"label":"Home"')
         // variant is lifted into the parenthesis, not left in the JSON, so the
         // model does not write it back as though it were content.

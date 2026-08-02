@@ -17,8 +17,9 @@ use App\Site\Blocks\BlockVocabulary;
  * {@see \App\Site\SiteChrome}, but the editor lets you edit it in place through
  * {@see ChromeSlot}-keyed pseudo block keys (`chrome:header`), so the same
  * inspector serves both. That indirection is the whole reason this is a separate
- * concern: it shares the commit pipeline with page blocks but none of their
- * storage, and it is deliberately excluded from the undo stack.
+ * concern: it shares the commit pipeline (and, since E6, the undo snapshot —
+ * see {@see HasBlockHistory::currentSnapshot()}) with page blocks, but none of
+ * their storage.
  *
  * A null slot means "the tenant relies on the default chrome" and STAYS null on
  * save — merely opening the editor must never materialise a default into site
@@ -32,8 +33,8 @@ trait HasSiteChromeDraft
      * The site-wide header/footer DRAFT entries, hydrated from the effective
      * chrome (saved settings, or the default when a Business exists). Edited
      * through the same commit pipeline as page blocks; persisted via
-     * SaveSiteChrome only when actually changed. Excluded from the undo
-     * stack (structure-level history covers page blocks only).
+     * SaveSiteChrome only when actually changed. Rides in the undo snapshot
+     * alongside blocks and the design draft.
      *
      * @var array<string, array{type: string, data: array<string, mixed>}|null>
      */
@@ -42,23 +43,27 @@ trait HasSiteChromeDraft
     public bool $chromeDirty = false;
 
     /**
-     * Land the header/footer a chat turn staged.
+     * Land the header/footer a chat turn staged. Returns whether anything
+     * actually moved, so {@see \App\Filament\Tenant\Resources\PageResource\Pages\PageEditor::applyTurn()}
+     * can enable Save and repaint the canvas for a chrome-only turn — without
+     * it, "add Services to the menu" changed state the operator could neither
+     * see nor save.
      *
      * Merges per slot rather than replacing the pair, because
      * {@see \App\Ai\SiteChromeDraft::toArray()} returns only the slots the turn
      * actually touched: a turn that edited the header must not overwrite a footer
      * the operator was editing by hand while it ran.
      *
-     * Marks the chrome dirty but does NOT snapshot, which is the one place an AI
-     * chrome edit differs from an AI block edit. Chrome has never been on the undo
-     * stack — structure-level history covers page blocks only — so making just this
-     * path undoable would give one piece of state two histories. It stays as
-     * reversible as a hand edit: visible on the canvas, and unsaved until Save.
+     * Does not snapshot itself: the one caller is applyTurn(), whose single
+     * turn-wide snapshot already carries the pre-turn chrome (chrome joined the
+     * undo shape in E6 — see {@see HasBlockHistory::currentSnapshot()}).
      *
      * @param  array<string, array{type: string, data: array<string, mixed>}>  $chrome
      */
-    public function applyChromeDraft(array $chrome): void
+    public function applyChromeDraft(array $chrome): bool
     {
+        $changed = false;
+
         foreach (ChromeSlot::cases() as $slot) {
             $entry = $chrome[$slot->value] ?? null;
 
@@ -66,7 +71,7 @@ trait HasSiteChromeDraft
                 continue;
             }
 
-            $this->chrome[$slot->value] = [
+            $committed = [
                 'type' => $slot->value,
                 // Pruned like every other commit into this draft, so an untouched
                 // slot compares identical to its stored form and the canvas can
@@ -74,8 +79,18 @@ trait HasSiteChromeDraft
                 'data' => BlockData::committed($entry['data']),
             ];
 
+            // Identical means untouched: a staged copy that matches the draft
+            // must not flag a save the operator has nothing to review.
+            if (($this->chrome[$slot->value] ?? null) === $committed) {
+                continue;
+            }
+
+            $this->chrome[$slot->value] = $committed;
             $this->chromeDirty = true;
+            $changed = true;
         }
+
+        return $changed;
     }
 
     /**

@@ -7,6 +7,8 @@ use App\Actions\Pages\CacheBlockHistory;
 use App\Actions\Pages\CacheChatTurn;
 use App\Actions\Pages\CachePageEditorPreview;
 use App\Ai\Agents\PageEditorAgent;
+use App\Design\ColorPalette;
+use App\Design\DesignTokens;
 use App\Design\StylePreset;
 use App\Enums\ChatMode;
 use App\Enums\ChatRole;
@@ -1450,6 +1452,22 @@ describe('the inspector as a persistent column', function (): void {
             ->assertSeeHtml("selectBlock('".ChromeSlot::Footer->editorKey()."')");
     });
 
+    it('keeps the chrome entry reachable while a block is selected', function (): void {
+        // "Add a link to the menu" is a request about the SITE — hiding its
+        // entry behind deselecting first was a step nobody guessed. Mounting
+        // selects the first block, so this asserts the selected-block branch.
+        $page = editorPage([
+            ['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']],
+        ]);
+
+        $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
+
+        expect($component->get('selectedBlockKey'))->not->toBeNull();
+
+        $component->assertSee('Site-wide')
+            ->assertSeeHtml("selectBlock('".ChromeSlot::Header->editorKey()."')");
+    });
+
     it('drops every library block in valid: sample content passes its own validation', function (): void {
         $this->createTenantBusiness($this->tenant, ['name' => 'Corner Cafe']);
         $page = editorPage([]);
@@ -2165,6 +2183,49 @@ describe('the selection that rides with a turn', function (): void {
         );
     });
 
+    it('sends the unapplied chat style and the unsaved chrome draft with the turn', function (): void {
+        // Cross-turn continuity: the worker seeds its drafts from these, so "a
+        // bit darker" refines the preview on the canvas and "add another link"
+        // keeps the one staged last turn. A modal-staged style stays behind —
+        // it belongs to the modal, not the conversation.
+        Queue::fake();
+        $this->createTenantBusiness($this->tenant, ['name' => 'Corner Cafe']);
+
+        $page = editorPage([['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']]]);
+
+        $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
+
+        $component->call('applyTurn', null, StylePreset::WarmCraft->tokens()->toArray(), [
+            'header' => ['type' => 'header', 'data' => ['nav_links' => [['label' => 'Services', 'url' => '/services']]]],
+        ]);
+
+        $component->call('sendChatMessage', 'a bit darker');
+
+        Queue::assertPushed(
+            ChatEditPageJob::class,
+            fn (ChatEditPageJob $job): bool => $job->designDraft === StylePreset::WarmCraft->tokens()->toArray()
+                && ($job->chromeDraft['header']['data']['nav_links'] ?? null) === [['label' => 'Services', 'url' => '/services']],
+        );
+    });
+
+    it('sends no design draft when the staged style came from the modal', function (): void {
+        Queue::fake();
+        $this->createTenantBusiness($this->tenant, ['name' => 'Corner Cafe']);
+
+        $page = editorPage([['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']]]);
+
+        $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
+
+        $component->call('previewDesign', StylePreset::WarmCraft->tokens()->toArray());
+
+        $component->call('sendChatMessage', 'shorten the headline');
+
+        Queue::assertPushed(
+            ChatEditPageJob::class,
+            fn (ChatEditPageJob $job): bool => $job->designDraft === null,
+        );
+    });
+
     it('sends no selection when nothing is selected', function (): void {
         Queue::fake();
 
@@ -2650,6 +2711,32 @@ describe('design authority from the chat', function (): void {
             ->and($component->get('blocks')[0]['data']['content'])->toBe('Kept');
     });
 
+    it('writes a staged brand hex to the business when the chat style is applied', function (): void {
+        // The end of the "把主色换成深蓝" thread: the turn staged a hex, the
+        // operator clicks Apply, and SaveDesignSelection — still the single
+        // design write path — lands both the palette and the colour.
+        $this->createTenantBusiness($this->tenant, ['name' => 'Corner Cafe', 'brand_primary' => null]);
+        $page = editorPage([['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']]]);
+
+        $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
+
+        $component->call('applyTurn', null, [
+            ...DesignTokens::default()->with(palette: ColorPalette::Brand)->toArray(),
+            'brand_primary' => '#16305e',
+        ]);
+
+        // Staged only: the draft carries the hex, the row does not.
+        expect($component->get('designDraft')['brand_primary'])->toBe('#16305e')
+            ->and(Business::query()->sole()->brand_primary)->toBeNull();
+
+        $component->call('applyChatDesign');
+
+        $business = Business::query()->sole();
+
+        expect($business->brand_primary)->toBe('#16305e')
+            ->and($business->design_tokens->palette)->toBe(ColorPalette::Brand);
+    });
+
     /*
      * One turn, one Undo — the property that makes acting-without-asking safe. Two
      * apply calls would cost two Undos for one answer.
@@ -2760,6 +2847,15 @@ describe('the assistant reaching site chrome', function (): void {
         expect($component->get('chrome')['header']['data']['nav_links'])
             ->toBe([['label' => 'Services', 'url' => '/services']])
             ->and($component->get('chromeDirty'))->toBeTrue()
+            // A chrome-only turn must be SAVEABLE and REVIEWABLE: isDirty is
+            // what enables the Save button, chatEditAwaitingSave is what draws
+            // the review badge — without them the assistant's menu edit was a
+            // change the operator could neither see flagged nor persist.
+            ->and($component->get('isDirty'))->toBeTrue()
+            ->and($component->get('chatEditAwaitingSave'))->toBeTrue()
+            // And VISIBLE: the canvas preview repaints with the staged header.
+            ->and(cachedPreview($component)['chrome']['header'][0]['data']['nav_links'] ?? null)
+            ->toBe([['label' => 'Services', 'url' => '/services']])
             // Nothing persisted: Save is still the only write path.
             ->and(SiteSetting::query()->count())->toBe(0);
 
@@ -2775,6 +2871,26 @@ describe('the assistant reaching site chrome', function (): void {
      * asymmetry left a bad header edit with no route back except "Discard draft",
      * which also threw away every block edit.
      */
+
+    it('flags nothing when a chrome turn stages what the draft already holds', function (): void {
+        // Identical means untouched: a re-staged copy of the saved menu must
+        // not enable Save or raise a review badge over a change nobody made.
+        $this->createTenantBusiness($this->tenant, ['name' => 'Corner Cafe']);
+        $page = editorPage([['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']]]);
+
+        $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
+        $entry = ['footer' => ['type' => 'footer', 'data' => ['variant' => 'minimal', 'note' => 'Same.']]];
+
+        $component->call('applyTurn', null, null, $entry)
+            ->call('save');
+
+        expect($component->get('isDirty'))->toBeFalse();
+
+        $component->call('applyTurn', null, null, $entry);
+
+        expect($component->get('isDirty'))->toBeFalse()
+            ->and($component->get('chromeDirty'))->toBeFalse();
+    });
 
     it('takes an assistant chrome edit back with one undo, and forward with redo', function (): void {
         $this->createTenantBusiness($this->tenant, ['name' => 'Corner Cafe']);

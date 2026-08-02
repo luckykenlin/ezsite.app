@@ -26,6 +26,15 @@ namespace App\Design;
 final class TokenSelection
 {
     /**
+     * The three brand-colour keys that may ride WITH a selection when its
+     * palette is `brand`. They are not tokens — their values are hexes bound
+     * for the `businesses.brand_*` columns, not enum members — which is why
+     * {@see changes()} ignores them and {@see \App\Actions\UpdateDesignTokens}
+     * never sees one.
+     */
+    public const array BRAND_KEYS = ['brand_primary', 'brand_secondary', 'brand_accent'];
+
+    /**
      * A selection reduced to the keys the design surfaces understand, every
      * value either a string or null.
      *
@@ -53,6 +62,18 @@ final class TokenSelection
 
         foreach (TokenKey::values() as $key) {
             $normalised[$key] = self::string($selection, $key);
+        }
+
+        // Brand hexes survive only when they ARE hexes — this runs on data from
+        // outside the process, and these values end up inside a <style> tag, so
+        // the validity check is the injection guard. Present only when valid,
+        // never as null: an absent key means "keep the saved brand colour".
+        foreach (self::BRAND_KEYS as $key) {
+            $hex = ColorPalette::validHex(self::string($selection, $key));
+
+            if ($hex !== null) {
+                $normalised[$key] = $hex;
+            }
         }
 
         return $normalised;

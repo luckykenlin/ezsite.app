@@ -115,3 +115,13 @@ test('the form is pre-filled from the stored tokens', function (): void {
             'radius' => 'lg',
         ]);
 });
+
+test('each preset radio shows its palette as colour swatches', function (): void {
+    // Choosing a look is done by eye: the description line leads with the
+    // palette's actual colours, not just prose about them.
+    Business::factory()->create(['tenant_id' => $this->tenant->id]);
+
+    Livewire::test(Design::class)
+        ->assertSeeHtml(StylePreset::CalmCoastal->tokens()->palette->colors()['--color-primary'])
+        ->assertSeeHtml(StylePreset::WarmCraft->tokens()->palette->colors()['--color-primary']);
+});

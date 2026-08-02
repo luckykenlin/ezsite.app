@@ -123,7 +123,7 @@ trait InteractsWithPageChat
      * 5-second poll ticks. `#[Computed]` memoizes it for the request, so a render
      * that reads it twice still costs one query.
      *
-     * @return list<array{id: int, role: string, content: string, html: string|null, changed: bool, failed: bool, revertible: bool, attachments: list<array{kind: string, name: string, thumb: string|null}>}>
+     * @return list<array{id: int, role: string, content: string, html: string|null, changed: bool, changedChrome: bool, failed: bool, revertible: bool, attachments: list<array{kind: string, name: string, thumb: string|null}>}>
      */
     #[Computed]
     public function chatMessages(): array
@@ -326,6 +326,13 @@ trait InteractsWithPageChat
             $this->previewToken,
             $this->chatModeEnum(),
             $attachments,
+            // The still-unapplied CHAT-staged style, so the turn refines what is
+            // on the canvas. A modal draft stays behind: it belongs to a modal
+            // the operator has open right now, not to the conversation.
+            $this->designDraftSource === DesignDraftSource::Chat ? $this->designDraft : null,
+            // And the unsaved header/footer draft, for the same reason — a link
+            // staged last turn must still exist when this turn adds another.
+            $this->chrome,
         ));
 
         // Persist the pointer to this turn. Not via pushPreview() — sending a
@@ -411,9 +418,11 @@ trait InteractsWithPageChat
             $this->pushPreview();
         }
 
-        if ($editedBlocks) {
-            // Only here: an answer that explained something rather than changing
-            // it must not ask the operator to review and save nothing.
+        if ($editedBlocks || $turn['chrome'] !== null) {
+            // Blocks or chrome: both settle through Save, so both owe the
+            // operator the review nudge — a menu edit with no badge was a
+            // change nobody was told to look at. An answer that explained
+            // something rather than changing it still must not raise it.
             $this->chatEditAwaitingSave = true;
         }
 

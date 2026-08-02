@@ -75,27 +75,6 @@
                     <p class="pe-page-path">{{ $this->pageRecord()->getUrl() }}</p>
                 </div>
 
-                <div>
-                    <p class="pe-heading">{{ __('Site-wide') }}</p>
-
-                    <div class="pe-chrome-links">
-                        @foreach ([ChromeSlot::Header, ChromeSlot::Footer] as $slot)
-                            <button
-                                type="button"
-                                class="pe-chrome-link"
-                                wire:click="selectBlock('{{ $slot->editorKey() }}')"
-                            >
-                                <x-filament::icon
-                                    :icon="$slot === ChromeSlot::Header ? 'heroicon-o-bars-3' : 'heroicon-o-bars-3-bottom-left'"
-                                    class="pe-chrome-link-icon"
-                                />
-                                {{ __(\Illuminate\Support\Str::headline($slot->value)) }}
-                                <span class="pe-chrome-link-note">{{ __('every page') }}</span>
-                            </button>
-                        @endforeach
-                    </div>
-                </div>
-
                 <p class="pe-empty">{{ __('Click a block on the canvas to edit it.') }}</p>
             @elseif (! $this->hasEditableSelection())
                 <p class="pe-heading">{{ __('Block') }}</p>
@@ -127,4 +106,28 @@
                     {{ $this->blockForm }}
                 </div>
             @endif
+
+            {{-- Always reachable, whatever is selected: "add a link to the
+                 menu" is a request about the SITE, and hiding its entry behind
+                 deselecting first was a step nobody guessed. --}}
+            <div>
+                <p class="pe-heading">{{ __('Site-wide') }}</p>
+
+                <div class="pe-chrome-links">
+                    @foreach ([ChromeSlot::Header, ChromeSlot::Footer] as $slot)
+                        <button
+                            type="button"
+                            class="pe-chrome-link"
+                            wire:click="selectBlock('{{ $slot->editorKey() }}')"
+                        >
+                            <x-filament::icon
+                                :icon="$slot === ChromeSlot::Header ? 'heroicon-o-bars-3' : 'heroicon-o-bars-3-bottom-left'"
+                                class="pe-chrome-link-icon"
+                            />
+                            {{ __(\Illuminate\Support\Str::headline($slot->value)) }}
+                            <span class="pe-chrome-link-note">{{ __('every page') }}</span>
+                        </button>
+                    @endforeach
+                </div>
+            </div>
         </div>

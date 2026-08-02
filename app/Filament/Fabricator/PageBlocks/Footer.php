@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Fabricator\PageBlocks;
 
 use App\Enums\BindType;
+use App\Filament\Fabricator\Fields\LinkInput;
 use Filament\Forms\Components\Field;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Textarea;
@@ -57,10 +58,13 @@ final class Footer extends Block
                     TextInput::make('label')
                         ->required()
                         ->maxLength(60),
-                    TextInput::make('url')
-                        ->required()
-                        ->maxLength(2048),
-                ]),
+                    LinkInput::make('url')
+                        ->required(),
+                ])
+                ->itemLabel(static fn (array $state): ?string => is_string($state['label'] ?? null) ? $state['label'] : null)
+                ->addActionLabel(__('Add link'))
+                ->reorderableWithButtons()
+                ->collapsible(),
             Textarea::make('note')
                 ->rows(2)
                 ->maxLength(300),

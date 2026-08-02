@@ -61,6 +61,11 @@ it('casts failure to a boolean, defaulting to a turn that succeeded', function (
         ->and(chatMessage()->failed)->toBeFalse();
 });
 
+it('casts the chrome marker to a boolean, defaulting to a turn that left it alone', function (): void {
+    expect(chatMessage(['changed_chrome' => true])->changed_chrome)->toBeTrue()
+        ->and(chatMessage()->changed_chrome)->toBeFalse();
+});
+
 it('casts the revert point to an array, defaulting to none', function (): void {
     $pinned = [['type' => 'hero', 'data' => ['heading' => 'Before']]];
 
@@ -122,6 +127,7 @@ it('to array', function (): void {
         'content',
         'attachments',
         'changed_blocks',
+        'changed_chrome',
         'failed',
         'blocks_before',
         'activity',

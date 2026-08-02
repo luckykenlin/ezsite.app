@@ -233,12 +233,18 @@ it('lists the layouts the types on this page can switch to', function (): void {
 });
 
 /*
- * The style menu appears only alongside the tool that can act on it — tokens
+ * The style MENU appears only alongside the tool that can act on it — tokens
  * live on the Business row, so with no profile there is nowhere for a style to
- * land and publishing the menu would invite a call that cannot succeed.
+ * land. But the section itself stays: silence left the model improvising
+ * excuses for a verb it mysteriously lacked, where one line lets it say why a
+ * style request cannot be served yet.
  */
-it('leaves the style menu out when there is no style to change', function (): void {
-    expect(editPrompt(heroPageDraft()))->not->toContain('## Site style');
+it('says plainly why the style cannot change when there is no business profile', function (): void {
+    $prompt = editPrompt(heroPageDraft());
+
+    expect($prompt)->toContain('## Site style')
+        ->toContain('cannot be changed until the business profile is set up')
+        ->not->toContain('The styles you can choose from');
 });
 
 it('publishes the style menu and where the site currently stands', function (): void {
@@ -262,7 +268,12 @@ it('publishes the style menu and where the site currently stands', function (): 
         // is choosing among six opaque slugs.
         ->toContain('premium')
         // A named brand is translated into those words, never stored or echoed.
-        ->toContain('never stored or repeated back');
+        ->toContain('never stored or repeated back')
+        // The colour grounding: "deep blue" has to land on a palette slug, and
+        // the slugs alone don't say which. A named colour is a fine-tune, so
+        // the model must not answer it by switching the whole style.
+        ->toContain('deep blue')
+        ->toContain('is a palette fine-tune, NOT a style change');
 });
 
 it('tells the model which page addresses actually exist', function (): void {

@@ -133,6 +133,40 @@ it('repaints the canvas preview after each tool call', function (): void {
         ->and($turn['preview'])->toBe(1);
 });
 
+/*
+ * The style and chrome halves of "watch it edit": a recolour or a menu edit
+ * used to paint nothing for the whole turn — up to ninety seconds of an
+ * unchanged canvas while the reply claimed the site was being restyled.
+ */
+it('paints a staged style and chrome into the preview mid-turn', function (): void {
+    $this->createTenantBusiness($this->tenant, [], 0);
+
+    PageEditorAgent::fake([
+        new ToolCall('c1', 'SetSiteStyle', ['preset' => 'warm-craft']),
+        new ToolCall('c2', 'UpdateChrome', ['slot' => 'header', 'add_links' => [['label' => 'Pricing', 'url' => '/pricing']]]),
+        'Restyled the site and added Pricing to the menu.',
+    ])->preventStrayPrompts();
+
+    $this->runInTenant($this->tenant, function (): void {
+        resolve(CachePageEditorPreview::class)->handle(
+            $this->page,
+            jobBlocks(),
+            'ptok',
+            ['header' => ['type' => 'header', 'data' => []], 'footer' => ['type' => 'footer', 'data' => []]],
+        );
+    });
+
+    chatJob(jobBlocks(), previewToken: 'ptok')->handle();
+
+    $entry = $this->runInTenant($this->tenant, fn (): ?array => Cache::get(CachePageEditorPreview::key('ptok')));
+
+    expect($entry['design_tokens']['preset'])->toBe('warm-craft')
+        ->and($entry['chrome']['header'][0]['data']['nav_links'])->toBe([['label' => 'Pricing', 'url' => '/pricing']])
+        // The untouched slot keeps what the editor pushed — a header edit must
+        // not clobber a footer the operator was editing by hand.
+        ->and($entry['chrome']['footer'])->toBe([['type' => 'footer', 'data' => []]]);
+});
+
 it('paints nothing when the editor never published a preview to paint into', function (): void {
     PageEditorAgent::fake([
         new ToolCall('c1', 'UpdateBlockContent', ['key' => 'k1', 'content' => ['heading' => 'Fresh bread daily']]),

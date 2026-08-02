@@ -24,6 +24,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $content
  * @property list<array<string, mixed>>|null $attachments
  * @property int|null $changed_blocks
+ * @property bool $changed_chrome
  * @property bool $failed
  * @property array<int, array{type: string, data: array<string, mixed>}>|null $blocks_before
  * @property list<string>|null $activity
@@ -89,6 +90,7 @@ final class PageChatMessage extends Model
         return [
             'role' => ChatRole::class,
             'failed' => 'boolean',
+            'changed_chrome' => 'boolean',
             'attachments' => 'array',
             'blocks_before' => 'array',
             'activity' => 'array',

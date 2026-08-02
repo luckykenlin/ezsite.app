@@ -59,7 +59,11 @@ final class Header extends Block
                         ->maxLength(60),
                     LinkInput::make('url')
                         ->required(),
-                ]),
+                ])
+                ->itemLabel(static fn (array $state): ?string => is_string($state['label'] ?? null) ? $state['label'] : null)
+                ->addActionLabel(__('Add link'))
+                ->reorderableWithButtons()
+                ->collapsible(),
             TextInput::make('cta_label')
                 ->maxLength(60),
             LinkInput::make('cta_url'),

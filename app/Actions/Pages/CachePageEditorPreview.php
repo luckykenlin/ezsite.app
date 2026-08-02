@@ -52,20 +52,29 @@ final readonly class CachePageEditorPreview
     }
 
     /**
-     * Swap only the BLOCKS of an existing preview entry — the chat worker's
+     * Swap the STAGED parts of an existing preview entry — the chat worker's
      * write path, which lets the canvas repaint after every tool call while a
-     * turn is still running.
+     * turn is still running: the blocks always, plus whatever style and chrome
+     * the turn has staged so far, so a recolour paints mid-turn instead of
+     * leaving the operator watching an unchanged canvas for ninety seconds.
      *
-     * Everything else in the entry (page, chrome, design tokens) is preserved
-     * exactly as the editor last pushed it: the worker knows nothing about the
-     * inspector's chrome draft or a staged style, and overwriting them with
-     * defaults would repaint the canvas in a state the operator never had.
+     * A null design or chrome preserves what the editor last pushed: the turn
+     * has not staged one, and overwriting the inspector's own draft with the
+     * saved state would repaint the canvas in a state the operator never had.
+     * Chrome merges per SLOT for the same reason — a turn that edited the
+     * header must not clobber a footer the operator is editing by hand. The
+     * merge is skipped entirely when the entry carries no chrome array (a
+     * caller with no canvas chrome), since a partial one would drop the other
+     * slot's live render.
+     *
      * False when no entry exists (never pushed, or expired) — the caller skips
      * its repaint signal, since there is nothing on screen to go stale.
      *
      * @param  list<array{key: string, type: string, data: array<string, mixed>}>  $blocks
+     * @param  array<string, string|null>|null  $design
+     * @param  array<string, array{type: string, data: array<string, mixed>}>|null  $chrome
      */
-    public function replaceBlocks(string $token, array $blocks): bool
+    public function replaceStaged(string $token, array $blocks, ?array $design = null, ?array $chrome = null): bool
     {
         $entry = Cache::get(self::key($token));
 
@@ -78,6 +87,20 @@ final readonly class CachePageEditorPreview
             $blocks,
         );
         $entry['keys'] = array_column($blocks, 'key');
+
+        if ($design !== null) {
+            $entry['design_tokens'] = $design;
+        }
+
+        if ($chrome !== null && is_array($entry['chrome'] ?? null)) {
+            foreach (ChromeSlot::cases() as $slot) {
+                $staged = $chrome[$slot->value] ?? null;
+
+                if ($staged !== null) {
+                    $entry['chrome'][$slot->value] = [$staged];
+                }
+            }
+        }
 
         Cache::put(self::key($token), $entry, now()->addHours(2));
 

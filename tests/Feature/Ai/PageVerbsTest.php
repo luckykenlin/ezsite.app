@@ -58,7 +58,11 @@ it('creates a page as a hidden draft, with a slug derived from the name', functi
         ->and($result)->toContain('site canvas')
         // And must not promise to fill it in: the block tools address the OPEN
         // page, so the new one is out of reach until the operator switches.
-        ->and($result)->toContain('until they switch to it');
+        ->and($result)->toContain('until they switch to it')
+        // A created page is unreachable until someone links it — the reply
+        // nudges the model to OFFER a menu link, never to add one unasked.
+        ->and($result)->toContain('not in the site navigation yet')
+        ->and($result)->toContain('only add one when they say yes');
 });
 
 it('starts a page with a skeleton of real sections, each with its sample copy', function (): void {

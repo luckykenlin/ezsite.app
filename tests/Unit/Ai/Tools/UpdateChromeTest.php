@@ -134,16 +134,133 @@ it('says nothing changed when no field name was real', function (): void {
         ->and($result)->toContain('None of those field names exist on the header');
 });
 
-it('requires either content or a layout', function (array $arguments): void {
+it('requires either content, links or a layout', function (array $arguments): void {
     $draft = editableChrome();
 
     $result = chromeTool($draft)->handle(new Request(['slot' => 'footer', ...$arguments]));
 
     expect($draft->toArray())->toBeNull()
-        ->and($result)->toContain('send the fields to change, a layout, or both');
+        ->and($result)->toContain('send the fields to change, links to add or remove, a layout');
 })->with([
     'neither given' => [[]],
     'content given but empty' => [['content' => []]],
+]);
+
+/*
+ * The single-link verbs. "Add Pricing to the menu" used to demand the model
+ * resend every existing link — one it could not see going missing deleted the
+ * navigation. add_links appends server-side, so one link is one argument.
+ */
+it('appends a link to the menu without the rest being resent', function (): void {
+    $draft = editableChrome();
+
+    $result = chromeTool($draft)->handle(new Request([
+        'slot' => 'header',
+        'add_links' => [['label' => 'Pricing', 'url' => '/pricing']],
+    ]));
+
+    expect($draft->current(ChromeSlot::Header)['data']['nav_links'])->toBe([
+        ['label' => 'Home', 'url' => '/'],
+        ['label' => 'Pricing', 'url' => '/pricing'],
+    ])
+        ->and($draft->current(ChromeSlot::Header)['data']['cta_label'])->toBe('Call us')
+        ->and($result)->toContain('nav_links');
+});
+
+/*
+ * A retried or repeated add must not double the menu: the url is the link's
+ * identity, so adding it again just renames it.
+ */
+it('updates the label in place when an added url already exists', function (): void {
+    $draft = editableChrome();
+
+    chromeTool($draft)->handle(new Request([
+        'slot' => 'header',
+        'add_links' => [['label' => 'Start', 'url' => '/']],
+    ]));
+
+    expect($draft->current(ChromeSlot::Header)['data']['nav_links'])->toBe([
+        ['label' => 'Start', 'url' => '/'],
+    ]);
+});
+
+it('removes a link matched by label or url, case-insensitively', function (string $needle): void {
+    $draft = editableChrome();
+
+    chromeTool($draft)->handle(new Request([
+        'slot' => 'header',
+        'remove_links' => [$needle],
+    ]));
+
+    expect($draft->current(ChromeSlot::Header)['data']['nav_links'])->toBeEmpty();
+})->with([
+    'by label' => ['HOME'],
+    'by url' => ['/'],
+]);
+
+/*
+ * An unmatched remove is reported, not swallowed: the model's next sentence
+ * claims the link is gone, and only this reply can correct it.
+ */
+it('reports removes that matched nothing', function (): void {
+    $draft = editableChrome();
+
+    $result = chromeTool($draft)->handle(new Request([
+        'slot' => 'header',
+        'remove_links' => ['Blog'],
+    ]));
+
+    expect($draft->toArray())->toBeNull()
+        ->and($result)->toContain("No existing link matches 'Blog'");
+});
+
+it('removes and adds in one call, removes first', function (): void {
+    $draft = editableChrome();
+
+    $result = chromeTool($draft)->handle(new Request([
+        'slot' => 'header',
+        'remove_links' => ['Home'],
+        'add_links' => [['label' => 'Services', 'url' => '/services']],
+    ]));
+
+    expect($draft->current(ChromeSlot::Header)['data']['nav_links'])->toBe([
+        ['label' => 'Services', 'url' => '/services'],
+    ])
+        ->and($result)->toContain('every page of the site');
+});
+
+/*
+ * All-or-nothing when both list forms arrive: accepting both and picking a
+ * precedence would leave the model believing the ignored half happened.
+ */
+it('rejects add or remove links sent together with a whole nav_links list', function (): void {
+    $draft = editableChrome();
+
+    $result = chromeTool($draft)->handle(new Request([
+        'slot' => 'header',
+        'add_links' => [['label' => 'Services', 'url' => '/services']],
+        'content' => ['nav_links' => [['label' => 'Only me', 'url' => '/only']]],
+    ]));
+
+    expect($draft->toArray())->toBeNull()
+        ->and($result)->toContain('not both');
+});
+
+it('rejects the whole call when an added link is malformed', function (mixed $links): void {
+    $draft = editableChrome();
+
+    $result = chromeTool($draft)->handle(new Request([
+        'slot' => 'header',
+        'add_links' => $links,
+    ]));
+
+    expect($draft->toArray())->toBeNull()
+        ->and($result)->toContain('needs a non-empty label and url');
+})->with([
+    'missing url' => [[['label' => 'Services']]],
+    'blank label' => [[['label' => ' ', 'url' => '/services']]],
+    'not an object' => [['services']],
+    'not a list at all' => ['services'],
 ]);
 
 it('publishes both slots and every chrome layout in its schema', function (): void {

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Actions\Pages\CachePageEditorPreview;
+use App\Models\Business;
 use App\Models\Page;
 use App\Models\Tenant;
 use App\Models\User;
@@ -185,6 +186,35 @@ it('layers a design-token draft style over the saved theme', function (): void {
         ->assertOk()
         ->assertSee('data-editor-theme-draft', false)
         ->assertSee('--color-primary', false);
+});
+
+it('renders a staged brand hex without the business row changing', function (): void {
+    $tenant = Tenant::factory()->withDomain('acme')->create();
+    $this->createTenantBusiness($tenant, ['name' => 'Corner Cafe', 'brand_primary' => '#111111']);
+    $page = $this->createTenantPage($tenant, []);
+
+    resolve(RunInTenant::class)->handle(
+        $tenant,
+        fn () => resolve(CachePageEditorPreview::class)->handle(
+            $page,
+            [],
+            'valid-token',
+            null,
+            ['palette' => 'brand', 'brand_primary' => '#1a2b3c'],
+        ),
+    );
+
+    // The draft hex previews via an in-memory copy of the business — the
+    // saved #111111 stays on the row until "Apply to site".
+    $this->get(sprintf('http://acme.%s/_editor/preview?token=valid-token', $this->centralDomain()))
+        ->assertOk()
+        ->assertSee('data-editor-theme-draft', false)
+        ->assertSee('#1a2b3c', false);
+
+    expect(resolve(RunInTenant::class)->handle(
+        $tenant,
+        fn (): ?string => Business::query()->sole()->brand_primary,
+    ))->toBe('#111111');
 });
 
 it('skips the design draft when no business exists to theme', function (): void {

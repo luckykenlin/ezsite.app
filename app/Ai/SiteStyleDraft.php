@@ -51,14 +51,94 @@ final class SiteStyleDraft
      */
     private ?DesignTokens $staged = null;
 
-    public function __construct(private readonly DesignTokens $saved)
-    {
+    /**
+     * Whether THIS turn changed anything. Its own flag rather than
+     * `$staged !== null`, because a turn can start with `$seeded` — a style a
+     * previous turn staged that the operator has not applied yet — and a turn
+     * that merely reads that seed must not re-stage it through
+     * {@see toArray()}: the Apply gate is already up, and a re-staged copy
+     * would snapshot an edit nobody made.
+     */
+    private bool $dirty = false;
+
+    /**
+     * Brand hexes staged by THIS turn — the "make the primary colour deep
+     * blue" lever. Validated by the tool before they get here; ride inside
+     * {@see toArray()} beside the tokens so the whole staged look travels as
+     * one draft.
+     *
+     * @var array<string, string>
+     */
+    private array $stagedBrand = [];
+
+    /**
+     * @param  DesignTokens  $saved  the tokens as they are on disk
+     * @param  DesignTokens|null  $seeded  a previous turn's still-unapplied staged
+     *                                     style, carried back in so "a bit darker"
+     *                                     refines what the operator is LOOKING AT
+     *                                     rather than silently restarting from the
+     *                                     saved tokens
+     * @param  array<string, string>  $savedBrand  the business row's persisted brand
+     *                                             hexes — what makes `palette: brand`
+     *                                             legal without staging a new hex.
+     *                                             Never re-emitted by toArray(): they
+     *                                             are already on disk.
+     * @param  array<string, string>  $seededBrand  hexes riding in the editor's
+     *                                              still-unapplied draft, re-emitted by
+     *                                              toArray() so a later fine-tune does
+     *                                              not silently drop them from the
+     *                                              preview
+     */
+    public function __construct(
+        private readonly DesignTokens $saved,
+        private readonly ?DesignTokens $seeded = null,
+        private readonly array $savedBrand = [],
+        private readonly array $seededBrand = [],
+    ) {
         //
+    }
+
+    /**
+     * The effective brand hexes — this turn's staged ones over the seeded
+     * draft's over the saved row's. What the brand-palette guard reads to
+     * decide whether `palette: brand` has a primary to derive from.
+     *
+     * @return array<string, string>
+     */
+    public function brand(): array
+    {
+        return [...$this->savedBrand, ...$this->seededBrand, ...$this->stagedBrand];
+    }
+
+    /**
+     * Stage validated brand hexes on top of whatever this turn holds. The
+     * caller pairs this with a `palette: brand` fine-tune — a hex without the
+     * brand palette would change nothing visible — but the tokens are
+     * materialised here too, so a caller that forgets still produces a
+     * complete draft rather than a dirty flag with nothing behind it.
+     *
+     * @param  array<string, string>  $hexes
+     */
+    public function stageBrand(array $hexes): void
+    {
+        $this->staged ??= $this->current();
+        $this->stagedBrand = [...$this->stagedBrand, ...$hexes];
+        $this->dirty = true;
     }
 
     public function current(): DesignTokens
     {
-        return $this->staged ?? $this->saved;
+        return $this->staged ?? $this->seeded ?? $this->saved;
+    }
+
+    /**
+     * Whether the style the operator is looking at is a still-unapplied
+     * preview from an earlier turn — what lets the prompt say so, so the
+     * model does not describe it as the site's actual style.
+     */
+    public function seededPreview(): bool
+    {
+        return $this->seeded instanceof DesignTokens;
     }
 
     /**
@@ -77,7 +157,7 @@ final class SiteStyleDraft
 
     public function touched(): bool
     {
-        return $this->staged instanceof DesignTokens;
+        return $this->dirty;
     }
 
     /**
@@ -87,6 +167,7 @@ final class SiteStyleDraft
     public function applyPreset(StylePreset $preset): void
     {
         $this->staged = $preset->tokens();
+        $this->dirty = true;
     }
 
     /**
@@ -107,6 +188,7 @@ final class SiteStyleDraft
      */
     public function apply(array $changes): void
     {
+        $this->dirty = true;
         $this->staged = $this->current()->with(
             palette: $this->value(ColorPalette::class, $changes, TokenKey::Palette),
             fontPair: $this->value(FontPair::class, $changes, TokenKey::FontPair),
@@ -121,16 +203,31 @@ final class SiteStyleDraft
     /**
      * The staged tokens in the shape the editor stages and
      * {@see \App\Actions\SaveDesignSelection} consumes, or null when this turn
-     * left the style alone.
+     * left the style alone — including a turn that merely STARTED from a
+     * seeded, still-unapplied preview: the editor already holds that draft,
+     * and handing it back would re-stage an edit nobody made this turn.
      *
      * {@see DesignTokens::toArray()} already emits exactly the keys both of
-     * those expect, so there is no adapter anywhere on this path.
+     * those expect, so there is no adapter anywhere on this path. Brand hexes
+     * ride beside the tokens: this turn's staged ones, plus the seeded draft's
+     * — the editor's draft is REPLACED by this array, so leaving a seeded hex
+     * out would silently strip it from the preview.
      *
-     * @return array{preset: string|null, palette: string, font_pair: string, type_style: string, radius: string, density: string, divider: string, accent: string}|null
+     * @return array<string, string|null>|null
      */
     public function toArray(): ?array
     {
-        return $this->staged?->toArray();
+        // Every dirty-setter also materialises $staged, so the second half of
+        // this condition is the type-level restatement of that invariant, not
+        // a reachable branch of its own.
+        if (! $this->dirty || ! $this->staged instanceof DesignTokens) {
+            return null;
+        }
+
+        $tokens = $this->staged->toArray();
+        $brand = [...$this->seededBrand, ...$this->stagedBrand];
+
+        return $brand === [] ? $tokens : [...$tokens, ...$brand];
     }
 
     /**

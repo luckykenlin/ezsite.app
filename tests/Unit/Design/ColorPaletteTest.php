@@ -97,6 +97,31 @@ it('marks exactly the near-black palettes dark', function (): void {
     expect($dark)->toBe([ColorPalette::Midnight, ColorPalette::NoirGold]);
 });
 
+/*
+ * The guide is the model's colour vocabulary — every palette needs one, and
+ * the dark palettes must shout it: picking one repaints the whole site dark,
+ * a mistake no adjective justifies on its own.
+ */
+it('gives every palette a colour guide, with the dark ones flagged in capitals', function (ColorPalette $palette): void {
+    expect($palette->guide())->not->toBeEmpty()
+        ->and($palette->isDark())->toBe(str_contains($palette->guide(), 'DARK'));
+})->with(array_map(
+    fn (ColorPalette $palette): array => [$palette],
+    ColorPalette::cases(),
+));
+
+/*
+ * The one public gate every brand-hex path shares — the Design form,
+ * SetSiteStyle's hex arguments, TokenSelection::normalise() — and also the
+ * CSS-injection guard, since these strings end up inside a <style> tag.
+ */
+it('validates and lower-cases a hex through the public gate', function (): void {
+    expect(ColorPalette::validHex('#1A2B3C'))->toBe('#1a2b3c')
+        ->and(ColorPalette::validHex('#123'))->toBeNull()
+        ->and(ColorPalette::validHex('red; } body { display: none'))->toBeNull()
+        ->and(ColorPalette::validHex(null))->toBeNull();
+});
+
 it('derives the brand palette from validated hex colors with contrast-picked content', function (): void {
     $business = paletteBusiness([
         'brand_primary' => '#1A2B3C', // dark blue → light content

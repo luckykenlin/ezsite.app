@@ -45,6 +45,32 @@ it('drops unknown keys and non-string values', function (): void {
 });
 
 /*
+ * The brand keys ride only as VALID hexes: this runs on data from outside the
+ * process and the values end up inside a <style> tag, so the validity check is
+ * the injection guard. Present only when valid — an absent key means "keep the
+ * saved brand colour", never null.
+ */
+it('passes brand hexes through only when they are hexes', function (): void {
+    $normalised = TokenSelection::normalise([
+        'palette' => 'brand',
+        'brand_primary' => '#1A2B3C',
+        'brand_secondary' => 'not-a-colour',
+        'brand_accent' => ['#123456'],
+    ]);
+
+    expect($normalised['brand_primary'])->toBe('#1a2b3c')
+        ->and($normalised)->not->toHaveKey('brand_secondary')
+        ->and($normalised)->not->toHaveKey('brand_accent');
+});
+
+it('emits no brand keys for a selection without them', function (): void {
+    expect(TokenSelection::normalise(['palette' => 'ocean']))
+        ->not->toHaveKey('brand_primary')
+        ->not->toHaveKey('brand_secondary')
+        ->not->toHaveKey('brand_accent');
+});
+
+/*
  * Null is the "no style was staged" signal every caller reads. An array in
  * always means an array out, so a normalised selection is never mistaken for an
  * absent one.

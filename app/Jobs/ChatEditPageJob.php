@@ -76,6 +76,18 @@ final class ChatEditPageJob extends TenantAware
      *                                                   disk paths), never bytes. Public
      *                                                   readonly like $selectedBlockKey,
      *                                                   because tests assert on the payload.
+     * @param  array<string, string|null>|null  $designDraft  the editor's still-unapplied
+     *                                                        CHAT-staged style, so "a bit
+     *                                                        darker" refines what is on the
+     *                                                        canvas instead of restarting
+     *                                                        from the saved tokens. Public
+     *                                                        readonly for the same payload
+     *                                                        assertions as the two above.
+     * @param  array<string, array{type: string, data: array<string, mixed>}|null>|null  $chromeDraft  the editor's unsaved header/footer
+     *                                                                                                 draft, per slot — without it, "add
+     *                                                                                                 another link" baselines from the DB
+     *                                                                                                 and silently drops the link the
+     *                                                                                                 previous turn staged
      */
     public function __construct(
         string $tenantId,
@@ -88,6 +100,8 @@ final class ChatEditPageJob extends TenantAware
         public readonly ?string $previewToken = null,
         public readonly ChatMode $mode = ChatMode::Edit,
         public readonly array $attachments = [],
+        public readonly ?array $designDraft = null,
+        public readonly ?array $chromeDraft = null,
     ) {
         parent::__construct($tenantId);
     }
@@ -175,19 +189,20 @@ final class ChatEditPageJob extends TenantAware
                 $turns->handle($this->token, $reply, activity: $activity, preview: $painted);
             },
             $this->selectedBlockKey,
-            // After every tool: swap the canvas preview's blocks for the draft
-            // as it now stands and bump the paint counter, which the SSE tail
-            // turns into a "reload the canvas" frame. The editor's own state is
-            // untouched — the result still lands through applyTurn() as one
-            // undoable, unsaved transaction; this only moves the PICTURE.
-            function (array $blocks) use (&$reply, &$activity, &$painted, $turns): void {
+            // After every tool: swap the canvas preview's staged state — blocks,
+            // and any style or chrome the turn has staged so far — and bump the
+            // paint counter, which the SSE tail turns into a "reload the canvas"
+            // frame. The editor's own state is untouched — the result still
+            // lands through applyTurn() as one undoable, unsaved transaction;
+            // this only moves the PICTURE.
+            function (array $blocks, ?array $design, ?array $chrome) use (&$reply, &$activity, &$painted, $turns): void {
                 if ($this->previewToken === null) {
                     return;
                 }
 
                 // False = the editor never published a preview under this token
                 // (or it expired): nothing is on screen, so nothing to repaint.
-                if (! resolve(CachePageEditorPreview::class)->replaceBlocks($this->previewToken, $blocks)) {
+                if (! resolve(CachePageEditorPreview::class)->replaceStaged($this->previewToken, $blocks, $design, $chrome)) {
                     return;
                 }
 
@@ -197,6 +212,8 @@ final class ChatEditPageJob extends TenantAware
             },
             $this->mode,
             $this->attachments,
+            $this->designDraft,
+            $this->chromeDraft,
         );
 
         $turns->handle(

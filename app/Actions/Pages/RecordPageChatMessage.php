@@ -47,8 +47,11 @@ final readonly class RecordPageChatMessage
      *                                                        array shapes; an empty list
      *                                                        stores as null for the same
      *                                                        reason as `$activity`
+     * @param  bool  $changedChrome  whether the turn staged a header/footer edit —
+     *                               its own flag beside `$changed` because chrome is
+     *                               site-wide and the review badge has to say so
      */
-    public function handle(Page $page, ?User $user, ChatRole $role, string $content, ?int $changed = null, bool $failed = false, ?array $activity = null, ?array $attachments = null): PageChatMessage
+    public function handle(Page $page, ?User $user, ChatRole $role, string $content, ?int $changed = null, bool $failed = false, ?array $activity = null, ?array $attachments = null, bool $changedChrome = false): PageChatMessage
     {
         return PageChatMessage::query()->create([
             'tenant_id' => $page->tenant_id,
@@ -58,6 +61,7 @@ final readonly class RecordPageChatMessage
             'content' => $content,
             'attachments' => $attachments === [] ? null : $attachments,
             'changed_blocks' => $changed,
+            'changed_chrome' => $changedChrome,
             'failed' => $failed,
             'activity' => $activity === [] ? null : $activity,
         ]);

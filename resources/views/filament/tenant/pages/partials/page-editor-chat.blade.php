@@ -44,7 +44,7 @@
                                 wire:key="chat-{{ $index }}"
                                 class="pe-chat-message pe-chat-prose"
                                 data-role="{{ $message['role'] }}"
-                            >{!! $message['html'] !!}@if ($message['changed'] && $loop->last && $this->chatEditAwaitingSave)<span class="pe-chat-edited">{{ __('Edited the page — review and Save') }}</span>@endif</div>
+                            >{!! $message['html'] !!}@if (($message['changed'] || $message['changedChrome']) && $loop->last && $this->chatEditAwaitingSave)<span class="pe-chat-edited">{{ $message['changedChrome'] ? ($message['changed'] ? __('Edited the page and the site-wide header/footer — review and Save') : __('Edited the site-wide header/footer — review and Save')) : __('Edited the page — review and Save') }}</span>@endif</div>
                         @else
                             <div
                                 wire:key="chat-{{ $index }}"
@@ -103,32 +103,6 @@
                                 >
                                     {{ __('Try again') }}
                                 </x-filament::button>
-                            </div>
-                        @endif
-                        {{-- The site style the last turn staged.
-
-                             A block edit is reviewed on the canvas and committed
-                             by Save. A style is not the same kind of change: it
-                             writes the business row, so it retunes EVERY page
-                             including published ones, and it must not ride along
-                             with a Save that means "this page". Hence its own
-                             gate, right where the operator is reading about it.
-
-                             Rendered after the last message rather than beside
-                             it, because a design-only turn changes no blocks —
-                             `$message['changed']` is correctly false for it, so
-                             it has no bubble badge to hang off. --}}
-                        @if ($loop->last && $this->chatDesignAwaitingApply)
-                            <div class="pe-chat-design" wire:key="chat-design-gate">
-                                <p class="pe-chat-design-note">{{ __('This look is previewed on the canvas. Applying it changes every page on the site.') }}</p>
-                                <div class="pe-chat-design-actions">
-                                    <x-filament::button size="xs" wire:click="applyChatDesign" wire:loading.attr="disabled">
-                                        {{ __('Apply to site') }}
-                                    </x-filament::button>
-                                    <x-filament::button size="xs" color="gray" wire:click="discardChatDesign" wire:loading.attr="disabled">
-                                        {{ __('Discard') }}
-                                    </x-filament::button>
-                                </div>
                             </div>
                         @endif
                     @empty
@@ -233,6 +207,33 @@
                         <div wire:poll.5s="pollChatTurn"></div>
                     @endif
                 </div>
+
+                {{-- The site style a turn staged, pinned ABOVE the composer.
+
+                     A block edit is reviewed on the canvas and committed by
+                     Save. A style is not the same kind of change: it writes
+                     the business row, so it retunes EVERY page including
+                     published ones, and it must not ride along with a Save
+                     that means "this page". Hence its own gate.
+
+                     Pinned rather than rendered after the last message: there
+                     it scrolled away — and disappeared from attention — the
+                     moment another message landed, leaving an unapplied style
+                     silently parked on the canvas. It stays until the operator
+                     answers it, which is the point. --}}
+                @if ($this->chatDesignAwaitingApply)
+                    <div class="pe-chat-design" wire:key="chat-design-gate">
+                        <p class="pe-chat-design-note">{{ __('This look is previewed on the canvas. Applying it changes every page on the site.') }}</p>
+                        <div class="pe-chat-design-actions">
+                            <x-filament::button size="xs" wire:click="applyChatDesign" wire:loading.attr="disabled">
+                                {{ __('Apply to site') }}
+                            </x-filament::button>
+                            <x-filament::button size="xs" color="gray" wire:click="discardChatDesign" wire:loading.attr="disabled">
+                                {{ __('Discard') }}
+                            </x-filament::button>
+                        </div>
+                    </div>
+                @endif
 
                 {{-- The composer stays editable while a turn runs, the way
                      ChatGPT and Claude do: you can line up the next message,

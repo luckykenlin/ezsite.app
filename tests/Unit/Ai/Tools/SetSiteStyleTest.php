@@ -127,7 +127,12 @@ it('rejects an unknown preset and lists the real ones, changing nothing', functi
         ->and($result)->toContain('professional-minimal');
 });
 
-it('rejects an unknown token value and lists the options, changing nothing', function (): void {
+/*
+ * Partial, not all-or-nothing: one bad value must not void the preset and six
+ * good tokens with it — that burned a step of #[MaxSteps] on a re-send. But
+ * the rejection is REPORTED, so the model never believes the bad value landed.
+ */
+it('applies the valid tokens and reports the one it rejected', function (): void {
     $style = styleDraft();
 
     $result = styleTool($style, styleableDraft())->handle(new Request([
@@ -135,9 +140,29 @@ it('rejects an unknown token value and lists the options, changing nothing', fun
         TokenKey::Radius->value => 'enormous',
     ]));
 
-    expect($style->touched())->toBeFalse()
-        ->and($result)->toContain("'enormous' is not a valid corner radius")
+    expect($style->touched())->toBeTrue()
+        ->and($style->current()->palette)->toBe(StylePreset::WarmCraft->tokens()->palette)
+        // The preset survives untuned — the bad radius was dropped, not zeroed.
+        ->and($style->current()->preset)->toBe(StylePreset::WarmCraft)
+        ->and($result)->toContain("'enormous' is not a valid corner radius and was not applied")
         ->and($result)->toContain('full');
+});
+
+/*
+ * The palette rejection repeats the colour guide, not just the slugs: a model
+ * that guessed "navy" needs the hue words to make its NEXT call the right one
+ * instead of a second guess.
+ */
+it('answers a bad palette guess with the colour guide', function (): void {
+    $style = styleDraft();
+
+    $result = styleTool($style, styleableDraft())->handle(new Request([
+        TokenKey::Palette->value => 'navy',
+    ]));
+
+    expect($style->touched())->toBeFalse()
+        ->and($result)->toContain("'navy' is not a valid palette")
+        ->and($result)->toContain('deep blue');
 });
 
 it('reports doing nothing when given nothing', function (): void {
@@ -147,6 +172,69 @@ it('reports doing nothing when given nothing', function (): void {
 
     expect($style->touched())->toBeFalse()
         ->and($result)->toContain('No style was given');
+});
+
+/*
+ * The exact-colour lever — the one place the assistant may hold a hex. A hex
+ * implies the brand palette (a staged colour nobody renders is a change the
+ * operator never sees), and everything stays staged behind Apply.
+ */
+it('stages a brand hex and switches the palette to brand with it', function (): void {
+    $style = styleDraft();
+
+    $result = styleTool($style, styleableDraft())->handle(new Request([
+        'brand_primary' => '#1A2B3C',
+    ]));
+
+    expect($style->current()->palette)->toBe(ColorPalette::Brand)
+        // Lower-cased by the validity gate, like the businesses columns store it.
+        ->and($style->toArray()['brand_primary'])->toBe('#1a2b3c')
+        ->and($result)->toContain('brand primary #1a2b3c')
+        ->and($result)->toContain('staged on the canvas only');
+});
+
+it('rejects the whole call when a hex is not a colour', function (): void {
+    $style = styleDraft();
+
+    $result = styleTool($style, styleableDraft())->handle(new Request([
+        'brand_primary' => 'deep blue',
+        TokenKey::Radius->value => RadiusScale::Full->value,
+    ]));
+
+    // All-or-nothing, unlike the tokens: the colour IS the request, so
+    // applying the radius half would report success on the half that failed.
+    expect($style->touched())->toBeFalse()
+        ->and($result)->toContain("'deep blue' is not a colour this builder can use")
+        ->and($result)->toContain('six-digit hex');
+});
+
+/*
+ * The silent-fallback trap: `palette: brand` with no primary anywhere renders
+ * the Default palette while the reply claims a brand look. Refused with
+ * directions instead.
+ */
+it('refuses the brand palette when no primary colour exists anywhere', function (): void {
+    $style = styleDraft();
+
+    $result = styleTool($style, styleableDraft())->handle(new Request([
+        TokenKey::Palette->value => ColorPalette::Brand->value,
+    ]));
+
+    expect($style->touched())->toBeFalse()
+        ->and($result)->toContain('needs a primary colour first')
+        ->and($result)->toContain('business profile');
+});
+
+it('allows the brand palette when the business already has a primary', function (): void {
+    $style = new SiteStyleDraft(DesignTokens::default(), savedBrand: ['brand_primary' => '#336699']);
+
+    styleTool($style, styleableDraft())->handle(new Request([
+        TokenKey::Palette->value => ColorPalette::Brand->value,
+    ]));
+
+    expect($style->current()->palette)->toBe(ColorPalette::Brand)
+        // The saved hex is not re-staged — it is already on the row.
+        ->and($style->toArray())->not->toHaveKey('brand_primary');
 });
 
 it('publishes the preset vocabulary and the blast radius in its schema', function (): void {
@@ -163,6 +251,11 @@ it('publishes the preset vocabulary and the blast radius in its schema', functio
         ->and($serialized['preset']['description'])->toContain('premium')
         ->and($serialized['align_layouts']['type'])->toBe('boolean')
         ->and($serialized)->toHaveKey(TokenKey::Density->value)
+        // The palette's own grounding: colour words per slug, so "deep blue"
+        // lands on ocean instead of a coin-flip among bare names.
+        ->and($serialized[TokenKey::Palette->value]['description'])->toContain('deep blue')
+        // The hex fields carry their narrow licence in the schema itself.
+        ->and($serialized['brand_primary']['description'])->toContain('ONLY when the operator')
         // The load-bearing clause: this reaches pages the operator is not
         // looking at, and they have to be told.
         ->and($tool->description())->toContain('affects every page');

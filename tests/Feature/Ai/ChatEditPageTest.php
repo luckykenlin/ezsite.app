@@ -444,6 +444,26 @@ it('stages a site style without writing it to the business', function (): void {
         ->and(Business::query()->sole()->design_tokens->preset)->toBeNull();
 });
 
+/*
+ * "把主色换成深蓝" end to end: a named colour becomes a staged brand hex plus
+ * the brand palette, riding in the same design draft — and still nothing on
+ * disk until "Apply to site".
+ */
+it('stages an exact brand colour the operator named, unwritten', function (): void {
+    $this->createTenantBusiness($this->tenant, ['design_tokens' => DesignTokens::default(), 'brand_primary' => null], 0);
+
+    PageEditorAgent::fake([
+        toolCall('SetSiteStyle', ['brand_primary' => '#16305e']),
+        'Made the primary colour deep blue.',
+    ])->preventStrayPrompts();
+
+    $result = chatTurn(chatBlocks(), 'make the primary colour deep blue');
+
+    expect($result['design']['palette'])->toBe('brand')
+        ->and($result['design']['brand_primary'])->toBe('#16305e')
+        ->and(Business::query()->sole()->brand_primary)->toBeNull();
+});
+
 it('reports no staged style when the turn only edited content', function (): void {
     $this->createTenantBusiness($this->tenant, [], 0);
 
@@ -453,6 +473,57 @@ it('reports no staged style when the turn only edited content', function (): voi
     ])->preventStrayPrompts();
 
     expect(chatTurn(chatBlocks())['design'])->toBeNull();
+});
+
+/*
+ * Cross-turn continuity: "a bit rounder" after an unapplied "make it bold" must
+ * refine the bold preview the operator is looking at — the turn seeds from the
+ * editor's chat-staged draft instead of restarting from the saved tokens.
+ */
+it('refines a still-unapplied style from an earlier turn instead of restarting', function (): void {
+    $this->createTenantBusiness($this->tenant, ['design_tokens' => DesignTokens::default()], 0);
+
+    PageEditorAgent::fake([
+        toolCall('SetSiteStyle', ['radius' => 'none']),
+        'Squared the corners off.',
+    ])->preventStrayPrompts();
+
+    $result = $this->runInTenant($this->tenant, fn (): array => resolve(ChatEditPage::class)->handle(
+        $this->page,
+        chatBlocks(),
+        'square corners',
+        designDraft: StylePreset::BoldEditorial->tokens()->toArray(),
+    ));
+
+    // The fine-tune landed ON the seeded preview, not on the saved default.
+    expect($result['design']['palette'])->toBe(StylePreset::BoldEditorial->tokens()->palette->value)
+        ->and($result['design']['radius'])->toBe('none');
+
+    // And the model was told the style it sees is an unapplied preview.
+    PageEditorAgent::assertPrompted(fn (AgentPrompt $prompt): bool => $prompt->contains('PREVIEW you staged earlier'));
+});
+
+/*
+ * The gate half: a turn that starts from the seeded preview but never touches
+ * the style must not hand it back — the Apply gate is already up, and a
+ * re-staged copy would snapshot an edit nobody made this turn.
+ */
+it('does not re-stage a seeded style the turn left alone', function (): void {
+    $this->createTenantBusiness($this->tenant, [], 0);
+
+    PageEditorAgent::fake([
+        toolCall('UpdateBlockContent', ['key' => 'k1', 'content' => ['heading' => 'Fresh']]),
+        'Rewrote the headline.',
+    ])->preventStrayPrompts();
+
+    $result = $this->runInTenant($this->tenant, fn (): array => resolve(ChatEditPage::class)->handle(
+        $this->page,
+        chatBlocks(),
+        'rewrite the headline',
+        designDraft: StylePreset::BoldEditorial->tokens()->toArray(),
+    ));
+
+    expect($result['design'])->toBeNull();
 });
 
 /*
@@ -543,7 +614,46 @@ it('stages a site chrome edit without writing it to site settings', function ():
     expect($result['chrome']['header']['data']['nav_links'])
         ->toBe([['label' => 'Services', 'url' => '/services']])
         // Nothing on disk: site_settings is written by Save, not by the turn.
-        ->and($this->runInTenant($this->tenant, fn (): int => SiteSetting::query()->count()))->toBe(0);
+        ->and($this->runInTenant($this->tenant, fn (): int => SiteSetting::query()->count()))->toBe(0)
+        // The transcript marks the turn as a chrome edit on its own flag: the
+        // review badge words site-wide changes differently, and changed_blocks
+        // must stay blocks-only for revert semantics.
+        ->and($this->runInTenant(
+            $this->tenant,
+            fn () => PageChatMessage::query()->orderByDesc('id')->first(),
+        ))->changed_chrome->toBeTrue();
+});
+
+/*
+ * Cross-turn continuity for the menu: a link staged by an earlier turn is on
+ * the canvas but not in site_settings, so this turn's baseline must be the
+ * editor's draft — baselining from the DB silently drops that link the moment
+ * the model adds another.
+ */
+it('keeps a link staged by an earlier turn when the next one adds another', function (): void {
+    $this->createTenantBusiness($this->tenant, [], 0);
+
+    PageEditorAgent::fake([
+        toolCall('UpdateChrome', ['slot' => 'header', 'add_links' => [['label' => 'Pricing', 'url' => '/pricing']]]),
+        'Added Pricing to the menu.',
+    ])->preventStrayPrompts();
+
+    $result = $this->runInTenant($this->tenant, fn (): array => resolve(ChatEditPage::class)->handle(
+        $this->page,
+        chatBlocks(),
+        'add Pricing to the menu',
+        chromeDraft: [
+            'header' => ['type' => 'header', 'data' => [
+                'nav_links' => [['label' => 'Services', 'url' => '/services']],
+            ]],
+            'footer' => null,
+        ],
+    ));
+
+    expect($result['chrome']['header']['data']['nav_links'])->toBe([
+        ['label' => 'Services', 'url' => '/services'],
+        ['label' => 'Pricing', 'url' => '/pricing'],
+    ]);
 });
 
 it('hands back only the chrome slot the turn touched', function (): void {
@@ -595,11 +705,11 @@ it('gives the model the links already in the navigation, not just the field name
 
     chatTurn(chatBlocks());
 
-    // nav_links is replaced as a whole list, so a model that cannot see the
-    // existing links deletes them when it adds one.
+    // add_links merges server-side, but the model still needs to see the menu
+    // — that is what stops it re-adding an existing link under a second label.
     PageEditorAgent::assertPrompted(fn (AgentPrompt $prompt): bool => $prompt->contains('## Site header and footer')
         && $prompt->contains('About')
-        && $prompt->contains('replaced as a whole list'));
+        && $prompt->contains('add_links/remove_links'));
 });
 
 /*

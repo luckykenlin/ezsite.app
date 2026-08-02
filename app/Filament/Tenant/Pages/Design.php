@@ -22,6 +22,7 @@ use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Support\HtmlString;
 
 /**
  * The tenant's design settings: pick a curated style preset, then fine-tune
@@ -76,7 +77,7 @@ final class Design extends Page
                         Radio::make('preset')
                             ->hiddenLabel()
                             ->options(TokenOptions::presets())
-                            ->descriptions(TokenOptions::presetDescriptions())
+                            ->descriptions($this->presetSwatchDescriptions())
                             ->live()
                             // Selecting a preset only previews it into the
                             // fine-tune fields — nothing persists (and the
@@ -136,12 +137,9 @@ final class Design extends Page
 
         $business = Business::query()->firstOrFail();
 
-        $business->update([
-            'brand_primary' => $data['brand_primary'] ?? $business->brand_primary,
-            'brand_secondary' => $data['brand_secondary'] ?? $business->brand_secondary,
-            'brand_accent' => $data['brand_accent'] ?? $business->brand_accent,
-        ]);
-
+        // The whole form state goes through as-is: SaveDesignSelection owns
+        // the brand-hex write too, so this page and the chat rail cannot
+        // disagree about what a design save means.
         resolve(SaveDesignSelection::class)->handle($business, $data);
 
         $this->mount();
@@ -150,5 +148,40 @@ final class Design extends Page
             ->title('Design saved')
             ->success()
             ->send();
+    }
+
+    /**
+     * Each preset's one-line description with its palette in front of it — four
+     * colour dots, so choosing a look is done by eye instead of by reading.
+     * Inline styles because the colours are dynamic (one OKLCH value per
+     * palette, from enum constants — nothing user-authored reaches the
+     * attribute) and the panel's compiled stylesheet cannot carry arbitrary
+     * values.
+     *
+     * @return array<string, HtmlString>
+     */
+    private function presetSwatchDescriptions(): array
+    {
+        $descriptions = [];
+
+        foreach (StylePreset::cases() as $preset) {
+            $colors = $preset->tokens()->palette->colors();
+
+            $dots = implode('', array_map(
+                static fn (string $variable): string => sprintf(
+                    '<span style="display:inline-block;width:0.875rem;height:0.875rem;border-radius:9999px;border:1px solid rgba(0,0,0,0.15);background:%s"></span>',
+                    e($colors[$variable]),
+                ),
+                ['--color-primary', '--color-secondary', '--color-accent', '--color-base-200'],
+            ));
+
+            $descriptions[$preset->value] = new HtmlString(sprintf(
+                '<span style="display:inline-flex;gap:0.25rem;align-items:center;margin-right:0.5rem;vertical-align:middle">%s</span>%s',
+                $dots,
+                e($preset->description()),
+            ));
+        }
+
+        return $descriptions;
     }
 }

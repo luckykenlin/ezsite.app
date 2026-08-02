@@ -288,7 +288,10 @@ it('grants design authority only within the enumerated space', function (): void
     $instructions = editorAgent(new PageDraft([]))->instructions();
 
     expect($instructions)->toContain('Layout and style ARE yours to set')
-        ->toContain('never a hex colour, a font name, a pixel value or CSS')
+        ->toContain('never a font name, a pixel value or CSS')
+        // The one licensed exception: an exact colour goes through the brand
+        // fields, and only when the operator named the colour themselves.
+        ->toContain("a hex colour in exactly one place — the site-style tool's brand colour fields")
         ->toContain('styles are combinations that were designed together')
         ->toContain('affects every page')
         // A named brand is translated into the style vocabulary, never echoed.
