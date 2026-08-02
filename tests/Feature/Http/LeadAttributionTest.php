@@ -138,3 +138,26 @@ it('ignores a campaign value passed as an array', function (): void {
     expect($lead->utm_source)->toBeNull()
         ->and($lead->utm_medium)->toBeNull();
 });
+
+it('narrows a forged session blob before anything can reach the insert', function (): void {
+    // The session is untrusted input: an old format or a tampered payload may
+    // hold keys that are not lead columns, or arrays where strings belong.
+    // read() is the single gate — CaptureLead spreads its result verbatim.
+    tenantWithAttributedForm();
+    $host = sprintf('http://acme.%s', $this->centralDomain());
+
+    $this->withSession([
+        RememberLeadAttribution::SESSION_KEY => [
+            'utm_source' => 'google',
+            'utm_medium' => ['an', 'array'],
+            'not_a_column' => 'ignored',
+        ],
+    ])->post($host.'/_leads', ['name' => 'Mei', 'phone' => '+1 555 0100'])
+        ->assertRedirect();
+
+    $lead = Lead::query()->sole();
+
+    expect($lead->utm_source)->toBe('google')
+        ->and($lead->utm_medium)->toBeNull()
+        ->and($lead->landing_path)->toBeNull();
+});

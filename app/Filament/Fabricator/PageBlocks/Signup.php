@@ -5,10 +5,9 @@ declare(strict_types=1);
 namespace App\Filament\Fabricator\PageBlocks;
 
 use App\Enums\LeadFieldSet;
+use App\Filament\Fabricator\Fields\CaptureFields;
 use App\Site\Blocks\BlockIntent;
 use Filament\Forms\Components\Field;
-use Filament\Forms\Components\Select;
-use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Support\Icons\Heroicon;
 
@@ -81,31 +80,17 @@ final class Signup extends Block
             TextInput::make('heading')
                 ->required()
                 ->maxLength(200),
-            Textarea::make('offer')
-                ->label('What they get')
-                ->helperText('The reason to hand over a phone number. A form with no offer is just a chore.')
-                ->rows(2)
-                ->maxLength(300),
-            Select::make('fields')
-                ->label('Ask for')
-                ->options(LeadFieldSet::options())
-                ->default(LeadFieldSet::Phone->value)
-                ->selectablePlaceholder(false)
+            CaptureFields::offer()
+                ->helperText('The reason to hand over a phone number. A form with no offer is just a chore.'),
+            CaptureFields::fields(LeadFieldSet::Phone)
                 ->helperText('Fewer fields, more completions. Ask only for what you will actually use to reply.')
                 ->required(),
-            TextInput::make('button_label')
-                ->label('Button')
-                ->required()
-                ->maxLength(60),
-            TextInput::make('success_message')
-                ->label('Thank-you message')
-                ->placeholder('Thanks — we got it and will be in touch.')
-                ->maxLength(200),
-            TextInput::make('fine_print')
-                ->label('Fine print')
-                ->placeholder('No spam. Unsubscribe anytime.')
-                ->helperText('A short reassurance under the button.')
-                ->maxLength(120),
+            CaptureFields::buttonLabel()
+                ->required(),
+            CaptureFields::successMessage()
+                ->placeholder('Thanks — we got it and will be in touch.'),
+            CaptureFields::finePrint()
+                ->helperText('A short reassurance under the button.'),
         ];
     }
 }

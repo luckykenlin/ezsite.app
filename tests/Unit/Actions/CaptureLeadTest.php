@@ -47,14 +47,13 @@ it('records which surface produced the lead, and the first-touch campaign', func
     $lead = $this->runInTenant($tenant, fn (): Lead => resolve(CaptureLead::class)->handle(
         ['email' => 'mei@example.com'],
         LeadSource::Popup,
+        // Keyed by lead column, the shape RememberLeadAttribution::read()
+        // returns — dropping unknown session keys is ITS test, not this one's.
         attribution: [
             'utm_source' => 'google',
             'utm_medium' => 'cpc',
             'referrer' => 'https://www.google.com/',
             'landing_path' => '/?utm_source=google',
-            // Anything the session happens to carry beyond the known columns
-            // must not reach the insert.
-            'not_a_column' => 'ignored',
         ],
     ));
 

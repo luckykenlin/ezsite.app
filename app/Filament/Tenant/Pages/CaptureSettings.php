@@ -7,14 +7,16 @@ namespace App\Filament\Tenant\Pages;
 use App\Actions\SaveSiteCapture;
 use App\Enums\LeadFieldSet;
 use App\Enums\PopupTrigger;
+use App\Filament\Fabricator\Fields\CaptureFields;
 use App\Models\SiteSetting;
+use App\Site\SiteCapture;
 use BackedEnum;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Schemas\Components\Group;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
@@ -76,61 +78,43 @@ final class CaptureSettings extends Page
                         Toggle::make('popup.enabled')
                             ->label('Show the popup')
                             ->live(),
-                        Toggle::make('popup.follow_offer')
-                            ->label('Use my latest offer')
-                            ->helperText('When an offer update is running, the popup shows that instead of the wording below — and goes back to it the moment the offer ends. Nothing to remember to switch off.')
-                            ->visible(fn (Get $get): bool => $get('popup.enabled') === true),
-                        TextInput::make('popup.heading')
-                            ->label('Heading')
-                            ->maxLength(120)
-                            ->required(fn (Get $get): bool => $get('popup.enabled') === true)
-                            ->visible(fn (Get $get): bool => $get('popup.enabled') === true),
-                        Textarea::make('popup.offer')
-                            ->label('What they get')
-                            ->rows(2)
-                            ->maxLength(300)
-                            ->visible(fn (Get $get): bool => $get('popup.enabled') === true),
-                        Select::make('popup.fields')
-                            ->label('Ask for')
-                            ->options(LeadFieldSet::options())
-                            ->default(LeadFieldSet::Email->value)
-                            ->selectablePlaceholder(false)
-                            ->helperText('One field converts best in a popup. Anything longer belongs on the page.')
-                            ->visible(fn (Get $get): bool => $get('popup.enabled') === true),
-                        TextInput::make('popup.button_label')
-                            ->label('Button')
-                            ->maxLength(60)
-                            ->placeholder('Get it')
-                            ->visible(fn (Get $get): bool => $get('popup.enabled') === true),
-                        TextInput::make('popup.success_message')
-                            ->label('Thank-you message')
-                            ->maxLength(200)
-                            ->visible(fn (Get $get): bool => $get('popup.enabled') === true),
-                        TextInput::make('popup.fine_print')
-                            ->label('Fine print')
-                            ->maxLength(120)
-                            ->placeholder('No spam. Unsubscribe anytime.')
-                            ->visible(fn (Get $get): bool => $get('popup.enabled') === true),
-                        Select::make('popup.trigger')
-                            ->label('Show it')
-                            ->options(PopupTrigger::options())
-                            ->default(PopupTrigger::Delay->value)
-                            ->selectablePlaceholder(false)
-                            ->live()
-                            ->visible(fn (Get $get): bool => $get('popup.enabled') === true),
-                        TextInput::make('popup.trigger_value')
-                            ->label('After')
-                            ->numeric()
-                            ->suffix(fn (Get $get): string => $this->trigger($get)->valueLabel())
-                            ->placeholder(fn (Get $get): string => (string) $this->trigger($get)->defaultValue())
-                            ->visible(fn (Get $get): bool => $get('popup.enabled') === true && $this->trigger($get)->takesValue()),
-                        TextInput::make('popup.frequency_days')
-                            ->label('Then leave them alone for')
-                            ->numeric()
-                            ->suffix('days')
-                            ->placeholder('7')
-                            ->helperText('A visitor who has seen it — or already got in touch — will not see it again until this many days have passed. 0 shows it every visit.')
-                            ->visible(fn (Get $get): bool => $get('popup.enabled') === true),
+                        // One visibility rule for everything the toggle governs —
+                        // hidden fields are not validated, so `required` below
+                        // only bites while the popup is on.
+                        Group::make([
+                            Toggle::make('popup.follow_offer')
+                                ->label('Use my latest offer')
+                                ->helperText('When an offer update is running, the popup shows that instead of the wording below — and goes back to it the moment the offer ends. Nothing to remember to switch off.'),
+                            TextInput::make('popup.heading')
+                                ->label('Heading')
+                                ->maxLength(120)
+                                ->required(),
+                            CaptureFields::offer('popup.offer'),
+                            CaptureFields::fields(LeadFieldSet::Email, 'popup.fields')
+                                ->helperText('One field converts best in a popup. Anything longer belongs on the page.'),
+                            CaptureFields::buttonLabel('popup.button_label')
+                                ->placeholder(SiteCapture::DEFAULT_BUTTON_LABEL),
+                            CaptureFields::successMessage('popup.success_message'),
+                            CaptureFields::finePrint('popup.fine_print'),
+                            Select::make('popup.trigger')
+                                ->label('Show it')
+                                ->options(PopupTrigger::options())
+                                ->default(PopupTrigger::Delay->value)
+                                ->selectablePlaceholder(false)
+                                ->live(),
+                            TextInput::make('popup.trigger_value')
+                                ->label('After')
+                                ->numeric()
+                                ->suffix(fn (Get $get): string => $this->trigger($get)->valueLabel())
+                                ->placeholder(fn (Get $get): string => (string) $this->trigger($get)->defaultValue())
+                                ->visible(fn (Get $get): bool => $this->trigger($get)->takesValue()),
+                            TextInput::make('popup.frequency_days')
+                                ->label('Then leave them alone for')
+                                ->numeric()
+                                ->suffix('days')
+                                ->placeholder('7')
+                                ->helperText('A visitor who has seen it — or already got in touch — will not see it again until this many days have passed. 0 shows it every visit.'),
+                        ])->visible(fn (Get $get): bool => $get('popup.enabled') === true),
                     ]),
                 Section::make('Mobile call bar')
                     ->description('A button fixed to the bottom of the screen on phones, dialling the number from your business profile. Most people who find a local business on a phone would rather call than fill in a form.')
@@ -138,15 +122,15 @@ final class CaptureSettings extends Page
                         Toggle::make('call_bar.enabled')
                             ->label('Show the call bar')
                             ->live(),
-                        TextInput::make('call_bar.label')
-                            ->label('Button')
-                            ->maxLength(40)
-                            ->placeholder('Call now')
-                            ->visible(fn (Get $get): bool => $get('call_bar.enabled') === true),
-                        Toggle::make('call_bar.show_popup_button')
-                            ->label('Also offer the popup form')
-                            ->helperText('Adds a second button for visitors who would rather write than call. Needs the popup switched on.')
-                            ->visible(fn (Get $get): bool => $get('call_bar.enabled') === true),
+                        Group::make([
+                            TextInput::make('call_bar.label')
+                                ->label('Button')
+                                ->maxLength(40)
+                                ->placeholder(SiteCapture::DEFAULT_CALL_BAR_LABEL),
+                            Toggle::make('call_bar.show_popup_button')
+                                ->label('Also offer the popup form')
+                                ->helperText('Adds a second button for visitors who would rather write than call. Needs the popup switched on.'),
+                        ])->visible(fn (Get $get): bool => $get('call_bar.enabled') === true),
                     ]),
             ]);
     }

@@ -20,6 +20,7 @@
 --}}
 @use('App\Enums\LeadFieldSet')
 @use('App\Enums\LeadSource')
+@use('App\Site\LeadFormIds')
 @props([
     'formId',
     'location' => null,
@@ -31,8 +32,8 @@
     'finePrint' => null,
 ])
 @php
-    $bag = $errors->getBag('lead_' . $formId);
-    $submitted = session('lead_submitted') === $formId;
+    $bag = $errors->getBag(LeadFormIds::errorBag($formId));
+    $submitted = session(LeadFormIds::SUBMITTED_SESSION_KEY) === $formId;
     $thanks = $successMessage ?: __('Thanks — we got your message and will be in touch.');
     // A single-line set (no message box) puts its inputs side by side, which
     // is what makes the inline signup read as one row rather than a stack.
@@ -46,7 +47,7 @@
     after it (so a visitor who submits twice in a session still sees a form).
     `hidden` and not a class, so the toggle survives a missing stylesheet.
 --}}
-<div id="lead-{{ $formId }}" {{ $attributes->class(['w-full']) }}>
+<div id="{{ LeadFormIds::anchor($formId) }}" {{ $attributes->class(['w-full']) }}>
     <div data-lead-success role="status" @if (! $submitted) hidden @endif>
         <div class="alert alert-success">
             <span data-lead-success-message>{{ $thanks }}</span>

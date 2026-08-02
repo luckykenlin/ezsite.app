@@ -48,6 +48,33 @@ final class RememberLeadAttribution
     ];
 
     /**
+     * The stored attribution, narrowed to exactly the lead columns this
+     * middleware writes.
+     *
+     * The one reader ({@see \App\Http\Controllers\StoreLeadController}) goes
+     * through here so writer and reader share a single column list — and
+     * because a session blob is untrusted input (an old format, a forged
+     * cookie payload): unknown keys are dropped and non-string values become
+     * null before anything can reach an insert.
+     *
+     * @return array<string, string|null>
+     */
+    public static function read(Request $request): array
+    {
+        $stored = $request->session()->get(self::SESSION_KEY, []);
+        $stored = is_array($stored) ? $stored : [];
+
+        $attribution = [];
+
+        foreach ([...self::UTM_PARAMETERS, 'referrer', 'landing_path'] as $column) {
+            $value = $stored[$column] ?? null;
+            $attribution[$column] = is_string($value) ? $value : null;
+        }
+
+        return $attribution;
+    }
+
+    /**
      * @param  Closure(Request): Response  $next
      */
     public function handle(Request $request, Closure $next): Response

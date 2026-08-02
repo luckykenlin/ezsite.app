@@ -12,18 +12,28 @@ use App\Models\Post;
  * The tenant's site-wide capture surfaces: the offer popup and the sticky
  * mobile call bar, read out of `site_settings.capture`.
  *
- * Every accessor here is fail-SAFE. The column is tenant-authored JSON that
- * reaches a `class` attribute, a `data-` attribute and a `tel:` href, so it is
- * parsed with `tryFrom` and clamped rather than trusted — the same trust
- * asymmetry {@see Blocks\SectionLayout} applies to layout axes. Anything
- * unreadable degrades to "switched off", which is the safe direction: a
- * missing popup is a lost opportunity, a malformed one is a broken site.
+ * Every accessor here is fail-SAFE. The column is tenant-authored JSON, so it
+ * is read through {@see SettingsBag} and clamped rather than trusted — the
+ * same trust asymmetry {@see Blocks\SectionLayout} applies to layout axes.
+ * Anything unreadable degrades to "switched off", which is the safe
+ * direction: a missing popup is a lost opportunity, a malformed one is a
+ * broken site.
  *
  * Request-scoped alongside {@see SiteChrome}, so the settings row is read once
  * per render whichever of the two asks for it first.
  */
 final readonly class SiteCapture
 {
+    /**
+     * Render fallbacks that the panel shows as placeholders
+     * ({@see \App\Filament\Tenant\Pages\CaptureSettings}), so what the
+     * operator previews is what the site actually says. Translated at read
+     * time — a constant holds the source string.
+     */
+    public const string DEFAULT_BUTTON_LABEL = 'Get it';
+
+    public const string DEFAULT_CALL_BAR_LABEL = 'Call now';
+
     /**
      * Clamps for the trigger's numeric value. A "0 second" delay fires before
      * the page has painted, and a 400% scroll threshold never fires at all —
@@ -37,14 +47,16 @@ final readonly class SiteCapture
 
     private const int MAX_SCROLL_PERCENT = 100;
 
-    public function __construct(private SiteSettingsLoader $settingsLoader)
-    {
+    public function __construct(
+        private SiteSettingsLoader $settingsLoader,
+        private PostFeed $postFeed,
+    ) {
         //
     }
 
     public function popupEnabled(): bool
     {
-        return $this->bool('popup', 'enabled') && $this->popupHeading() !== '';
+        return $this->bag()->bool('popup', 'enabled') && $this->popupHeading() !== '';
     }
 
     /**
@@ -62,7 +74,7 @@ final readonly class SiteCapture
      */
     public function popupHeading(): string
     {
-        return $this->currentOffer()->title ?? $this->string('popup', 'heading');
+        return $this->currentOffer()->title ?? $this->bag()->string('popup', 'heading');
     }
 
     public function popupOffer(): string
@@ -70,31 +82,31 @@ final readonly class SiteCapture
         $offer = $this->currentOffer();
 
         if (! $offer instanceof Post) {
-            return $this->string('popup', 'offer');
+            return $this->bag()->string('popup', 'offer');
         }
 
         // The coupon is worth more than the prose here: a popup that says
         // "use SPRING10" is a reason to hand over an email address.
         return filled($offer->offer_coupon_code)
             ? mb_trim(sprintf('%s %s', $offer->excerpt ?? '', __('Use code :code.', ['code' => $offer->offer_coupon_code])))
-            : ($offer->excerpt ?? $this->string('popup', 'offer'));
+            : ($offer->excerpt ?? $this->bag()->string('popup', 'offer'));
     }
 
     public function popupButtonLabel(): string
     {
-        $label = $this->string('popup', 'button_label');
+        $label = $this->bag()->string('popup', 'button_label');
 
-        return $label === '' ? __('Get it') : $label;
+        return $label === '' ? __(self::DEFAULT_BUTTON_LABEL) : $label;
     }
 
     public function popupSuccessMessage(): string
     {
-        return $this->string('popup', 'success_message');
+        return $this->bag()->string('popup', 'success_message');
     }
 
     public function popupFinePrint(): string
     {
-        return $this->currentOffer()->offer_terms ?? $this->string('popup', 'fine_print');
+        return $this->currentOffer()->offer_terms ?? $this->bag()->string('popup', 'fine_print');
     }
 
     /**
@@ -102,17 +114,17 @@ final readonly class SiteCapture
      */
     public function popupFollowsOffer(): bool
     {
-        return $this->bool('popup', 'follow_offer');
+        return $this->bag()->bool('popup', 'follow_offer');
     }
 
     public function popupFields(): LeadFieldSet
     {
-        return LeadFieldSet::tryFrom($this->string('popup', 'fields')) ?? LeadFieldSet::Email;
+        return LeadFieldSet::tryFrom($this->bag()->string('popup', 'fields')) ?? LeadFieldSet::Email;
     }
 
     public function popupTrigger(): PopupTrigger
     {
-        return PopupTrigger::tryFrom($this->string('popup', 'trigger')) ?? PopupTrigger::Delay;
+        return PopupTrigger::tryFrom($this->bag()->string('popup', 'trigger')) ?? PopupTrigger::Delay;
     }
 
     /**
@@ -127,7 +139,7 @@ final readonly class SiteCapture
             return 0;
         }
 
-        $value = $this->int('popup', 'trigger_value') ?? $trigger->defaultValue();
+        $value = $this->bag()->int('popup', 'trigger_value') ?? $trigger->defaultValue();
 
         [$min, $max] = $trigger === PopupTrigger::Delay
             ? [self::MIN_DELAY_SECONDS, self::MAX_DELAY_SECONDS]
@@ -142,19 +154,19 @@ final readonly class SiteCapture
      */
     public function popupFrequencyDays(): int
     {
-        return $this->clamp($this->int('popup', 'frequency_days') ?? 7, 0, 365);
+        return $this->clamp($this->bag()->int('popup', 'frequency_days') ?? 7, 0, 365);
     }
 
     public function callBarEnabled(): bool
     {
-        return $this->bool('call_bar', 'enabled');
+        return $this->bag()->bool('call_bar', 'enabled');
     }
 
     public function callBarLabel(): string
     {
-        $label = $this->string('call_bar', 'label');
+        $label = $this->bag()->string('call_bar', 'label');
 
-        return $label === '' ? __('Call now') : $label;
+        return $label === '' ? __(self::DEFAULT_CALL_BAR_LABEL) : $label;
     }
 
     /**
@@ -163,21 +175,20 @@ final readonly class SiteCapture
      */
     public function callBarOffersPopup(): bool
     {
-        return $this->bool('call_bar', 'show_popup_button') && $this->popupEnabled();
+        return $this->bag()->bool('call_bar', 'show_popup_button') && $this->popupEnabled();
     }
 
     /**
      * The offer the popup should be advertising, or null when it should stick to
      * what the operator typed.
      *
-     * Deliberately NOT memoized here, even though three accessors ask: this class is
-     * `final readonly` and has no business holding mutable state, and it does not
-     * need to — {@see PostFeed} IS the memo, deriving every answer from one windowed
-     * read per request. Three calls here are three in-memory filters.
+     * {@see PostFeed} is injected (both are scoped, so they share a request's
+     * lifetime) and IS the memo: it derives every answer from one windowed read
+     * per request, so three calls here are three in-memory filters.
      */
     private function currentOffer(): ?Post
     {
-        return $this->popupFollowsOffer() ? resolve(PostFeed::class)->currentOffer() : null;
+        return $this->popupFollowsOffer() ? $this->postFeed->currentOffer() : null;
     }
 
     private function clamp(int $value, int $min, int $max): int
@@ -185,40 +196,14 @@ final readonly class SiteCapture
         return max($min, min($value, $max));
     }
 
-    private function string(string $section, string $key): string
-    {
-        $value = $this->value($section, $key);
-
-        return is_string($value) ? mb_trim($value) : '';
-    }
-
-    private function bool(string $section, string $key): bool
-    {
-        return $this->value($section, $key) === true;
-    }
-
-    private function int(string $section, string $key): ?int
-    {
-        $value = $this->value($section, $key);
-
-        if (is_int($value)) {
-            return $value;
-        }
-
-        // Filament stores a TextInput's numeric value as a string.
-        return is_string($value) && ctype_digit($value) ? (int) $value : null;
-    }
-
-    private function value(string $section, string $key): mixed
+    /**
+     * The capture column as a typed reader. Rebuilt per call — it is two array
+     * reads over a row {@see SiteSettingsLoader} already memoized.
+     */
+    private function bag(): SettingsBag
     {
         $capture = $this->settingsLoader->get()?->capture;
 
-        if (! is_array($capture)) {
-            return null;
-        }
-
-        $group = $capture[$section] ?? null;
-
-        return is_array($group) ? ($group[$key] ?? null) : null;
+        return new SettingsBag(is_array($capture) ? $capture : []);
     }
 }

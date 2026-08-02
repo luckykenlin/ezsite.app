@@ -27,8 +27,11 @@ final readonly class CaptureLead
 {
     /**
      * @param  array{name?: string|null, email?: string|null, phone?: string|null, message?: string|null}  $data
-     * @param  array<string, string|null>  $attribution  first-touch UTM/referrer, as
-     *                                                   {@see RememberLeadAttribution} recorded it
+     * @param  array<string, string|null>  $attribution  first-touch UTM/referrer, keyed by lead
+     *                                                   column exactly as {@see RememberLeadAttribution::read()}
+     *                                                   returns it — the narrowing lives there,
+     *                                                   beside the writer, and a stray key here
+     *                                                   fails the insert loudly
      */
     public function handle(
         array $data,
@@ -48,7 +51,7 @@ final readonly class CaptureLead
             'message' => $data['message'] ?? null,
             'source' => $source,
             'ip_address' => $ipAddress,
-            ...$this->attribution($attribution),
+            ...$attribution,
         ]));
 
         // Dispatched after the transaction commits, so a listener can never
@@ -56,34 +59,5 @@ final readonly class CaptureLead
         event(new LeadCaptured($lead));
 
         return $lead;
-    }
-
-    /**
-     * Only the known attribution columns are copied across, so a session
-     * carrying anything else can never reach the insert.
-     *
-     * @param  array<string, string|null>  $attribution
-     * @return array<string, string|null>
-     */
-    private function attribution(array $attribution): array
-    {
-        $columns = [
-            'utm_source',
-            'utm_medium',
-            'utm_campaign',
-            'utm_term',
-            'utm_content',
-            'referrer',
-            'landing_path',
-        ];
-
-        $recorded = [];
-
-        foreach ($columns as $column) {
-            $value = $attribution[$column] ?? null;
-            $recorded[$column] = is_string($value) ? $value : null;
-        }
-
-        return $recorded;
     }
 }
