@@ -38,7 +38,11 @@
                         @if (($item['icon'] ?? null) && ! $image)
                             <span class="flex size-12 items-center justify-center rounded-selector bg-primary/10 text-2xl" aria-hidden="true">{{ $item['icon'] }}</span>
                         @endif
-                        <h3 @class(['card-title' => $layout->isCard(), 'text-lg font-semibold' => ! $layout->isCard()])>
+                        {{-- Annotated by POSITION: the editor translates that
+                             into whatever the draft keys this item by (Filament
+                             uses a uuid), which is what makes a repeater item
+                             double-click editable on the canvas. --}}
+                        <h3 data-editor-field="features.{{ $loop->index }}.title" @class(['card-title' => $layout->isCard(), 'text-lg font-semibold' => ! $layout->isCard()])>
                             {{-- One link, labelled by the title, stretched over
                                  the whole card by the ::after overlay. Wrapping
                                  the card in an <a> instead would swallow the
@@ -51,7 +55,7 @@
                             @endif
                         </h3>
                         @if ($item['description'] ?? null)
-                            <p class="text-base-content/70">{{ $item['description'] }}</p>
+                            <p data-editor-field="features.{{ $loop->index }}.description" class="text-base-content/70">{{ $item['description'] }}</p>
                         @endif
                     </div>
                 </div>

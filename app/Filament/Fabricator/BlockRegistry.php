@@ -145,16 +145,8 @@ final class BlockRegistry
                 $ids[] = $data[$idKey] ?? null;
             }
 
-            foreach ($data as $value) {
-                if (! is_array($value)) {
-                    continue;
-                }
-
-                if (! array_is_list($value)) {
-                    continue;
-                }
-
-                foreach ($value as $item) {
+            foreach (self::repeaters($data) as $items) {
+                foreach ($items as $item) {
                     if (is_array($item)) {
                         foreach (array_keys(self::MEDIA_KEYS) as $idKey) {
                             $ids[] = $item[$idKey] ?? null;
@@ -178,18 +170,10 @@ final class BlockRegistry
     {
         $data = self::injectMediaUrls($data);
 
-        foreach ($data as $key => $value) {
-            if (! is_array($value)) {
-                continue;
-            }
-
-            if (! array_is_list($value)) {
-                continue;
-            }
-
+        foreach (self::repeaters($data) as $key => $items) {
             $data[$key] = array_map(
                 static fn (mixed $item): mixed => is_array($item) ? self::injectMediaUrls($item) : $item,
-                $value,
+                $items,
             );
         }
 
@@ -230,6 +214,40 @@ final class BlockRegistry
         return $location === null
             ? null
             : ['business' => $business, 'location' => $location];
+    }
+
+    /**
+     * A block's repeater fields — the values that hold a list of items — keyed
+     * as the data keys them.
+     *
+     * Deliberately NOT `array_is_list()`, which is what this used to test and
+     * what made a gallery lose its photographs on the editor canvas. A repeater
+     * is a list only once it has been dehydrated: the state Filament holds while
+     * the block is open in the inspector keys every item by a uuid, and that is
+     * exactly the copy the canvas renders for the SELECTED block. Skipping it
+     * meant no item's `media_id` was ever translated, so the items fell back to
+     * whatever `url` they had stored — for an AI-written gallery, the
+     * placeholder. Published pages render the dehydrated list and looked fine,
+     * which is what made this read as "the canvas broke".
+     *
+     * A media picker's own raw state is a uuid-keyed map of item data too, so
+     * the media keys are excluded by name — descending into one would treat a
+     * media row as if it were a repeater item.
+     *
+     * @param  array<array-key, mixed>  $data
+     * @return array<array-key, array<array-key, mixed>>
+     */
+    private static function repeaters(array $data): array
+    {
+        $repeaters = [];
+
+        foreach ($data as $key => $value) {
+            if (is_array($value) && ! array_key_exists($key, self::MEDIA_KEYS)) {
+                $repeaters[$key] = $value;
+            }
+        }
+
+        return $repeaters;
     }
 
     /**

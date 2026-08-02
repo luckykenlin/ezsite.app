@@ -736,9 +736,7 @@ final class PageEditor extends Page
             return;
         }
 
-        $becameDirty = ! $this->isDirty;
-        $this->isDirty = true;
-        $this->pushPreview(patch: true);
+        $becameDirty = $this->noteFieldEdit();
 
         // Typing must not re-render the whole editor component — the canvas
         // patches itself from the fragment route. The one exception is the
@@ -873,6 +871,25 @@ final class PageEditor extends Page
     }
 
     /**
+     * One inspector field moved: the page is dirty and the canvas owes that
+     * block a repaint. Returns whether this was the edit that turned the draft
+     * dirty, which is the one that also needs a full render.
+     *
+     * Shared by the two ways a field changes — {@see updated()} for anything
+     * the browser wrote, and the inspector section's `afterStateUpdated` for a
+     * field that wrote its own state from an action.
+     */
+    private function noteFieldEdit(): bool
+    {
+        $becameDirty = ! $this->isDirty;
+
+        $this->isDirty = true;
+        $this->pushPreview(patch: true);
+
+        return $becameDirty;
+    }
+
+    /**
      * @param  array<array{key: string, type: string, data: array<string, mixed>}>  $blocks
      */
     private function replaceBlocks(array $blocks): void
@@ -925,7 +942,21 @@ final class PageEditor extends Page
         return Section::make()
             ->schema($blockSchema->getChildComponents())
             ->statePath('block')
-            ->live(debounce: 500);
+            ->live(debounce: 500)
+            // The canvas repaint for the edits Livewire never reports.
+            //
+            // {@see updated()} only fires for state the BROWSER wrote — typing,
+            // a select. A field that changes its own state from one of its
+            // actions (the Curator image picker, which writes the chosen media
+            // inside `setMediaItems`) never goes near a Livewire property
+            // update, so choosing an image left the canvas showing the page
+            // without it until some unrelated edit happened to push a preview.
+            //
+            // Filament calls this hook only on the BUBBLING path — a field
+            // updated by the browser is called with `shouldBubbleToParents:
+            // false` — so the two routes cover each other without ever pushing
+            // the same edit twice.
+            ->afterStateUpdated(fn (): bool => $this->noteFieldEdit());
     }
 
     private function fillBlockForm(): void

@@ -486,8 +486,16 @@
 .pe-chat-message {
     font-size: 0.875rem;
     line-height: 1.6;
-    white-space: pre-wrap;
     overflow-wrap: anywhere;
+}
+
+/* The operator's own words, kept exactly as they typed them — line breaks and
+   all. Deliberately NOT on the bubble: `pre-wrap` there preserved the blade
+   template's own indentation too, which opened every message with a blank line
+   and a deep indent. Only the text node the operator owns gets it. */
+.pe-chat-message-text {
+    display: block;
+    white-space: pre-wrap;
 }
 
 /* Claude-style asymmetry: the operator's turns are bubbles pushed to
@@ -624,10 +632,6 @@
    elements already provide. Deliberately hand-written rather than pulling
    in the typography plugin — this is one narrow column of chat prose, not
    a CMS article. */
-.pe-chat-prose {
-    white-space: normal;
-}
-
 .pe-chat-prose > :first-child {
     margin-top: 0;
 }

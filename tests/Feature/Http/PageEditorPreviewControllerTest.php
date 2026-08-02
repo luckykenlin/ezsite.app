@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Actions\Pages\CachePageEditorPreview;
 use App\Models\Business;
+use App\Models\Media;
 use App\Models\Page;
 use App\Models\Tenant;
 use App\Models\User;
@@ -229,6 +230,40 @@ it('skips the design draft when no business exists to theme', function (): void 
     $this->get(sprintf('http://acme.%s/_editor/preview?token=valid-token', $this->centralDomain()))
         ->assertOk()
         ->assertDontSee('data-editor-theme-draft');
+});
+
+it('resolves item media in the draft Filament keys by uuid', function (): void {
+    // The canvas renders the SELECTED block from Filament's raw inspector
+    // state, where a repeater is a uuid-keyed map rather than a list. Media
+    // resolution used to skip anything that was not a list, so opening a
+    // gallery swapped its photographs for the placeholder URL sitting in the
+    // same items — while the published page, rendered from the dehydrated
+    // list, kept showing them. Hence a canvas test rather than a live-site one.
+    $tenant = Tenant::factory()->withDomain('acme')->create();
+    $media = resolve(RunInTenant::class)->handle(
+        $tenant,
+        fn (): Media => Media::factory()->create(['tenant_id' => $tenant->id, 'path' => 'media/pizza.jpg']),
+    );
+    $page = $this->createTenantPage($tenant, []);
+
+    cachePreviewFor($tenant, $page, [
+        ['key' => 'k1', 'type' => 'gallery', 'data' => [
+            'variant' => 'grid',
+            'heading' => 'Fresh from the oven',
+            'images' => [
+                '0f9a1b2c-3d4e-4f50-8617-2b0c1d3e4f56' => [
+                    'media_id' => $media->id,
+                    'url' => '/images/placeholder.svg',
+                    'alt' => 'A pizza',
+                ],
+            ],
+        ]],
+    ], 'valid-token');
+
+    $this->get(sprintf('http://acme.%s/_editor/preview?token=valid-token', $this->centralDomain()))
+        ->assertOk()
+        ->assertSee('media/pizza.jpg')
+        ->assertDontSee('placeholder.svg');
 });
 
 it('serves a single wrapped block as a patch fragment', function (): void {

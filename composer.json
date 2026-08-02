@@ -114,6 +114,7 @@
             "npm run test:lint"
         ],
         "test:unit": "XDEBUG_MODE=\"coverage\" pest --parallel --processes=8 --coverage --exactly=100.0 --tia --exclude-testsuite=Browser",
+        "test:tia:clear": "@php -r 'require \"vendor/autoload.php\"; Pest\\Plugins\\Tia\\Storage::purge(getcwd()); echo \"TIA cache cleared: \".Pest\\Plugins\\Tia\\Storage::tempDir(getcwd()).PHP_EOL;'",
         "test:browser": "sh -c 'ulimit -n 1024; pest --testsuite=Browser'",
         "test:types": [
             "phpstan --memory-limit=-1",

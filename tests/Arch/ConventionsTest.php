@@ -168,7 +168,7 @@ test('every page block view renders through the shared section shell', function 
             continue;
         }
 
-        $slot = basename(dirname($view->getPathname()));
+        $slot = basename(dirname((string) $view->getPathname()));
 
         if (in_array($slot, $chrome, true)) {
             continue;
@@ -232,7 +232,7 @@ test('the page-block views type through the shared site-* classes, never utility
     $offenders = [];
 
     foreach ($views as $view) {
-        if ($view->getExtension() !== 'php' || in_array(basename(dirname($view->getPathname())), $chrome, true)) {
+        if ($view->getExtension() !== 'php' || in_array(basename(dirname((string) $view->getPathname())), $chrome, true)) {
             continue;
         }
 
@@ -240,7 +240,7 @@ test('the page-block views type through the shared site-* classes, never utility
 
         foreach ($literals as $literal) {
             if (str_contains($contents, $literal)) {
-                $offenders[] = basename($view->getPathname()).' hand-rolls "'.$literal.'"';
+                $offenders[] = basename((string) $view->getPathname()).' hand-rolls "'.$literal.'"';
             }
         }
     }

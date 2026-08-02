@@ -7,6 +7,7 @@
     'cta_url' => null,
     'secondary_label' => null,
     'secondary_url' => null,
+    'image_url' => null,
 ])
 @php
     $layout = \App\Site\Blocks\SectionLayout::for('cta', 'banner')->resolve($appearance);
@@ -26,6 +27,20 @@
             'flex flex-col' => ! $card,
             'items-center text-center' => ! $card && $centered,
         ])>
+            {{-- The block offers an image; a layout that ignored it left the
+                 operator's choice invisible. Small and above the pitch — the
+                 photograph is the illustration here, not the subject, which is
+                 what the full-photo variant is for. --}}
+            @if ($image_url)
+                {{-- Uncropped, unlike every other item image: a CTA declares no
+                     image_shape axis (the full-photo variant needs none), and
+                     an aspect class hand-rolled here would be exactly the drift
+                     ConventionsTest forbids. Capped width does the work. --}}
+                <div class="w-full max-w-xs overflow-hidden rounded-box">
+                    <img src="{{ $image_url }}" alt="" loading="lazy" class="w-full object-cover" />
+                </div>
+            @endif
+
             <h2 data-editor-field="heading" @class(['site-h2', 'text-center' => $card && $centered])>{{ $heading }}</h2>
 
             @if ($body)

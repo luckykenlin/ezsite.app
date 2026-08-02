@@ -27,10 +27,10 @@
                     {{-- <dd> before <dt> visually: the number leads, its label
                          explains. Allowed inside a <dl> and reads correctly, since
                          the pair's association is structural, not positional. --}}
-                    <dd class="site-stat text-primary">{{ $item['value'] }}</dd>
-                    <dt class="mt-2 font-semibold">{{ $item['label'] }}</dt>
+                    <dd data-editor-field="stats.{{ $loop->index }}.value" class="site-stat text-primary">{{ $item['value'] }}</dd>
+                    <dt data-editor-field="stats.{{ $loop->index }}.label" class="mt-2 font-semibold">{{ $item['label'] }}</dt>
                     @if ($item['description'] ?? null)
-                        <dd class="mt-1 text-sm opacity-60">{{ $item['description'] }}</dd>
+                        <dd data-editor-field="stats.{{ $loop->index }}.description" class="mt-1 text-sm opacity-60">{{ $item['description'] }}</dd>
                     @endif
                 </div>
             @endforeach

@@ -25,6 +25,7 @@ import type {
     PageEditorComponent,
     PageEditorConfig,
 } from './component';
+import { findDraftPathByText, resolveDraftPath } from './draft-fields';
 import {
     type CanvasMessage,
     type EditorMessage,
@@ -204,17 +205,16 @@ export function pageEditor(
         },
 
         /**
-         * Hand the canvas the field to make editable, or tell it the request
-         * cannot be honoured (so it can say so — a double-click that silently
-         * does nothing reads as broken).
+         * Hand the canvas the draft path to make editable, or tell it the
+         * request cannot be honoured (so it can say so — a double-click that
+         * silently does nothing reads as broken).
          *
          * Two resolution paths, in order of trust: a `data-editor-field`
          * annotation from the block's own view is deterministic and wins;
-         * otherwise the clicked text is matched against the selected block's
-         * string draft fields — whitespace-NORMALISED on both sides, because
-         * the rendered text and the stored value legitimately differ in
-         * wrapping (`text-balance`, a template's indentation) without
-         * differing in content.
+         * otherwise the clicked text is looked up in the draft itself. Both go
+         * through draft-fields.ts, which is also what makes a repeater item
+         * editable — the view annotates by position, the draft keys its items
+         * by uuid, and the translation between them is the interesting part.
          */
         grantInlineEdit(
             this: PageEditorComponent,
@@ -222,41 +222,19 @@ export function pageEditor(
             preferred?: string,
         ): void {
             const draft = this.$wire.data?.block ?? {};
+            const field =
+                (preferred === undefined
+                    ? null
+                    : resolveDraftPath(draft, preferred)) ??
+                findDraftPathByText(draft, text);
 
-            if (
-                preferred !== undefined &&
-                isFieldName(preferred) &&
-                typeof draft[preferred] === 'string'
-            ) {
-                this.postToCanvas({
-                    type: 'inline-edit-grant',
-                    field: preferred,
-                });
+            if (field === null) {
+                this.postToCanvas({ type: 'inline-edit-deny' });
 
                 return;
             }
 
-            const normalise = (value: string): string =>
-                value.replace(/\s+/g, ' ').trim();
-            const needle = normalise(text);
-
-            const match =
-                needle === ''
-                    ? undefined
-                    : Object.entries(draft).find(
-                          ([, value]) =>
-                              typeof value === 'string' &&
-                              normalise(value) === needle,
-                      );
-
-            if (match) {
-                this.postToCanvas({
-                    type: 'inline-edit-grant',
-                    field: match[0],
-                });
-            } else {
-                this.postToCanvas({ type: 'inline-edit-deny' });
-            }
+            this.postToCanvas({ type: 'inline-edit-grant', field });
         },
 
         onModalOpened(this: PageEditorComponent, event: CustomEvent): void {

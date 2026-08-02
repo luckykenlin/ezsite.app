@@ -35,9 +35,9 @@
                         aria-hidden="true"
                     >{{ $loop->iteration }}</span>
                     <div>
-                        <h3 class="text-lg font-semibold">{{ $item['title'] }}</h3>
+                        <h3 data-editor-field="steps.{{ $loop->index }}.title" class="text-lg font-semibold">{{ $item['title'] }}</h3>
                         @if ($item['description'] ?? null)
-                            <p class="mt-1 text-base-content/70">{{ $item['description'] }}</p>
+                            <p data-editor-field="steps.{{ $loop->index }}.description" class="mt-1 text-base-content/70">{{ $item['description'] }}</p>
                         @endif
                     </div>
                 </li>

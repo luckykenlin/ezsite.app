@@ -66,8 +66,15 @@
                     <iframe x-ref="canvas" src="{{ $this->previewUrl() }}" title="{{ __('Page preview') }}"></iframe>
                 </div>
 
+                {{-- Hidden for the length of a chat turn, even though the draft
+                     is still empty by then: the worker swaps its blocks into the
+                     preview cache after every tool call and the canvas reloads
+                     on each one, so the page assembles UNDER this card — which
+                     went on insisting the page was empty over a page that
+                     visibly was not. $blocks only catches up when the turn
+                     lands, which is exactly when chatSending clears. --}}
                 @if ($this->blocks === [])
-                    <div class="pe-empty-overlay">
+                    <div class="pe-empty-overlay" x-show="! chatSending">
                         <div class="pe-empty-card">
                             <p style="font-weight: 600; margin-bottom: 0.25rem;">{{ __('This page is empty') }}</p>
                             <p class="pe-empty" style="margin-bottom: 1rem;">{{ __('Start with one of the most common blocks, or open the block library.') }}</p>

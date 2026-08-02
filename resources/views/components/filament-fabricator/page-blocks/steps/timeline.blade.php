@@ -34,9 +34,9 @@
                         class="absolute -left-[2.6rem] flex size-8 items-center justify-center rounded-selector bg-primary text-sm font-bold text-primary-content ring-4 ring-primary/10"
                         aria-hidden="true"
                     >{{ $loop->iteration }}</span>
-                    <h3 class="text-lg font-semibold">{{ $item['title'] }}</h3>
+                    <h3 data-editor-field="steps.{{ $loop->index }}.title" class="text-lg font-semibold">{{ $item['title'] }}</h3>
                     @if ($item['description'] ?? null)
-                        <p class="mt-1 text-base-content/70">{{ $item['description'] }}</p>
+                        <p data-editor-field="steps.{{ $loop->index }}.description" class="mt-1 text-base-content/70">{{ $item['description'] }}</p>
                     @endif
                 </li>
             @endforeach

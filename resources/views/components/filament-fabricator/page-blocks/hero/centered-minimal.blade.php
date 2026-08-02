@@ -30,5 +30,18 @@
         @if ($cta_label && $cta_url)
             <a href="{{ $cta_url }}" class="btn btn-primary mt-10">{{ $cta_label }}</a>
         @endif
+
+        {{-- Minimal is about the COPY, not about refusing a photograph: the
+             block offers an image field, and a layout that quietly dropped
+             whatever was chosen read as a broken canvas. Below the pitch and
+             full width, so the reading order the variant exists for is
+             untouched. --}}
+        @if ($image_url)
+            <div class="site-frame isolate mt-14 w-full">
+                <div class="overflow-hidden rounded-box">
+                    <img src="{{ $image_url }}" alt="{{ $heading }}" class="{{ $layout->image() }} w-full object-cover" />
+                </div>
+            </div>
+        @endif
     </div>
 </x-site.section>

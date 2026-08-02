@@ -71,7 +71,9 @@ final readonly class AdoptLibraryPhoto
             'path' => $path,
             'width' => $photo->width,
             'height' => $photo->height,
-            'size' => mb_strlen($body),
+            // See FindOrImportLibraryPhoto: '8bit' is what makes this a byte
+            // count rather than a character count under pint's mb_str_functions.
+            'size' => mb_strlen($body, '8bit'),
             'type' => $photo->type,
             'ext' => $photo->ext,
             'alt' => $photo->alt,

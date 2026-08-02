@@ -63,6 +63,24 @@ it('puts the file exactly where Curator’s glide server looks for it', function
     expect($glidePathExists)->toBeTrue();
 });
 
+it('records the copied size in bytes, not characters', function (): void {
+    // Same trap as FindOrImportLibraryPhoto: pint's mb_str_functions turns
+    // strlen() into a character count, so real image bytes under-report.
+    $bytes = $this->bandedPng([[200, 40, 90]]);
+    $photo = LibraryPhoto::factory()->create();
+    Storage::disk('library')->put($photo->path, $bytes);
+    $tenant = Tenant::factory()->create();
+
+    [$size, $onDisk] = $this->runInTenant($tenant, function () use ($photo): array {
+        $media = resolve(AdoptLibraryPhoto::class)->handle($photo);
+
+        return [$media?->size, Storage::disk('public')->size((string) $media?->path)];
+    });
+
+    expect($size)->toBe($onDisk)
+        ->and($size)->toBeGreaterThan(mb_strlen($bytes));
+});
+
 it('is idempotent, so offering the same photo twice costs one file', function (): void {
     $photo = adoptableLibraryPhoto();
     $tenant = Tenant::factory()->create();

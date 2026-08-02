@@ -14,10 +14,13 @@
     // Unnamed plans are dropped HERE rather than skipped in the loop, because a
     // half-finished entry the operator is still typing would otherwise claim a
     // column and leave the real plan rendering at half width.
-    $items = array_values(array_filter(
+    // Keys preserved, not re-indexed: they are how the canvas's inline editor
+    // addresses a plan in the draft, and dropping an unnamed one the operator
+    // is still typing would renumber every plan after it.
+    $items = array_filter(
         is_array($plans) ? $plans : [],
         static fn (mixed $plan): bool => is_array($plan) && ($plan['name'] ?? null),
-    ));
+    );
 
     // At most ONE plan is highlighted, whatever the data says: two "recommended"
     // columns recommend nothing, and an operator toggling a second without
@@ -64,19 +67,19 @@
                             <span class="badge badge-primary self-start">Recommended</span>
                         @endif
 
-                        <h3 @class(['card-title' => $layout->isCard(), 'text-lg font-semibold' => ! $layout->isCard()])>{{ $item['name'] }}</h3>
+                        <h3 data-editor-field="plans.{{ $index }}.name" @class(['card-title' => $layout->isCard(), 'text-lg font-semibold' => ! $layout->isCard()])>{{ $item['name'] }}</h3>
 
                         @if ($item['price'] ?? null)
                             <p class="mt-2">
-                                <span class="text-4xl font-bold tabular-nums">{{ $item['price'] }}</span>
+                                <span data-editor-field="plans.{{ $index }}.price" class="text-4xl font-bold tabular-nums">{{ $item['price'] }}</span>
                                 @if ($item['period'] ?? null)
-                                    <span class="text-base-content/60">{{ $item['period'] }}</span>
+                                    <span data-editor-field="plans.{{ $index }}.period" class="text-base-content/60">{{ $item['period'] }}</span>
                                 @endif
                             </p>
                         @endif
 
                         @if ($item['description'] ?? null)
-                            <p class="text-base-content/70">{{ $item['description'] }}</p>
+                            <p data-editor-field="plans.{{ $index }}.description" class="text-base-content/70">{{ $item['description'] }}</p>
                         @endif
 
                         @if ($lines !== [])

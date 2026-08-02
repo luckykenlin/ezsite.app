@@ -115,17 +115,27 @@ describe('matchShortcut', () => {
 });
 
 describe('isFieldName', () => {
-    it.each(['title', 'hero_title', 'cta2'])('accepts %s', (value: string) => {
+    it.each([
+        'title',
+        'hero_title',
+        'cta2',
+        // A repeater item's own field: the draft keys items by uuid, so the
+        // segments after the first are draft keys rather than field names.
+        'features.0.title',
+        'features.9f1c4a2e-0d13-4f5e-8a77-2b0c1d3e4f56.description',
+    ])('accepts %s', (value: string) => {
         expect(isFieldName(value)).toBe(true);
     });
 
     it.each([
-        // The whole point: the inline editor writes to `data.block.<field>`, so
-        // a dotted or bracketed value would let that write wander.
-        'data.block.title',
+        // The whole point: the inline editor writes to `data.block.<path>`, so
+        // a path that can climb out of the block would let that write wander.
         'items[0]',
         'Title',
         'hero-title',
+        'features..title',
+        'features.',
+        '.features',
         '',
     ])('rejects %s', (value: string) => {
         expect(isFieldName(value)).toBe(false);

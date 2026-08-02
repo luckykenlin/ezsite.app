@@ -135,6 +135,6 @@ trait MakesStockPhotos
         ob_start();
         imagepng($image);
 
-        return (string) ob_get_clean();
+        return ob_get_clean();
     }
 }

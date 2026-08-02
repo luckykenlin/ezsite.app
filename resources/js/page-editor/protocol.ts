@@ -91,18 +91,21 @@ export function matchShortcut(
 }
 
 /**
- * Whether a string is a block field name the inline editor may target.
+ * Whether a string is a draft path the inline editor may write to.
  *
  * The allowlist for double-click-to-edit: the parent resolves which field a
- * clicked bit of text belongs to by matching it against the inspector's state,
- * then writes to `data.block.<field>`. This keeps that write from wandering into a
- * dotted or nested path.
+ * clicked bit of text belongs to, then writes to `data.block.<path>`. This
+ * keeps that write inside the block's own draft.
  *
- * Kept exactly as loose as the inline regex it replaces, so moving it here is a
- * pure deduplication and not a silent tightening.
+ * A path rather than a bare name, because repeater items are editable too:
+ * `features.9f1c….title` addresses one item's copy. Only the FIRST segment is
+ * held to a field name — the ones after it are keys of the draft itself
+ * (Filament keys repeater items by uuid), which is also why hyphens are
+ * allowed there and nowhere else. An empty segment, a leading or trailing dot,
+ * and anything with a `..` in it all fail, so the write cannot walk out.
  */
 export function isFieldName(value: string): boolean {
-    return /^[a-z0-9_]+$/.test(value);
+    return /^[a-z0-9_]+(\.[A-Za-z0-9_-]+)*$/.test(value);
 }
 
 /** The structural verbs on the canvas's floating block toolbar. */

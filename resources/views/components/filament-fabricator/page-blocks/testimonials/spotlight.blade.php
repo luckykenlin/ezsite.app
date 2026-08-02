@@ -21,7 +21,8 @@
             {{-- The hung quote mark comes from .site-quote; centred here, it
                  doubles as the variant's only ornament. --}}
             <figure @class(['mt-12' => (bool) $heading])>
-                <blockquote class="site-quote site-h3">{{ $item['quote'] ?? '' }}</blockquote>
+                {{-- Always item 0: this layout spotlights the first quote. --}}
+                <blockquote data-editor-field="testimonials.0.quote" class="site-quote site-h3">{{ $item['quote'] ?? '' }}</blockquote>
                 <figcaption class="mt-8 flex flex-col items-center gap-3">
                     @if ($item['avatar_url'] ?? null)
                         {{-- Decorative: the cite below is the accessible name, so
@@ -29,9 +30,9 @@
                         <img src="{{ $item['avatar_url'] }}" alt="" loading="lazy" class="size-14 rounded-full object-cover ring-1 ring-base-content/10" />
                     @endif
                     <div>
-                        <cite class="not-italic font-semibold">{{ $item['author'] ?? '' }}</cite>
+                        <cite data-editor-field="testimonials.0.author" class="not-italic font-semibold">{{ $item['author'] ?? '' }}</cite>
                         @if ($item['role'] ?? null)
-                            <span class="block text-sm text-base-content/60">{{ $item['role'] }}</span>
+                            <span data-editor-field="testimonials.0.role" class="block text-sm text-base-content/60">{{ $item['role'] }}</span>
                         @endif
                     </div>
                 </figcaption>

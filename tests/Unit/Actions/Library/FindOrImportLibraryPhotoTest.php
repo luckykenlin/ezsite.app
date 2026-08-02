@@ -45,6 +45,22 @@ it('downloads a new photo onto the shared disk with its metadata and provenance'
         ->and($photo?->published_at)->not->toBeNull();
 });
 
+it('records the download size in bytes, not characters', function (): void {
+    // pint.json turns on mb_str_functions, which rewrites strlen() into
+    // mb_strlen() — a CHARACTER count. Every byte of a real image above 0x7f
+    // then went uncounted and the panel reported a size several KB short of the
+    // file on disk. The size the row stores must be the size of the file.
+    $bytes = $this->bandedPng([[200, 40, 90]]);
+    Http::fake(['images.pexels.com/*' => Http::response($bytes)]);
+
+    $photo = importLibraryPhoto()->handle($this->stockPhoto());
+
+    expect($photo?->size)->toBe(Storage::disk('library')->size((string) $photo?->path))
+        // Guards the fixture as much as the code: a payload mb_strlen happens to
+        // count correctly would make this test pass either way.
+        ->and($photo?->size)->toBeGreaterThan(mb_strlen($bytes));
+});
+
 it('keeps a photo whose palette could not be read rather than failing the import', function (): void {
     Http::fake(['images.pexels.com/*' => Http::response('not-an-image')]);
 

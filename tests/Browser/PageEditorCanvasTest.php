@@ -179,3 +179,42 @@ it('commits an inline text edit made on the canvas', function (): void {
     // The inspector only knows the new value if inline-input arrived.
     $browser->assertValue('[id="blockForm.block.content"]', 'Edited heading');
 });
+
+it('commits an inline edit of a repeater item on the canvas', function (): void {
+    // The item case, which the top-level one above cannot stand in for: the
+    // view annotates by POSITION and the draft keys its items by uuid, so the
+    // grant only lands if the editor translated between the two. Get it wrong
+    // and Livewire silently creates an item called "0" that nothing renders —
+    // no error anywhere, which is why this needs a real browser.
+    $tenant = Tenant::factory()->withDomain('acme')->create();
+
+    test()->actingAs(User::factory()->memberOf($tenant)->create());
+
+    $page = test()->createTenantPage($tenant, [
+        ['type' => 'features', 'data' => ['variant' => 'grid', 'heading' => 'Why us', 'features' => [
+            ['title' => 'Fast turnaround', 'description' => 'Same-day, most days.'],
+        ]]],
+    ]);
+
+    tenancy()->initialize($tenant);
+
+    $browser = visit(test()->tenantUrl(
+        $tenant,
+        PageResource::getUrl('edit', ['record' => $page], isAbsolute: false, panel: 'tenant'),
+    ));
+
+    $browser->withinFrame(CANVAS, function ($canvas): void {
+        $canvas->page()->locator('[data-editor-field$=".title"]')->dblclick();
+
+        $canvas->assertPresent('[contenteditable]')
+            ->type('[contenteditable]', 'Same-week turnaround')
+            ->keys('[contenteditable]', 'Enter');
+    });
+
+    // On the PARENT: the item's own inspector input, addressed by the uuid the
+    // draft actually uses — which is the translation under test.
+    $browser->assertValue(
+        '[id^="blockForm.block.features."][id$=".title"]',
+        'Same-week turnaround',
+    );
+});

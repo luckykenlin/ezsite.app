@@ -68,7 +68,14 @@
                                             @endif
                                         @endforeach
                                     </span>
-                                @endif{{ $message['content'] }}</div>
+                                @endif
+
+                                {{-- The text in an element of its own: the bubble
+                                     preserves the operator's own line breaks, and
+                                     wrapping it here is what keeps this template's
+                                     indentation from being preserved WITH them. --}}
+                                <span class="pe-chat-message-text">{{ $message['content'] }}</span>
+                            </div>
                         @endif
                         {{-- Every turn that edited the page carries its own way
                              back: the pre-turn blocks land as a NEW undoable,
@@ -149,7 +156,7 @@
                          clears itself. Keyed on `chatPending` rather than
                          `chatSending` — the turn outlives the echo, and on
                          `chatSending` this left an empty bubble behind. --}}
-                    <div class="pe-chat-message" data-role="user" data-pending x-show="chatPending !== ''" x-text="chatPending" x-cloak></div>
+                    <div class="pe-chat-message pe-chat-message-text" data-role="user" data-pending x-show="chatPending !== ''" x-text="chatPending" x-cloak></div>
 
                     {{-- What the turn is DOING, above what it has said.
 

@@ -33,9 +33,9 @@
                 @endphp
                 @continue(! is_string($question) || trim($question) === '')
                 <div @class(['py-6' => $singleColumn, 'border-t border-base-content/10 pt-6' => ! $singleColumn])>
-                    <dt class="text-lg font-semibold">{{ $question }}</dt>
+                    <dt data-editor-field="questions.{{ $loop->index }}.question" class="text-lg font-semibold">{{ $question }}</dt>
                     @if (is_string($answer) && trim($answer) !== '')
-                        <dd class="mt-2 leading-relaxed text-base-content/70">{{ $answer }}</dd>
+                        <dd data-editor-field="questions.{{ $loop->index }}.answer" class="mt-2 leading-relaxed text-base-content/70">{{ $answer }}</dd>
                     @endif
                 </div>
             @endforeach

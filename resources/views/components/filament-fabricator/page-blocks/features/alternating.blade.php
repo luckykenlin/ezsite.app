@@ -41,7 +41,7 @@
                         @endif
                     </div>
                     <div class="relative mt-6 md:mt-0">
-                        <h3 class="site-h3">
+                        <h3 data-editor-field="features.{{ $loop->index }}.title" class="site-h3">
                             {{-- Same stretched-link pattern as the grid view. --}}
                             @if ($link)
                                 <a href="{{ $link }}" class="after:absolute after:inset-0">{{ $item['title'] ?? '' }}</a>
@@ -50,7 +50,7 @@
                             @endif
                         </h3>
                         @if ($item['description'] ?? null)
-                            <p class="mt-3 text-base-content/70">{{ $item['description'] }}</p>
+                            <p data-editor-field="features.{{ $loop->index }}.description" class="mt-3 text-base-content/70">{{ $item['description'] }}</p>
                         @endif
                     </div>
                 </div>

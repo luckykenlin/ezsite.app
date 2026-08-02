@@ -100,7 +100,10 @@ final readonly class FindOrImportLibraryPhoto
             'name' => $name,
             'ext' => 'jpg',
             'type' => 'image/jpeg',
-            'size' => mb_strlen($body),
+            // '8bit' is required, not decorative: pint.json turns on
+            // mb_str_functions, so a plain strlen() here gets rewritten to a
+            // character count that under-reports every JPEG's byte size.
+            'size' => mb_strlen($body, '8bit'),
             'width' => $photo->width,
             'height' => $photo->height,
             'orientation' => PhotoOrientation::fromDimensions($photo->width, $photo->height),

@@ -20,11 +20,19 @@
             @foreach ($items as $item)
                 @php
                     $link = $item['link_url'] ?? null;
+                    // Same rule as the grid view: a real photograph outranks
+                    // the glyph, which is only ever a stand-in for one. Without
+                    // it an item's chosen image simply vanished in this layout.
+                    $image = $item['image_url'] ?? null;
                 @endphp
                 <div @class(['relative flex gap-4', $layout->item()])>
-                    <span class="flex size-12 shrink-0 items-center justify-center rounded-selector border border-primary/20 bg-primary/10 text-2xl" aria-hidden="true">{{ $item['icon'] ?? '✦' }}</span>
+                    @if ($image)
+                        <img src="{{ $image }}" alt="" loading="lazy" class="size-12 shrink-0 rounded-selector object-cover" />
+                    @else
+                        <span class="flex size-12 shrink-0 items-center justify-center rounded-selector border border-primary/20 bg-primary/10 text-2xl" aria-hidden="true">{{ $item['icon'] ?? '✦' }}</span>
+                    @endif
                     <div>
-                        <h3 class="font-semibold">
+                        <h3 data-editor-field="features.{{ $loop->index }}.title" class="font-semibold">
                             {{-- Same stretched-link pattern as the grid view. --}}
                             @if ($link)
                                 <a href="{{ $link }}" class="after:absolute after:inset-0">{{ $item['title'] ?? '' }}</a>
@@ -33,7 +41,7 @@
                             @endif
                         </h3>
                         @if ($item['description'] ?? null)
-                            <p class="mt-1 text-base-content/70">{{ $item['description'] }}</p>
+                            <p data-editor-field="features.{{ $loop->index }}.description" class="mt-1 text-base-content/70">{{ $item['description'] }}</p>
                         @endif
                     </div>
                 </div>

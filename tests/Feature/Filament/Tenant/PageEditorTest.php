@@ -1148,7 +1148,12 @@ describe('the block library', function (): void {
         // The canvas overlay is the whole empty state now — there is no idle pane
         // left to explain itself, because no selection simply means no drawer.
         $component = Livewire::test(PageEditor::class, ['record' => $page->id])
-            ->assertSee('This page is empty');
+            ->assertSee('This page is empty')
+            // ...but it stands down while the assistant builds the page: the
+            // worker repaints the canvas after every tool call, so the card
+            // would otherwise sit over a page that is visibly filling up. The
+            // draft only catches up when the turn lands.
+            ->assertSeeHtml('class="pe-empty-overlay" x-show="! chatSending"');
 
         // No selection also means no bind hint.
         expect($component->instance()->selectedBlockBindType())->toBeNull();
@@ -1522,6 +1527,35 @@ describe('the inspector as a persistent column', function (): void {
         $saved = Page::query()->findOrFail($page->id)->blocks[0]['data'];
 
         expect((int) (is_array($saved['image_id']) ? 0 : $saved['image_id']))->toBe($media->id);
+    });
+
+    it('repaints the canvas when an image is chosen in the picker', function (): void {
+        // Curator writes the chosen media straight from the browser
+        // (`updateState`, an exposed component method) — no Livewire property
+        // is touched, so `updated()` never fires. Without ImageInput's
+        // override the draft stayed clean and the canvas kept rendering the
+        // block WITHOUT the image, which read as "the canvas didn't refresh".
+        $media = Media::factory()->create(['tenant_id' => tenant('id'), 'path' => 'media/storefront.jpg']);
+        $page = editorPage([
+            ['type' => 'hero', 'data' => ['variant' => 'left-text-right-image', 'heading' => 'Welcome']],
+        ]);
+
+        $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
+
+        expect($component->get('isDirty'))->toBeFalse()
+            ->and(cachedPreview($component)['blocks'][0]['data'])->not->toHaveKey('image_id');
+
+        // Exactly the call the picker's panel makes: the component KEY
+        // addresses the field, and the payload arrives wrapped in a list
+        // because Filament spreads these arguments into the method (the panel
+        // hands it `$event.detail`, which Livewire has already wrapped).
+        $component->call('callSchemaComponentMethod', 'blockForm.block.image_id', 'updateState', [[
+            'statePath' => 'data.block.image_id',
+            'media' => [Media::query()->findOrFail($media->id)->toArray()],
+        ]]);
+
+        expect($component->get('isDirty'))->toBeTrue()
+            ->and(cachedPreview($component)['blocks'][0]['data']['image_id'])->not->toBeEmpty();
     });
 
     it('cannot open a page belonging to another tenant', function (): void {
@@ -2384,6 +2418,19 @@ describe('the composer mode, and the transcript', function (): void {
             ->and($messages[1]['html'])->toContain('banner at the top')
             // An answer that changed nothing must not flag the page dirty.
             ->and($component->get('isDirty'))->toBeFalse();
+    });
+
+    it("renders the operator's message with no whitespace of the template's own", function (): void {
+        // The bubble preserves line breaks (the operator may have typed some),
+        // and it used to do that on the bubble itself — so the newline and the
+        // deep indentation between the opening <div> and the content were
+        // preserved too, opening every message with a blank line and pushing
+        // the first words halfway across the bubble.
+        $page = editorPage([['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']]]);
+
+        Livewire::test(PageEditor::class, ['record' => $page->id])
+            ->call('sendChatMessage', 'Rewrite this section in a friendlier tone.')
+            ->assertSeeHtml('<span class="pe-chat-message-text">Rewrite this section in a friendlier tone.</span>');
     });
 });
 

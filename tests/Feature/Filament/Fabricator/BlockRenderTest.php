@@ -676,3 +676,34 @@ it('renders the craft details through the shared site-* classes', function (): v
         ->assertSeeHtml('site-quote')
         ->assertSeeHtml('site-link-cta');
 });
+
+/*
+ * Double-click-to-edit on the editor canvas resolves what it clicked through
+ * these annotations. A repeater item is the case that cannot be resolved any
+ * other way: the editor has to be told WHICH item, and the position it is
+ * given here is what gets translated into the uuid Filament keys the draft by
+ * (resources/js/page-editor/draft-fields.ts).
+ */
+it('annotates repeater item text with the draft path the inline editor writes to', function (): void {
+    $tenant = Tenant::factory()->withDomain('acme')->create();
+
+    $this->createTenantPage($tenant, [
+        ['type' => 'features', 'data' => ['variant' => 'grid', 'heading' => 'Why us', 'features' => [
+            ['title' => 'Fast turnaround', 'description' => 'Same-day, most days.'],
+            ['title' => 'Fair pricing', 'description' => 'No surprises.'],
+        ]]],
+        ['type' => 'faq', 'data' => ['questions' => [
+            ['question' => 'Do you deliver?', 'answer' => 'Within five miles.'],
+        ]]],
+    ]);
+
+    $this->get(sprintf('http://acme.%s/', $this->centralDomain()))
+        ->assertOk()
+        // The shared section header names the two fields every block spells
+        // the same way...
+        ->assertSeeHtml('data-editor-field="heading"')
+        // ...and each item is addressed by its position in the repeater.
+        ->assertSeeHtml('data-editor-field="features.0.title"')
+        ->assertSeeHtml('data-editor-field="features.1.description"')
+        ->assertSeeHtml('data-editor-field="questions.0.question"');
+});

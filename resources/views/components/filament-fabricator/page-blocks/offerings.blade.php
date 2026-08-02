@@ -14,9 +14,13 @@
 
     $groups = [];
 
-    foreach ($entries as $entry) {
+    // Keyed by the entry's own position, not appended: grouping reorders the
+    // items, and the canvas's inline editor addresses them by where they sit
+    // in the DATA — an item's second group would otherwise be told it is the
+    // first item on the page.
+    foreach ($entries as $index => $entry) {
         $group = $entry['group'] ?? null;
-        $groups[is_string($group) ? trim($group) : ''][] = $entry;
+        $groups[is_string($group) ? trim($group) : ''][$index] = $entry;
     }
 
     // Plain single-column offerings read as a priced list (the old "list"
@@ -39,7 +43,7 @@
                     'grid gap-8' => ! $priceList,
                     $layout->grid() => ! $priceList,
                 ])>
-                    @foreach ($groupItems as $item)
+                    @foreach ($groupItems as $index => $item)
                         @php
                             // Injected per repeater item by
                             // BlockRegistry::resolveMediaUrls(), which also drops
@@ -49,9 +53,9 @@
                         @if ($priceList)
                             <div class="flex items-baseline justify-between gap-4 py-4">
                                 <div>
-                                    <h4 class="font-semibold">{{ $item['name'] ?? '' }}</h4>
+                                    <h4 data-editor-field="items.{{ $index }}.name" class="font-semibold">{{ $item['name'] ?? '' }}</h4>
                                     @if ($item['description'] ?? null)
-                                        <p class="text-base-content/70">{{ $item['description'] }}</p>
+                                        <p data-editor-field="items.{{ $index }}.description" class="text-base-content/70">{{ $item['description'] }}</p>
                                     @endif
                                 </div>
                                 @if ($item['price'] ?? null)
@@ -59,7 +63,7 @@
                                          fill, so name and price stay connected
                                          however wide the row is. --}}
                                     <span class="site-leaders" aria-hidden="true"></span>
-                                    <span class="shrink-0 font-semibold tabular-nums">{{ $item['price'] }}</span>
+                                    <span data-editor-field="items.{{ $index }}.price" class="shrink-0 font-semibold tabular-nums">{{ $item['price'] }}</span>
                                 @endif
                             </div>
                         @else
@@ -72,13 +76,13 @@
                                 @endif
                                 <div @class(['card-body' => $layout->isCard()])>
                                     <h4 @class(['justify-between gap-4', 'card-title' => $layout->isCard(), 'flex text-lg font-semibold' => ! $layout->isCard()])>
-                                        <span>{{ $item['name'] ?? '' }}</span>
+                                        <span data-editor-field="items.{{ $index }}.name">{{ $item['name'] ?? '' }}</span>
                                         @if ($item['price'] ?? null)
-                                            <span class="shrink-0 tabular-nums">{{ $item['price'] }}</span>
+                                            <span data-editor-field="items.{{ $index }}.price" class="shrink-0 tabular-nums">{{ $item['price'] }}</span>
                                         @endif
                                     </h4>
                                     @if ($item['description'] ?? null)
-                                        <p class="text-base-content/70">{{ $item['description'] }}</p>
+                                        <p data-editor-field="items.{{ $index }}.description" class="text-base-content/70">{{ $item['description'] }}</p>
                                     @endif
                                 </div>
                             </div>

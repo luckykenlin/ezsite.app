@@ -50,12 +50,12 @@
                         >{{ $initials }}</span>
                     @endif
                     <div @class(['card-body' => $layout->isCard()])>
-                        <h3 @class(['card-title' => $layout->isCard(), 'mt-4 text-lg font-semibold' => ! $layout->isCard()])>{{ $item['name'] }}</h3>
+                        <h3 data-editor-field="members.{{ $loop->index }}.name" @class(['card-title' => $layout->isCard(), 'mt-4 text-lg font-semibold' => ! $layout->isCard()])>{{ $item['name'] }}</h3>
                         @if ($item['role'] ?? null)
-                            <p class="text-sm font-medium text-primary">{{ $item['role'] }}</p>
+                            <p data-editor-field="members.{{ $loop->index }}.role" class="text-sm font-medium text-primary">{{ $item['role'] }}</p>
                         @endif
                         @if ($item['bio'] ?? null)
-                            <p @class(['text-base-content/70', 'mt-2' => ! $layout->isCard()])>{{ $item['bio'] }}</p>
+                            <p data-editor-field="members.{{ $loop->index }}.bio" @class(['text-base-content/70', 'mt-2' => ! $layout->isCard()])>{{ $item['bio'] }}</p>
                         @endif
                     </div>
                 </div>

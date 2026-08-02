@@ -72,12 +72,21 @@ $prepareDatabase = function (array $overrides = []) use (&$createdTenantKeys): v
         'cache.default' => 'database',
         'tenancy.cache.stores' => ['database'],
         // FilesystemTenancyBootstrapper names tenant storage dirs
-        // "{suffix_base}{tenant_id}" under the shared storage_path(). Parallel
-        // runners share that path, so scope the base per process token — the same
-        // isolation the per-token database name gives above. Without this, one
-        // process's afterEach cleanup deletes a live tenant dir owned by another
-        // process, and its next storage write throws mid-test.
-        'tenancy.filesystem.suffix_base' => $token ? sprintf('tenant_token%s_', $token) : 'tenant',
+        // "{suffix_base}{tenant_id}" under the shared storage_path(), and the
+        // afterEach below globs that base to delete them. Two things must never
+        // land in the same glob:
+        //
+        //   - another parallel runner's live tenant dirs — deleting one mid-run
+        //     makes that process's next storage write throw. Hence the process
+        //     token in the base.
+        //   - the DEVELOPER'S OWN tenant dirs. storage_path() is the real one in
+        //     a local serial run, so the production base ('tenant') globbed
+        //     `storage/tenant*` and wiped every local tenant's uploaded media.
+        //     Hence 'tenant_test' even with no token: a uuid can't follow it.
+        //
+        // Anything set here must therefore stay distinct from config/tenancy.php's
+        // suffix_base; the storage test below guards that.
+        'tenancy.filesystem.suffix_base' => $token ? sprintf('tenant_test_token%s_', $token) : 'tenant_test_',
     ], $overrides));
 
     DB::purge('pgsql');

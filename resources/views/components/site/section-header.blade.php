@@ -7,10 +7,13 @@
     Renders nothing at all when the section has neither line, so callers can
     include it unconditionally.
 --}}
+{{-- The `data-editor-field` annotations name the block fields these two lines
+     always come from, so double-click-to-edit on the canvas resolves them
+     deterministically instead of matching the rendered text back to the draft. --}}
 @props(['layout', 'heading' => null, 'intro' => null])
 @if ($heading)
-    <h2 class="{{ $layout->heading() }}">{{ $heading }}</h2>
+    <h2 data-editor-field="heading" class="{{ $layout->heading() }}">{{ $heading }}</h2>
 @endif
 @if ($intro)
-    <p class="{{ $layout->intro() }}">{{ $intro }}</p>
+    <p data-editor-field="intro" class="{{ $layout->intro() }}">{{ $intro }}</p>
 @endif

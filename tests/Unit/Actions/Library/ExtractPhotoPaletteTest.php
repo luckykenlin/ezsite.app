@@ -69,7 +69,7 @@ it('gives up quietly on a fully transparent image, which has no colour to sample
 
     ob_start();
     imagepng($image);
-    $bytes = (string) ob_get_clean();
+    $bytes = ob_get_clean();
 
     expect(new ExtractPhotoPalette()->handle($bytes))->toBeNull();
 });

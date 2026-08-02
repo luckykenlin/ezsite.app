@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Models\Tenant;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Stancl\Tenancy\Middleware\InitializeTenancyByDomainOrSubdomain;
 
 /**
@@ -49,6 +50,17 @@ it('writes uploads into the tenant public disk, and serves them under its own ur
         ->and(File::exists(storage_path('app/public/media/probe.txt')))->toBeFalse()
         // …addressed through the tenant's own url prefix (tenancy url_override).
         ->and($url)->toContain('public-'.$tenant->id);
+});
+
+it('names test tenant storage dirs so cleanup can never reach a developer tenant', function (): void {
+    // tests/Pest.php's afterEach deletes storage_path(suffix_base.'*'). Run
+    // serially there is no separate test storage_path — it is the developer's
+    // real one — so a suffix_base that also prefixes production-named dirs
+    // ("tenant{uuid}", config/tenancy.php) makes every test run wipe the local
+    // tenants' uploaded media. It did.
+    $cleanupGlob = config('tenancy.filesystem.suffix_base').'*';
+
+    expect(fnmatch($cleanupGlob, 'tenant'.Str::uuid()))->toBeFalse();
 });
 
 it('keeps the media disk on a tenant-suffixed, url-overridden disk', function (): void {
