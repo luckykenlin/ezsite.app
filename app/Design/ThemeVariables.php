@@ -17,14 +17,19 @@ use Illuminate\Support\HtmlString;
  *
  * {@see variablesFor()} compiles an ARBITRARY token set (the business only
  * supplies brand colors) — the plumbing that lets the page editor preview
- * unsaved design drafts without persisting them.
+ * unsaved design drafts without persisting them, and what lets the CENTRAL
+ * marketing site dogfood this system with a fixed preset and no business at
+ * all. Hence the nullable business: a null one simply contributes no brand
+ * overrides, and the palette's own colors stand. Deciding whether there IS a
+ * business belongs to the caller — the Fabricator render hook bails out on a
+ * null tenant; this class does not need to know why.
  */
 final class ThemeVariables
 {
     /**
      * @return array<string, string>
      */
-    public static function variablesFor(DesignTokens $tokens, Business $business): array
+    public static function variablesFor(DesignTokens $tokens, ?Business $business = null): array
     {
         return [
             ...$tokens->palette->colors($business),
@@ -47,7 +52,7 @@ final class ThemeVariables
         return self::styleFor($business->design_tokens, $business);
     }
 
-    public static function styleFor(DesignTokens $tokens, Business $business, string $attribute = 'data-site-theme'): HtmlString
+    public static function styleFor(DesignTokens $tokens, ?Business $business = null, string $attribute = 'data-site-theme'): HtmlString
     {
         $declarations = [];
 

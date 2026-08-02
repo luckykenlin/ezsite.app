@@ -6,6 +6,7 @@ use App\Models\Business;
 use App\Models\Domain;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Templates\SiteTemplate;
 
 test('business relation returns the tenant business', function (): void {
     $tenant = Tenant::factory()->create();
@@ -39,6 +40,29 @@ test("a tenant's domain accessor returns its oldest domain", function (): void {
         ->and($tenant->domain->is($oldest))->toBeTrue();
 });
 
+test('a tenant records which template built it, and whether it is a showcase site', function (): void {
+    $demo = Tenant::factory()->create(['template' => SiteTemplate::NailSalon, 'is_demo' => true]);
+    $real = Tenant::factory()->create(['template' => SiteTemplate::NailSalon]);
+    Tenant::factory()->create();
+
+    $demo = Tenant::query()->findOrFail($demo->getKey());
+    $real = Tenant::query()->findOrFail($real->getKey());
+
+    expect($demo->template)->toBe(SiteTemplate::NailSalon)
+        ->and($demo->is_demo)->toBeTrue()
+        // Attribution is recorded for real signups too — "which template do
+        // people actually apply" is the only funnel signal the gallery has.
+        ->and($real->template)->toBe(SiteTemplate::NailSalon)
+        ->and($real->is_demo)->toBeFalse();
+});
+
+test('the demo scope returns the showcase tenants only', function (): void {
+    $demo = Tenant::factory()->create(['is_demo' => true]);
+    Tenant::factory()->create();
+
+    expect(Tenant::query()->demo()->pluck('id')->all())->toBe([$demo->id]);
+});
+
 test('to array', function (): void {
     $tenant = Tenant::factory()->create();
     $tenant = Tenant::query()->findOrFail($tenant->getKey());
@@ -48,6 +72,8 @@ test('to array', function (): void {
             'id',
             'name',
             'email',
+            'template',
+            'is_demo',
             'created_at',
             'updated_at',
             'data',

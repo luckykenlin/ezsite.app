@@ -25,6 +25,16 @@
 @source '../views/components/site/**/*.blade.php';
 @source '../../app/Site/Blocks/Section*.php';
 
+/*
+ * The CENTRAL marketing site, which dogfoods this stylesheet rather than
+ * carrying one of its own — the pitch is "one closed design system", and a
+ * landing page built out of different CSS would be arguing against itself.
+ * Same failure mode as the two lines above: without these, every class on the
+ * landing page and the template gallery compiles to nothing.
+ */
+@source '../views/central/**/*.blade.php';
+@source '../views/components/central/**/*.blade.php';
+
 @theme {
     --font-sans:
         'Instrument Sans', ui-sans-serif, system-ui, sans-serif,

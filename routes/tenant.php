@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\ClaimSiteController;
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\PageEditorChatStreamController;
 use App\Http\Controllers\PageEditorPreviewController;
@@ -37,6 +38,13 @@ Route::middleware([
     Route::get('/_preview/{page}', SharedPagePreviewController::class)
         ->middleware('signed:relative')
         ->name('page.shared-preview');
+
+    // The signup wizard's hand-off: signed on the central domain, spent here.
+    // Relative for the same reason the shared preview is — a signature that
+    // covered the host could never be minted on the domain that mints it.
+    Route::get('/_claim/{user}', ClaimSiteController::class)
+        ->middleware('signed:relative')
+        ->name('site.claim');
 
     Route::get('/sitemap.xml', SitemapController::class)->name('sitemap');
     Route::get('/robots.txt', RobotsController::class)->name('robots');

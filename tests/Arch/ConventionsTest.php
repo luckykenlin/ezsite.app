@@ -9,6 +9,13 @@ use App\Design\TokenOptions;
 use App\Design\TokenSelection;
 use App\Filament\Fabricator\BlockRegistry;
 use App\Filament\Fabricator\PageBlocks\Block;
+use App\Models\Business;
+use App\Models\Lead;
+use App\Models\Location;
+use App\Models\Page;
+use App\Models\Post;
+use App\Models\SiteSetting;
+use App\Templates\SiteTemplate;
 
 arch('all app code declares strict types')
     ->expect('App')
@@ -39,6 +46,19 @@ arch('actions are final readonly and expose a single handle entrypoint')
     ->toBeFinal()
     ->toBeReadonly()
     ->toHaveMethod('handle');
+
+arch('templates are final readonly artifacts, never Eloquent-backed')
+    // A template is a designed artifact — versioned, diffable, testable — and
+    // the moment one of them can read a row, "the copy on the gallery" stops
+    // being something a diff can tell you. Readonly is what keeps that true.
+    ->expect('App\Templates')
+    ->toBeFinal()
+    ->ignoring(SiteTemplate::class);
+
+arch('template definitions expose exactly one entry point')
+    ->expect('App\Templates\Definitions')
+    ->toBeReadonly()
+    ->toHaveMethod('definition');
 
 arch('page blocks extend the app base block and are final')
     ->expect('App\Filament\Fabricator\PageBlocks')
@@ -257,5 +277,33 @@ test("the section shell's Tailwind sources are declared", function (): void {
     // class names, which are still emitted).
     expect(file_get_contents(dirname(__DIR__, 2).'/resources/css/site.css'))
         ->toContain("@source '../views/components/site/**/*.blade.php';")
-        ->toContain("@source '../../app/Site/Blocks/Section*.php';");
+        ->toContain("@source '../../app/Site/Blocks/Section*.php';")
+        // The central marketing site shares this stylesheet instead of having
+        // one of its own, and it lives outside the original @source list — so
+        // the landing page compiles to unstyled HTML without these two.
+        ->toContain("@source '../views/central/**/*.blade.php';")
+        ->toContain("@source '../views/components/central/**/*.blade.php';");
+});
+
+test('the central controllers never reach for a tenant-scoped model', function (): void {
+    // There is no tenant on the central domain, so RLS scopes nothing: a
+    // `Page::query()` here would read every page in the installation and put
+    // one tenant's content on the marketing site. The templates are PHP, so
+    // these controllers need no tenant-owned model at all — which makes the
+    // rule cheap to hold and worth stating.
+    $dir = dirname(__DIR__, 2).'/app/Http/Controllers/Central';
+    $tenantOwned = [Page::class, Business::class, Location::class, Post::class, SiteSetting::class, Lead::class];
+    $offenders = [];
+
+    foreach (glob($dir.'/*.php') ?: [] as $controller) {
+        $contents = (string) file_get_contents($controller);
+
+        foreach ($tenantOwned as $model) {
+            if (str_contains($contents, $model)) {
+                $offenders[] = basename($controller).' uses '.$model;
+            }
+        }
+    }
+
+    expect($offenders)->toBeEmpty();
 });

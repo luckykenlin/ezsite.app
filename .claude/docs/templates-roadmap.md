@@ -1,6 +1,6 @@
 # Industry Templates + Demo Sites + Central Landing Page Roadmap
 
-> Drafted 2026-08-02. Four implementation phases, none started yet; update the progress table at the bottom as each phase ships.
+> Drafted 2026-08-02, all four phases shipped 2026-08-02. Kept as the record of what was built and why the decisions below were made; the progress table at the bottom is the index.
 
 ## Background and goal
 
@@ -95,7 +95,40 @@ Phase 1 ships first as its own PR → Phases 2 and 3 can run in parallel (the ga
 
 | Phase | Status |
 |---|---|
-| Phase 1 Template infrastructure | Not started |
-| Phase 2 Demo tenants | Not started |
-| Phase 3 Central landing | Not started |
-| Phase 4 One-click apply | Not started |
+| Phase 1 Template infrastructure | Shipped |
+| Phase 2 Demo tenants | Shipped |
+| Phase 3 Central landing | Shipped |
+| Phase 4 One-click apply | Shipped |
+
+### Deviations from the plan, and why
+
+- **Phase 1 shipped as one change, not two PRs.** The `ApplySiteDraft` extraction
+  landed first and green (`ApplySiteDraftTest` + the untouched
+  `GenerateSiteDraftTest`), but the enum needs all eight cases to be
+  enumerable, so the definitions were authored together rather than two-then-six.
+- **`ApplySiteDraft` does NOT apply the preset tokens.** The plan said "move the
+  transaction body verbatim"; the token write stayed in `GenerateSiteDraft`
+  (inside its own transaction, so the pair is still atomic) because both
+  template provisioners write MERGED preset+override tokens, and a bare
+  `ApplyStylePreset` inside the shared action would have clobbered them.
+- **The `tenants` migration edits the create table** rather than adding a
+  second one — there is no production data (see the project note on that).
+- **No `RateLimiter::for('template-signup')`.** A named limiter is only
+  reachable through `throttle:` middleware, and the signup is a Livewire method
+  call; `ApplyTemplate` calls `RateLimiter::tooManyAttempts()`/`hit()` directly
+  against the same `config('templates.signup')` values instead.
+- **`FillTemplatePlaceholders` returns chrome split into `header`/`footer`.**
+  The flat list the plan implied went into `SaveSiteChrome`'s header argument
+  and every demo site rendered its footer twice, above the hero. Found by
+  looking at the built sites, fixed at the source, pinned by two tests.
+- **Step 1 asks for a town or city.** Not in the plan's field list, but
+  `{city}` is all over the templates' copy (hero eyebrows, footer notes, FAQ
+  answers), so without it a Portland pizzeria shipped saying Providence.
+- **Captures are JPEG at 1x, not PNG at 2x.** The first run of
+  `scripts/capture-template-screenshots.mjs` produced 52 MB of lossless PNGs
+  for sixteen files that render at a third of their captured width; JPEG at
+  quality 82 and one device pixel gets the same gallery for 1.4 MB. The
+  extension lives on `TemplateGallery::SCREENSHOT_EXTENSION`, which both halves
+  read. All sixteen captures are committed, so the gallery is complete on a
+  fresh clone with no demo tenants and no provider key; a template with no
+  capture still falls back to a panel drawn from its own brand hexes.

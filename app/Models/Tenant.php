@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Templates\SiteTemplate;
 use Database\Factories\TenantFactory;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -18,6 +21,8 @@ use Stancl\Tenancy\Database\Models\Tenant as BaseTenant;
  * @property string $id
  * @property string $name
  * @property string|null $email
+ * @property SiteTemplate|null $template
+ * @property bool $is_demo
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read Domain|null $domain
@@ -39,6 +44,8 @@ final class Tenant extends BaseTenant implements TenantWithDatabase
             'id',
             'name',
             'email',
+            'template',
+            'is_demo',
             'created_at',
             'updated_at',
         ];
@@ -66,5 +73,31 @@ final class Tenant extends BaseTenant implements TenantWithDatabase
     public function users(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'tenant_user');
+    }
+
+    /**
+     * The showcase tenants behind the public template gallery.
+     *
+     * Named because three readers have to agree on it — `demo:seed`, the
+     * gallery, and the central panel's "real tenants only" listing — and a
+     * disagreement would show up as a demo site appearing in a customer count.
+     *
+     * @param  Builder<$this>  $query
+     */
+    #[Scope]
+    protected function demo(Builder $query): void
+    {
+        $query->where('is_demo', true);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'is_demo' => 'boolean',
+            'template' => SiteTemplate::class,
+        ];
     }
 }
