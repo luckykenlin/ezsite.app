@@ -8,6 +8,7 @@ use App\Actions\Templates\ProvisionSiteFromTemplate;
 use App\Enums\PageStatus;
 use App\Models\Business;
 use App\Models\Location;
+use App\Models\Media;
 use App\Models\Tenant;
 use App\Site\OnboardingProgress;
 use App\Site\OnboardingTask;
@@ -115,16 +116,25 @@ it('leaves the phone outstanding for a tenant with no business profile yet', fun
     expect(onboardingFor($tenant)->isDone(OnboardingTask::PhoneNumber))->toBeFalse();
 });
 
-it('accepts the logo once one is attached', function (): void {
+it('accepts the logo however it was attached', function (string $column, Closure $value): void {
+    // The panel's CuratorPicker writes `logo_media_id`; `logo_path` is only the
+    // legacy fallback. Checking one column alone would nag an owner who has
+    // already uploaded a logo, forever — so this asks the same question the
+    // header does, through Business::logoUrl().
     $tenant = Tenant::factory()->create();
-    $this->createTenantBusiness($tenant, ['logo_path' => null]);
+    $this->createTenantBusiness($tenant, ['logo_path' => null, 'logo_media_id' => null]);
 
     expect(onboardingFor($tenant)->isDone(OnboardingTask::Logo))->toBeFalse();
 
-    $this->runInTenant($tenant, fn (): bool => Business::query()->firstOrFail()->update(['logo_path' => 'logos/jade.png']));
+    $this->runInTenant($tenant, fn (): bool => Business::query()->firstOrFail()->update([
+        $column => $value($tenant),
+    ]));
 
     expect(onboardingFor($tenant)->isDone(OnboardingTask::Logo))->toBeTrue();
-});
+})->with([
+    'the media library picker' => ['logo_media_id', fn (Tenant $tenant): int => Media::factory()->create(['tenant_id' => $tenant->id])->id],
+    'the legacy upload path' => ['logo_path', fn (): string => 'logos/jade.png'],
+]);
 
 it('accepts either capture surface on its own', function (array $popup, array $callBar): void {
     $tenant = Tenant::factory()->create();

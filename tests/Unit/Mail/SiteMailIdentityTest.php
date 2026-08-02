@@ -35,7 +35,8 @@ test('the accent falls back to the default unless it is a six-digit hex', functi
     expect(new SiteMailIdentity('Golden Dragon', $stored)->accent())->toBe($expected);
 })->with([
     'a brand hex' => ['#b91c1c', '#b91c1c'],
-    'uppercase' => ['#B91C1C', '#B91C1C'],
+    // ColorPalette::validHex() normalises case, which is where this gate lives.
+    'uppercase' => ['#B91C1C', '#b91c1c'],
     'three-digit shorthand' => ['#b11', SiteMailIdentity::DEFAULT_ACCENT],
     'a colour name' => ['red', SiteMailIdentity::DEFAULT_ACCENT],
     'an injection attempt' => ['#fff; background-image: url(x)', SiteMailIdentity::DEFAULT_ACCENT],

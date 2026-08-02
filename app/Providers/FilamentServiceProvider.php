@@ -6,6 +6,7 @@ namespace App\Providers;
 
 use App\Design\ThemeVariables;
 use App\Site\BindResolver;
+use App\Site\Favicon;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
@@ -61,11 +62,14 @@ final class FilamentServiceProvider extends ServiceProvider
             $this->registerFabricatorComponentsForConsole();
         }
 
-        // Per-tenant theme: emit the tenant's font preloads and design-token
-        // CSS variables into the Fabricator front-end <head>. Registered
-        // unconditionally (unlike registerStyles above) — the closure is lazy,
-        // it only runs when a Fabricator page renders, and Vite::fonts()
-        // degrades to '' when no build manifest exists (tests, CI).
+        // Per-tenant theme and identity: the tenant's font preloads, its
+        // design-token CSS variables, and its favicon, emitted into the
+        // Fabricator front-end <head>. This hook rather than the base-layout
+        // override, which is a deliberate verbatim copy of the package's and
+        // stays that way. Registered unconditionally (unlike registerStyles
+        // above) — the closure is lazy, it only runs when a Fabricator page
+        // renders, and Vite::fonts() degrades to '' when no build manifest
+        // exists (tests, CI).
         FilamentView::registerRenderHook(LayoutRenderHook::HEAD_END, function (): HtmlString {
             // Reuse the request-scoped BindResolver so theming shares the
             // page render's single memoized business query — and never
@@ -78,7 +82,8 @@ final class FilamentServiceProvider extends ServiceProvider
 
             return new HtmlString(
                 resolve(Vite::class)->fonts($business->design_tokens->fontPair->viteAliases())
-                .ThemeVariables::style($business)->toHtml(),
+                .ThemeVariables::style($business)->toHtml()
+                .Favicon::links($business)->toHtml(),
             );
         });
 

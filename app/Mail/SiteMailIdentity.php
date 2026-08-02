@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Mail;
 
+use App\Design\ColorPalette;
 use Illuminate\Mail\Mailables\Address;
 
 /**
@@ -39,15 +40,13 @@ final readonly class SiteMailIdentity
      *
      * This value reaches an inline `style` attribute, and its source
      * (`businesses.brand_primary`) is written by operators AND by the AI draft
-     * pipeline. Validating once here means the email views never have to think
-     * about it; Blade's escaping alone would keep the attribute intact but
-     * would happily emit a broken colour.
+     * pipeline. Through {@see ColorPalette::validHex()} rather than a second
+     * copy of the regex: that method is the documented single gate for every
+     * path a brand colour takes into a stylesheet.
      */
     public function accent(): string
     {
-        return preg_match('/^#[0-9a-fA-F]{6}$/', $this->accent) === 1
-            ? $this->accent
-            : self::DEFAULT_ACCENT;
+        return ColorPalette::validHex($this->accent) ?? self::DEFAULT_ACCENT;
     }
 
     /**

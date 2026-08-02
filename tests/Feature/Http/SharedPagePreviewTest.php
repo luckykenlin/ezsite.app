@@ -36,8 +36,13 @@ it('renders a DRAFT page to an unauthenticated visitor holding a signed link', f
     // case is the page the public site refuses.
     $this->runInTenant($tenant, fn () => $page->update(['status' => PageStatus::Draft]));
 
-    // The live site refuses this page — it is a draft…
-    $this->get(sprintf('http://acme.%s/', $this->centralDomain()))->assertNotFound();
+    // The live site refuses this page — it is a draft. With nothing else
+    // published, the site answers "coming soon" rather than a bare 404 (see
+    // bootstrap/app.php); either way the unreleased copy stays private…
+    $this->get(sprintf('http://acme.%s/', $this->centralDomain()))
+        ->assertOk()
+        ->assertDontSee('Unreleased masterpiece')
+        ->assertSee('Coming soon');
 
     // …but the signed preview shows its saved blocks through the real layout.
     $this->get(sharedPreviewUrl($page->id))

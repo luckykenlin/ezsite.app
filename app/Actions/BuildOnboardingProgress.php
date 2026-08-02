@@ -58,7 +58,13 @@ final readonly class BuildOnboardingProgress
 
             OnboardingTask::PhoneNumber->value => $this->hasOwnPhone($tenant, $business?->contact_phone),
 
-            OnboardingTask::Logo->value => filled($business?->logo_path),
+            // Through logoUrl(), not a column: the panel's picker writes
+            // `logo_media_id` and `logo_path` is only the legacy fallback, so
+            // testing either one alone would leave this task outstanding forever
+            // for an owner who has already uploaded a logo. The question the row
+            // actually asks is "does the site show a logo", which is exactly
+            // what the render side asks.
+            OnboardingTask::Logo->value => $business?->logoUrl() !== null,
 
             OnboardingTask::CaptureSurface->value => $this->capture->popupEnabled()
                 || $this->capture->callBarEnabled(),
