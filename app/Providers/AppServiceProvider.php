@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Actions\BuildOnboardingProgress;
 use App\Actions\StoreCuratorUpload;
 use App\Filament\Fabricator\BlockRegistry;
 use App\Site\BindResolver;
 use App\Site\Blocks\BlockVocabulary;
 use App\Site\LeadFormIds;
 use App\Site\MediaResolver;
+use App\Site\OnboardingProgress;
 use App\Site\SiteCapture;
 use App\Site\SiteChrome;
 use App\Site\SiteContext;
@@ -57,6 +59,15 @@ final class AppServiceProvider extends ServiceProvider
         $this->app->scoped(
             BlockVocabulary::class,
             static fn (): BlockVocabulary => new BlockVocabulary(BlockRegistry::contracts()),
+        );
+
+        // Three surfaces ask "how far through setup is this owner?" on a single
+        // tenant-panel page load: the panel-wide banner, the dashboard checklist,
+        // and that widget's own canView(). Scoped and lazy, so the four queries
+        // happen once per request and not at all on requests that ask nothing.
+        $this->app->scoped(
+            OnboardingProgress::class,
+            static fn (): OnboardingProgress => resolve(BuildOnboardingProgress::class)->handle(),
         );
     }
 
