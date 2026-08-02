@@ -32,7 +32,6 @@ return RectorConfig::configure()
         LaravelSetList::LARAVEL_IF_HELPERS,
         LaravelSetList::LARAVEL_LEGACY_FACTORIES_TO_CLASSES,
 
-        // rector-pest
         PestLevelSetList::UP_TO_PEST_40,
         PestSetList::PEST_CODE_QUALITY,
         PestSetList::PEST_CHAIN,
