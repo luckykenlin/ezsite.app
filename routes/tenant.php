@@ -8,12 +8,14 @@ use App\Http\Controllers\PageEditorChatStreamController;
 use App\Http\Controllers\PageEditorPreviewController;
 use App\Http\Controllers\PostController;
 use App\Http\Controllers\PostIndexController;
+use App\Http\Controllers\ReviewRedirectController;
 use App\Http\Controllers\RobotsController;
 use App\Http\Controllers\SharedPagePreviewController;
 use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\StoreLeadController;
 use App\Http\Middleware\RememberLeadAttribution;
 use App\Models\Post;
+use App\Models\ReviewRequest;
 use Illuminate\Support\Facades\Route;
 use Stancl\Tenancy\Middleware\InitializeTenancyByDomainOrSubdomain;
 use Stancl\Tenancy\Middleware\PreventAccessFromUnwantedDomains;
@@ -66,6 +68,13 @@ Route::middleware([
     // with no filtering — the same property the sitemap relies on.
     Route::get('/'.Post::PATH_PREFIX, PostIndexController::class)->name('posts.index');
     Route::get('/'.Post::PATH_PREFIX.'/{post:slug}', PostController::class)->name('posts.show');
+
+    // The counter QR / receipt link. Two characters because a customer reads it off
+    // a card while holding a phone. Throttled per IP: a scan is a human action, and
+    // the only thing a flood could achieve is noise in the click stamp.
+    Route::get('/'.ReviewRequest::PATH_PREFIX.'/{token}', ReviewRedirectController::class)
+        ->middleware('throttle:30,1')
+        ->name('reviews.redirect');
 
     // The public contact form. Throttled per IP: a handful of enquiries a
     // minute is generous for a human and useless for a bot.

@@ -3,12 +3,13 @@
 declare(strict_types=1);
 
 use App\Models\Post;
+use App\Models\ReviewRequest;
 use App\Site\ReservedSlugs;
 
 test('the reserved list covers every root route a page could hide behind', function (): void {
     // Derived from the constant the route is built from, so moving the prefix moves
     // the reservation with it.
-    expect(ReservedSlugs::all())->toBe([Post::PATH_PREFIX, 'sitemap.xml', 'robots.txt']);
+    expect(ReservedSlugs::all())->toBe([Post::PATH_PREFIX, ReviewRequest::PATH_PREFIX, 'sitemap.xml', 'robots.txt']);
 });
 
 test('a root slug that a route already owns is reserved', function (string $slug, bool $reserved): void {
@@ -18,6 +19,7 @@ test('a root slug that a route already owns is reserved', function (string $slug
     'with slashes around it' => ['/updates/', true],
     'in capitals' => ['Updates', true],
     'the sitemap' => ['sitemap.xml', true],
+    'the review short link' => ['r', true],
     'an ordinary page' => ['about', false],
     'something merely similar' => ['updates-and-news', false],
 ]);
@@ -36,5 +38,5 @@ test('a generated slug steps around a reserved one visibly', function (): void {
 });
 
 test('the list reads as a sentence for the operator who tripped over it', function (): void {
-    expect(ReservedSlugs::describe())->toBe('updates, sitemap.xml and robots.txt');
+    expect(ReservedSlugs::describe())->toBe('updates, r, sitemap.xml and robots.txt');
 });

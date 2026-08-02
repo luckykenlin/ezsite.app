@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Site;
 
 use App\Models\Post;
+use App\Models\ReviewRequest;
 use Illuminate\Support\Arr;
 
 /**
@@ -41,6 +42,7 @@ final readonly class ReservedSlugs
     {
         return [
             Post::PATH_PREFIX,
+            ReviewRequest::PATH_PREFIX,
             'sitemap.xml',
             'robots.txt',
         ];

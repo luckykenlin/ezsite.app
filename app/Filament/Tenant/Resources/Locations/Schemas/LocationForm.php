@@ -74,6 +74,11 @@ final class LocationForm
                                 ->email()
                                 ->maxLength(255)
                                 ->columnSpan(1),
+                            TextInput::make('google_place_id')
+                                ->label('Google place ID')
+                                ->maxLength(255)
+                                ->columnSpanFull()
+                                ->helperText('Find it by searching your business on Google\'s Place ID finder. It is what turns on the "leave us a review" link and QR code — the single best thing a local business can do for how it ranks.'),
                             Select::make('timezone')
                                 ->options(array_combine(timezone_identifiers_list(), timezone_identifiers_list()))
                                 ->searchable()

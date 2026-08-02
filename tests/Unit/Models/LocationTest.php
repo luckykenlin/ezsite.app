@@ -90,6 +90,7 @@ test('to array', function (): void {
             'longitude',
             'phone',
             'email',
+            'google_place_id',
             'timezone',
             'opening_hours',
             'status',

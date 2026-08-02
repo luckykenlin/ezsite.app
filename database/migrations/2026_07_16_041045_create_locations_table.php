@@ -31,6 +31,14 @@ return new class extends Migration
             $table->string('phone')->nullable();
             $table->string('email')->nullable();
 
+            // The Google Business Profile place id, pasted by the operator.
+            //
+            // Only used to build the "leave us a review" link today
+            // (search.google.com/local/writereview?placeid=…), which needs no API
+            // and no approval — but it is also the id the eventual Business Profile
+            // connector addresses a location by, so it lives on the location rather
+            // than in a settings blob.
+            $table->string('google_place_id')->nullable();
             $table->string('timezone')->nullable();
             $table->json('opening_hours')->nullable();
             $table->string('status')->default('active');
