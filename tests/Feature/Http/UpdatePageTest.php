@@ -351,3 +351,123 @@ it('never lets a kind other than hours reach the notice bar', function (): void 
     expect($response->content())->not->toContain('site-notice-bar');
     expect(PostKind::Hours->requiresDateRange())->toBeFalse();
 });
+
+it('lets the popup follow the current offer when the operator asks it to', function (): void {
+    // Read-time derived, never written into site_settings: the offer appears when
+    // its window opens and is gone the moment it closes, with nothing to switch off.
+    // The house rule this follows is the documented one — factual data is
+    // referenced, never copied.
+    $tenant = tenantWithUpdates();
+
+    $this->runInTenant($tenant, function () use ($tenant): void {
+        resolve(App\Actions\SaveSiteCapture::class)->handle(
+            [
+                'enabled' => true,
+                'follow_offer' => true,
+                'heading' => 'Join our list',
+                'offer' => 'Occasional news.',
+                'fields' => 'email',
+            ],
+            [],
+        );
+
+        Post::factory()->offer()->create([
+            'tenant_id' => $tenant->id,
+            'title' => 'Two days of ten percent off',
+            'excerpt' => 'Book any gel set before Sunday.',
+            'slug' => 'ten-percent',
+        ]);
+    });
+
+    $this->get(sprintf('http://acme.%s/', $this->centralDomain()))
+        ->assertOk()
+        ->assertSee('Two days of ten percent off')
+        ->assertSee('Book any gel set before Sunday.')
+        // The coupon is worth more than the prose here — it is the reason a visitor
+        // hands over an email address.
+        ->assertSee('Use code SPRING10.')
+        ->assertSee('One per customer. Not valid with other offers.')
+        ->assertDontSee('Join our list');
+});
+
+it('gives the popup its own wording back the moment the offer ends', function (): void {
+    $tenant = tenantWithUpdates();
+
+    $this->runInTenant($tenant, function () use ($tenant): void {
+        resolve(App\Actions\SaveSiteCapture::class)->handle(
+            ['enabled' => true, 'follow_offer' => true, 'heading' => 'Join our list', 'fields' => 'email'],
+            [],
+        );
+
+        Post::factory()->offer()->expired()->create([
+            'tenant_id' => $tenant->id,
+            'title' => 'Last month deal',
+            'slug' => 'last-month',
+        ]);
+    });
+
+    $this->get(sprintf('http://acme.%s/', $this->centralDomain()))
+        ->assertOk()
+        ->assertSee('Join our list')
+        ->assertDontSee('Last month deal');
+});
+
+it('leaves a configured popup alone unless the operator opted in', function (): void {
+    // Silently rewriting a popup somebody configured is a surprise, and a salon may
+    // want a standing "book a consultation" popup that outlives any one deal.
+    $tenant = tenantWithUpdates();
+
+    $this->runInTenant($tenant, function () use ($tenant): void {
+        resolve(App\Actions\SaveSiteCapture::class)->handle(
+            ['enabled' => true, 'heading' => 'Join our list', 'fields' => 'email'],
+            [],
+        );
+
+        Post::factory()->offer()->create([
+            'tenant_id' => $tenant->id,
+            'title' => 'Two days of ten percent off',
+            'slug' => 'ten-percent',
+        ]);
+    });
+
+    $this->get(sprintf('http://acme.%s/', $this->centralDomain()))
+        ->assertOk()
+        ->assertSee('Join our list')
+        ->assertDontSee('Two days of ten percent off');
+});
+
+it('shares with the generated card rather than the raw photograph', function (): void {
+    // Growth mechanism #2, and the one only a website builder can offer: we own the
+    // head of every tenant page, so a free sharer.php or x.com/intent link renders a
+    // card built from OUR OpenGraph tags — correctly cropped, and still correct
+    // after the sharer rewrites their own words.
+    $tenant = tenantWithUpdates();
+
+    $this->runInTenant($tenant, function () use ($tenant): void {
+        $bytes = (string) Intervention\Image\ImageManager::gd()->create(2000, 1200)->fill('b91c1c')->toJpeg();
+        $disk = config()->string('curator.default_disk');
+        Illuminate\Support\Facades\Storage::disk($disk)->put('covers/cover.jpg', $bytes);
+
+        $cover = App\Models\Media::factory()->create([
+            'tenant_id' => $tenant->id,
+            'disk' => $disk,
+            'path' => 'covers/cover.jpg',
+            'ext' => 'jpg',
+            'type' => 'image/jpeg',
+        ]);
+
+        $post = Post::factory()->create([
+            'tenant_id' => $tenant->id,
+            'title' => 'Spring gel sets',
+            'slug' => 'spring-gel-sets',
+            'cover_media_id' => $cover->id,
+        ]);
+
+        resolve(App\Actions\Posts\PublishPost::class)->handle($post);
+    });
+
+    $this->get(updateUrl('spring-gel-sets'))
+        ->assertOk()
+        ->assertSee('share-cards/', false)
+        ->assertSee('og:image', false);
+});

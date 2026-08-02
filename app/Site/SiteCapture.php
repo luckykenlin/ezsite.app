@@ -6,6 +6,7 @@ namespace App\Site;
 
 use App\Enums\LeadFieldSet;
 use App\Enums\PopupTrigger;
+use App\Models\Post;
 
 /**
  * The tenant's site-wide capture surfaces: the offer popup and the sticky
@@ -46,14 +47,37 @@ final readonly class SiteCapture
         return $this->bool('popup', 'enabled') && $this->popupHeading() !== '';
     }
 
+    /**
+     * The heading, taken from the site's current OFFER update when the operator has
+     * asked for that.
+     *
+     * Derived at read time, never written into `site_settings`. The offer appears
+     * when its window opens and disappears when it closes, with nothing to switch
+     * off and nothing to drift out of step — which is also the documented house rule
+     * for factual data (docs/business-data-model.md): referenced, never copied.
+     *
+     * OPT-IN, because silently rewriting a popup somebody configured is a surprise,
+     * and because a salon may well want a standing "book a consultation" popup that
+     * outlives any one deal.
+     */
     public function popupHeading(): string
     {
-        return $this->string('popup', 'heading');
+        return $this->currentOffer()->title ?? $this->string('popup', 'heading');
     }
 
     public function popupOffer(): string
     {
-        return $this->string('popup', 'offer');
+        $offer = $this->currentOffer();
+
+        if ($offer === null) {
+            return $this->string('popup', 'offer');
+        }
+
+        // The coupon is worth more than the prose here: a popup that says
+        // "use SPRING10" is a reason to hand over an email address.
+        return filled($offer->offer_coupon_code)
+            ? mb_trim(sprintf('%s %s', $offer->excerpt ?? '', __('Use code :code.', ['code' => $offer->offer_coupon_code])))
+            : ($offer->excerpt ?? $this->string('popup', 'offer'));
     }
 
     public function popupButtonLabel(): string
@@ -70,7 +94,15 @@ final readonly class SiteCapture
 
     public function popupFinePrint(): string
     {
-        return $this->string('popup', 'fine_print');
+        return $this->currentOffer()->offer_terms ?? $this->string('popup', 'fine_print');
+    }
+
+    /**
+     * Whether the operator asked the popup to follow their latest offer.
+     */
+    public function popupFollowsOffer(): bool
+    {
+        return $this->bool('popup', 'follow_offer');
     }
 
     public function popupFields(): LeadFieldSet
@@ -132,6 +164,20 @@ final readonly class SiteCapture
     public function callBarOffersPopup(): bool
     {
         return $this->bool('call_bar', 'show_popup_button') && $this->popupEnabled();
+    }
+
+    /**
+     * The offer the popup should be advertising, or null when it should stick to
+     * what the operator typed.
+     *
+     * Deliberately NOT memoized here, even though three accessors ask: this class is
+     * `final readonly` and has no business holding mutable state, and it does not
+     * need to — {@see PostFeed} IS the memo, deriving every answer from one windowed
+     * read per request. Three calls here are three in-memory filters.
+     */
+    private function currentOffer(): ?Post
+    {
+        return $this->popupFollowsOffer() ? resolve(PostFeed::class)->currentOffer() : null;
     }
 
     private function clamp(int $value, int $min, int $max): int

@@ -76,6 +76,10 @@ final class CaptureSettings extends Page
                         Toggle::make('popup.enabled')
                             ->label('Show the popup')
                             ->live(),
+                        Toggle::make('popup.follow_offer')
+                            ->label('Use my latest offer')
+                            ->helperText('When an offer update is running, the popup shows that instead of the wording below — and goes back to it the moment the offer ends. Nothing to remember to switch off.')
+                            ->visible(fn (Get $get): bool => $get('popup.enabled') === true),
                         TextInput::make('popup.heading')
                             ->label('Heading')
                             ->maxLength(120)
