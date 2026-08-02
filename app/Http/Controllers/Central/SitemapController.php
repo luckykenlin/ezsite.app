@@ -22,7 +22,7 @@ final class SitemapController extends Controller
     public function __invoke(SitemapDocument $document): Response
     {
         return $document->respond(
-            collect([route('central.home'), route('central.templates')])
+            collect([route('central.home'), route('central.templates.index')])
                 ->merge(array_map(
                     static fn (SiteTemplate $template): string => route('central.templates.show', $template),
                     SiteTemplate::cases(),

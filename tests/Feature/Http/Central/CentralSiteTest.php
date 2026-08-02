@@ -52,7 +52,7 @@ it('gives every template a detail page with a live demo and a way to start', fun
         ->assertSee($template->highlights()[0])
         // The two things a visitor can do next.
         ->assertSee($gallery->demoUrl($template))
-        ->assertSee(route('central.start', $template))
+        ->assertSee(route('central.templates.start', $template))
         // What the wizard will ask, so nobody is surprised by step two.
         ->assertSee($template->definition()->extraFields[0]->label);
 })->with(fn (): array => array_map(
@@ -109,14 +109,14 @@ it('lists the landing page, the gallery and every template in the central sitema
     $response->assertOk()
         ->assertHeader('Content-Type', 'application/xml')
         ->assertSee(route('central.home'))
-        ->assertSee(route('central.templates'));
+        ->assertSee(route('central.templates.index'));
 
     foreach (SiteTemplate::cases() as $template) {
         $response->assertSee(route('central.templates.show', $template));
     }
 
     // Never the signup form.
-    $response->assertDontSee(route('central.start', SiteTemplate::NailSalon));
+    $response->assertDontSee(route('central.templates.start', SiteTemplate::NailSalon));
 });
 
 it('falls back to a brand-coloured panel when a template has no screenshot', function (): void {

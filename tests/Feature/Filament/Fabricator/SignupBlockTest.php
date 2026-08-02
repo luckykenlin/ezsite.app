@@ -116,8 +116,13 @@ it('shows the thank-you on the submitted form only, leaving the other asking', f
 });
 
 it('offers every field set the enum defines', function (): void {
-    // The block's Select is built from LeadFieldSet::options(), so a new case
-    // reaches the editor by being declared rather than by being wired.
-    expect(array_keys(LeadFieldSet::options()))
+    // The block's Select is handed LeadFieldSet::class (HasLabel), so a new
+    // case reaches the editor by being declared rather than by being wired —
+    // provided every case carries a label.
+    expect(array_map(static fn (LeadFieldSet $set): string => $set->value, LeadFieldSet::cases()))
         ->toBe(['email', 'phone', 'email_phone', 'name_email', 'name_phone', 'full']);
+
+    foreach (LeadFieldSet::cases() as $set) {
+        expect($set->getLabel())->not->toBeEmpty();
+    }
 });

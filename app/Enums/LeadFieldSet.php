@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Enums;
 
+use Filament\Support\Contracts\HasLabel;
+
 /**
  * Which inputs a capture form asks for.
  *
@@ -17,7 +19,7 @@ namespace App\Enums;
  * render; `StoreLeadController` independently requires at least one reply
  * channel, so a tampered form can't produce an unanswerable lead.
  */
-enum LeadFieldSet: string
+enum LeadFieldSet: string implements HasLabel
 {
     case Email = 'email';
 
@@ -30,22 +32,6 @@ enum LeadFieldSet: string
     case NamePhone = 'name_phone';
 
     case Full = 'full';
-
-    /**
-     * `value => label` for a Filament Select.
-     *
-     * @return array<string, string>
-     */
-    public static function options(): array
-    {
-        $options = [];
-
-        foreach (self::cases() as $case) {
-            $options[$case->value] = $case->label();
-        }
-
-        return $options;
-    }
 
     public function showsName(): bool
     {
@@ -76,7 +62,7 @@ enum LeadFieldSet: string
         return ! $this->showsMessage();
     }
 
-    public function label(): string
+    public function getLabel(): string
     {
         return match ($this) {
             self::Email => __('Email only'),

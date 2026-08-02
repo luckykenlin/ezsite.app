@@ -6,6 +6,7 @@ namespace App\Actions\Reviews;
 
 use App\Models\Location;
 use App\Models\ReviewRequest;
+use App\Site\PublicUrl;
 use Illuminate\Support\HtmlString;
 
 /**
@@ -38,7 +39,7 @@ final readonly class BuildReviewCards
             ->get()
             ->map(function (Location $location): array {
                 $request = $this->links->handle($location);
-                $url = $request instanceof ReviewRequest ? url($request->getUrl()) : null;
+                $url = $request instanceof ReviewRequest ? PublicUrl::to($request) : null;
 
                 return [
                     'location' => $location,

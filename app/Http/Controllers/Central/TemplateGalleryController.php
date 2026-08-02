@@ -23,7 +23,7 @@ final class TemplateGalleryController extends Controller
             'seo' => new SEOData(
                 title: 'Website templates for small businesses',
                 description: 'Eight finished websites, one for each trade. Open the live demo, then make it yours in a few minutes.',
-                url: route('central.templates'),
+                url: route('central.templates.index'),
                 enableTitleSuffix: false,
                 site_name: config()->string('app.name'),
             ),

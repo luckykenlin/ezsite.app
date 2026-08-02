@@ -33,7 +33,7 @@ export default defineConfig({
             },
         ],
         sortTailwindcss: {
-            stylesheet: 'resources/css/app.css',
+            stylesheet: 'resources/css/site.css',
         },
         sortImports: {
             groups: [
@@ -50,12 +50,10 @@ export default defineConfig({
     plugins: [
         laravel({
             input: [
-                'resources/css/app.css',
                 'resources/css/site.css',
                 'resources/css/page-editor-canvas.css',
                 'resources/css/page-editor.css',
                 'resources/css/page-canvas.css',
-                'resources/js/app.ts',
                 'resources/js/site.ts',
                 'resources/js/page-editor/canvas-glue.ts',
                 'resources/js/page-editor/editor.ts',

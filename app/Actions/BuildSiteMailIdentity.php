@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Actions;
 
+use App\Design\ColorPalette;
 use App\Mail\SiteMailIdentity;
 use App\Models\Business;
 use App\Models\Tenant;
@@ -35,7 +36,7 @@ final readonly class BuildSiteMailIdentity
         // here as redundant.
         return new SiteMailIdentity(
             siteName: $business->name ?? $tenant->name,
-            accent: $business->brand_primary ?? SiteMailIdentity::DEFAULT_ACCENT,
+            accent: $business->brand_primary ?? ColorPalette::DEFAULT_BRAND,
             replyToEmail: $business->contact_email ?? $tenant->email,
             phone: $business?->contact_phone,
         );

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Actions\BuildSiteMailIdentity;
+use App\Design\ColorPalette;
 use App\Mail\SiteMailIdentity;
 use App\Models\Tenant;
 
@@ -32,7 +33,7 @@ test('a tenant with no business profile still gets a usable identity', function 
     $identity = $this->runInTenant($tenant, fn (): SiteMailIdentity => resolve(BuildSiteMailIdentity::class)->handle());
 
     expect($identity->siteName)->toBe('Acme Nails')
-        ->and($identity->accent())->toBe(SiteMailIdentity::DEFAULT_ACCENT)
+        ->and($identity->accent())->toBe(ColorPalette::DEFAULT_BRAND)
         ->and($identity->replyToEmail)->toBe('owner@acme.test')
         ->and($identity->phone)->toBeNull();
 });

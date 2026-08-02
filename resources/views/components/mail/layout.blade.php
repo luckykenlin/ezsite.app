@@ -14,7 +14,7 @@
 --}}
 @props([
     'siteName',
-    'accent' => \App\Mail\SiteMailIdentity::DEFAULT_ACCENT,
+    'accent' => \App\Design\ColorPalette::DEFAULT_BRAND,
     'preheader' => null,
 ])
 

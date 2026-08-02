@@ -22,15 +22,9 @@ use Illuminate\Mail\Mailables\Address;
  */
 final readonly class SiteMailIdentity
 {
-    /**
-     * The accent used when a site has no brand colour of its own — the tenant
-     * panel's primary, so an unbranded site still looks like part of the product.
-     */
-    public const string DEFAULT_ACCENT = '#059669';
-
     public function __construct(
         public string $siteName,
-        private string $accent = self::DEFAULT_ACCENT,
+        private string $accent = ColorPalette::DEFAULT_BRAND,
         public ?string $replyToEmail = null,
         public ?string $phone = null,
     ) {}
@@ -40,13 +34,13 @@ final readonly class SiteMailIdentity
      *
      * This value reaches an inline `style` attribute, and its source
      * (`businesses.brand_primary`) is written by operators AND by the AI draft
-     * pipeline. Through {@see ColorPalette::validHex()} rather than a second
-     * copy of the regex: that method is the documented single gate for every
-     * path a brand colour takes into a stylesheet.
+     * pipeline. Through {@see ColorPalette::brandOrDefault()} rather than a
+     * second copy of the regex: ColorPalette is the documented single gate for
+     * every path a brand colour takes into a stylesheet.
      */
     public function accent(): string
     {
-        return ColorPalette::validHex($this->accent) ?? self::DEFAULT_ACCENT;
+        return ColorPalette::brandOrDefault($this->accent);
     }
 
     /**

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Enums;
 
+use Filament\Support\Contracts\HasLabel;
+
 /**
  * What makes the site-wide offer popup appear.
  *
@@ -16,7 +18,7 @@ namespace App\Enums;
  * The value each one reads (`seconds`, `percent`, nothing) is stored alongside
  * it — see {@see \App\Site\SiteCapture}.
  */
-enum PopupTrigger: string
+enum PopupTrigger: string implements HasLabel
 {
     case Delay = 'delay';
 
@@ -24,23 +26,7 @@ enum PopupTrigger: string
 
     case ExitIntent = 'exit_intent';
 
-    /**
-     * `value => label` for a Filament Select.
-     *
-     * @return array<string, string>
-     */
-    public static function options(): array
-    {
-        $options = [];
-
-        foreach (self::cases() as $case) {
-            $options[$case->value] = $case->label();
-        }
-
-        return $options;
-    }
-
-    public function label(): string
+    public function getLabel(): string
     {
         return match ($this) {
             self::Delay => __('After a few seconds'),

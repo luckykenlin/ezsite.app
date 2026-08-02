@@ -163,7 +163,7 @@ final class Post extends Model
      * Computed, never stored: with no scheduler there is nothing to stamp a
      * status, and a computed answer is right the instant it becomes right. An
      * expired update still serves a 200 — a link already live in a Facebook feed
-     * must not die — but it drops out of the feed, the nav and the popup.
+     * must not die — but it drops out of the feed and the popup.
      */
     public function isExpired(): bool
     {
@@ -199,24 +199,6 @@ final class Post extends Model
         $query->where('status', PostStatus::Published)
             ->latest('published_at')
             ->orderByDesc('id');
-    }
-
-    /**
-     * Published and inside its window — the SQL counterpart of
-     * {@see isCurrent()}, for the surfaces that must not show a finished offer.
-     *
-     * @param  Builder<static>  $query
-     */
-    #[Scope]
-    protected function current(Builder $query): void
-    {
-        $query->published()
-            ->where(fn (Builder $started): Builder => $started
-                ->whereNull('starts_at')
-                ->orWhere('starts_at', '<=', now()))
-            ->where(fn (Builder $unexpired): Builder => $unexpired
-                ->whereNull('ends_at')
-                ->orWhere('ends_at', '>', now()));
     }
 
     /**

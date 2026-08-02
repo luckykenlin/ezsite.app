@@ -7,6 +7,7 @@ namespace App\Actions;
 use App\Models\Business;
 use App\Models\Page;
 use App\Site\BindResolver;
+use App\Site\PublicUrl;
 use App\Site\SeoFallbacks;
 use RalphJSmit\Laravel\SEO\Schema\FaqPageSchema;
 use RalphJSmit\Laravel\SEO\SchemaCollection;
@@ -41,7 +42,7 @@ final readonly class BuildPageSeoData
             title: $this->fallbacks->title($page->seo_title ?? $page->title, $business),
             description: $this->fallbacks->description($page->seo_description, $business),
             image: $image,
-            url: url($page->getUrl()),
+            url: PublicUrl::to($page),
             enableTitleSuffix: false,
             modified_time: $page->updated_at,
             schema: $this->schema($page, $business, $image),

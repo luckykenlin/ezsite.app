@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Design\ColorPalette;
 use App\Mail\SiteMailIdentity;
 
 test('the sender is our verified domain wearing the site name', function (): void {
@@ -37,8 +38,8 @@ test('the accent falls back to the default unless it is a six-digit hex', functi
     'a brand hex' => ['#b91c1c', '#b91c1c'],
     // ColorPalette::validHex() normalises case, which is where this gate lives.
     'uppercase' => ['#B91C1C', '#b91c1c'],
-    'three-digit shorthand' => ['#b11', SiteMailIdentity::DEFAULT_ACCENT],
-    'a colour name' => ['red', SiteMailIdentity::DEFAULT_ACCENT],
-    'an injection attempt' => ['#fff; background-image: url(x)', SiteMailIdentity::DEFAULT_ACCENT],
-    'empty' => ['', SiteMailIdentity::DEFAULT_ACCENT],
+    'three-digit shorthand' => ['#b11', ColorPalette::DEFAULT_BRAND],
+    'a colour name' => ['red', ColorPalette::DEFAULT_BRAND],
+    'an injection attempt' => ['#fff; background-image: url(x)', ColorPalette::DEFAULT_BRAND],
+    'empty' => ['', ColorPalette::DEFAULT_BRAND],
 ]);

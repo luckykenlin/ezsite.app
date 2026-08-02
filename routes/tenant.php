@@ -55,8 +55,11 @@ Route::middleware([
         ->middleware('signed:relative')
         ->name('site.claim');
 
-    Route::get('/sitemap.xml', SitemapController::class)->name('sitemap');
-    Route::get('/robots.txt', RobotsController::class)->name('robots');
+    // `tenant.`-prefixed, so a route() call is self-documenting about which
+    // domain it resolves on — the central twins are `central.sitemap` /
+    // `central.robots`.
+    Route::get('/sitemap.xml', SitemapController::class)->name('tenant.sitemap');
+    Route::get('/robots.txt', RobotsController::class)->name('tenant.robots');
 
     // The updates surface. Explicit routes, above the Fabricator catch-all below
     // — which is registered `->fallback()`, so Laravel places it last whatever
@@ -66,8 +69,10 @@ Route::middleware([
     //
     // Binding on `{post:slug}` is RLS-scoped, so another tenant's slug 404s here
     // with no filtering — the same property the sitemap relies on.
-    Route::get('/'.Post::PATH_PREFIX, PostIndexController::class)->name('posts.index');
-    Route::get('/'.Post::PATH_PREFIX.'/{post:slug}', PostController::class)->name('posts.show');
+    // Named `updates.*` to match the product noun and the path — the Post
+    // model is the internal name, not the visitor-facing one.
+    Route::get('/'.Post::PATH_PREFIX, PostIndexController::class)->name('updates.index');
+    Route::get('/'.Post::PATH_PREFIX.'/{post:slug}', PostController::class)->name('updates.show');
 
     // The counter QR / receipt link. Two characters because a customer reads it off
     // a card while holding a phone. Throttled per IP: a scan is a human action, and

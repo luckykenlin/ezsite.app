@@ -20,7 +20,7 @@
                 <p class="mt-4 text-lg text-base-content/70">
                     That link does not lead anywhere. The templates are a better place to start.
                 </p>
-                <a href="{{ route('central.templates') }}" class="btn btn-primary mt-8">Browse templates</a>
+                <a href="{{ route('central.templates.index') }}" class="btn btn-primary mt-8">Browse templates</a>
             </div>
         </x-site.section>
     </x-central.layout>

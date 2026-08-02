@@ -8,6 +8,7 @@ use App\Enums\PostKind;
 use App\Models\Business;
 use App\Models\Post;
 use App\Site\BindResolver;
+use App\Site\PublicUrl;
 use App\Site\SeoFallbacks;
 use Illuminate\Support\Str;
 use RalphJSmit\Laravel\SEO\Schema\ArticleSchema;
@@ -55,7 +56,7 @@ final readonly class BuildPostSeoData
             description: $this->fallbacks->description($post->seo_description ?? $post->excerpt, $business),
             author: $post->author_name,
             image: $image,
-            url: url($post->getUrl()),
+            url: PublicUrl::to($post),
             enableTitleSuffix: false,
             published_time: $post->published_at,
             modified_time: $post->updated_at,
@@ -76,7 +77,7 @@ final readonly class BuildPostSeoData
             ->addBreadcrumbs(fn (BreadcrumbListSchema $breadcrumbs): BreadcrumbListSchema => $breadcrumbs
                 ->prependBreadcrumbs([
                     ($business->name ?? __('Home')) => url('/'),
-                    __('Updates') => url('/'.Post::PATH_PREFIX),
+                    __('Updates') => PublicUrl::updatesIndex(),
                 ]));
 
         $dated = $this->datedNode($post, $business, $image);
@@ -121,7 +122,7 @@ final readonly class BuildPostSeoData
             '@context' => 'https://schema.org',
             '@type' => $post->kind === PostKind::Offer ? 'Offer' : 'Event',
             'name' => $post->title,
-            'url' => url($post->getUrl()),
+            'url' => PublicUrl::to($post),
         ];
 
         if (filled($post->excerpt)) {

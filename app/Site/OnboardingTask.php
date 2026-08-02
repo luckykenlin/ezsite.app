@@ -27,6 +27,13 @@ enum OnboardingTask: string
     case Logo = 'logo';
     case CaptureSurface = 'capture_surface';
 
+    /**
+     * Plain `label()` rather than Filament's `HasLabel`, deliberately: this is
+     * marketing copy for public surfaces, not a panel Select option — the
+     * enums the panel renders (PostKind, LeadFieldSet, ...) implement
+     * HasLabel::getLabel() instead. Two styles, one rule: HasLabel when a
+     * Filament component consumes the case, label() when the site does.
+     */
     public function label(): string
     {
         return match ($this) {

@@ -154,21 +154,6 @@ test('the published scope returns only published updates, newest first', functio
     expect($titles)->toBe(['Newer', 'Older']);
 });
 
-test('the current scope drops finished and not-yet-started updates', function (): void {
-    $tenant = Tenant::factory()->create();
-
-    $titles = $this->runInTenant($tenant, function () use ($tenant): array {
-        Post::factory()->offer()->create(['tenant_id' => $tenant->id, 'title' => 'Running']);
-        Post::factory()->expired()->create(['tenant_id' => $tenant->id, 'title' => 'Finished']);
-        Post::factory()->upcoming()->create(['tenant_id' => $tenant->id, 'title' => 'Not yet']);
-        Post::factory()->create(['tenant_id' => $tenant->id, 'title' => 'Draft']);
-
-        return Post::query()->current()->pluck('title')->all();
-    });
-
-    expect($titles)->toBe(['Running']);
-});
-
 test('a tenant cannot reuse a slug', function (): void {
     // The unique index leads with tenant_id so it doubles as the RLS predicate
     // index; two tenants may both have /updates/closed-monday.

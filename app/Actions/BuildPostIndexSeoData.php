@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Actions;
 
-use App\Models\Post;
 use App\Site\BindResolver;
+use App\Site\PublicUrl;
 use App\Site\SeoFallbacks;
 use RalphJSmit\Laravel\SEO\Support\SEOData;
 
@@ -35,7 +35,7 @@ final readonly class BuildPostIndexSeoData
         return new SEOData(
             title: $this->fallbacks->title(__('Updates'), $business),
             description: $this->fallbacks->description(null, $business),
-            url: url('/'.Post::PATH_PREFIX),
+            url: PublicUrl::updatesIndex(),
             enableTitleSuffix: false,
             site_name: $business?->name,
         );

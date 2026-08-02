@@ -33,12 +33,6 @@ use Illuminate\Support\HtmlString;
  */
 final class Favicon
 {
-    /**
-     * The generated mark's colour when the business has no valid brand hex —
-     * the tenant panel's primary, so an unbranded site still looks deliberate.
-     */
-    private const string DEFAULT_COLOR = '#059669';
-
     public static function links(Business $business): HtmlString
     {
         $logoUrl = $business->logoUrl();
@@ -74,7 +68,7 @@ final class Favicon
     private static function letterMark(Business $business): string
     {
         $character = e(mb_strtoupper(mb_substr(mb_trim($business->name), 0, 1)));
-        $color = ColorPalette::validHex($business->brand_primary) ?? self::DEFAULT_COLOR;
+        $color = ColorPalette::brandOrDefault($business->brand_primary);
 
         $svg = <<<SVG
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="{$color}"/><text x="32" y="45" text-anchor="middle" font-family="system-ui,-apple-system,'Segoe UI',sans-serif" font-size="38" font-weight="700" fill="#ffffff">{$character}</text></svg>

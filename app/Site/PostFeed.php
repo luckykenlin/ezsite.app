@@ -13,11 +13,11 @@ use Illuminate\Support\Collection;
  * Everything the public site needs to know about a tenant's updates, in ONE
  * query per request.
  *
- * Four surfaces ask on a single page load — the home page's `updates` block, the
- * "Updates" nav entry, the offer popup and the hours notice — and each of them
- * wants a different slice of the same answer. So this reads a window of the
- * newest published updates once and derives all four in PHP, rather than issuing
- * four similar selects. Scoped in the container beside {@see BindResolver},
+ * Three surfaces ask on a single page load — the home page's `updates` block,
+ * the offer popup and the hours notice — and each of them wants a different
+ * slice of the same answer. So this reads a window of the newest published
+ * updates once and derives all three in PHP, rather than issuing three
+ * similar selects. Scoped in the container beside {@see BindResolver},
  * {@see SiteChrome} and {@see MediaResolver}, for the reason those are:
  * memoization that lasts exactly one request, so a queue worker handling two
  * tenants cannot serve one of them the other's feed.
@@ -30,20 +30,13 @@ use Illuminate\Support\Collection;
 final class PostFeed
 {
     /**
-     * How many updates the index page lists. Equal to the window: a local
-     * business does not need pagination, and a page of two dozen dated cards is
-     * already more than anybody scrolls.
-     */
-    public const int PAGE_SIZE = self::WINDOW;
-
-    /**
-     * How many of the newest published updates to read.
+     * How many of the newest published updates to read — and, since a local
+     * business does not need pagination, how many the index page lists.
      *
-     * Comfortably above every caller's appetite: the block caps at 6, the index
-     * page shows one page of them, and the nav only needs to know whether there
-     * are two.
+     * Comfortably above every caller's appetite: the block caps at 6 and a
+     * page of two dozen dated cards is already more than anybody scrolls.
      */
-    private const int WINDOW = 24;
+    public const int WINDOW = 24;
 
     /** @var Collection<int, Post>|null */
     private ?Collection $recent = null;
@@ -139,17 +132,6 @@ final class PostFeed
     public function lastPublishedAt(): ?CarbonImmutable
     {
         return $this->recent()->first()?->published_at;
-    }
-
-    /**
-     * Whether the feed is worth linking to from the navigation.
-     *
-     * Two, not one: a nav entry leading to a page with a single item reads as an
-     * unfinished site, which is the opposite of what the section is for.
-     */
-    public function isWorthLinking(): bool
-    {
-        return $this->recent()->count() >= 2;
     }
 
     /**

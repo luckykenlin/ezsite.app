@@ -34,7 +34,7 @@
                 </p>
 
                 <div class="flex flex-wrap items-center gap-4">
-                    <a href="{{ route('central.templates') }}" class="btn btn-primary btn-lg">Browse the templates</a>
+                    <a href="{{ route('central.templates.index') }}" class="btn btn-primary btn-lg">Browse the templates</a>
                     <a href="{{ route('central.templates.show', \App\Templates\SiteTemplate::ChineseRestaurant) }}" class="site-link-cta">
                         See a finished example
                     </a>
@@ -144,7 +144,7 @@
             <p class="site-intro opacity-90">
                 No card, no call, no blank page. Pick the template that fits and start filling it in.
             </p>
-            <a href="{{ route('central.templates') }}" class="btn btn-lg">Browse the templates</a>
+            <a href="{{ route('central.templates.index') }}" class="btn btn-lg">Browse the templates</a>
         </div>
     </x-site.section>
 </x-central.layout>

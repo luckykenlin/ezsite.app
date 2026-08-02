@@ -71,7 +71,7 @@
             </div>
 
             <p class="mt-12">
-                <a href="{{ '/'.\App\Models\Post::PATH_PREFIX }}" class="site-link-cta">{{ __('All updates') }}</a>
+                <a href="{{ route('updates.index') }}" class="site-link-cta">{{ __('All updates') }}</a>
             </p>
         </article>
     </x-site.section>

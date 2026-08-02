@@ -43,7 +43,7 @@ final class CaptureFields
     {
         return Select::make($name)
             ->label('Ask for')
-            ->options(LeadFieldSet::options())
+            ->options(LeadFieldSet::class)
             ->default($default->value)
             ->selectablePlaceholder(false);
     }

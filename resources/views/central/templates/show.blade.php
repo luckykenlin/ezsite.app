@@ -11,7 +11,7 @@
     <x-site.section tone="base" spacing="airy">
         <div class="mx-auto grid max-w-7xl items-start gap-12 px-6 lg:grid-cols-[1fr_1.2fr]">
             <div class="flex flex-col items-start gap-6">
-                <a href="{{ route('central.templates') }}" class="text-sm opacity-70 hover:opacity-100">&larr; All templates</a>
+                <a href="{{ route('central.templates.index') }}" class="text-sm opacity-70 hover:opacity-100">&larr; All templates</a>
 
                 <div class="flex flex-col gap-4">
                     <p class="site-eyebrow text-primary">{{ $definition->preset->label() }}</p>
@@ -29,7 +29,7 @@
                 </ul>
 
                 <div class="flex flex-wrap items-center gap-4">
-                    <a href="{{ route('central.start', $template) }}" class="btn btn-primary btn-lg">Use this template</a>
+                    <a href="{{ route('central.templates.start', $template) }}" class="btn btn-primary btn-lg">Use this template</a>
                     <a href="{{ $demoUrl }}" target="_blank" rel="noopener" class="site-link-cta">View the live demo</a>
                 </div>
             </div>
@@ -121,7 +121,7 @@
             <p class="site-intro opacity-90">
                 Answer a few questions and this site goes live on your own address, ready to edit.
             </p>
-            <a href="{{ route('central.start', $template) }}" class="btn btn-lg">Use this template</a>
+            <a href="{{ route('central.templates.start', $template) }}" class="btn btn-lg">Use this template</a>
         </div>
     </x-site.section>
 </x-central.layout>

@@ -7,6 +7,7 @@ namespace App\Actions;
 use App\Enums\PageStatus;
 use App\Models\Page;
 use App\Models\Post;
+use App\Site\PublicUrl;
 
 /**
  * Every URL the current tenant's sitemap should list: published, indexable
@@ -40,7 +41,7 @@ final readonly class BuildSitemapUrls
             ->orderBy('id')
             ->get()
             ->map(fn (Page $page): array => [
-                'loc' => url($page->getUrl()),
+                'loc' => PublicUrl::to($page),
                 'lastmod' => $page->updated_at->toAtomString(),
             ])
             ->all());
@@ -68,11 +69,11 @@ final readonly class BuildSitemapUrls
 
         return array_values($posts
             ->map(fn (Post $post): array => [
-                'loc' => url($post->getUrl()),
+                'loc' => PublicUrl::to($post),
                 'lastmod' => $post->updated_at?->toAtomString(),
             ])
             ->prepend([
-                'loc' => url('/'.Post::PATH_PREFIX),
+                'loc' => PublicUrl::updatesIndex(),
                 'lastmod' => $posts->first()->updated_at?->toAtomString(),
             ])
             ->all());

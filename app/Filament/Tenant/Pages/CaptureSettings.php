@@ -84,7 +84,7 @@ final class CaptureSettings extends SettingsPage
                         CaptureFields::finePrint('popup.fine_print'),
                         Select::make('popup.trigger')
                             ->label('Show it')
-                            ->options(PopupTrigger::options())
+                            ->options(PopupTrigger::class)
                             ->default(PopupTrigger::Delay->value)
                             ->selectablePlaceholder(false)
                             ->live(),

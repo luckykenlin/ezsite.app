@@ -37,6 +37,14 @@ enum ColorPalette: string
     case NoirGold = 'noir-gold';
     case Brand = 'brand';
 
+    /**
+     * The product's own emerald (the tenant panel's primary), used wherever a
+     * surface needs one brand colour and the business has no valid hex of its
+     * own — the generated favicon, the transactional-mail accent. One
+     * constant, so "unbranded still looks deliberate" is one colour.
+     */
+    public const string DEFAULT_BRAND = '#059669';
+
     private const string HEX_PATTERN = '/^#[0-9a-f]{6}$/i';
 
     /**
@@ -51,6 +59,15 @@ enum ColorPalette: string
         return is_string($color) && preg_match(self::HEX_PATTERN, $color) === 1
             ? mb_strtolower($color)
             : null;
+    }
+
+    /**
+     * The two-step every "one brand colour" surface performs: the stored hex
+     * when it passes the gate, {@see self::DEFAULT_BRAND} otherwise.
+     */
+    public static function brandOrDefault(?string $color): string
+    {
+        return self::validHex($color) ?? self::DEFAULT_BRAND;
     }
 
     /**

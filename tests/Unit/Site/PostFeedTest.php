@@ -30,8 +30,8 @@ function withFeed(Tenant $tenant, Closure $assert): void
 }
 
 it('answers every public surface from one query', function (): void {
-    // The reason this class exists. Four surfaces ask on one page load — the block,
-    // the nav entry, the offer popup and the hours notice — and asserting the
+    // The reason this class exists. Three surfaces ask on one page load — the
+    // block, the offer popup and the hours notice — and asserting the
     // CONSEQUENCE is the only way to catch the binding degrading to bind(), since
     // expecting the same instance back would pass for that too.
     $tenant = Tenant::factory()->create();
@@ -57,7 +57,6 @@ it('answers every public surface from one query', function (): void {
         $feed->currentOffer();
         $feed->currentHoursNotice();
         $feed->lastPublishedAt();
-        $feed->isWorthLinking();
         $feed->isFresh();
 
         $queries = DB::getQueryLog();
@@ -134,22 +133,6 @@ it('finds nothing to offer or announce when there is nothing running', function 
         ->and($feed->currentHoursNotice())->toBeNull());
 });
 
-it('waits for a second update before the nav is worth a link', function (int $count, bool $worthLinking): void {
-    // A nav entry leading to a page with one item reads as an unfinished site,
-    // which is the opposite of what the section is for.
-    $tenant = Tenant::factory()->create();
-
-    if ($count > 0) {
-        $this->runInTenant($tenant, fn () => Post::factory()->count($count)->published()->create(['tenant_id' => $tenant->id]));
-    }
-
-    withFeed($tenant, fn (PostFeed $feed): Expectation => expect($feed->isWorthLinking())->toBe($worthLinking));
-})->with([
-    'nothing published' => [0, false],
-    'one update' => [1, false],
-    'two updates' => [2, true],
-]);
-
 it('reports a site as stale once its newest update is old', function (): void {
     // The staleness guard the block reads. A "Latest updates" strip whose freshest
     // item is eight months old tells a visitor comparing three salons that this one
@@ -162,14 +145,13 @@ it('reports a site as stale once its newest update is old', function (): void {
         ->and($feed->lastPublishedAt())->not->toBeNull());
 });
 
-it('reports a site with nothing published as neither fresh nor linkable', function (): void {
+it('reports a site with nothing published as not fresh', function (): void {
     $tenant = Tenant::factory()->create();
 
     $this->runInTenant($tenant, fn (): Post => Post::factory()->create(['tenant_id' => $tenant->id]));
 
     withFeed($tenant, fn (PostFeed $feed): Expectation => expect($feed->isFresh())->toBeFalse()
-        ->and($feed->lastPublishedAt())->toBeNull()
-        ->and($feed->isWorthLinking())->toBeFalse());
+        ->and($feed->lastPublishedAt())->toBeNull());
 });
 
 it('counts a finished offer as tending the site even though it is not shown', function (): void {
