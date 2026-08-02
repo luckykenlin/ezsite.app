@@ -33,26 +33,30 @@ final readonly class TemplateGallery
     public const string SCREENSHOT_DIRECTORY = 'images/templates';
 
     /**
-     * JPEG, not PNG. These are photographs of photographs — the first capture
-     * run produced 52 MB of lossless screenshots for sixteen files, which is
-     * not something to put in a git history for images that render at a third
-     * of their captured width.
+     * Three capture widths, because the cards and the detail hero want very
+     * different images and were being served the same one.
+     *
+     *  - CARD is what the gallery grid and the landing page's hero fan use.
+     *    They render between 290 and 400 CSS px inside `max-w-7xl`, so the
+     *    1440 they used to load was four times the pixels of the slot — a
+     *    bigger waste than the file format ever was.
+     *  - DESKTOP is the template detail page's hero, which really does render
+     *    at ~672 CSS px and therefore wants 1440 on a 2x screen.
+     *  - MOBILE is the "reads well on a phone" pairing. 780, not 390: it is
+     *    displayed at 390 CSS px, so a 390px capture was soft on every retina
+     *    screen it has ever been shown on.
      */
-    public const string SCREENSHOT_EXTENSION = 'jpg';
+    public const int CARD_WIDTH = 800;
 
-    /**
-     * The two capture widths: a desktop shot for the cards and the detail
-     * hero, and a phone shot for the "it works on a phone too" pairing.
-     */
     public const int DESKTOP_WIDTH = 1440;
 
-    public const int MOBILE_WIDTH = 390;
+    public const int MOBILE_WIDTH = 780;
 
     /**
      * The public URL of a captured screenshot, or null when nobody has
      * captured one.
      */
-    public function screenshot(SiteTemplate $template, int $width = self::DESKTOP_WIDTH): ?string
+    public function screenshot(SiteTemplate $template, int $width = self::CARD_WIDTH): ?string
     {
         $path = $this->screenshotPath($template, $width);
 
@@ -63,9 +67,21 @@ final readonly class TemplateGallery
      * The path a capture is written to — shared with the capture script, and
      * the reason it is a method rather than two string literals.
      */
-    public function screenshotPath(SiteTemplate $template, int $width = self::DESKTOP_WIDTH): string
+    public function screenshotPath(SiteTemplate $template, int $width = self::CARD_WIDTH): string
     {
-        return sprintf('%s/%s-%d.%s', self::SCREENSHOT_DIRECTORY, $template->value, $width, self::SCREENSHOT_EXTENSION);
+        return sprintf('%s/%s-%d.%s', self::SCREENSHOT_DIRECTORY, $template->value, $width, $this->extension($width));
+    }
+
+    /**
+     * WebP everywhere except the desktop shot, which stays JPEG because it is
+     * also the `og:image` on every template detail page — social crawlers are
+     * still uneven about WebP, and a link preview that silently stops
+     * rendering is a bad way to find that out. It is one image on one page, so
+     * its weight barely matters; the cards are where the bytes are.
+     */
+    public function extension(int $width): string
+    {
+        return $width === self::DESKTOP_WIDTH ? 'jpg' : 'webp';
     }
 
     /**

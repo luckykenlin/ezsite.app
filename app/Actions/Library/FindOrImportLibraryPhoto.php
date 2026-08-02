@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Actions\Library;
 
+use App\Actions\OptimizeImage;
 use App\Models\LibraryPhoto;
 use App\StockPhotos\PhotoOrientation;
 use App\StockPhotos\PhotoPalette;
@@ -55,6 +56,7 @@ final readonly class FindOrImportLibraryPhoto
         private StockPhotoProvider $provider,
         private ExtractPhotoPalette $palette,
         private DerivePhotoKeywords $keywords,
+        private OptimizeImage $optimizeImage,
     ) {
         //
     }
@@ -81,11 +83,22 @@ final readonly class FindOrImportLibraryPhoto
             return null;
         }
 
+        // Downscaled and re-encoded before it is written, once, here — the
+        // library is the single door every provider photo comes through, and
+        // AdoptLibraryPhoto copies these bytes verbatim, so every tenant that
+        // ever uses this photograph inherits the smaller file for free.
+        $optimized = $this->optimizeImage->handle($body);
+
         $name = 'library-'.Str::uuid();
-        $path = 'photos/'.$name.'.jpg';
+        $path = 'photos/'.$name.'.'.$optimized->extension;
 
-        Storage::disk(self::DISK)->put($path, $body);
+        Storage::disk(self::DISK)->put($path, $optimized->bytes);
 
+        // Palette from the DOWNLOADED bytes, not the stored ones: WebP is
+        // lossy, and re-encoding shifts a swatch by a level or two for no
+        // benefit. `ExtractPhotoPalette` samples at 48px either way, so the
+        // larger input costs nothing and the colours it records are the
+        // photograph's own.
         $palette = $this->palette->handle($body);
         $derived = $this->keywords->handle($searchQuery, $photo->alt);
 
@@ -98,15 +111,18 @@ final readonly class FindOrImportLibraryPhoto
             'disk' => self::DISK,
             'path' => $path,
             'name' => $name,
-            'ext' => 'jpg',
-            'type' => 'image/jpeg',
-            // '8bit' is required, not decorative: pint.json turns on
-            // mb_str_functions, so a plain strlen() here gets rewritten to a
-            // character count that under-reports every JPEG's byte size.
-            'size' => mb_strlen($body, '8bit'),
-            'width' => $photo->width,
-            'height' => $photo->height,
-            'orientation' => PhotoOrientation::fromDimensions($photo->width, $photo->height),
+            'ext' => $optimized->extension,
+            'type' => $optimized->mimeType,
+            'size' => $optimized->size(),
+            // The PROCESSED image's dimensions. These used to be
+            // `$photo->width`/`$photo->height` — which Pexels reports for the
+            // ORIGINAL photograph, averaging 5766px wide — while the file on
+            // disk was the 1880px `large2x` rendition that had actually been
+            // downloaded. Nothing rendered them, so nothing broke; every row
+            // was simply wrong.
+            'width' => $optimized->width,
+            'height' => $optimized->height,
+            'orientation' => PhotoOrientation::fromDimensions($optimized->width, $optimized->height),
             'alt' => $photo->alt,
             'category' => $derived['category'],
             'tags' => $derived['tags'],

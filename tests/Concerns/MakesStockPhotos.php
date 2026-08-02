@@ -110,15 +110,46 @@ trait MakesStockPhotos
     }
 
     /**
+     * A 200x200 WebP of deterministic per-pixel noise, encoded at the given
+     * quality.
+     *
+     * Noise so that it does not compress away, and WebP so a caller can hand
+     * `OptimizeImage` something already more compressed than its own quality
+     * setting — the one real input for which re-encoding costs bytes instead
+     * of saving them.
+     */
+    protected function noisyWebp(int $quality): string
+    {
+        $image = imagecreatetruecolor(200, 200);
+
+        for ($x = 0; $x < 200; $x++) {
+            for ($y = 0; $y < 200; $y++) {
+                imagesetpixel($image, $x, $y, (int) imagecolorallocate($image, ($x * 7 + $y * 13) % 256, ($x * 29) % 256, ($y * 53) % 256));
+            }
+        }
+
+        ob_start();
+        imagewebp($image, null, $quality);
+
+        return (string) ob_get_clean();
+    }
+
+    /**
      * A PNG of solid horizontal bands, top to bottom, each colour taking an
      * equal share of the height — so the dominant colour and the overall
      * brightness of the image are known before any palette extraction runs.
      *
+     * Square unless `$width` says otherwise. A landscape fixture matters where
+     * the code under test records an orientation or a downscale: a square one
+     * makes `PhotoOrientation::Square` the only answer it can give, and a
+     * scale-to-width assertion vacuous.
+     *
      * @param  list<array{int, int, int}>  $bands
      */
-    protected function bandedPng(array $bands, int $size = 64): string
+    protected function bandedPng(array $bands, int $size = 64, ?int $width = null): string
     {
-        $image = imagecreatetruecolor($size, $size);
+        $width ??= $size;
+        $image = imagecreatetruecolor($width, $size);
         $bandHeight = intdiv($size, count($bands));
 
         foreach ($bands as $index => [$red, $green, $blue]) {
@@ -126,7 +157,7 @@ trait MakesStockPhotos
                 $image,
                 0,
                 $index * $bandHeight,
-                $size - 1,
+                $width - 1,
                 $index === count($bands) - 1 ? $size - 1 : ($index + 1) * $bandHeight - 1,
                 (int) imagecolorallocate($image, $red, $green, $blue),
             );

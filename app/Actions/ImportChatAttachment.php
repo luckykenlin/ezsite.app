@@ -31,6 +31,11 @@ use RuntimeException;
  */
 final readonly class ImportChatAttachment
 {
+    public function __construct(private OptimizeImage $optimizeImage)
+    {
+        //
+    }
+
     public function handle(UploadedFile $file): ChatAttachment
     {
         $name = $file->getClientOriginalName();
@@ -46,16 +51,22 @@ final readonly class ImportChatAttachment
     {
         $disk = config()->string('curator.default_disk');
 
-        // Server-derived extension (from the sniffed MIME), never the client's
-        // filename — same reasoning as FindOrImportStockPhoto refusing to trust
-        // a URL's trailing characters.
-        $extension = $file->extension();
+        // Downscaled and re-encoded before it is stored, like every other
+        // image this app writes. This is the path a phone photograph arrives
+        // on — the chat rules allow 8 MB and four of them per message — and an
+        // attachment the assistant drops into a block is served to the public
+        // site verbatim, so it has to be sized for one.
+        //
+        // `put()` with bytes rather than `putFileAs()` with the upload,
+        // because the bytes are no longer the ones on the temp file. The
+        // extension is the OPTIMIZED image's, not the sniffed upload's, for
+        // the same reason.
+        $optimized = $this->optimizeImage->handle((string) $file->get());
+
         $basename = 'chat-'.Str::uuid();
-        $path = Storage::disk($disk)->putFileAs('chat', $file, $basename.'.'.$extension);
+        $path = 'chat/'.$basename.'.'.$optimized->extension;
 
-        throw_if($path === false, RuntimeException::class, 'The attached image could not be stored.');
-
-        $dimensions = @getimagesize($file->getRealPath()) ?: null;
+        throw_unless(Storage::disk($disk)->put($path, $optimized->bytes), RuntimeException::class, 'The attached image could not be stored.');
 
         $media = Media::query()->create([
             'disk' => $disk,
@@ -63,11 +74,11 @@ final readonly class ImportChatAttachment
             'visibility' => 'public',
             'name' => $basename,
             'path' => $path,
-            'width' => $dimensions[0] ?? null,
-            'height' => $dimensions[1] ?? null,
-            'size' => $file->getSize(),
-            'type' => $file->getMimeType(),
-            'ext' => $extension,
+            'width' => $optimized->width,
+            'height' => $optimized->height,
+            'size' => $optimized->size(),
+            'type' => $optimized->mimeType,
+            'ext' => $optimized->extension,
             'alt' => Str::headline(pathinfo($name, PATHINFO_FILENAME)),
         ]);
 
@@ -76,8 +87,8 @@ final readonly class ImportChatAttachment
             name: $name,
             file: Image::fromStorage($path, $disk)->as($name)->toArray(),
             mediaId: (int) $media->id,
-            width: $dimensions[0] ?? null,
-            height: $dimensions[1] ?? null,
+            width: $optimized->width,
+            height: $optimized->height,
         );
     }
 

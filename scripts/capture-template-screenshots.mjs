@@ -25,18 +25,21 @@ import { chromium } from 'playwright'
 const BASE_URL = (process.env.CENTRAL_URL ?? 'http://ezsite.test').replace(/\/$/, '')
 const OUTPUT_DIRECTORY = path.resolve(import.meta.dirname, '../public/images/templates')
 
-/** The two widths TemplateGallery reads back. Heights are full-page-capped. */
-const VIEWPORTS = [
-    { width: 1440, height: 1200 },
-    { width: 390, height: 900 },
-]
-
-/*
- * JPEG at 1x, matching TemplateGallery.SCREENSHOT_EXTENSION. Lossless 2x
- * captures came out at 52 MB for sixteen files — for images that render at a
- * third of their captured width, inside a git history.
+/**
+ * The three widths TemplateGallery reads back, and the format each one is
+ * stored in — keep both columns in step with that class.
+ *
+ * WebP everywhere except the 1440 desktop shot, which is also the `og:image`
+ * on every template detail page and stays JPEG for the crawlers. WebP is
+ * roughly 45% smaller here, and it costs no dependency: Playwright's own
+ * Chromium encodes it through a canvas (see `encode()`), which `page.screenshot()`
+ * itself cannot do — it only emits PNG and JPEG.
  */
-const FORMAT = { type: 'jpeg', quality: 82 }
+const VIEWPORTS = [
+    { width: 800, height: 700, format: 'image/webp', extension: 'webp', quality: 0.82 },
+    { width: 1440, height: 1200, format: 'image/jpeg', extension: 'jpg', quality: 0.82 },
+    { width: 780, height: 1400, format: 'image/webp', extension: 'webp', quality: 0.82 },
+]
 
 /** Template slugs, read off the central sitemap. */
 async function templateSlugs() {
@@ -67,6 +70,35 @@ function demoUrl(slug) {
     return `${url.protocol}//demo-${slug}.${url.host}/`
 }
 
+/**
+ * Re-encode a PNG screenshot through the page's own canvas.
+ *
+ * Chromium ships a WebP encoder that `page.screenshot()` does not expose;
+ * `canvas.toDataURL('image/webp', q)` does. That is the whole reason this
+ * needs no image library — no `sharp`, no `cwebp`, nothing for CI to install.
+ * (AVIF is not available this way: Chromium's canvas silently falls back to
+ * PNG for it, which is worth knowing before anyone tries.)
+ */
+async function encode(page, png, { format, quality }) {
+    const dataUrl = await page.evaluate(
+        async ([source, type, q]) => {
+            const image = new Image()
+            image.src = source
+            await image.decode()
+
+            const canvas = document.createElement('canvas')
+            canvas.width = image.naturalWidth
+            canvas.height = image.naturalHeight
+            canvas.getContext('2d').drawImage(image, 0, 0)
+
+            return canvas.toDataURL(type, q)
+        },
+        [`data:image/png;base64,${png.toString('base64')}`, format, quality],
+    )
+
+    return Buffer.from(dataUrl.split(',')[1], 'base64')
+}
+
 async function main() {
     await mkdir(OUTPUT_DIRECTORY, { recursive: true })
 
@@ -76,7 +108,7 @@ async function main() {
     try {
         for (const slug of slugs) {
             for (const viewport of VIEWPORTS) {
-                const page = await browser.newPage({ viewport })
+                const page = await browser.newPage({ viewport: { width: viewport.width, height: viewport.height } })
 
                 await page.goto(demoUrl(slug), { waitUntil: 'networkidle' })
 
@@ -85,9 +117,10 @@ async function main() {
                 // settle before the shutter.
                 await page.waitForTimeout(1000)
 
-                const target = path.join(OUTPUT_DIRECTORY, `${slug}-${viewport.width}.jpg`)
+                const png = await page.screenshot({ fullPage: false })
+                const target = path.join(OUTPUT_DIRECTORY, `${slug}-${viewport.width}.${viewport.extension}`)
 
-                await writeFile(target, await page.screenshot({ fullPage: false, ...FORMAT }))
+                await writeFile(target, await encode(page, png, viewport))
                 await page.close()
 
                 console.log(`captured ${path.relative(process.cwd(), target)}`)

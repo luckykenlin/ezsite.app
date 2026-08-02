@@ -44,13 +44,21 @@ it('imports an image into the media library the moment it is handled', function 
         ->and($stored)->toBeTrue();
 });
 
-it('derives the stored extension from the sniffed type, not the client filename', function (): void {
+it('never lets the client filename decide the stored extension', function (): void {
+    // `sneaky.pdf.png` must not become a `.pdf` on a public disk. The stored
+    // extension is now whatever OptimizeImage actually produced, which is a
+    // stronger version of the same guarantee: it describes the bytes on disk,
+    // and the client had no say in it at all.
     $tenant = Tenant::factory()->create();
 
     $this->runInTenant($tenant, fn (): ChatAttachment => resolve(ImportChatAttachment::class)
-        ->handle(UploadedFile::fake()->image('sneaky.pdf.png')));
+        ->handle(UploadedFile::fake()->image('sneaky.pdf.png', 900, 600)));
 
-    expect(Media::query()->sole()->ext)->toBe('png');
+    $media = Media::query()->sole();
+
+    expect($media->ext)->toBe('webp')
+        ->and($media->type)->toBe('image/webp')
+        ->and($media->path)->toEndWith('.webp');
 });
 
 it('rehydrates into the SDK image it stored', function (): void {

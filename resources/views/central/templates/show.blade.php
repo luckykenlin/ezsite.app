@@ -9,7 +9,7 @@
 --}}
 @php
     $gallery = resolve(\App\Templates\TemplateGallery::class);
-    $desktop = $gallery->screenshot($template);
+    $desktop = $gallery->screenshot($template, \App\Templates\TemplateGallery::DESKTOP_WIDTH);
     $mobile = $gallery->screenshot($template, \App\Templates\TemplateGallery::MOBILE_WIDTH);
     $demoUrl = $gallery->demoUrl($template);
 

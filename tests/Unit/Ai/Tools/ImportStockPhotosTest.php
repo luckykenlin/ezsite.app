@@ -6,6 +6,7 @@ use App\Actions\Library\AdoptLibraryPhoto;
 use App\Actions\Library\DerivePhotoKeywords;
 use App\Actions\Library\ExtractPhotoPalette;
 use App\Actions\Library\FindOrImportLibraryPhoto;
+use App\Actions\OptimizeImage;
 use App\Ai\PhotoAnnouncement;
 use App\Ai\Tools\ImportStockPhotos;
 use App\Models\LibraryPhoto;
@@ -23,7 +24,7 @@ function importStockPhotosTool(StockPhotoProvider $provider): ImportStockPhotos
 {
     return new ImportStockPhotos(
         $provider,
-        new FindOrImportLibraryPhoto($provider, new ExtractPhotoPalette, new DerivePhotoKeywords),
+        new FindOrImportLibraryPhoto($provider, new ExtractPhotoPalette, new DerivePhotoKeywords, new OptimizeImage),
         new PhotoAnnouncement(resolve(AdoptLibraryPhoto::class)),
     );
 }

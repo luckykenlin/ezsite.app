@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Actions\Library\DerivePhotoKeywords;
 use App\Actions\Library\ExtractPhotoPalette;
 use App\Actions\Library\FindOrImportLibraryPhoto;
+use App\Actions\OptimizeImage;
 use App\Enums\PhotoCategory;
 use App\Models\LibraryPhoto;
 use App\Models\Tenant;
@@ -20,11 +21,12 @@ function importLibraryPhoto(): FindOrImportLibraryPhoto
         test()->trackingStockPhotoProvider(),
         new ExtractPhotoPalette,
         new DerivePhotoKeywords,
+        new OptimizeImage,
     );
 }
 
 it('downloads a new photo onto the shared disk with its metadata and provenance', function (): void {
-    Http::fake(['images.pexels.com/*' => Http::response($this->bandedPng([[192, 128, 64]]))]);
+    Http::fake(['images.pexels.com/*' => Http::response($this->bandedPng([[192, 128, 64]], width: 96))]);
 
     $photo = importLibraryPhoto()->handle($this->stockPhoto('456'), 'cafe interior');
 
@@ -33,7 +35,11 @@ it('downloads a new photo onto the shared disk with its metadata and provenance'
         ->and(Storage::disk('library')->exists((string) $photo?->path))->toBeTrue()
         ->and($photo?->source_id)->toBe('456')
         ->and($photo?->photographer_name)->toBe('Jane Doe')
-        ->and($photo?->width)->toBe(4000)
+        // The FILE's dimensions, not the ones Pexels reports for the original
+        // photograph (4000x2667 on this fixture's StockPhoto) — the download is
+        // a rendition, and the row has to describe what is on disk.
+        ->and($photo?->width)->toBe(96)
+        ->and($photo?->height)->toBe(64)
         ->and($photo?->orientation)->toBe(PhotoOrientation::Landscape)
         ->and($photo?->category)->toBe(PhotoCategory::FoodDrink)
         ->and($photo?->tags)->toContain('espresso', 'cafe')
@@ -50,15 +56,15 @@ it('records the download size in bytes, not characters', function (): void {
     // mb_strlen() — a CHARACTER count. Every byte of a real image above 0x7f
     // then went uncounted and the panel reported a size several KB short of the
     // file on disk. The size the row stores must be the size of the file.
-    $bytes = $this->bandedPng([[200, 40, 90]]);
-    Http::fake(['images.pexels.com/*' => Http::response($bytes)]);
+    Http::fake(['images.pexels.com/*' => Http::response($this->bandedPng([[200, 40, 90]], size: 512))]);
 
     $photo = importLibraryPhoto()->handle($this->stockPhoto());
+    $stored = (string) Storage::disk('library')->get((string) $photo?->path);
 
     expect($photo?->size)->toBe(Storage::disk('library')->size((string) $photo?->path))
         // Guards the fixture as much as the code: a payload mb_strlen happens to
         // count correctly would make this test pass either way.
-        ->and($photo?->size)->toBeGreaterThan(mb_strlen($bytes));
+        ->and($photo?->size)->toBeGreaterThan(mb_strlen($stored));
 });
 
 it('keeps a photo whose palette could not be read rather than failing the import', function (): void {
@@ -107,7 +113,7 @@ it('tells the provider a photo was downloaded, for the compliance hook', functio
     Http::fake(['images.pexels.com/*' => Http::response($this->bandedPng([[10, 10, 10]]))]);
     $provider = $this->trackingStockPhotoProvider();
 
-    new FindOrImportLibraryPhoto($provider, new ExtractPhotoPalette, new DerivePhotoKeywords)
+    new FindOrImportLibraryPhoto($provider, new ExtractPhotoPalette, new DerivePhotoKeywords, new OptimizeImage)
         ->handle($this->stockPhoto('321'));
 
     expect($provider->tracked)->toBe(['321']);

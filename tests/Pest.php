@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Actions\Library\FindOrImportLibraryPhoto;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
@@ -11,6 +12,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\ParallelTesting;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Sleep;
 use Illuminate\Support\Str;
 use Stancl\Tenancy\Events\TenantCreated;
@@ -167,6 +169,26 @@ pest()->extend(TestCase::class)
         $this->withoutVite();
 
         $this->freezeTime();
+
+        // The SHARED photo library, isolated per test.
+        //
+        // It is the one disk `FilesystemTenancyBootstrapper` deliberately does
+        // not suffix, so without this every run wrote real files into
+        // `storage/app/library/photos` and left them there — nearly a thousand
+        // had accumulated. `LibraryPhotoFactory` names its rows from a faker
+        // slug, and faker's uniqueness is per PROCESS, so a slug would
+        // eventually land on a file some earlier run had left behind and a
+        // test asserting "the catalogue row outlived its file" would find one.
+        // A rare, unattributable failure that only ever appeared in a full
+        // parallel run.
+        //
+        // The disk's own `url` is carried across, because `Storage::fake()`
+        // otherwise swaps in the generic `/storage` root and the library's
+        // public URL — the thing that proves a preview is served from the
+        // SHARED disk and not a tenant one — stops saying `/library`.
+        Storage::fake(FindOrImportLibraryPhoto::DISK, [
+            'url' => config('filesystems.disks.'.FindOrImportLibraryPhoto::DISK.'.url'),
+        ]);
 
         $prepareDatabase();
     })

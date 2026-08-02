@@ -55,7 +55,11 @@
                     @endphp
                     <div class="site-card absolute overflow-hidden rounded-box bg-base-200 {{ $offsets[$index] }}">
                         @if ($shot)
-                            <img src="{{ $shot }}" alt="" loading="lazy" class="w-full object-cover object-top">
+                            {{-- Not lazy: these three are in the first viewport
+                                 on the only breakpoint that shows them, and
+                                 deferring an above-the-fold image just buys a
+                                 second round trip. --}}
+                            <img src="{{ $shot }}" alt="" class="w-full object-cover object-top">
                         @else
                             <div
                                 class="aspect-[16/10] w-full"

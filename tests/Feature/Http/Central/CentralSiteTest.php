@@ -176,3 +176,29 @@ it('serves the apply wizard on the central domain, on step one', function (): vo
         ->assertSee('What is the business called?')
         ->assertSee($template->label());
 });
+
+it('serves the cards a card-sized webp and the detail hero a jpeg', function (): void {
+    // Two separate decisions. The cards render at 290–400 CSS px, so the 1440
+    // shot they used to load was four times the pixels of the slot — the
+    // bigger waste of the two. And the desktop shot stays JPEG because it is
+    // the og:image, where WebP support among social crawlers is still uneven.
+    $gallery = resolve(TemplateGallery::class);
+    $template = SiteTemplate::PizzaShop;
+
+    expect($gallery->extension(TemplateGallery::CARD_WIDTH))->toBe('webp')
+        ->and($gallery->extension(TemplateGallery::MOBILE_WIDTH))->toBe('webp')
+        ->and($gallery->extension(TemplateGallery::DESKTOP_WIDTH))->toBe('jpg')
+        // The default width is the card one: it is what the gallery and the
+        // landing page ask for, and the detail page names the wide one.
+        ->and($gallery->screenshotPath($template))->toEndWith('-800.webp')
+        ->and($gallery->screenshotPath($template, TemplateGallery::DESKTOP_WIDTH))->toEndWith('-1440.jpg');
+
+    $this->get(centralUrl('/templates'))
+        ->assertOk()
+        ->assertSee($gallery->screenshotPath($template))
+        ->assertDontSee($gallery->screenshotPath($template, TemplateGallery::DESKTOP_WIDTH));
+
+    $this->get(centralUrl('/templates/'.$template->value))
+        ->assertOk()
+        ->assertSee($gallery->screenshotPath($template, TemplateGallery::DESKTOP_WIDTH));
+});
