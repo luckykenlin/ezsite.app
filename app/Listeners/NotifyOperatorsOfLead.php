@@ -41,7 +41,7 @@ final readonly class NotifyOperatorsOfLead
         $lead = $event->lead;
 
         Notification::make()
-            ->title(sprintf('New enquiry from %s', $lead->name))
+            ->title(sprintf('New enquiry from %s', $lead->displayName()))
             ->body($lead->contactLine() ?? $lead->message ?? '')
             ->icon(Heroicon::OutlinedInbox)
             ->success()

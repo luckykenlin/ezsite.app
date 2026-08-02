@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Database\Factories;
 
+use App\Enums\LeadSource;
 use App\Enums\LeadStatus;
 use App\Models\Lead;
 use App\Models\Tenant;
@@ -27,10 +28,37 @@ final class LeadFactory extends Factory
             'email' => fake()->safeEmail(),
             'phone' => fake()->phoneNumber(),
             'message' => fake()->sentence(),
-            'source' => 'contact_form',
+            'source' => LeadSource::ContactForm,
             'status' => LeadStatus::New,
             'ip_address' => fake()->ipv4(),
         ];
+    }
+
+    /**
+     * A lead from one of the low-friction surfaces: an email and nothing else.
+     */
+    public function anonymous(): self
+    {
+        return $this->state(fn (): array => [
+            'name' => null,
+            'phone' => null,
+            'message' => null,
+            'source' => LeadSource::Popup,
+        ]);
+    }
+
+    /**
+     * A lead that arrived carrying first-touch campaign data.
+     */
+    public function attributed(): self
+    {
+        return $this->state(fn (): array => [
+            'utm_source' => 'google',
+            'utm_medium' => 'cpc',
+            'utm_campaign' => 'spring-offer',
+            'referrer' => 'https://www.google.com/',
+            'landing_path' => '/?utm_source=google',
+        ]);
     }
 
     /**

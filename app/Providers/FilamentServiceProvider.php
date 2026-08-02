@@ -44,6 +44,12 @@ final class FilamentServiceProvider extends ServiceProvider
         // served from the console anyway, so the stylesheet isn't needed there.
         if (! $this->app->runningInConsole()) {
             FilamentFabricator::registerStyles([resolve(Vite::class)('resources/css/site.css')]);
+
+            // The site's only script: progressive enhancement for the capture
+            // forms and the offer popup. Same console caveat as the stylesheet
+            // above. Everything it does degrades to plain HTML, and it bails
+            // out inside the editor canvas (see resources/js/site.ts).
+            FilamentFabricator::registerScripts([resolve(Vite::class)('resources/js/site.ts')]);
         }
 
         // Fabricator's own service provider SKIPS layout/block registration in

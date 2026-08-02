@@ -11,14 +11,17 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * Per-tenant site chrome: the header/footer block entries the main layout
- * renders around every page. One row per tenant (unique tenant_id); null
- * columns fall back to the default chrome (see SiteChrome).
+ * Per-tenant site-wide settings: the header/footer block entries the main
+ * layout renders around every page (see SiteChrome), and the lead-capture
+ * surfaces that float above it (see SiteCapture). One row per tenant (unique
+ * tenant_id); null columns fall back to the default chrome, or to no popup and
+ * no call bar.
  *
  * @property int $id
  * @property string $tenant_id
  * @property array<int, mixed>|null $header
  * @property array<int, mixed>|null $footer
+ * @property array<string, mixed>|null $capture
  *
  * @method static SiteSettingFactory factory($count = null, $state = [])
  */
@@ -45,6 +48,7 @@ final class SiteSetting extends Model
         return [
             'header' => 'array',
             'footer' => 'array',
+            'capture' => 'array',
         ];
     }
 }

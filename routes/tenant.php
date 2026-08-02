@@ -10,6 +10,7 @@ use App\Http\Controllers\RobotsController;
 use App\Http\Controllers\SharedPagePreviewController;
 use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\StoreLeadController;
+use App\Http\Middleware\RememberLeadAttribution;
 use Illuminate\Support\Facades\Route;
 use Stancl\Tenancy\Middleware\InitializeTenancyByDomainOrSubdomain;
 use Stancl\Tenancy\Middleware\PreventAccessFromUnwantedDomains;
@@ -20,6 +21,9 @@ Route::middleware([
     InitializeTenancyByDomainOrSubdomain::class,
     PreventAccessFromUnwantedDomains::class,
     ScopeSessions::class,
+    // Records first-touch UTM/referrer on the landing request, so an enquiry
+    // submitted three pages later still knows which ad earned it.
+    RememberLeadAttribution::class,
 ])->group(function (): void {
     Route::get('/_editor/preview', PageEditorPreviewController::class)
         ->name('page-editor.preview');

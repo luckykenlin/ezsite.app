@@ -7,6 +7,7 @@ use App\Models\Lead;
 use App\Models\Location;
 use App\Models\Page;
 use App\Models\Tenant;
+use Illuminate\Support\Str;
 
 test('tenant relation returns the owning tenant', function (): void {
     $tenant = Tenant::factory()->create();
@@ -73,6 +74,26 @@ test('a new lead is unread and reachable by its best contact line', function ():
         ->and($emailOnly->contactLine())->toBe('walk-in@example.com');
 });
 
+test('display name falls back through the channels a low-friction form does collect', function (): void {
+    $tenant = Tenant::factory()->create();
+
+    $named = new Lead(['name' => 'Mei', 'email' => 'mei@example.com']);
+    $emailOnly = new Lead(['email' => 'jordan@example.com']);
+    $phoneOnly = new Lead(['phone' => '+1 555 0100']);
+    $nothing = new Lead;
+
+    expect($named->displayName())->toBe('Mei')
+        ->and($emailOnly->displayName())->toBe('jordan')
+        ->and($phoneOnly->displayName())->toBe('+1 555 0100')
+        ->and($nothing->displayName())->toBe('Anonymous');
+
+    // A stored anonymous lead is a real row, not a validation accident.
+    $stored = $this->runInTenant($tenant, fn (): Lead => Lead::factory()->anonymous()->create(['tenant_id' => $tenant->id]));
+
+    expect(Lead::query()->findOrFail($stored->getKey())->displayName())
+        ->toBe(Str::before($stored->email, '@'));
+});
+
 test('status is cast to the LeadStatus enum, defaulting to new', function (): void {
     $tenant = Tenant::factory()->create();
     $lead = $this->runInTenant($tenant, fn (): Lead => Lead::query()->create([
@@ -103,6 +124,13 @@ test('to array', function (): void {
             'phone',
             'message',
             'source',
+            'utm_source',
+            'utm_medium',
+            'utm_campaign',
+            'utm_term',
+            'utm_content',
+            'referrer',
+            'landing_path',
             'status',
             'read_at',
             'ip_address',

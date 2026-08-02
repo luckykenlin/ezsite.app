@@ -16,8 +16,11 @@ it('enumerates every block contract in the vocabulary', function (): void {
     $vocabulary = resolve(BlockVocabulary::class)->all();
 
     expect($vocabulary)->toHaveKeys([
-        'hero', 'heading', 'header', 'features', 'testimonials', 'gallery', 'cta', 'contact', 'footer',
+        'hero', 'heading', 'header', 'features', 'testimonials', 'gallery', 'cta', 'contact', 'signup', 'footer',
     ])
+        ->and($vocabulary['signup']->variants)->toBe(['banner', 'stacked'])
+        ->and($vocabulary['signup']->bind)->toBeNull()
+        ->and($vocabulary['signup']->intent)->toBe(BlockIntent::Convert)
         ->and($vocabulary['hero']->variants)->toBe(['centered-minimal', 'left-text-right-image', 'full-bleed-overlay'])
         ->and($vocabulary['hero']->bind)->toBeNull()
         ->and($vocabulary['hero']->icon)->toBe('o-sparkles')

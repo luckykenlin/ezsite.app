@@ -60,7 +60,7 @@ it('captures a submitted enquiry for the tenant whose domain was posted to', fun
         '_hp' => '',
     ])
         ->assertRedirect()
-        ->assertSessionHas('lead_submitted', true);
+        ->assertSessionHas('lead_submitted', 'contact');
 
     $lead = Lead::query()->sole();
 
@@ -85,26 +85,38 @@ it('shows the thank-you message after a submission', function (): void {
         'phone' => '+1 555 0100',
     ]);
 
+    // Both states live in the DOM and are toggled with `hidden`, so the form
+    // is still present after a submission — just not shown.
     $this->get(sprintf('http://acme.%s/', $this->centralDomain()))
         ->assertOk()
         ->assertSee('Got it — we will call you back today.')
-        ->assertDontSee('name="_hp"', false);
+        ->assertSee('data-lead-form', false)
+        ->assertSee('hidden', false);
 });
 
-it('requires a name and at least one way to reply', function (): void {
+it('requires at least one way to reply, but not a name', function (): void {
     tenantWithContactForm();
 
+    // Errors land in the submitting form's OWN bag, so a second form on the
+    // page never shows them.
     $this->post(sprintf('http://acme.%s/_leads', $this->centralDomain()), [
-        'name' => '',
+        'name' => 'Mei',
         'message' => 'Call me',
-    ])->assertSessionHasErrors(['name', 'email', 'phone']);
+    ])->assertSessionHasErrors(['email', 'phone'], errorBag: 'lead_contact');
 
     $this->post(sprintf('http://acme.%s/_leads', $this->centralDomain()), [
         'name' => 'Mei',
         'email' => 'not-an-email',
-    ])->assertSessionHasErrors(['email']);
+    ])->assertSessionHasErrors(['email'], errorBag: 'lead_contact');
 
     expect(Lead::query()->count())->toBe(0);
+
+    // A name is optional — the low-friction surfaces never ask for one.
+    $this->post(sprintf('http://acme.%s/_leads', $this->centralDomain()), [
+        'email' => 'mei@example.com',
+    ])->assertRedirect();
+
+    expect(Lead::query()->sole()->name)->toBeNull();
 });
 
 it('silently drops a submission that filled the honeypot', function (): void {
@@ -116,7 +128,7 @@ it('silently drops a submission that filled the honeypot', function (): void {
         '_hp' => 'http://spam.example',
     ])
         ->assertRedirect()
-        ->assertSessionHas('lead_submitted', true);
+        ->assertSessionHas('lead_submitted', 'contact');
 
     expect(Lead::query()->count())->toBe(0);
 });

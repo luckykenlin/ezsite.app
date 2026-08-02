@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Enums\LeadSource;
 use App\Enums\LeadStatus;
 use App\Filament\Tenant\Resources\Leads\LeadResource;
 use App\Filament\Tenant\Resources\Leads\Pages\ListLeads;
@@ -52,6 +53,40 @@ it('filters by status', function (): void {
         ->filterTable('status', LeadStatus::New->value)
         ->assertCanSeeTableRecords([$unread])
         ->assertCanNotSeeTableRecords([$archived]);
+});
+
+it('shows which surface produced each enquiry, and filters by it', function (): void {
+    // The question the inbox has to answer before an operator can decide
+    // whether the popup is worth the interruption.
+    $form = tenantLead(['name' => 'From the contact page', 'source' => LeadSource::ContactForm]);
+    $inline = tenantLead(['name' => 'From a signup block', 'source' => LeadSource::InlineForm]);
+    $popup = tenantLead(['name' => 'From the popup', 'source' => LeadSource::Popup]);
+
+    Livewire::test(ListLeads::class)
+        ->call('loadTable')
+        ->assertCanSeeTableRecords([$form, $inline, $popup])
+        ->assertSee('Contact form')
+        ->assertSee('Inline form')
+        ->assertSee('Popup')
+        ->filterTable('source', LeadSource::Popup->value)
+        ->assertCanSeeTableRecords([$popup])
+        ->assertCanNotSeeTableRecords([$form, $inline]);
+});
+
+it('names an enquiry that never gave one', function (): void {
+    // The low-friction surfaces ask for a reply channel and nothing else, so
+    // the inbox must still have something human to show.
+    $anonymous = tenantLead([
+        'name' => null,
+        'phone' => null,
+        'email' => 'jordan@example.com',
+        'source' => LeadSource::Popup,
+    ]);
+
+    Livewire::test(ListLeads::class)
+        ->call('loadTable')
+        ->assertCanSeeTableRecords([$anonymous])
+        ->assertSee('jordan');
 });
 
 it('marks an enquiry as read', function (): void {

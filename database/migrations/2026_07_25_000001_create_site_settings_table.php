@@ -34,6 +34,16 @@ return new class extends Migration
             $table->json('header')->nullable();
             $table->json('footer')->nullable();
 
+            // The site-wide lead-capture surfaces — the offer popup and the
+            // sticky mobile call bar — as `{popup: {...}, call_bar: {...}}`.
+            //
+            // ONE column for both, unlike header/footer above: those are two
+            // independently-rendered chrome slots holding block-entry arrays,
+            // whereas these are settings objects for a single feature area
+            // that is configured on one screen and read through one value
+            // object (App\Site\SiteCapture). Null = both switched off.
+            $table->json('capture')->nullable();
+
             $table->timestamps();
 
             $table->foreign('tenant_id')->references('id')->on('tenants')->onUpdate('cascade')->onDelete('cascade');

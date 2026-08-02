@@ -163,6 +163,18 @@ final readonly class NailSalon
                         ['group' => 'Feet', 'name' => '{service_three}', 'price' => '{service_three_price}', 'description' => 'An hour off your feet. Dry-filed, finished and out the door without a soggy sandal.'],
                     ],
                 ]],
+                // Straight after the menu, where the visitor has just seen a
+                // price and is deciding — not at the bottom of the page, which
+                // most of them never reach. One field, because a phone number
+                // is all a salon needs to call someone back.
+                ['type' => 'signup', 'variant' => 'banner', 'tone' => 'accent', 'data' => [
+                    'heading' => 'Want a cancellation?',
+                    'offer' => 'Leave your number and we will text you when a chair comes free this week.',
+                    'fields' => 'phone',
+                    'button_label' => 'Text me',
+                    'success_message' => 'Got it — we will text you the moment something opens up.',
+                    'fine_print' => 'Only about cancellations. Reply STOP any time.',
+                ]],
                 ['type' => 'prose', 'variant' => 'side-heading', 'tone' => 'muted', 'data' => [
                     'heading' => 'Why the room is dark',
                     'paragraphs' => [

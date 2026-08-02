@@ -262,6 +262,19 @@ final readonly class DesignerPortfolio
                         ['question' => 'Can you work with our developers?', 'answer' => 'Yes, and we prefer it. Design that never gets built is not design.'],
                     ],
                 ]],
+                // The one template with no contact block anywhere — every
+                // other route to the studio is a `mailto:`, which captures
+                // nothing and loses the enquiry to the visitor's mail client.
+                // A signup rather than a contact block on purpose: this
+                // template deliberately binds no location, and a studio
+                // portfolio has no address or opening hours to print.
+                ['type' => 'signup', 'variant' => 'stacked', 'data' => [
+                    'heading' => 'Tell us about the project',
+                    'offer' => 'Leave an email and we will come back within two working days — a real reply, not an autoresponder.',
+                    'fields' => 'name_email',
+                    'button_label' => 'Start the conversation',
+                    'success_message' => 'Got it. We will be in touch within two working days.',
+                ]],
             ],
         ];
     }

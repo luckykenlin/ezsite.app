@@ -19,14 +19,12 @@ use App\Models\SiteSetting;
  * not-yet-onboarded tenant. Request-scoped for the same reason as
  * {@see BindResolver}: one settings query per render.
  */
-final class SiteChrome
+final readonly class SiteChrome
 {
-    private ?SiteSetting $settings = null;
-
-    private bool $settingsLoaded = false;
-
-    public function __construct(private readonly BindResolver $bindResolver)
-    {
+    public function __construct(
+        private BindResolver $bindResolver,
+        private SiteSettingsLoader $settingsLoader,
+    ) {
         //
     }
 
@@ -67,11 +65,6 @@ final class SiteChrome
 
     private function settings(): ?SiteSetting
     {
-        if (! $this->settingsLoaded) {
-            $this->settings = SiteSetting::query()->first();
-            $this->settingsLoaded = true;
-        }
-
-        return $this->settings;
+        return $this->settingsLoader->get();
     }
 }

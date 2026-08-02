@@ -146,6 +146,18 @@ final readonly class MassageSpa
                         ['group' => 'Massage', 'name' => '{treatment_three}', 'price' => '{treatment_three_price}', 'description' => 'Basalt stones held at one temperature the whole way through, so the heat lasts as long as the session does.'],
                     ],
                 ]],
+                // Placed on the price, where the decision actually happens.
+                // A first-visit offer is the standard lever for a treatment
+                // room: the second booking is where the money is, and the
+                // first one is what people hesitate over.
+                ['type' => 'signup', 'variant' => 'banner', 'tone' => 'accent', 'data' => [
+                    'heading' => '£10 off your first treatment',
+                    'offer' => 'Leave an email and we will send the code, plus the quiet weekday slots before they go.',
+                    'fields' => 'email',
+                    'button_label' => 'Send my code',
+                    'success_message' => 'Sent — check your inbox for the code.',
+                    'fine_print' => 'One email a month at most. Unsubscribe any time.',
+                ]],
                 ['type' => 'steps', 'variant' => 'timeline', 'data' => [
                     'heading' => 'What a first visit looks like',
                     'intro' => 'No membership, no consultation fee, no forms you have not seen before.',

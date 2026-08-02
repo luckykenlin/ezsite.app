@@ -27,14 +27,31 @@ return new class extends Migration
                 ->constrained(config()->string('filament-fabricator.table_name', 'pages'))
                 ->nullOnDelete();
 
-            $table->string('name');
+            // Nullable: the low-friction surfaces (popup, inline signup) trade
+            // a name for a higher completion rate and ask only for a reply
+            // channel. The real invariant — at least one of email/phone — is
+            // enforced in the request, not here, because either column alone
+            // is legitimately null.
+            $table->string('name')->nullable();
             $table->string('email')->nullable();
             $table->string('phone')->nullable();
             $table->text('message')->nullable();
 
-            // Where it came from, so a future channel (phone widget, chat, an
-            // imported list) doesn't need a schema change.
+            // Which capture surface produced it — see App\Enums\LeadSource.
             $table->string('source')->default('contact_form');
+
+            // First-touch attribution, captured on the landing request and
+            // carried in the session until the visitor actually submits (see
+            // App\Http\Middleware\RememberLeadAttribution). Without it the
+            // operator can count leads but never tell which ad or which
+            // surface earned them.
+            $table->string('utm_source')->nullable();
+            $table->string('utm_medium')->nullable();
+            $table->string('utm_campaign')->nullable();
+            $table->string('utm_term')->nullable();
+            $table->string('utm_content')->nullable();
+            $table->string('referrer')->nullable();
+            $table->string('landing_path')->nullable();
 
             $table->string('status')->default('new')->index();
             $table->timestamp('read_at')->nullable();

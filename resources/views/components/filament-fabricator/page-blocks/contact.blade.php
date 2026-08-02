@@ -33,8 +33,18 @@
             <x-site.section-header :layout="$layout" :heading="$heading" :intro="$intro" />
 
             @if ($show_form)
-                <div @class(['mt-8' => $split, 'order-last mt-10 flex w-full text-start' => ! $split, 'justify-center' => ! $split && $centered])>
-                    <x-lead-form :location="$location" :page="$page" :success-message="$success_message" />
+                {{-- `#contact` is the anchor nav items and "get in touch"
+                     buttons have always pointed at, so it stays on the
+                     wrapper; the form carries its own `#lead-contact` for the
+                     per-form redirect fragment. --}}
+                <div id="contact" @class(['mt-8' => $split, 'order-last mt-10 flex w-full text-start' => ! $split, 'justify-center' => ! $split && $centered])>
+                    <x-lead-form
+                        form-id="contact"
+                        class="max-w-xl"
+                        :location="$location"
+                        :page="$page"
+                        :success-message="$success_message"
+                    />
                 </div>
             @endif
         </div>

@@ -8,9 +8,12 @@ use App\Actions\StoreCuratorUpload;
 use App\Filament\Fabricator\BlockRegistry;
 use App\Site\BindResolver;
 use App\Site\Blocks\BlockVocabulary;
+use App\Site\LeadFormIds;
 use App\Site\MediaResolver;
+use App\Site\SiteCapture;
 use App\Site\SiteChrome;
 use App\Site\SiteContext;
+use App\Site\SiteSettingsLoader;
 use App\StockPhotos\NullProvider;
 use App\StockPhotos\PexelsProvider;
 use App\StockPhotos\StockPhotoProvider;
@@ -24,9 +27,12 @@ final class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->scoped(BindResolver::class);
+        $this->app->scoped(LeadFormIds::class);
         $this->app->scoped(MediaResolver::class);
+        $this->app->scoped(SiteCapture::class);
         $this->app->scoped(SiteChrome::class);
         $this->app->scoped(SiteContext::class);
+        $this->app->scoped(SiteSettingsLoader::class);
 
         // Keyed by configuration, not environment: with no Pexels key the
         // NullProvider makes the whole stock-photo pipeline inert-but-safe,

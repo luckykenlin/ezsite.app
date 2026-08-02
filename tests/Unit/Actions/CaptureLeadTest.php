@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Actions\CaptureLead;
+use App\Enums\LeadSource;
 use App\Enums\LeadStatus;
 use App\Events\LeadCaptured;
 use App\Models\Lead;
@@ -19,9 +20,9 @@ it('stores the enquiry against the current tenant', function (): void {
 
     $lead = $this->runInTenant($tenant, fn (): Lead => resolve(CaptureLead::class)->handle(
         ['name' => 'Mei', 'phone' => '+1 555 0100', 'message' => 'Do you take walk-ins?'],
-        $location,
-        $page,
-        '203.0.113.7',
+        location: $location,
+        page: $page,
+        ipAddress: '203.0.113.7',
     ));
 
     $stored = Lead::query()->findOrFail($lead->getKey());
@@ -33,9 +34,37 @@ it('stores the enquiry against the current tenant', function (): void {
         ->and($stored->message)->toBe('Do you take walk-ins?')
         ->and($stored->location_id)->toBe($location->id)
         ->and($stored->page_id)->toBe($page->id)
-        ->and($stored->source)->toBe('contact_form')
+        ->and($stored->source)->toBe(LeadSource::ContactForm)
         ->and($stored->status)->toBe(LeadStatus::New)
         ->and($stored->ip_address)->toBe('203.0.113.7');
+});
+
+it('records which surface produced the lead, and the first-touch campaign', function (): void {
+    $tenant = Tenant::factory()->create();
+
+    $lead = $this->runInTenant($tenant, fn (): Lead => resolve(CaptureLead::class)->handle(
+        ['email' => 'mei@example.com'],
+        LeadSource::Popup,
+        attribution: [
+            'utm_source' => 'google',
+            'utm_medium' => 'cpc',
+            'referrer' => 'https://www.google.com/',
+            'landing_path' => '/?utm_source=google',
+            // Anything the session happens to carry beyond the known columns
+            // must not reach the insert.
+            'not_a_column' => 'ignored',
+        ],
+    ));
+
+    $stored = Lead::query()->findOrFail($lead->getKey());
+
+    expect($stored->source)->toBe(LeadSource::Popup)
+        ->and($stored->name)->toBeNull()
+        ->and($stored->utm_source)->toBe('google')
+        ->and($stored->utm_medium)->toBe('cpc')
+        ->and($stored->utm_campaign)->toBeNull()
+        ->and($stored->referrer)->toBe('https://www.google.com/')
+        ->and($stored->landing_path)->toBe('/?utm_source=google');
 });
 
 it('announces the capture rather than knowing how operators are told', function (): void {

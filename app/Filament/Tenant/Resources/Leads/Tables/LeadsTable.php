@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Tenant\Resources\Leads\Tables;
 
+use App\Enums\LeadSource;
 use App\Enums\LeadStatus;
 use App\Models\Lead;
 use Filament\Actions\Action;
@@ -29,6 +30,9 @@ final class LeadsTable
                     ->dateTimeTooltip()
                     ->sortable(),
                 TextColumn::make('name')
+                    // The low-friction surfaces don't ask for a name, so the
+                    // column shows whatever identifies the person best.
+                    ->state(fn (Lead $record): string => $record->displayName())
                     ->searchable()
                     ->weight(fn (Lead $record): ?string => $record->isUnread() ? 'bold' : null),
                 TextColumn::make('contact')
@@ -39,6 +43,10 @@ final class LeadsTable
                     ->limit(60)
                     ->tooltip(fn (Lead $record): ?string => $record->message)
                     ->searchable(),
+                // Which surface earned it — the column that answers "is the
+                // popup worth the interruption?".
+                TextColumn::make('source')
+                    ->badge(),
                 TextColumn::make('location.label')
                     ->label('Location')
                     ->placeholder('—')
@@ -49,6 +57,8 @@ final class LeadsTable
             ->filters([
                 SelectFilter::make('status')
                     ->options(LeadStatus::class),
+                SelectFilter::make('source')
+                    ->options(LeadSource::class),
             ])
             ->emptyStateHeading('No enquiries yet')
             ->emptyStateDescription("Enquiries from your site's contact form land here.")

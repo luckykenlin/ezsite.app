@@ -34,7 +34,7 @@ test('to array', function (): void {
     $setting = SiteSetting::query()->findOrFail($setting->getKey());
 
     expect(array_keys($setting->toArray()))->toBe([
-        'id', 'tenant_id', 'header', 'footer', 'created_at', 'updated_at',
+        'id', 'tenant_id', 'header', 'footer', 'capture', 'created_at', 'updated_at',
     ])
         // Both slots round-trip as arrays of Fabricator block entries.
         ->and($setting->header[0]['type'])->toBe('header')
