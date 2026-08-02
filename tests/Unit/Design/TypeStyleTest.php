@@ -38,8 +38,6 @@ it('emits the full deterministic --type-* variable set for every style', functio
     foreach (['--type-eyebrow-size', '--type-intro-size'] as $size) {
         expect($variables[$size])->toEndWith('rem');
     }
-
-    expect($style->description())->not->toBeEmpty();
 })->with(TypeStyle::cases());
 
 it('classic emits exactly the site.css fallback values, so an untouched site cannot change', function (): void {

@@ -124,14 +124,6 @@ abstract class Block extends PageBlock
     abstract protected static function fields(): array;
 
     /**
-     * @return array<string, string>
-     */
-    final public static function variants(): array
-    {
-        return static::$variants;
-    }
-
-    /**
      * @return array<string, mixed>
      */
     final public static function sample(): array

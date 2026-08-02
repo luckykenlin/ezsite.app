@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 use App\Actions\Pages\AddPageBlock;
 use App\Enums\ChromeSlot;
-use App\Filament\Fabricator\PageBlocks\Heading;
-use App\Filament\Fabricator\PageBlocks\Hero;
 
 it('appends a block with its default variant and sample content pre-filled', function (): void {
     $result = resolve(AddPageBlock::class)->handle([], 'hero');
@@ -13,13 +11,19 @@ it('appends a block with its default variant and sample content pre-filled', fun
     expect($result['blocks'])->toHaveCount(1)
         ->and($result['blocks'][0]['key'])->toBe($result['key'])
         ->and($result['blocks'][0]['type'])->toBe('hero')
-        ->and($result['blocks'][0]['data'])->toBe(['variant' => Hero::defaultVariant()] + Hero::sample());
+        // Literals, not `['variant' => Hero::defaultVariant()] + Hero::sample()`:
+        // that restates the action, and would stay green if the registry stopped
+        // propagating sample at all — both sides would go empty together.
+        ->and($result['blocks'][0]['data']['variant'])->toBe('centered-minimal')
+        ->and(array_keys($result['blocks'][0]['data']))
+        ->toBe(['variant', 'eyebrow', 'heading', 'subheading', 'cta_label', 'cta_url']);
 });
 
 it('appends a variant-less block with its sample content', function (): void {
     $result = resolve(AddPageBlock::class)->handle([], 'heading');
 
-    expect($result['blocks'][0]['data'])->toBe(Heading::sample());
+    // No variant key at all, and the sample lands whole.
+    expect($result['blocks'][0]['data'])->toBe(['content' => 'Your section heading', 'level' => 'h2']);
 });
 
 it('inserts at an explicit position and clamps out-of-range positions', function (int $position, int $expectedIndex): void {

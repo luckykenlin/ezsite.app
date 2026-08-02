@@ -24,9 +24,11 @@ test('choosing a preset only previews it into the fine-tune fields until saved',
 
     $component = Livewire::test(Design::class)
         ->fillForm(['preset' => 'bold-editorial'])
+        // Literals, not `StylePreset::BoldEditorial->tokens()->...` — the preview
+        // reads exactly that, so restating it would hold however it previewed.
         ->assertSchemaStateSet([
             'palette' => 'plum',
-            'font_pair' => StylePreset::BoldEditorial->tokens()->fontPair->value,
+            'font_pair' => 'editorial',
         ]);
 
     // Nothing persisted yet — a stray click no longer restyles the live site.
@@ -53,7 +55,8 @@ test('fine-tuning after choosing a preset saves a custom combination, preset det
 
     expect($tokens->preset)->toBeNull()
         ->and($tokens->palette)->toBe(ColorPalette::Ocean)
-        ->and($tokens->fontPair)->toBe(StylePreset::BoldEditorial->tokens()->fontPair);
+        // The font the preset carried survives the fine-tune, pinned as itself.
+        ->and($tokens->fontPair)->toBe(FontPair::Editorial);
 });
 
 test('clearing the preset selection changes nothing', function (): void {

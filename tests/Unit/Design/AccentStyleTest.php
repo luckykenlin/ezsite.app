@@ -11,8 +11,7 @@ it('paints the accent surface from palette variables only', function (AccentStyl
         // Palette-derived, never authored: every surface builds on the
         // primary variable, so it follows whatever palette the site uses and
         // no raw colour can enter through this enum.
-        ->and($variables['--accent-surface'])->toContain('var(--color-primary)')
-        ->and($accent->description())->not->toBeEmpty();
+        ->and($variables['--accent-surface'])->toContain('var(--color-primary)');
 })->with(AccentStyle::cases());
 
 it('keeps flat as a plain surface and the others as gradients', function (): void {

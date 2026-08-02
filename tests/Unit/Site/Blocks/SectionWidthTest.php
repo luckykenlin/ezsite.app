@@ -4,10 +4,8 @@ declare(strict_types=1);
 
 use App\Site\Blocks\SectionWidth;
 
-it('gives every width a max-width class, a label and an AI description', function (SectionWidth $width): void {
-    expect($width->classes())->toStartWith('max-w-')
-        ->and($width->label())->not->toBeEmpty()
-        ->and($width->description())->not->toBeEmpty();
+it('gives every width a max-width class', function (SectionWidth $width): void {
+    expect($width->classes())->toStartWith('max-w-');
 })->with(SectionWidth::cases());
 
 it('widens monotonically from narrow to wide', function (): void {
@@ -19,6 +17,11 @@ it('widens monotonically from narrow to wide', function (): void {
 });
 
 it('offers the labelled options in scale order', function (): void {
-    expect(array_keys(SectionWidth::options()))->toBe(SectionWidth::values())
-        ->and(SectionWidth::values())->toBe(['narrow', 'normal', 'wide']);
+    // The whole map as a literal. `array_keys(options())->toBe(values())` was a
+    // tautology — options() is built by iterating cases() in that very order.
+    expect(SectionWidth::options())->toBe([
+        'narrow' => 'Narrow',
+        'normal' => 'Normal',
+        'wide' => 'Wide',
+    ]);
 });

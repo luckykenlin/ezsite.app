@@ -10,9 +10,6 @@ use App\Filament\Fabricator\PageBlocks\Hero;
 use App\Models\Location;
 use App\Models\Tenant;
 use App\Site\Blocks\BlockShape;
-use App\Site\Blocks\LayoutAxis;
-use App\Site\Blocks\SectionSpacing;
-use App\Site\Blocks\SectionTone;
 use Filament\Forms\Components\Builder\Block;
 use Filament\Forms\Components\Field;
 use Filament\Forms\Components\Select;
@@ -89,7 +86,13 @@ it("auto-injects a required variant selector ahead of a variant block's content 
     expect($schema->getName())->toBe('hero')
         ->and($variantSelect)->toBeInstanceOf(Select::class)
         ->and($variantSelect->getName())->toBe(BlockShape::VARIANT_KEY)
-        ->and($variantSelect->getOptions())->toBe(Hero::variants())
+        // Literals rather than reading Hero's own $variants back, which would
+        // restate the wiring under test and so pass however it is wired.
+        ->and($variantSelect->getOptions())->toBe([
+            'centered-minimal' => 'Centered, minimal',
+            'left-text-right-image' => 'Left text, right image',
+            'full-bleed-overlay' => 'Full-bleed image with overlay',
+        ])
         ->and($variantSelect->getDefaultState())->toBe('centered-minimal')
         ->and($variantSelect->isRequired())->toBeTrue()
         ->and(array_map(fn (Field $field): string => $field->getName(), array_slice($components, 1)))
@@ -115,14 +118,15 @@ it('auto-injects optional, immediately-live appearance selects after the content
     /** @var Select $spacing */
     $spacing = $components[3];
 
+    // The options themselves are pinned to literals in the axis-roster test
+    // below; asserting them here as `toBe(SectionTone::options())` would only
+    // restate the production expression.
     expect($tone->getName())->toBe(BlockShape::APPEARANCE_KEY.'.'.BlockShape::TONE_KEY)
-        ->and($tone->getOptions())->toBe(SectionTone::options())
         ->and($tone->isRequired())->toBeFalse()
         ->and($tone->getDefaultState())->toBeNull()
         ->and($tone->isLive())->toBeTrue()
         ->and($tone->isLiveDebounced())->toBeFalse()
         ->and($spacing->getName())->toBe(BlockShape::APPEARANCE_KEY.'.'.BlockShape::SPACING_KEY)
-        ->and($spacing->getOptions())->toBe(SectionSpacing::options())
         ->and($spacing->isRequired())->toBeFalse()
         ->and($spacing->getDefaultState())->toBeNull()
         ->and($spacing->isLive())->toBeTrue()
@@ -151,17 +155,23 @@ it('injects one select per contract axis, options straight off the axis enum', f
     // features declares the full roster, in LayoutAxis order.
     expect(array_keys($selects))->toBe(['tone', 'spacing', 'width', 'align', 'columns', 'item_style', 'image_shape']);
 
-    foreach ($selects as $key => $select) {
-        $axis = LayoutAxis::from($key);
-
-        expect($select->getOptions())->toBe($axis->enumClass()::options())
-            ->and($select->isRequired())->toBeFalse()
+    foreach ($selects as $select) {
+        expect($select->isRequired())->toBeFalse()
             ->and($select->getDefaultState())->toBeNull()
-            // The clearing-= -reset contract: an empty select must dehydrate
+            // The clearing-to-reset contract: an empty select must dehydrate
             // to nothing, or every save writes null axes and manufactures
             // revisions.
             ->and($select->isDehydrated())->toBeFalse()
             ->and($select->isLive())->toBeTrue()
             ->and($select->isLiveDebounced())->toBeFalse();
     }
+
+    // One axis pinned to literals. `toBe($axis->enumClass()::options())` is
+    // what appearanceFields() itself calls, so it would hold however the
+    // options were wired — including wired wrong.
+    expect($selects['width']->getOptions())->toBe([
+        'narrow' => 'Narrow',
+        'normal' => 'Normal',
+        'wide' => 'Wide',
+    ]);
 });

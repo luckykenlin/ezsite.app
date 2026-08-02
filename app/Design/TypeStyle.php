@@ -75,20 +75,4 @@ enum TypeStyle: string
             '--type-intro-size' => $introSize,
         ];
     }
-
-    /**
-     * When to reach for this style, addressed to the AI — the same job the
-     * {@see \App\Site\Blocks\SectionTone} descriptions do.
-     */
-    public function description(): string
-    {
-        return match ($this) {
-            self::Classic => 'balanced, bold headings — the default that suits anything',
-            self::Refined => 'lighter weights, wider-spaced small caps — quietly upmarket',
-            self::Impact => 'heavy, tight, larger — headlines that shout',
-            self::Editorial => 'magazine contrast: large display type over generous body copy',
-            self::Friendly => 'even weights and relaxed tracking — approachable and plain',
-            self::Quiet => 'smaller, understated headings that let the content lead',
-        };
-    }
 }

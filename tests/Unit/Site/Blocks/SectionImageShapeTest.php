@@ -4,10 +4,8 @@ declare(strict_types=1);
 
 use App\Site\Blocks\SectionImageShape;
 
-it('gives every shape an aspect crop, a label and an AI description', function (SectionImageShape $shape): void {
-    expect($shape->classes())->toContain('aspect-')
-        ->and($shape->label())->not->toBeEmpty()
-        ->and($shape->description())->not->toBeEmpty();
+it('gives every shape an aspect crop', function (SectionImageShape $shape): void {
+    expect($shape->classes())->toContain('aspect-');
 })->with(SectionImageShape::cases());
 
 it('rounds only the circle — corner radius belongs to the site style', function (SectionImageShape $shape): void {

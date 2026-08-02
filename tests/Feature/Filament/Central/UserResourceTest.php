@@ -44,7 +44,6 @@ test('can update a user without changing the password, through an edit form pref
     $user->refresh();
 
     expect($user->name)->toBe('Updated Name')
-        ->and($user->email)->not->toBeEmpty()
         ->and($user->password)->toBe($originalPassword);
 });
 

@@ -36,13 +36,4 @@ enum AccentStyle: string
 
         return ['--accent-surface' => $surface];
     }
-
-    public function description(): string
-    {
-        return match ($this) {
-            self::Flat => 'the brand colour as a solid surface — the default',
-            self::Gradient => 'a diagonal blend from the brand colour toward its partner',
-            self::Sheen => 'a subtle light-to-brand sweep, like a lit surface',
-        };
-    }
 }

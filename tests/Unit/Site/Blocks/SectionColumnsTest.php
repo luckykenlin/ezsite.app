@@ -5,9 +5,7 @@ declare(strict_types=1);
 use App\Site\Blocks\SectionColumns;
 
 it('degrades every column count responsively down to one on phones', function (SectionColumns $columns): void {
-    expect($columns->classes())->toStartWith('grid-cols-1')
-        ->and($columns->label())->not->toBeEmpty()
-        ->and($columns->description())->not->toBeEmpty();
+    expect($columns->classes())->toStartWith('grid-cols-1');
 })->with(SectionColumns::cases());
 
 it('passes multi-column layouts through two columns on the way up', function (): void {

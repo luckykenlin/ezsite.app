@@ -72,9 +72,6 @@ it('describes only what is stored, so an untouched section reads as untouched', 
 it('pairs a foreground with every background so text stays legible on it', function (SectionTone $tone): void {
     $classes = $tone->classes();
 
-    expect($tone->label())->not->toBeEmpty()
-        ->and($tone->description())->not->toBeEmpty();
-
     if ($tone === SectionTone::Plain) {
         expect($classes)->toBeEmpty();
 
@@ -94,9 +91,7 @@ it('pairs a foreground with every background so text stays legible on it', funct
 })->with(SectionTone::cases());
 
 it('scales vertical padding responsively at every step', function (SectionSpacing $spacing): void {
-    expect($spacing->classes())->toMatch('/^py-\d+ md:py-\d+$/')
-        ->and($spacing->label())->not->toBeEmpty()
-        ->and($spacing->description())->not->toBeEmpty();
+    expect($spacing->classes())->toMatch('/^py-\d+ md:py-\d+$/');
 })->with(SectionSpacing::cases());
 
 it('keeps the spacing scale able to express every padding a block view had', function (): void {

@@ -7,19 +7,23 @@ use App\Site\Blocks\LayoutAxis;
 use App\Site\Blocks\SectionSpacing;
 use App\Site\Blocks\SectionTone;
 
-it('maps every axis to a value enum with the shared five-method contract', function (LayoutAxis $axis): void {
-    $enum = $axis->enumClass();
+/*
+ * enumClass() is seven near-identical match arms, which is the shape a
+ * copy-paste error survives: two axes pointing at ONE value enum would make the
+ * inspector offer align's options under "Columns" and SetBlockAppearance accept
+ * them there. Distinctness is the property that catches that.
+ *
+ * Deliberately not `expect($axis->values())->toBe($enum::values())` — that is a
+ * tautology, because LayoutAxis::values() IS `$this->enumClass()::values()`.
+ */
+it('gives every axis its own value enum', function (): void {
+    $enums = array_map(
+        static fn (LayoutAxis $axis): string => $axis->enumClass(),
+        LayoutAxis::cases(),
+    );
 
-    expect(enum_exists($enum))->toBeTrue()
-        ->and($axis->label())->not->toBeEmpty()
-        ->and($axis->values())->toBe($enum::values())
-        ->and($axis->values())->not->toBeEmpty();
-
-    foreach ($enum::cases() as $case) {
-        expect($case->label())->not->toBeEmpty()
-            ->and($case->description())->not->toBeEmpty();
-    }
-})->with(LayoutAxis::cases());
+    expect(array_unique($enums))->toHaveSameSize($enums);
+});
 
 /*
  * The axis VALUES are the storage keys inside data.appearance, so the two

@@ -140,8 +140,10 @@ it('publishes the addable types in its schema, chrome excluded', function (): vo
         createPageTool()->schema(new JsonSchemaTypeFactory),
     )), associative: true);
 
+    // Named types, not `->toBe($vocabulary->pageTypeNames())` — the schema is
+    // built from exactly that call, so restating it holds however it is built.
     expect($serialized['sections']['items']['enum'])
-        ->toBe(resolve(BlockVocabulary::class)->pageTypeNames())
+        ->toContain('hero', 'features', 'testimonials', 'gallery', 'cta', 'contact', 'heading')
         ->not->toContain('header')
         ->not->toContain('footer')
         // The two verbs it does NOT have, stated where the model reads it.

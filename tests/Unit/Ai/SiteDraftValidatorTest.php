@@ -46,7 +46,9 @@ it('falls back to the first preset when the stored key is unknown', function ():
     $draft = validAiDraft();
     $draft['preset'] = 'no-such-preset';
 
-    expect(draftValidator()->handle($draft, 'Fallback')['preset'])->toBe(StylePreset::cases()[0]);
+    // Named, not `StylePreset::cases()[0]` — production returns exactly that, so
+    // restating it would survive a reordering that silently changes the fallback.
+    expect(draftValidator()->handle($draft, 'Fallback')['preset'])->toBe(StylePreset::WarmCraft);
 
     Log::shouldHaveReceived('warning')
         ->withArgs(fn (string $message): bool => $message === 'site_draft.preset_fallback')

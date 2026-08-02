@@ -12,14 +12,15 @@ function stampPresetDefaults(): StampPresetDefaults
     return resolve(StampPresetDefaults::class);
 }
 
-it('gives every type the layout the preset was designed with', function (StylePreset $preset): void {
-    $vocabulary = resolve(BlockVocabulary::class);
-
-    foreach ($preset->blockVariantDefaults() as $type => $expected) {
-        expect(stampPresetDefaults()->variantFor($type, $preset))->toBe($expected)
-            ->and($vocabulary->get($type)->variants)->toContain($expected);
-    }
-})->with(StylePreset::cases());
+/*
+ * Deliberately no "variantFor returns the preset's entry" test here. Production
+ * is `in_array($preferred, $variants) ? $preferred : $variants[0]`, so asserting
+ * it equals `$preset->blockVariantDefaults()[$type]` holds exactly when the
+ * vocabulary contains that variant — and *that* is already
+ * StylePresetTest's "only defaults block variants that exist in the vocabulary".
+ * The plumbing from handle() down to the map is covered by the restamp tests
+ * below, which key by type and so fail if the wrong entry is read.
+ */
 
 /*
  * The fallback branch, reached by a block type added AFTER the six presets were

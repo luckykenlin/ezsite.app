@@ -26,6 +26,32 @@ it('finds a block by key and returns null for an unknown one', function (): void
         ->and($draft->find('nope'))->toBeNull();
 });
 
+/*
+ * locate() and reply() are the two primitives every block tool leans on, and
+ * both existed only to stop something being repeated at ~25 call sites — so
+ * they get a test under their own name rather than being re-derived from a
+ * tool's behaviour. The five tools keep their own unknown-key tests: each one
+ * carries its OWN `if (locate(...) === null) return reply(...)` branch, so
+ * those are five production guards, not five restatements of one.
+ */
+it('tolerates a tool argument that is not a string, without narrowing at every call site', function (mixed $key, ?string $expectedType): void {
+    expect(new PageDraft(draftBlocks())->locate($key)['type'] ?? null)->toBe($expectedType);
+})->with([
+    'a real key' => ['k1', 'hero'],
+    'a hallucinated key' => ['nope', null],
+    'the argument was omitted' => [null, null],
+    'the model sent a number' => [42, null],
+    'the model sent an array' => [['k1'], null],
+]);
+
+it('answers with what it did, then the page as it now stands', function (): void {
+    // Every tool returns this shape so the model re-reads real state instead of
+    // tracking it; the blank line between the two halves is prompt surface.
+    expect(new PageDraft(draftBlocks())->reply('Shortened the heading.'))
+        ->toStartWith("Shortened the heading.\n\n")
+        ->toContain('0. hero (centered-minimal) [key: k1]');
+});
+
 it('hands the replaced blocks straight back to the next tool in the turn', function (): void {
     $draft = new PageDraft(draftBlocks());
 

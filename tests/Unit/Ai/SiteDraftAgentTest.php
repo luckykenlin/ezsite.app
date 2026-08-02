@@ -6,8 +6,6 @@ use App\Ai\Agents\SiteDraftAgent;
 use App\Ai\SiteDraftValidator;
 use App\Design\StylePreset;
 use App\Site\Blocks\BlockVocabulary;
-use App\Site\Blocks\SectionSpacing;
-use App\Site\Blocks\SectionTone;
 use Illuminate\JsonSchema\JsonSchemaTypeFactory;
 
 it('constrains the structured output to presets and non-chrome vocabulary types', function (): void {
@@ -38,8 +36,10 @@ it('constrains the structured output to presets and non-chrome vocabulary types'
     expect($blockItems['variant']['enum'])->toContain('full-bleed-overlay', 'grid', 'carousel', 'masonry')
         ->and($blockItems['variant']['enum'])->not->toContain('columns')
         ->and($blockItems['variant']['enum'])->not->toContain('centered')
-        ->and($blockItems['tone']['enum'])->toBe(SectionTone::values())
-        ->and($blockItems['spacing']['enum'])->toBe(SectionSpacing::values());
+        // Literals, not `toBe(SectionTone::values())` — the schema builder calls
+        // exactly that, so restating it would hold however the enum were wired.
+        ->and($blockItems['tone']['enum'])->toBe(['base', 'muted', 'accent', 'inverted', 'plain'])
+        ->and($blockItems['spacing']['enum'])->toBe(['flush', 'tight', 'normal', 'airy', 'tall']);
 
     // The copy is free to evolve, but two clauses are load-bearing: the block
     // views escape everything (so markup would render as text), and the draft is

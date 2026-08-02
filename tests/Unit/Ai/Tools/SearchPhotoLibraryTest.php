@@ -143,7 +143,9 @@ it('asks for search words when given none', function (): void {
 it('offers the model only orientations and categories that exist', function (): void {
     $schema = searchPhotoLibraryTool()->schema(new JsonSchemaTypeFactory);
 
-    expect($schema['orientation']->toArray()['enum'])->toBe(array_column(PhotoOrientation::cases(), 'value'))
+    // Literals, not `array_column(PhotoOrientation::cases(), 'value')` — the
+    // schema is built from exactly that, so restating it can never fail.
+    expect($schema['orientation']->toArray()['enum'])->toBe(['landscape', 'portrait', 'square'])
         ->and($schema['category']->toArray()['enum'])->toContain('food-drink')
         ->and($schema['query']->toArray())->toHaveKey('description');
 });

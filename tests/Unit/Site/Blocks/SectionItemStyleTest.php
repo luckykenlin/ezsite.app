@@ -5,10 +5,8 @@ declare(strict_types=1);
 use App\Site\Blocks\SectionItemStyle;
 use App\Site\Blocks\SectionTone;
 
-it('gives every style a label, a description and a card verdict', function (SectionItemStyle $style): void {
-    expect($style->label())->not->toBeEmpty()
-        ->and($style->description())->not->toBeEmpty()
-        ->and($style->isCard())->toBe($style !== SectionItemStyle::Plain);
+it('counts every style but plain as a card', function (SectionItemStyle $style): void {
+    expect($style->isCard())->toBe($style !== SectionItemStyle::Plain);
 })->with(SectionItemStyle::cases());
 
 /*

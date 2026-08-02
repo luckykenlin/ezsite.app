@@ -42,14 +42,4 @@ enum SectionDivider: string
             '--divider-clip' => $clip,
         ];
     }
-
-    public function description(): string
-    {
-        return match ($this) {
-            self::None => 'straight seams between sections — the default',
-            self::Slant => 'a diagonal cut where one section meets the next',
-            self::Curve => 'a soft dome easing each section into the last',
-            self::Peak => 'a centred point rising into the section above',
-        };
-    }
 }
