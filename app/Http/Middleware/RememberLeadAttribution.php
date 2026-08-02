@@ -47,6 +47,9 @@ final class RememberLeadAttribution
         'utm_content',
     ];
 
+    /**
+     * @param  Closure(Request): Response  $next
+     */
     public function handle(Request $request, Closure $next): Response
     {
         if ($this->shouldRecord($request)) {

@@ -45,7 +45,7 @@ final class StoreLeadController extends Controller
     {
         $formId = $this->formId($request);
 
-        $validated = $request->validateWithBag($this->errorBag($formId), [
+        $request->validateWithBag($this->errorBag($formId), [
             // Optional: the low-friction surfaces ask only for a reply
             // channel. The invariant that matters is the required_without
             // pair below — an enquiry nobody can answer is worthless, one
@@ -72,7 +72,7 @@ final class StoreLeadController extends Controller
                 'phone' => $this->optionalString($request, 'phone'),
                 'message' => $this->optionalString($request, 'message'),
             ],
-            $this->source($validated['source'] ?? null),
+            $this->source($this->optionalString($request, 'source')),
             $this->location($this->optionalId($request, 'location_id')),
             $this->page($this->optionalId($request, 'page_id')),
             $request->ip(),
@@ -110,13 +110,25 @@ final class StoreLeadController extends Controller
     }
 
     /**
+     * The first-touch attribution the middleware stashed, narrowed at the
+     * boundary: a session blob is untrusted input (an old format, a forged
+     * cookie payload), and an array value reaching a string column would fail
+     * the insert. {@see CaptureLead} filters again by column name — this half
+     * is about the value types.
+     *
      * @return array<string, string|null>
      */
     private function attribution(Request $request): array
     {
-        $attribution = $request->session()->get(RememberLeadAttribution::SESSION_KEY, []);
+        $stored = $request->session()->get(RememberLeadAttribution::SESSION_KEY, []);
 
-        return is_array($attribution) ? $attribution : [];
+        $attribution = [];
+
+        foreach (is_array($stored) ? $stored : [] as $key => $value) {
+            $attribution[(string) $key] = is_string($value) ? $value : null;
+        }
+
+        return $attribution;
     }
 
     private function optionalString(Request $request, string $key): ?string

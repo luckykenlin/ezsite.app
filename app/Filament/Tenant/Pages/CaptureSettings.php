@@ -52,7 +52,9 @@ final class CaptureSettings extends Page
 
     public function mount(): void
     {
-        $capture = SiteSetting::query()->first()?->capture ?? [];
+        // `->` not `?->`: `??` has isset() semantics, so it absorbs a missing
+        // row without reading the property at all.
+        $capture = SiteSetting::query()->first()->capture ?? [];
 
         $popup = is_array($capture['popup'] ?? null) ? $capture['popup'] : [];
         $callBar = is_array($capture['call_bar'] ?? null) ? $capture['call_bar'] : [];
@@ -150,14 +152,38 @@ final class CaptureSettings extends Page
         $data = $this->form->getState();
 
         resolve(SaveSiteCapture::class)->handle(
-            is_array($data['popup'] ?? null) ? $data['popup'] : [],
-            is_array($data['call_bar'] ?? null) ? $data['call_bar'] : [],
+            $this->group($data, 'popup'),
+            $this->group($data, 'call_bar'),
         );
 
         Notification::make()
             ->title('Capture settings saved')
             ->success()
             ->send();
+    }
+
+    /**
+     * One of the form's two nested groups, in the string-keyed shape
+     * {@see SaveSiteCapture} takes.
+     *
+     * Filament's state is always string-keyed here, but `getState()` is typed
+     * loosely enough that the guarantee has to be made rather than assumed —
+     * and the group is missing entirely on a form that was never filled.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function group(array $data, string $key): array
+    {
+        $group = is_array($data[$key] ?? null) ? $data[$key] : [];
+
+        $fields = [];
+
+        foreach ($group as $field => $value) {
+            $fields[(string) $field] = $value;
+        }
+
+        return $fields;
     }
 
     /**
