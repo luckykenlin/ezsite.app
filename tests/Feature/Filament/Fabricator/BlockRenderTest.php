@@ -540,6 +540,31 @@ it('escapes authored block content to prevent stored XSS', function (): void {
         ->assertSee('&lt;script&gt;', false);
 });
 
+it('escapes authored block content exactly once, whatever the prop is named', function (): void {
+    // A snake_case prop used to come out double-escaped: rendering the block
+    // through `<x-dynamic-component :attributes="...">` camel-cased the bag's
+    // keys into view data, so `@props(['cta_label'])` fell back to the bag's
+    // already-escaped copy and `{{ }}` escaped it a second time. "See
+    // tonight's menu" shipped to a live demo site as "See tonight&#039;s menu".
+    // `heading` (one word, so the camel-cased key still matched) was fine,
+    // which is why this went unnoticed — both are asserted here.
+    $tenant = Tenant::factory()->withDomain('acme')->create();
+    $this->createTenantPage($tenant, [
+        ['type' => 'hero', 'data' => [
+            'variant' => 'centered-minimal',
+            'heading' => "Tonight's specials & more",
+            'cta_label' => "See tonight's menu",
+            'cta_url' => '/menu',
+        ]],
+    ]);
+
+    $this->get(sprintf('http://acme.%s/', $this->centralDomain()))
+        ->assertOk()
+        ->assertSee('See tonight&#039;s menu', false)
+        ->assertSee('Tonight&#039;s specials &amp; more', false)
+        ->assertDontSee('&amp;#039;', false);
+});
+
 it('strips executable url schemes out of every rendered href and src', function (): void {
     // Blade's {{ }} escapes the VALUE but not the SCHEME, so a stored
     // `javascript:` cta_url would render as a live link. Covers both nesting

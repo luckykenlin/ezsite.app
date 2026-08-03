@@ -4,11 +4,11 @@
     'heading' => null,
     'intro' => null,
     'count' => 3,
-    'kindFilter' => null,
+    'kind_filter' => null,
 ])
 @php
     $layout = \App\Site\Blocks\SectionLayout::for('updates', 'list')->resolve($appearance);
-    $posts = resolve(\App\Site\PostFeed::class)->forBlock($count, $kindFilter);
+    $posts = resolve(\App\Site\PostFeed::class)->forBlock($count, $kind_filter);
 @endphp
 {{-- Hides itself when there is nothing recent, for the reason spelled out in
      the sibling `cards` view. --}}

@@ -202,8 +202,13 @@
     }
 
     /* The first section on a page has nothing above it to seam against —
-       an overlap there would ride up over the site header. */
-    section:first-child > .site-divider {
+       an overlap there would ride up over the site header, which is exactly
+       what it did while this read `:first-child`. The page's blocks are
+       siblings of the chrome (`<x-site.document>` renders `<header>`, the
+       notice bar and the blocks into one flow), so the first section is never
+       the first child of anything; `:first-of-type` is the one that matches,
+       and header/footer/notice are deliberately not `<section>`s. */
+    section:first-of-type > .site-divider {
         display: none;
     }
 

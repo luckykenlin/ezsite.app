@@ -122,6 +122,34 @@ test('public site views never use unescaped output', function (): void {
     }
 });
 
+test('page block views declare their props exactly as the stored data keys them', function (): void {
+    // The block render loop hands a block's `data` array straight to its view
+    // (see the note in views/vendor/filament-fabricator/components/page-blocks),
+    // so a prop name IS a data key: `kind_filter` is read, `kindFilter` is not.
+    // The failure is silent — the prop falls back to its `@props` default and
+    // the feature it drives just stops working — which is why it is a guard and
+    // not a review note. Stored keys are snake_case (Filament schemas, the AI
+    // tools and every template definition write them that way), so the props
+    // are too.
+    $views = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator(
+            dirname(__DIR__, 2).'/resources/views/components/filament-fabricator/page-blocks',
+            FilesystemIterator::SKIP_DOTS,
+        ),
+    );
+
+    foreach ($views as $view) {
+        if ($view->getExtension() !== 'php') {
+            continue;
+        }
+
+        preg_match('/@props\(\[(.*?)\]\)/s', (string) file_get_contents($view->getPathname()), $matches);
+        preg_match_all("/'([^']+)'\s*=>/", $matches[1] ?? '', $props);
+
+        expect($props[1])->each->toMatch('/^[a-z0-9_]+$/');
+    }
+});
+
 test('the editor canvas glue is loaded by the preview document only', function (): void {
     // The canvas script/stylesheet turn a rendered page into an editing
     // surface. They are bundled assets now (so eslint + tsc cover them),

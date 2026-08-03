@@ -85,6 +85,11 @@
             );
             $bindAttributes = \App\Filament\Fabricator\BlockRegistry::bindAttributes($block);
 
+            // Every block component is one of our own anonymous views, so its
+            // view name is the component name under `components.` — see
+            // BlockRegistry::resolveComponent(), which composes that name.
+            $blockView = 'components.'.$component;
+
             if ($bindAttributes === null && $editorKey === null) {
                 \Illuminate\Support\Facades\Log::warning('fabricator.block_skipped', [
                     'reason' => 'unresolved_bind',
@@ -94,19 +99,29 @@
             }
         @endphp
 
+        {{--
+            Rendered as a view, not as `<x-dynamic-component :attributes="...">`.
+
+            That tag round-trips block data through a component attribute bag,
+            and Blade escapes bound attributes on the way in. A prop the view
+            can still read afterwards — `heading`, a single word — is handed
+            over as raw view data and escapes exactly once, at `{{ }}`. A
+            SNAKE_CASE prop cannot be: the bag's keys are camel-cased into view
+            data (`cta_label` becomes `ctaLabel`), so `@props(['cta_label'])`
+            falls back to the already-escaped bag entry and the view escapes it
+            a second time. "See tonight's menu" reached a live demo site as
+            "See tonight&#039;s menu". Passing the data straight to the view
+            keeps every key raw, whatever its casing, and `{{ }}` in the block
+            view is still the only thing that escapes it — the raw echo below
+            prints a rendered view, never block data.
+        --}}
         @if ($bindAttributes !== null)
             @if ($editorKey !== null)
                 <div data-block-key="{{ $editorKey }}" data-block-type="{{ $block['type'] }}">
-                    <x-dynamic-component
-                        :component="$component"
-                        :attributes="new \Illuminate\View\ComponentAttributeBag($blockClass::mutateData($blockData) + $bindAttributes)"
-                    />
+                    {!! view($blockView, $blockClass::mutateData($blockData) + $bindAttributes)->render() !!}
                 </div>
             @else
-                <x-dynamic-component
-                    :component="$component"
-                    :attributes="new \Illuminate\View\ComponentAttributeBag($blockClass::mutateData($blockData) + $bindAttributes)"
-                />
+                {!! view($blockView, $blockClass::mutateData($blockData) + $bindAttributes)->render() !!}
             @endif
         @elseif ($editorKey !== null)
             <div

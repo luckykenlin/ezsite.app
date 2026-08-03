@@ -14,7 +14,7 @@
  *
  * The list of templates comes from the central sitemap rather than from a
  * hard-coded array, so a ninth template is captured the day it is declared.
- * Output lands in public/images/templates/{slug}-{width}.png, which is exactly
+ * Output lands in public/images/templates/{slug}-{width}.{webp,jpg}, exactly
  * where App\Templates\TemplateGallery looks for it.
  */
 
@@ -99,6 +99,24 @@ async function encode(page, png, { format, quality }) {
     return Buffer.from(dataUrl.split(',')[1], 'base64')
 }
 
+/**
+ * Strip anything the local dev environment injects on top of the page.
+ *
+ * These captures are marketing assets on the central site, and the servers
+ * they are taken against are development servers — `APP_DEBUG=true`, so
+ * Laravel Debugbar paints a toolbar across the bottom of every shot. It was
+ * baked into every committed screenshot once already. Removing the node here
+ * rather than asking whoever runs this to remember `DEBUGBAR_ENABLED=false`
+ * keeps that impossible to repeat.
+ */
+async function removeDevelopmentOverlays(page) {
+    await page.evaluate(() => {
+        document
+            .querySelectorAll('.phpdebugbar, .phpdebugbar-openhandler, #debugbar-openhandler, .laravel-telescope-toolbar')
+            .forEach((node) => node.remove())
+    })
+}
+
 async function main() {
     await mkdir(OUTPUT_DIRECTORY, { recursive: true })
 
@@ -116,6 +134,7 @@ async function main() {
                 // it arrives lazily. Give the fonts and images a beat to
                 // settle before the shutter.
                 await page.waitForTimeout(1000)
+                await removeDevelopmentOverlays(page)
 
                 const png = await page.screenshot({ fullPage: false })
                 const target = path.join(OUTPUT_DIRECTORY, `${slug}-${viewport.width}.${viewport.extension}`)
