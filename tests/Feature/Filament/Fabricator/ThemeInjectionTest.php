@@ -62,7 +62,7 @@ it('gives a logoless site its own generated browser-tab icon', function (): void
 
     $response = $this->get(sprintf('http://acme.%s/', $this->centralDomain()))->assertOk();
 
-    expect(rawurldecode($response->content()))
+    expect(rawurldecode((string) $response->content()))
         ->toContain('rel="icon" type="image/svg+xml"')
         ->toContain('fill="#336699"')
         ->toContain('>J<')

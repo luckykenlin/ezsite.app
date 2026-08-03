@@ -131,7 +131,7 @@ trait MakesStockPhotos
         ob_start();
         imagewebp($image, null, $quality);
 
-        return (string) ob_get_clean();
+        return ob_get_clean();
     }
 
     /**

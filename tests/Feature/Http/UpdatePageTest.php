@@ -258,8 +258,8 @@ it('lists the updates newest first', function (): void {
 
     $response = $this->get(updateUrl())->assertOk()->assertSee('Older news')->assertSee('Newest news');
 
-    expect(mb_strpos($response->content(), 'Newest news'))
-        ->toBeLessThan(mb_strpos($response->content(), 'Older news'));
+    expect(mb_strpos((string) $response->content(), 'Newest news'))
+        ->toBeLessThan(mb_strpos((string) $response->content(), 'Older news'));
 });
 
 it('leaves an enquiry from an update out of the pages id space', function (): void {
