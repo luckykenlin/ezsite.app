@@ -2335,14 +2335,14 @@ describe('cycling a block through its layouts', function (): void {
             ->and($component->get('isDirty'))->toBeTrue();
 
         // …wraps past the last declared variant…
-        $component->call('cycleBlockVariant', $key)->call('cycleBlockVariant', $key);
+        $component->call('cycleBlockVariant', $key)->call('cycleBlockVariant', $key)->call('cycleBlockVariant', $key);
 
         expect($component->get('blocks')[0]['data']['variant'])->toBe('centered-minimal');
 
         // …and each step is its own Undo.
         $component->call('undo');
 
-        expect($component->get('blocks')[0]['data']['variant'])->toBe('full-bleed-overlay');
+        expect($component->get('blocks')[0]['data']['variant'])->toBe('full-viewport-quiet');
     });
 
     it('repairs an unrecognised stored variant by cycling to the first declared one', function (): void {

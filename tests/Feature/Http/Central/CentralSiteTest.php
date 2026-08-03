@@ -42,6 +42,20 @@ it('shows the whole gallery on the templates page', function (): void {
     }
 });
 
+/*
+ * The headline counts the cards below it, so it is the one claim on the page a
+ * visitor can check by counting — and it was wrong the day a ninth template
+ * shipped, on three surfaces at once.
+ */
+it('counts the library correctly wherever the copy counts it', function (string $path): void {
+    $this->get(centralUrl($path))
+        ->assertOk()
+        ->assertSee(SiteTemplate::libraryCount().' ', false)
+        // The stale literal, named so nobody reintroduces it by pasting the copy
+        // back in — the spelled form is exactly how it went unnoticed.
+        ->assertDontSee('Eight ');
+})->with(['/', '/templates']);
+
 it('gives every template a detail page with a live demo and a way to start', function (SiteTemplate $template): void {
     $gallery = resolve(TemplateGallery::class);
 
@@ -147,6 +161,35 @@ it('builds a demo url on the reserved subdomain without touching the database', 
     expect(resolve(TemplateGallery::class)->demoUrl(SiteTemplate::PizzaShop))
         ->toBe('http://demo-pizza-shop.'.$this->centralDomain().'/')
         ->and(Tenant::query()->count())->toBe(0);
+});
+
+/*
+ * The scheme, which is the one part the app URL cannot decide alone: the detail
+ * page frames this URL, and a browser silently blocks an insecure frame inside a
+ * secure page. An HTTPS request therefore has to produce an HTTPS demo URL even
+ * where APP_URL says otherwise — which is every Herd machine in this project, and
+ * the reason the demo panel was blank on all nine detail pages locally while
+ * every request test passed.
+ */
+it('frames the demo over the scheme the page itself arrived on', function (): void {
+    $gallery = resolve(TemplateGallery::class);
+
+    expect($gallery->demoUrl(SiteTemplate::PizzaShop))->toStartWith('http://');
+
+    // The same call inside a secure request.
+    $this->get(str_replace('http://', 'https://', centralUrl('/templates/pizza-shop')))
+        ->assertOk()
+        ->assertSee('https://demo-pizza-shop.'.$this->centralDomain().'/')
+        ->assertDontSee('http://demo-pizza-shop.'.$this->centralDomain().'/');
+});
+
+it('never downgrades a secure app url when there is no request to read', function (): void {
+    // The console/queue direction: reading the request alone would answer
+    // "http" for a job on an HTTPS installation.
+    config(['app.url' => 'https://'.$this->centralDomain()]);
+
+    expect(resolve(TemplateGallery::class)->demoUrl(SiteTemplate::PizzaShop))
+        ->toStartWith('https://');
 });
 
 it('serves the committed screenshot for every template', function (): void {

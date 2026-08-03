@@ -59,6 +59,36 @@ it('has no variant to resolve when the type declares none', function (): void {
         ->and($type->resolveVariant('anything'))->toBeNull();
 });
 
+/*
+ * Narrowly about the AUTOMATIC fill, which is the whole subtlety: a type with no
+ * media slot at all can never take one, and a variant designed around the
+ * absence of a photograph must not be handed one on a guess — but neither is a
+ * veto, because an operator choosing an image is expressing an intent and every
+ * such variant renders a chosen image gracefully.
+ */
+it('refuses an unasked photograph only where the layout is built without one', function (): void {
+    $photographic = new BlockType(
+        type: 'hero',
+        description: 'A test double.',
+        variants: ['with-photo', 'type-only'],
+        bind: null,
+        icon: null,
+        fields: ['heading', 'image_id'],
+        sample: [],
+        mediaField: 'image_id',
+        imagelessVariants: ['type-only'],
+    );
+
+    expect($photographic->wantsAutoImage('with-photo'))->toBeTrue()
+        ->and($photographic->wantsAutoImage('type-only'))->toBeFalse()
+        // An unstored variant renders the type's default, which is the first
+        // declared one — photographic here, so the fill still applies.
+        ->and($photographic->wantsAutoImage(null))->toBeTrue()
+        // A type with nowhere to put an image never wants one, whatever the
+        // variant: there is no slot for the fill to land in.
+        ->and(blockType()->wantsAutoImage('a'))->toBeFalse();
+});
+
 it('carries the bind target as an enum rather than a string', function (): void {
     // The contract used to expose `bind` as a nullable string, so every consumer
     // re-derived the enum (or compared strings and got it subtly wrong).

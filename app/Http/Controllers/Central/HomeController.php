@@ -10,7 +10,7 @@ use Illuminate\Contracts\View\View;
 
 /**
  * The central domain's landing page: what this product is, how it works, and
- * the eight templates a visitor can start from.
+ * the templates a visitor can start from.
  *
  * Every other controller in `app/Http/Controllers` serves a TENANT site behind
  * the tenancy middleware; these live under `Central\` because the separation is

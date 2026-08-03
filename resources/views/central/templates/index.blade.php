@@ -4,7 +4,7 @@
         <div class="mx-auto max-w-7xl px-6">
             <div class="flex max-w-3xl flex-col gap-4">
                 <p class="site-eyebrow text-primary">Templates</p>
-                <h1 class="site-display font-heading">Eight finished sites. Pick the one that fits.</h1>
+                <h1 class="site-display font-heading">{{ \App\Templates\SiteTemplate::libraryCount() }} finished sites. Pick the one that fits.</h1>
                 <p class="site-intro opacity-80">
                     Each one is a real published site, not a wireframe — open the live demo, read the copy,
                     scroll it on your phone. When you find the right one, it takes a few minutes to make it yours.

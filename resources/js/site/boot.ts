@@ -7,6 +7,7 @@
 
 import { initLeadForms } from './lead-form';
 import { initPopup } from './popup';
+import { initReveal } from './reveal';
 
 /**
  * The canvas renders the live site inside the editor, where `canvas-glue.ts`
@@ -28,4 +29,8 @@ export function initSite(root: ParentNode = document): void {
 
     initLeadForms(root);
     initPopup(root);
+    // Last of the three, and the only one that changes how the page LOOKS: the
+    // canvas bail-out above is also what keeps the editor's preview from
+    // fading its own sections in under the operator every time they save.
+    initReveal(root);
 }

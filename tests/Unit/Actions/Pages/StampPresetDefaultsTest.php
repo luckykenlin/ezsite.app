@@ -23,7 +23,7 @@ function stampPresetDefaults(): StampPresetDefaults
  */
 
 /*
- * The fallback branch, reached by a block type added AFTER the six presets were
+ * The fallback branch, reached by a block type added AFTER the presets were
  * authored — every current type has an entry, so the situation is built rather
  * than found. The alternative to falling back is stamping a variant the type
  * does not offer, which BlockRegistry then refuses to render: an amber

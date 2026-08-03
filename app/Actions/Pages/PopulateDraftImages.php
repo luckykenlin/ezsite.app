@@ -12,6 +12,8 @@ use App\Models\Business;
 use App\Models\Media;
 use App\Models\Page;
 use App\Site\Blocks\BlockShape;
+use App\Site\Blocks\BlockType;
+use App\Site\Blocks\BlockVocabulary;
 use App\StockPhotos\PhotoBudget;
 use App\StockPhotos\PhotoOrientation;
 use App\StockPhotos\StockPhotoProvider;
@@ -103,7 +105,7 @@ final readonly class PopulateDraftImages
         unset($data[BlockShape::IMAGE_QUERY_KEY]);
 
         return match ($type) {
-            'hero' => $this->fillHero($data, $query ?? $this->fallbackQuery($business), $budget),
+            'hero' => $this->fillHero($type, $data, $query ?? $this->fallbackQuery($business), $budget),
             'gallery' => $this->fillGallery($data, $query ?? $this->fallbackQuery($business), $budget),
             'offerings' => $this->fillItems($data, 'items', 'name', $business, $budget),
             'features' => $this->fillItems($data, 'features', 'title', $business, $budget),
@@ -115,9 +117,21 @@ final readonly class PopulateDraftImages
      * @param  array<array-key, mixed>  $data
      * @return array<array-key, mixed>
      */
-    private function fillHero(array $data, string $query, PhotoBudget $budget): array
+    private function fillHero(string $type, array $data, string $query, PhotoBudget $budget): array
     {
         if (filled($data['image_id'] ?? null) || filled($data['image_url'] ?? null)) {
+            return $data;
+        }
+
+        // The fallback query is a guess on the block's behalf — right for a
+        // layout built around a photograph, wrong for one built around its
+        // absence, which is the distinction BlockType::wantsAutoImage() draws.
+        // Asked of the CONTRACT rather than listed here: what a variant does
+        // with a photograph is a fact about that variant's view.
+        $variant = is_string($data[BlockShape::VARIANT_KEY] ?? null) ? $data[BlockShape::VARIANT_KEY] : null;
+        $contract = resolve(BlockVocabulary::class)->get($type);
+
+        if ($contract instanceof BlockType && ! $contract->wantsAutoImage($variant)) {
             return $data;
         }
 

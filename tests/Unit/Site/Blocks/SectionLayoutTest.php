@@ -55,6 +55,20 @@ it('chooses card surfaces against the resolved tone, not in a vacuum', function 
         ->and($onDark->item())->toBe('card bg-base-100 text-base-content site-card');
 });
 
+it('chooses a call-to-action against the resolved tone too', function (): void {
+    // Same argument as the card surfaces above, one step further in: a button
+    // filled with the brand colour disappears on a band that IS the brand
+    // colour, which is `signup`'s own tone default.
+    $onSignup = SectionLayout::for('signup', 'stacked')->resolve(null);
+    $offAccent = SectionLayout::for('signup', 'stacked')->resolve(['tone' => 'muted']);
+
+    expect($onSignup->toneDefault())->toBe('accent')
+        ->and($onSignup->button())->toContain('bg-primary-content')
+        ->and($onSignup->button())->not->toContain('btn-primary')
+        // …and the same block moved onto a pale band gets the loud one back.
+        ->and($offAccent->button())->toBe('btn btn-primary');
+});
+
 it('throws on a type or variant a view could only name by typo', function (): void {
     expect(fn (): SectionLayout => SectionLayout::for('carousel'))
         ->toThrow(InvalidArgumentException::class, "No 'carousel' block type is registered.")

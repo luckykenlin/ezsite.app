@@ -14,6 +14,14 @@
  *
  * The list of templates comes from the central sitemap rather than from a
  * hard-coded array, so a ninth template is captured the day it is declared.
+ * Name slugs as arguments to capture only those:
+ *
+ *     node scripts/capture-template-screenshots.mjs hair-studio
+ *
+ * which is what you want when adding one template — re-shooting all of them
+ * rewrites eight committed images for no reason, and every re-encode is a
+ * binary diff somebody has to take on trust.
+ *
  * Output lands in public/images/templates/{slug}-{width}.{webp,jpg}, exactly
  * where App\Templates\TemplateGallery looks for it.
  */
@@ -56,7 +64,19 @@ async function templateSlugs() {
         throw new Error('The central sitemap listed no templates.')
     }
 
-    return slugs
+    const requested = process.argv.slice(2)
+
+    if (requested.length === 0) {
+        return slugs
+    }
+
+    const unknown = requested.filter((slug) => !slugs.includes(slug))
+
+    if (unknown.length > 0) {
+        throw new Error(`No such template(s): ${unknown.join(', ')}. The sitemap lists: ${slugs.join(', ')}.`)
+    }
+
+    return requested
 }
 
 /**
@@ -133,7 +153,12 @@ async function main() {
                 // The hero photograph is the whole point of the capture, and
                 // it arrives lazily. Give the fonts and images a beat to
                 // settle before the shutter.
-                await page.waitForTimeout(1000)
+                //
+                // Long enough to outlast a staged opening, too: a template on a
+                // motion preset (App\Design\MotionStyle::Reveal) walks its hero
+                // in over roughly 1.2s, and the old 1000ms shutter caught that
+                // mid-fade — a marketing image of a half-transparent headline.
+                await page.waitForTimeout(1800)
                 await removeDevelopmentOverlays(page)
 
                 const png = await page.screenshot({ fullPage: false })

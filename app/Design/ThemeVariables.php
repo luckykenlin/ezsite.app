@@ -38,6 +38,7 @@ final class ThemeVariables
             ...$tokens->typeStyle->variables(),
             ...$tokens->divider->variables(),
             ...$tokens->accent->variables(),
+            ...$tokens->motion->variables(),
             '--font-sans' => $tokens->fontPair->bodyStack(),
             '--font-heading' => $tokens->fontPair->headingStack(),
             // Not a custom property, but it belongs in the same :root block:

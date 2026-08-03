@@ -92,6 +92,7 @@ it("auto-injects a required variant selector ahead of a variant block's content 
             'centered-minimal' => 'Centered, minimal',
             'left-text-right-image' => 'Left text, right image',
             'full-bleed-overlay' => 'Full-bleed image with overlay',
+            'full-viewport-quiet' => 'Full viewport, type only — a quiet, unhurried opening',
         ])
         ->and($variantSelect->getDefaultState())->toBe('centered-minimal')
         ->and($variantSelect->isRequired())->toBeTrue()

@@ -95,6 +95,47 @@ enum SectionTone: string
     }
 
     /**
+     * The classes a section's primary call-to-action button carries ON this
+     * tone — the button equivalent of {@see itemSurface()}, and the same latent
+     * bug one step further in.
+     *
+     * `btn btn-primary` is right everywhere except one band, where it fails in
+     * the most expensive way available: on `accent` the surface IS the primary
+     * colour, so the button becomes a rectangle of background carrying the same
+     * text colour as the copy around it. Every signup block in the library
+     * shipped like that — `Signup`'s own tone default is `accent`, so the one
+     * button on the page whose whole job is to be clicked was invisible on all
+     * seven presets.
+     *
+     * The answer there is to INVERT the band's own pair rather than to reach for
+     * another palette slot. `btn-neutral` looks obvious on a brand band and is
+     * not: on a monochrome palette (App\Design\ColorPalette::Charcoal, ::Stone)
+     * primary and neutral are both near-black, so a neutral button on an accent
+     * band disappears for exactly the same reason. A band's own CONTENT colour is
+     * the one thing guaranteed to read against it — ColorPaletteTest enforces
+     * that gap for every palette — so that is what the button is filled with.
+     *
+     * `inverted` deliberately stays on `btn btn-primary`, and the asymmetry is
+     * the considered part. There the clash is a palette COINCIDENCE rather than a
+     * construction: gold on near-black (::NoirGold) is the signature of a whole
+     * preset and the most legible button in the library, and the pairs that do
+     * come out close still carry light `primary-content` text, so they read as a
+     * text link rather than as nothing. Repainting them would trade a real look
+     * for a hypothetical one and restyle five shipped templates' first viewport
+     * to do it.
+     *
+     * Utility literals rather than a component class, like every other case in
+     * this file; site.css `@source`s these enums so they compile.
+     */
+    public function buttonClasses(): string
+    {
+        return match ($this) {
+            self::Base, self::Muted, self::Plain, self::Inverted => 'btn btn-primary',
+            self::Accent => 'btn border-primary-content bg-primary-content text-primary hover:bg-primary-content/85',
+        };
+    }
+
+    /**
      * The operator-facing label, for the panel's Select.
      */
     public function label(): string

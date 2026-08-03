@@ -38,6 +38,33 @@ it('renders both arrangements with the offer, the button and the form', function
         ->assertSee('id="lead-signup-1"', false);
 })->with(['banner', 'stacked']);
 
+/*
+ * The one button on the page whose whole job is to be clicked, on the one tone
+ * that used to swallow it. A signup block's own tone default is `accent`, whose
+ * surface IS the primary colour, so `btn btn-primary` rendered a rectangle of
+ * background with the same text colour as the copy above it — on every preset in
+ * the library. End-to-end here rather than only in the enum, because the fix
+ * spans four files (tone → layout → block view → lead form) and any one of them
+ * dropping the class puts it straight back.
+ */
+it('gives the submit button a fill that reads on the band it sits on', function (string $variant, string $tone, string $expected, string $forbidden): void {
+    tenantWithSignup(['variant' => $variant, 'appearance' => ['tone' => $tone]]);
+
+    $this->get(sprintf('http://acme.%s/', $this->centralDomain()))
+        ->assertOk()
+        ->assertSeeHtml($expected)
+        ->assertDontSeeHtml($forbidden);
+})->with([
+    // The default tone, both arrangements.
+    'banner on its own accent band' => ['banner', 'accent', 'bg-primary-content', 'btn btn-primary'],
+    'stacked on its own accent band' => ['stacked', 'accent', 'bg-primary-content', 'btn btn-primary'],
+    // Moved onto a pale band, the brand-coloured button is right again.
+    'stacked on a pale band' => ['stacked', 'muted', 'btn btn-primary', 'bg-primary-content'],
+    // A dark band keeps the brand button, and that asymmetry is deliberate:
+    // see the argument on SectionTone::buttonClasses().
+    'stacked on a dark band' => ['stacked', 'inverted', 'btn btn-primary', 'bg-primary-content'],
+]);
+
 it('asks only for the fields the operator chose', function (string $fields, array $present, array $absent): void {
     tenantWithSignup(['fields' => $fields]);
 

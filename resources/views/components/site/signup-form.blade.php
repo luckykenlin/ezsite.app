@@ -15,6 +15,7 @@
     'page',
     'fields' => null,
     'buttonLabel' => null,
+    'buttonClass' => 'btn btn-primary',
     'successMessage' => null,
     'finePrint' => null,
 ])
@@ -29,6 +30,7 @@
     :source="\App\Enums\LeadSource::InlineForm"
     :fields="$fieldSet"
     :button-label="$buttonLabel"
+    :button-class="$buttonClass"
     :success-message="$successMessage"
     :fine-print="$finePrint"
 />

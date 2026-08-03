@@ -43,6 +43,17 @@ it('renders each block variant with its own layout', function (array $block, arr
         ['type' => 'hero', 'data' => ['variant' => 'full-bleed-overlay', 'heading' => 'Welcome friends']],
         ['Welcome friends'], 'bg-neutral', 'none',
     ],
+    'hero full-viewport-quiet' => [
+        ['type' => 'hero', 'data' => ['variant' => 'full-viewport-quiet', 'heading' => 'Welcome friends']],
+        ['Welcome friends'], 'min-h-[85svh]', 'none',
+    ],
+    // The same variant given a photograph: the viewport-filling height is what
+    // gives way, because a full-height section with an image below the fold
+    // reads as an accident.
+    'hero full-viewport-quiet with an image' => [
+        ['type' => 'hero', 'data' => ['variant' => 'full-viewport-quiet', 'heading' => 'Welcome friends', 'image_url' => 'https://example.test/room.jpg']],
+        ['Welcome friends'], 'room.jpg', 'none',
+    ],
     'cta banner' => [
         ['type' => 'cta', 'data' => [
             'variant' => 'banner',

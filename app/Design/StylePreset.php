@@ -22,12 +22,14 @@ enum StylePreset: string
     case CalmCoastal = 'calm-coastal';
     case PlayfulFriendly = 'playful-friendly';
     case NightLounge = 'night-lounge';
+    case QuietLuxe = 'quiet-luxe';
 
     /**
-     * A preset now bundles SEVEN axes (palette, fonts, type style, radius,
-     * density, dividers, accent surface) rather than the original four —
+     * A preset now bundles EIGHT axes (palette, fonts, type style, radius,
+     * density, dividers, accent surface, motion) rather than the original four —
      * the type style, seam shape and accent treatment are where two presets
-     * that share a hue stop looking like the same template.
+     * that share a hue stop looking like the same template, and motion is where
+     * one of them stops being a static page.
      */
     public function tokens(): DesignTokens
     {
@@ -39,6 +41,12 @@ enum StylePreset: string
             self::CalmCoastal => new DesignTokens($this, ColorPalette::Ocean, FontPair::ModernSans, RadiusScale::Lg, SpacingDensity::Spacious, typeStyle: TypeStyle::Refined, divider: SectionDivider::Curve, accent: AccentStyle::Sheen),
             self::PlayfulFriendly => new DesignTokens($this, ColorPalette::Sunset, FontPair::FriendlyRounded, RadiusScale::Full, SpacingDensity::Normal, typeStyle: TypeStyle::Friendly, divider: SectionDivider::Peak, accent: AccentStyle::Gradient),
             self::NightLounge => new DesignTokens($this, ColorPalette::NoirGold, FontPair::Editorial, RadiusScale::Sm, SpacingDensity::Normal, typeStyle: TypeStyle::Impact, divider: SectionDivider::Slant, accent: AccentStyle::Sheen),
+            // The only preset that asks for motion, and the only one with a
+            // sub-500 display weight — the two go together. A hairline garamond
+            // at this size wants to arrive rather than to be already there, and
+            // the pairing with DelicateSerif is enforced (FontPairTest), because
+            // any other face snaps that 300 back up and loses the whole look.
+            self::QuietLuxe => new DesignTokens($this, ColorPalette::Stone, FontPair::DelicateSerif, RadiusScale::None, SpacingDensity::Spacious, typeStyle: TypeStyle::Serene, divider: SectionDivider::None, accent: AccentStyle::Flat, motion: MotionStyle::Reveal),
         };
     }
 
@@ -59,6 +67,10 @@ enum StylePreset: string
             self::CalmCoastal => ['hero' => 'centered-minimal', 'features' => 'grid', 'testimonials' => 'carousel', 'gallery' => 'grid', 'cta' => 'banner', 'header' => 'simple', 'footer' => 'columns', 'prose' => 'stacked', 'steps' => 'timeline', 'signup' => 'stacked', 'updates' => 'list'],
             self::PlayfulFriendly => ['hero' => 'full-bleed-overlay', 'features' => 'grid', 'testimonials' => 'carousel', 'gallery' => 'filmstrip', 'cta' => 'banner', 'header' => 'centered', 'footer' => 'columns', 'prose' => 'stacked', 'steps' => 'list', 'signup' => 'banner', 'updates' => 'cards'],
             self::NightLounge => ['hero' => 'full-bleed-overlay', 'features' => 'alternating', 'testimonials' => 'spotlight', 'gallery' => 'masonry', 'cta' => 'banner', 'header' => 'inverted', 'footer' => 'minimal', 'prose' => 'side-heading', 'steps' => 'list', 'signup' => 'banner', 'updates' => 'cards'],
+            // The one preset that opens with the type-only hero: everything else
+            // here is the quietest layout its type offers, and a photograph in
+            // the first viewport would be the loudest thing on the site.
+            self::QuietLuxe => ['hero' => 'full-viewport-quiet', 'features' => 'icon-rows', 'testimonials' => 'spotlight', 'gallery' => 'grid', 'cta' => 'banner', 'header' => 'simple', 'footer' => 'minimal', 'prose' => 'stacked', 'steps' => 'list', 'signup' => 'stacked', 'updates' => 'list'],
         };
     }
 
@@ -67,8 +79,8 @@ enum StylePreset: string
      * preset — the per-SECTION half of a preset, where
      * {@see blockVariantDefaults()} is the per-LAYOUT half.
      *
-     * This is what makes six presets look like six websites rather than six
-     * colour swatches. Tokens explain maybe a quarter of the difference between
+     * This is what makes the presets look like different WEBSITES rather than one
+     * website in different colours. Tokens explain maybe a quarter of the difference between
      * two designs (PLAN.md says as much) and layout variants most of the rest,
      * but until a preset could say "photographs go on black here, and every
      * section breathes there", every preset produced the same flat stack of
@@ -138,8 +150,8 @@ enum StylePreset: string
                 'pricing' => ['item_style' => 'outline'],
                 'logos' => ['tone' => 'base'],
             ],
-            // Alternating shade gives it pace without weight — the closest of the
-            // six to a conventional SaaS page.
+            // Alternating shade gives it pace without weight — the closest in the
+            // library to a conventional SaaS page.
             self::FreshModern => [
                 'features' => ['tone' => 'muted'],
                 'offerings' => ['tone' => 'base'],
@@ -210,6 +222,34 @@ enum StylePreset: string
                 'cta' => ['tone' => 'accent', 'spacing' => 'tight'],
                 'logos' => ['tone' => 'base'],
             ],
+            // Air and narrow measures everywhere, and the only preset that never
+            // reaches for `accent`: its palette has no accent HUE to spend (see
+            // ColorPalette::Stone), so a brand-coloured band would be a slightly
+            // different grey pretending to be an event. The closing CTA earns its
+            // emphasis from the shade step and the whitespace around it instead.
+            //
+            // Two columns wherever a type offers three, for the same reason: at
+            // this display scale a three-across row of anything is a wall.
+            self::QuietLuxe => [
+                'features' => ['tone' => 'base', 'spacing' => 'airy', 'width' => 'narrow', 'align' => 'center', 'columns' => 'two', 'item_style' => 'plain'],
+                'offerings' => ['tone' => 'muted', 'spacing' => 'airy', 'align' => 'center', 'columns' => 'two', 'item_style' => 'plain'],
+                'prose' => ['tone' => 'muted', 'spacing' => 'airy', 'align' => 'center'],
+                'gallery' => ['tone' => 'base', 'spacing' => 'airy', 'columns' => 'two', 'image_shape' => 'portrait'],
+                'testimonials' => ['tone' => 'base', 'spacing' => 'airy', 'width' => 'narrow', 'align' => 'center', 'columns' => 'one', 'item_style' => 'plain'],
+                'faq' => ['tone' => 'muted', 'spacing' => 'airy', 'align' => 'center'],
+                'contact' => ['tone' => 'base', 'spacing' => 'airy', 'width' => 'narrow', 'align' => 'center', 'columns' => 'one'],
+                'cta' => ['tone' => 'muted', 'spacing' => 'airy', 'item_style' => 'plain'],
+                // The one type that reaches for `accent` on its own, brought
+                // back in line: this preset spends no brand band anywhere, and
+                // on a monochrome palette the accent surface is the near-black
+                // primary — a black slab two thirds down a page made of paper.
+                'signup' => ['tone' => 'muted', 'spacing' => 'airy', 'align' => 'center'],
+                'stats' => ['tone' => 'muted', 'spacing' => 'airy'],
+                'steps' => ['spacing' => 'airy', 'width' => 'narrow'],
+                'team' => ['item_style' => 'plain', 'image_shape' => 'portrait'],
+                'pricing' => ['spacing' => 'airy', 'columns' => 'two', 'item_style' => 'outline'],
+                'logos' => ['tone' => 'base', 'spacing' => 'airy'],
+            ],
         };
     }
 
@@ -221,7 +261,7 @@ enum StylePreset: string
      * matched against the business category when composing a first draft. Not
      * one list: nothing in `vibes()` contains *premium*, *refined* or *sleek*,
      * so before this existed the chat assistant had nothing to ground a feeling
-     * against and would free-associate among six labels.
+     * against and would free-associate among the labels.
      *
      * Published verbatim in the chat prompt and in
      * {@see \App\Ai\Tools\SetSiteStyle}'s schema description, which is the whole
@@ -242,6 +282,7 @@ enum StylePreset: string
             self::CalmCoastal => ['calm', 'airy', 'gentle', 'soothing', 'light', 'spacious'],
             self::PlayfulFriendly => ['playful', 'friendly', 'fun', 'approachable', 'colourful', 'casual'],
             self::NightLounge => ['dark', 'moody', 'luxe', 'glamorous', 'nocturnal'],
+            self::QuietLuxe => ['quiet', 'serene', 'delicate', 'elegant', 'tranquil', 'unhurried', 'poised'],
         };
     }
 
@@ -261,6 +302,7 @@ enum StylePreset: string
             self::CalmCoastal => ['calm', 'wellness', 'clinic', 'dental', 'coastal', 'yoga'],
             self::PlayfulFriendly => ['playful', 'family', 'kids', 'pets', 'fun', 'casual'],
             self::NightLounge => ['bar', 'nightlife', 'barber', 'tattoo', 'salon', 'music'],
+            self::QuietLuxe => ['hair', 'stylist', 'beauty', 'skincare', 'boutique', 'atelier'],
         };
     }
 
@@ -274,6 +316,7 @@ enum StylePreset: string
             self::CalmCoastal => 'Calm coastal',
             self::PlayfulFriendly => 'Playful friendly',
             self::NightLounge => 'Night lounge',
+            self::QuietLuxe => 'Quiet luxe',
         };
     }
 
@@ -287,6 +330,7 @@ enum StylePreset: string
             self::CalmCoastal => 'Cool blues, soft corners and airy spacing — for wellness and care.',
             self::PlayfulFriendly => 'Sunset colors, round shapes and a friendly voice.',
             self::NightLounge => 'Near-black and gold, heavy type on a dark room — the one dark-site preset.',
+            self::QuietLuxe => 'Warm stone, hairline serifs set very large, square corners and sections that arrive as you scroll.',
         };
     }
 }

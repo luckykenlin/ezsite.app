@@ -30,6 +30,7 @@
                     :page="$page"
                     :fields="$fields"
                     :button-label="$button_label"
+                    :button-class="$layout->button()"
                     :success-message="$success_message"
                     :fine-print="$fine_print"
                 />

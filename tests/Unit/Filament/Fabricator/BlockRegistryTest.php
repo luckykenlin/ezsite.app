@@ -21,7 +21,7 @@ it('enumerates every block contract in the vocabulary', function (): void {
         ->and($vocabulary['signup']->variants)->toBe(['banner', 'stacked'])
         ->and($vocabulary['signup']->bind)->toBeNull()
         ->and($vocabulary['signup']->intent)->toBe(BlockIntent::Convert)
-        ->and($vocabulary['hero']->variants)->toBe(['centered-minimal', 'left-text-right-image', 'full-bleed-overlay'])
+        ->and($vocabulary['hero']->variants)->toBe(['centered-minimal', 'left-text-right-image', 'full-bleed-overlay', 'full-viewport-quiet'])
         ->and($vocabulary['hero']->bind)->toBeNull()
         ->and($vocabulary['hero']->icon)->toBe('o-sparkles')
         ->and($vocabulary['hero']->fields)

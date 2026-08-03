@@ -29,7 +29,7 @@ use App\Templates\TemplateField;
  * profile field nor one of the template's own {@see TemplateField}s survives
  * verbatim — there is nothing sensible to put there, and
  * `FillTemplatePlaceholdersTest` fails on any literal brace left in any of the
- * eight templates, which is the guard that keeps that case theoretical.
+ * every template, which is the guard that keeps that case theoretical.
  */
 final readonly class FillTemplatePlaceholders
 {

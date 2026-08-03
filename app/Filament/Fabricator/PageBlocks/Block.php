@@ -90,6 +90,16 @@ abstract class Block extends PageBlock
     protected static array $variantAxes = [];
 
     /**
+     * Variants whose layout is built around NOT having a photograph, so the
+     * draft pipeline must not hand them one unasked — see
+     * {@see BlockType::wantsAutoImage()} for why this is about the automatic
+     * fill only.
+     *
+     * @var list<string>
+     */
+    protected static array $imagelessVariants = [];
+
+    /**
      * The icon representing this block type in the editor's block library and
      * on the site canvas's page cards. Read through {@see contract()}, so the
      * AI vocabulary carries it too.
@@ -169,6 +179,7 @@ abstract class Block extends PageBlock
             itemMediaField: $itemMediaField,
             axes: static::$axes,
             variantAxes: static::$variantAxes,
+            imagelessVariants: static::$imagelessVariants,
         );
     }
 

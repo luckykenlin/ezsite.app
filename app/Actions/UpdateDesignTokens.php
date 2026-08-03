@@ -7,6 +7,7 @@ namespace App\Actions;
 use App\Design\AccentStyle;
 use App\Design\ColorPalette;
 use App\Design\FontPair;
+use App\Design\MotionStyle;
 use App\Design\RadiusScale;
 use App\Design\SectionDivider;
 use App\Design\SpacingDensity;
@@ -40,6 +41,7 @@ final readonly class UpdateDesignTokens
             typeStyle: $this->enumValue(TypeStyle::class, $changes, TokenKey::TypeStyle),
             divider: $this->enumValue(SectionDivider::class, $changes, TokenKey::Divider),
             accent: $this->enumValue(AccentStyle::class, $changes, TokenKey::Accent),
+            motion: $this->enumValue(MotionStyle::class, $changes, TokenKey::Motion),
         );
 
         $business->update(['design_tokens' => $tokens]);

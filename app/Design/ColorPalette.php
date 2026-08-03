@@ -32,6 +32,7 @@ enum ColorPalette: string
     case Ocean = 'ocean';
     case Plum = 'plum';
     case Charcoal = 'charcoal';
+    case Stone = 'stone';
     case Sunset = 'sunset';
     case Midnight = 'midnight';
     case NoirGold = 'noir-gold';
@@ -88,6 +89,7 @@ enum ColorPalette: string
             self::Ocean => 'cool white base, blue primary — blue, navy, deep blue, sea, teal',
             self::Plum => 'blush white base, purple primary — purple, plum, violet, wine, berry',
             self::Charcoal => 'grey-white base, near-black primary, gold accent — black, grey, charcoal, monochrome',
+            self::Stone => 'warm stone base, near-black primary, no accent hue at all — stone, greige, taupe, oat, bone, warm neutral',
             self::Sunset => 'warm peach base, orange-red primary — orange, red, coral, pink, sunset',
             self::Midnight => 'DARK navy base site-wide, light text — only for a deliberately dark site; navy, midnight blue',
             self::NoirGold => 'DARK near-black base site-wide, gold primary — only for a deliberately dark site; black, gold, luxury',
@@ -160,6 +162,21 @@ enum ColorPalette: string
                 secondary: 'oklch(45% 0.02 260)', secondaryContent: 'oklch(97% 0 0)',
                 accent: 'oklch(75% 0.15 80)', accentContent: 'oklch(25% 0.05 80)',
                 neutral: 'oklch(20% 0.01 260)', neutralContent: 'oklch(93% 0 0)',
+            ),
+            // The only palette with no accent HUE: every slot sits on one warm
+            // neutral ramp, so `accent` is a pale stone rather than a colour.
+            // Charcoal already owns cool near-black and spends a gold on the
+            // accent slot; that gold is exactly the note this look cannot have,
+            // which is why it is a second monochrome and not a tweak to the
+            // first. Chroma stays at or under 0.01 throughout — enough for the
+            // ramp to read as warm rather than as a screen calibration error,
+            // little enough that nothing on the page looks tinted.
+            self::Stone => self::palette(
+                base100: 'oklch(98.5% 0.002 60)', base200: 'oklch(94.5% 0.005 60)', base300: 'oklch(89% 0.008 60)', baseContent: 'oklch(19% 0.006 60)',
+                primary: 'oklch(22% 0.006 60)', primaryContent: 'oklch(98.5% 0.002 60)',
+                secondary: 'oklch(53% 0.008 60)', secondaryContent: 'oklch(98.5% 0.002 60)',
+                accent: 'oklch(85% 0.01 60)', accentContent: 'oklch(19% 0.006 60)',
+                neutral: 'oklch(19% 0.006 60)', neutralContent: 'oklch(96% 0.003 60)',
             ),
             self::Sunset => self::palette(
                 base100: 'oklch(98% 0.008 60)', base200: 'oklch(93% 0.022 60)', base300: 'oklch(87.5% 0.03 60)', baseContent: 'oklch(25% 0.03 40)',

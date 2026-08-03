@@ -9,6 +9,7 @@ it('emits the full deterministic --type-* variable set for every style', functio
 
     expect(array_keys($variables))->toBe([
         '--type-scale',
+        '--type-display-scale',
         '--type-display-weight',
         '--type-display-tracking',
         '--type-heading-weight',
@@ -22,13 +23,22 @@ it('emits the full deterministic --type-* variable set for every style', functio
         '--type-intro-size',
     ]);
 
-    // Structural sanity per case: the scale is a number close to 1, weights
-    // are the 500–800 stops the self-hosted fonts ship, cases are valid
-    // text-transform values, and tracked sizes are rem lengths.
-    expect((float) $variables['--type-scale'])->toBeGreaterThan(0.8)->toBeLessThan(1.3);
+    // Structural sanity per case: the body scale is a number close to 1, the
+    // display scale multiplies it without inverting the hierarchy, weights are
+    // stops the self-hosted fonts ship, cases are valid text-transform values,
+    // and tracked sizes are rem lengths.
+    expect((float) $variables['--type-scale'])->toBeGreaterThan(0.8)->toBeLessThan(1.3)
+        // A display scale under 1 would set a hero headline smaller than the
+        // section titles under it — a broken page, not a quiet one. The ceiling
+        // is where a two-line headline stops fitting a phone.
+        ->and((float) $variables['--type-display-scale'])->toBeGreaterThanOrEqual(0.9)->toBeLessThanOrEqual(1.5);
 
     foreach (['--type-display-weight', '--type-heading-weight', '--type-subheading-weight', '--type-eyebrow-weight'] as $weight) {
-        expect((int) $variables[$weight])->toBeGreaterThanOrEqual(500)->toBeLessThanOrEqual(800);
+        // The floor is 300 rather than 500 because Serene sets a hairline
+        // display face there on purpose. Which pairs may go under 500 is a
+        // separate rule with its own guard in FontPairTest — a light weight on
+        // a face that has no light cut snaps back up and loses the whole look.
+        expect((int) $variables[$weight])->toBeGreaterThanOrEqual(300)->toBeLessThanOrEqual(800);
     }
 
     foreach (['--type-heading-case', '--type-eyebrow-case'] as $case) {
@@ -47,6 +57,7 @@ it('classic emits exactly the site.css fallback values, so an untouched site can
     // the same pixels. Change either side only together.
     expect(TypeStyle::Classic->variables())->toBe([
         '--type-scale' => '1',
+        '--type-display-scale' => '1',
         '--type-display-weight' => '700',
         '--type-display-tracking' => '-0.025em',
         '--type-heading-weight' => '700',

@@ -32,11 +32,20 @@
 
     The `backdrop` slot renders inside the section but outside the padding
     wrapper, for absolutely-positioned artwork (the full-bleed hero's image).
+
+    `animate` puts the scroll-reveal marker on the padding wrapper — the content,
+    never the `<section>` itself, because fading a section's BACKGROUND in leaves
+    a visible seam between it and the band above. It is on by default and inert
+    by default: the reveal only becomes visible motion once the tenant's
+    App\Design\MotionStyle token says so. A view passes `:animate="false"` when
+    it stages its own children instead, which is the one case where a wrapper
+    reveal would double every child's travel.
 --}}
 @props([
     'appearance' => null,
     'tone' => 'base',
     'spacing' => 'normal',
+    'animate' => true,
 ])
 @php
     $section = \App\Site\Blocks\SectionAppearance::resolve($appearance, $tone, $spacing);
@@ -52,7 +61,10 @@
 
     {{ $backdrop ?? '' }}
 
-    <div class="{{ $section->spacingClasses() }}">
+    {{-- The marker is emitted as a string rather than through `@if`, which
+         cannot open and close around a bare attribute without leaving a stray
+         space in the tag either way. --}}
+    <div{{ $animate ? ' data-animate' : '' }} class="{{ $section->spacingClasses() }}">
         {{ $slot }}
     </div>
 </section>

@@ -42,7 +42,7 @@
         @endif
 
         @if ($cta_label && $cta_url)
-            <a href="{{ $cta_url }}" class="btn btn-primary mt-10">{{ $cta_label }}</a>
+            <a href="{{ $cta_url }}" class="{{ $layout->button() }} mt-10">{{ $cta_label }}</a>
         @endif
     </div>
 </x-site.section>

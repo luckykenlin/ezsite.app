@@ -34,6 +34,7 @@ it('round-trips through toArray and fromArray', function (): void {
             'density' => 'spacious',
             'divider' => 'curve',
             'accent' => 'sheen',
+            'motion' => 'still',
         ]);
 });
 

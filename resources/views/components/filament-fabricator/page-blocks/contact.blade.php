@@ -43,6 +43,7 @@
                         class="max-w-xl"
                         :location="$location"
                         :page="$page"
+                        :button-class="$layout->button()"
                         :success-message="$success_message"
                     />
                 </div>

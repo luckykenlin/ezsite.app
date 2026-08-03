@@ -67,6 +67,22 @@ enum SectionItemStyle: string
         return $this !== self::Plain;
     }
 
+    /**
+     * Whether an item paints a background of its OWN, rather than letting the
+     * band show through.
+     *
+     * Not the same question as {@see isCard()}, and the difference is the whole
+     * reason this exists: `outline` has card ANATOMY but no fill, so anything
+     * inside it still sits visually on the section's background. A view that
+     * conflated the two put a `btn-primary` on an outlined plan card and had it
+     * vanish the moment the section was set to the brand colour — the accent-band
+     * clash {@see SectionTone::buttonClasses()} describes, one level in.
+     */
+    public function paintsSurface(): bool
+    {
+        return $this === self::Card;
+    }
+
     public function label(): string
     {
         return match ($this) {

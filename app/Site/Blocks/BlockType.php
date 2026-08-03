@@ -67,6 +67,10 @@ final readonly class BlockType
      * @param  array<string, array<string, string>>  $variantAxes  per-variant
      *                                                             default overrides,
      *                                                             `variant => [axis => value]`
+     * @param  list<string>  $imagelessVariants  variants designed WITHOUT a
+     *                                           photograph, so the draft pipeline
+     *                                           does not hand one to them unasked
+     *                                           ({@see wantsAutoImage()})
      */
     public function __construct(
         public string $type,
@@ -83,8 +87,37 @@ final readonly class BlockType
         public ?string $itemMediaField = null,
         public array $axes = [],
         public array $variantAxes = [],
+        public array $imagelessVariants = [],
     ) {
         //
+    }
+
+    /**
+     * Whether the draft pipeline may put a photograph on this block UNASKED —
+     * {@see \App\Actions\Pages\PopulateDraftImages} fills a hero from a query
+     * derived from the business when the author supplied none, which is right
+     * for a layout built around a photograph and wrong for one built around its
+     * absence.
+     *
+     * Narrowly about the automatic fill, and deliberately not a veto: the field
+     * stays on the form and `SetBlockImage` still works, because an operator (or
+     * a model acting on "put a picture of the room in the hero") is expressing an
+     * intent, and the variants that say no here all render a chosen image
+     * gracefully. What they must not do is receive one nobody asked for and
+     * silently stop being the layout the preset chose.
+     */
+    public function wantsAutoImage(?string $variant): bool
+    {
+        if ($this->mediaField === null) {
+            return false;
+        }
+
+        // Resolved rather than compared raw: an absent or unrecognised variant
+        // renders as the first declared one, so that is the layout whose opinion
+        // about photographs counts.
+        $resolved = $this->resolveVariant($variant) ?? $this->defaultVariant();
+
+        return ! in_array($resolved, $this->imagelessVariants, true);
     }
 
     /**

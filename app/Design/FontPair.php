@@ -13,6 +13,7 @@ enum FontPair: string
 {
     case ModernSans = 'modern-sans';
     case ElegantSerif = 'elegant-serif';
+    case DelicateSerif = 'delicate-serif';
     case Editorial = 'editorial';
     case FriendlyRounded = 'friendly-rounded';
     case Geometric = 'geometric';
@@ -22,6 +23,7 @@ enum FontPair: string
         return match ($this) {
             self::ModernSans => 'Instrument Sans',
             self::ElegantSerif => 'Playfair Display',
+            self::DelicateSerif => 'Cormorant Garamond',
             self::Editorial => 'Fraunces',
             self::FriendlyRounded => 'Nunito',
             self::Geometric => 'Space Grotesk',
@@ -33,15 +35,32 @@ enum FontPair: string
         return match ($this) {
             self::ModernSans => 'Instrument Sans',
             self::ElegantSerif => 'Source Sans 3',
-            self::Editorial, self::Geometric => 'Inter',
+            self::DelicateSerif, self::Editorial, self::Geometric => 'Inter',
             self::FriendlyRounded => 'Nunito Sans',
         };
+    }
+
+    /**
+     * Whether this pair's HEADING face is drawn finely enough to be set at a
+     * weight under 500 — the pairing rule {@see TypeStyle::Serene} depends on.
+     *
+     * A missing weight snaps to the nearest bundled one, which usually just
+     * softens a style. For a light display face it does the opposite: the whole
+     * point of a hairline garamond at 6rem is the hairlines, and snapping 300 to
+     * 500 replaces the look with a slightly-too-small version of a different
+     * one. So this is a property of the FACE, not of what is bundled — Playfair
+     * ships a 500 but its lightest cut is still a Didone with heavy stems, and
+     * asking it to whisper produces a muddier page than Instrument Sans would.
+     */
+    public function supportsLightDisplay(): bool
+    {
+        return $this === self::DelicateSerif;
     }
 
     public function headingStack(): string
     {
         $fallback = match ($this) {
-            self::ElegantSerif, self::Editorial => 'ui-serif, Georgia, serif',
+            self::ElegantSerif, self::DelicateSerif, self::Editorial => 'ui-serif, Georgia, serif',
             default => 'ui-sans-serif, system-ui, sans-serif',
         };
 

@@ -72,12 +72,17 @@ enum SectionAlign: string
     /**
      * The intro paragraph's full class list — alignment, reading measure,
      * rhythm and muted colour travel together.
+     *
+     * The colour is `.site-dim` rather than `text-base-content/70`: an intro on
+     * an accent or inverted band inherits that band's light text, and a literal
+     * base-content overrode it back to the page's dark ink — near-black on
+     * near-black for any palette whose primary is dark.
      */
     public function introClasses(): string
     {
         return match ($this) {
-            self::Center => 'site-intro mx-auto mt-4 max-w-2xl text-center text-base-content/70',
-            self::Start => 'site-intro mt-4 max-w-2xl text-base-content/70',
+            self::Center => 'site-intro mx-auto mt-4 max-w-2xl text-center site-dim',
+            self::Start => 'site-intro mt-4 max-w-2xl site-dim',
         };
     }
 

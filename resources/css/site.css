@@ -101,14 +101,24 @@
         text-wrap: balance;
     }
 
+    /*
+     * The display sizes carry --type-display-scale on top of --type-scale, so
+     * a style can make the hero headline enormous without dragging the body
+     * copy up with it (TypeStyle's docblock has the argument). Defaults to 1,
+     * so a site with no type tokens is unchanged.
+     */
     .site-display-lg {
-        font-size: calc(3rem * var(--type-scale, 1));
+        font-size: calc(
+            3rem * var(--type-scale, 1) * var(--type-display-scale, 1)
+        );
         line-height: 1;
     }
 
     .site-display,
     .site-h1 {
-        font-size: calc(2.25rem * var(--type-scale, 1));
+        font-size: calc(
+            2.25rem * var(--type-scale, 1) * var(--type-display-scale, 1)
+        );
     }
 
     .site-h2 {
@@ -161,6 +171,110 @@
         font-size: var(--type-intro-size, 1.125rem);
         line-height: calc(1.75 / 1.125);
         text-wrap: pretty;
+    }
+
+    /*
+     * Motion (App\Design\MotionStyle), in two mechanisms for two different
+     * moments. Both read the same `--reveal-*` token variables, so the `still`
+     * style is a no-op in both rather than a branch in either: opacity 1, no
+     * shift, no duration. A site that never chose a motion style is untouched.
+     *
+     * `prefers-reduced-motion` cancels both, unconditionally. It is not a look
+     * an operator may choose between, so it does not live in the enum.
+     *
+     * Only `translate` and `opacity` move: both are compositor-only, so a long
+     * page settling several sections at once costs no layout.
+     */
+
+    /*
+     * 1. The opening, staged by position — a CSS animation, and deliberately not
+     * the scroll reveal below.
+     *
+     * An animation always ENDS at the element's own state, so this needs no
+     * JavaScript, cannot strand content invisible, and is applied by the first
+     * paint rather than after the bundle lands. That last part is why the hero
+     * cannot use the observer: anything the observer hides is visible until the
+     * script runs, and a first screenful that appears, vanishes and fades back
+     * in is worse than one that never moved.
+     *
+     * `both` fill mode is what makes the delays a stagger rather than six
+     * simultaneous fades — each child holds its `from` state until its turn.
+     *
+     * The editor canvas stands down from this too, but through the token
+     * variables at the end of this file rather than through a selector here —
+     * see the note there.
+     */
+    @keyframes site-enter {
+        from {
+            opacity: var(--reveal-opacity, 1);
+            translate: 0 var(--reveal-shift, 0px);
+        }
+    }
+
+    .site-stage > * {
+        animation: site-enter var(--reveal-duration, 0ms)
+            cubic-bezier(0.22, 1, 0.36, 1) both;
+        animation-delay: calc(var(--stage-step, 90ms) * var(--stage-index, 0));
+    }
+
+    /* Position IS the stagger, so a view stages its children by ordering them
+       rather than by labelling each one. Past the sixth child everything lands
+       together, which is the right ceiling: a staged entrance longer than about
+       half a second stops reading as craft. */
+    .site-stage > :nth-child(2) {
+        --stage-index: 1;
+    }
+
+    .site-stage > :nth-child(3) {
+        --stage-index: 2;
+    }
+
+    .site-stage > :nth-child(4) {
+        --stage-index: 3;
+    }
+
+    .site-stage > :nth-child(5) {
+        --stage-index: 4;
+    }
+
+    .site-stage > :nth-child(n + 6) {
+        --stage-index: 5;
+    }
+
+    /*
+     * 2. The scroll reveal, for everything below the opening.
+     *
+     * `[data-site-reveal]` is set on the root by resources/js/site/reveal.ts,
+     * and only once it has an IntersectionObserver to take it back off with — a
+     * visitor with no JavaScript never matches this rule and reads the page
+     * normally, which is the failure mode every hand-rolled version of this
+     * effect gets wrong. The same script also marks anything already on screen
+     * visible in the same task it sets the attribute, so nothing that a visitor
+     * can see at that moment ever flashes.
+     */
+    [data-site-reveal] [data-animate] {
+        opacity: var(--reveal-opacity, 1);
+        translate: 0 var(--reveal-shift, 0px);
+        transition-property: opacity, translate;
+        transition-duration: var(--reveal-duration, 0ms);
+        transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    [data-site-reveal] [data-animate].is-visible {
+        opacity: 1;
+        translate: none;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .site-stage > * {
+            animation: none;
+        }
+
+        [data-site-reveal] [data-animate] {
+            opacity: 1;
+            translate: none;
+            transition: none;
+        }
     }
 
     /*
@@ -287,6 +401,77 @@
         text-decoration: underline;
         text-underline-offset: 0.2em;
         white-space: nowrap;
+    }
+
+    /*
+     * The two ornaments of the full-viewport hero.
+     *
+     * Both are here rather than in the view for the reason the type classes
+     * are: they derive from the tenant's palette, so one declaration holds
+     * across every palette including the dark ones. And both are decorative —
+     * `aria-hidden` in the markup, nothing behind them to miss.
+     */
+
+    /* A low, wide pool of light behind the copy, so a type-only opening is not
+       a flat field of one colour. base-300 rather than primary: on this hero
+       the palette's hue belongs to the words, not to the air around them. */
+    .site-hero-glow {
+        background: radial-gradient(
+            ellipse at 50% 60%,
+            color-mix(in oklch, var(--color-base-300) 55%, transparent),
+            transparent 70%
+        );
+    }
+
+    /* The scroll cue: a hairline that breathes rather than a bouncing arrow,
+       which is the same gesture at a volume this look can afford. currentColor
+       so it inverts with the section tone. */
+    @keyframes site-scroll-cue {
+        0%,
+        100% {
+            scale: 1 0.35;
+            opacity: 0.3;
+        }
+
+        50% {
+            scale: 1 1;
+            opacity: 0.85;
+        }
+    }
+
+    .site-scroll-cue {
+        width: 1px;
+        height: 3rem;
+        transform-origin: top;
+        background: linear-gradient(
+            to bottom,
+            color-mix(in oklch, currentcolor 45%, transparent),
+            transparent
+        );
+        animation: site-scroll-cue 2.6s ease-in-out infinite;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .site-scroll-cue {
+            animation: none;
+        }
+    }
+
+    /*
+     * Body copy one step quieter than the surface it sits on.
+     *
+     * The tone-aware replacement for a literal `text-base-content/70`, which is
+     * the colour a section INTRO used to be pinned to — invisible on an accent or
+     * inverted band, because those surfaces re-assert `color` and the literal
+     * overrides it back to the page's dark ink. On a light base this computes to
+     * exactly what the literal did (currentColor IS base-content there), so
+     * nothing changes for the sections that were already right.
+     *
+     * Same currentColor argument as `.site-card`'s hairline, and the same reason
+     * it lives here rather than in a view.
+     */
+    .site-dim {
+        color: color-mix(in oklch, currentcolor 70%, transparent);
     }
 
     /*
@@ -421,16 +606,22 @@
 
     @media (width >= 48rem) {
         .site-display-lg {
-            font-size: calc(4.5rem * var(--type-scale, 1));
+            font-size: calc(
+                4.5rem * var(--type-scale, 1) * var(--type-display-scale, 1)
+            );
         }
 
         .site-display {
-            font-size: calc(3.75rem * var(--type-scale, 1));
+            font-size: calc(
+                3.75rem * var(--type-scale, 1) * var(--type-display-scale, 1)
+            );
             line-height: 1;
         }
 
         .site-h1 {
-            font-size: calc(3rem * var(--type-scale, 1));
+            font-size: calc(
+                3rem * var(--type-scale, 1) * var(--type-display-scale, 1)
+            );
             line-height: 1;
         }
 
@@ -459,4 +650,29 @@
             line-height: calc(1.75 / 1.125);
         }
     }
+}
+
+/*
+ * The editor canvas is a still page, whatever the tenant's motion token says.
+ *
+ * `initSite()` already bails out there, which stands the scroll reveal down —
+ * but the staged opening is a CSS animation and does not care whether any script
+ * ran. The canvas reloads its iframe on every committed edit, so without this an
+ * operator on a motion preset would re-watch the whole opening walk in every
+ * time they typed in the headline field.
+ *
+ * Done by overriding the three token variables rather than by cancelling the
+ * animation: the same three values the `still` style emits, so there is one
+ * definition of "no motion" and both mechanisms read it.
+ *
+ * Deliberately UNLAYERED, and that is the whole reason it sits at the end of the
+ * file: the per-tenant `<style data-site-theme>:root{…}` tag is unlayered too,
+ * and an unlayered declaration beats anything inside `@layer` no matter how
+ * specific. Inside the components layer this rule would silently lose to the
+ * very variables it exists to override.
+ */
+:root:has([data-editor-canvas]) {
+    --reveal-opacity: 1;
+    --reveal-shift: 0px;
+    --reveal-duration: 0ms;
 }

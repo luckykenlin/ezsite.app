@@ -8,6 +8,12 @@
 @php
     $layout = \App\Site\Blocks\SectionLayout::for('pricing')->resolve($appearance);
 
+    // The featured plan's button is the only filled one on the page, so it has
+    // to contrast with whatever is actually behind it: the CARD when items paint
+    // one, the section's own band when they do not (an outlined plan lets it
+    // through, and a brand-coloured band would swallow a brand-coloured button).
+    $featuredButton = $layout->itemPaintsSurface() ? 'btn btn-primary' : $layout->button();
+
     // Repeater state may be a uuid-keyed map (Filament) or a plain list (AI
     // output) — iterate whatever array arrives, defensively.
     //
@@ -95,9 +101,12 @@
 
                         @if (($item['cta_label'] ?? null) && ($item['cta_url'] ?? null))
                             <div @class(['card-actions mt-6' => $layout->isCard(), 'mt-6' => ! $layout->isCard()])>
+                                {{-- Every other plan is an outline button, which
+                                     draws in currentColor and so needs no
+                                     question asked of the surface at all. --}}
                                 <a
                                     href="{{ $item['cta_url'] }}"
-                                    @class(['btn w-full', 'btn-primary' => $isFeatured, 'btn-outline' => ! $isFeatured])
+                                    @class(['w-full', $featuredButton => $isFeatured, 'btn btn-outline' => ! $isFeatured])
                                 >{{ $item['cta_label'] }}</a>
                             </div>
                         @endif

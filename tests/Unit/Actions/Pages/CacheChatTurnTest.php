@@ -177,6 +177,7 @@ it('round-trips a staged style and keeps only the keys the editor knows', functi
         'density' => null,
         'divider' => null,
         'accent' => null,
+        'motion' => null,
     ]);
 });
 

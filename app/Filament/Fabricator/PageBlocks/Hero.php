@@ -46,6 +46,7 @@ final class Hero extends Block
         'centered-minimal' => 'Centered, minimal',
         'left-text-right-image' => 'Left text, right image',
         'full-bleed-overlay' => 'Full-bleed image with overlay',
+        'full-viewport-quiet' => 'Full viewport, type only — a quiet, unhurried opening',
     ];
 
     /**
@@ -65,7 +66,25 @@ final class Hero extends Block
     protected static array $variantAxes = [
         'left-text-right-image' => ['spacing' => 'normal', 'width' => 'wide', 'align' => 'start'],
         'full-bleed-overlay' => ['tone' => 'inverted', 'spacing' => 'tall', 'width' => 'normal', 'align' => 'start'],
+        // Narrow and centred like the minimal hero, but at the SMALLEST vertical
+        // step, which looks backwards for the tallest layout in the library and
+        // is the reason it works: this variant takes its height from its own
+        // min-height and centres inside it, so section padding does not add
+        // grandeur, it adds offset — the tallest step pushed the call to action
+        // clean out of a small laptop window. What is left is a guard for windows
+        // too short to centre in at all, where it keeps the copy off the edges.
+        'full-viewport-quiet' => ['spacing' => 'flush'],
     ];
+
+    /**
+     * The type-only opening is the whole argument of the layout, and a stock
+     * photograph is what the draft pipeline would otherwise put there without
+     * being asked — turning the one hero in the library that fills the window
+     * with words into another one that fills it with a picture of a room.
+     *
+     * @var list<string>
+     */
+    protected static array $imagelessVariants = ['full-viewport-quiet'];
 
     /**
      * @return array<int, Field>

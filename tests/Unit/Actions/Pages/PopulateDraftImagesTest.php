@@ -155,6 +155,37 @@ it('stops spending when the per-site budgets run out', function (): void {
         ->and($provider->searches)->toHaveCount(1);
 });
 
+/*
+ * The one hero layout built around NOT having a photograph. The fallback query
+ * above is a guess made on the block's behalf, and for this variant the guess is
+ * wrong in a way nothing else would catch: the view renders a chosen image
+ * perfectly well, so the page would look fine — just not like the layout the
+ * preset picked, which fills the first screen with words instead.
+ *
+ * The rule lives on the contract (BlockType::wantsAutoImage), so this asserts
+ * the pipeline consults it rather than restating the list.
+ */
+it('leaves an imageless hero variant without a photograph nobody asked for', function (): void {
+    $provider = $this->poolStockPhotoProvider();
+    $tenant = Tenant::factory()->create();
+    $this->createTenantBusiness($tenant, [], 1);
+
+    $page = $this->createTenantPage($tenant, [
+        ['type' => 'hero', 'data' => ['variant' => 'full-viewport-quiet', 'heading' => 'Hi']],
+        ['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Also hi']],
+    ]);
+    $this->runInTenant($tenant, fn () => Page::query()->whereKey($page->getKey())->update(['status' => PageStatus::Draft]));
+
+    populateDraftImagesFor($tenant, $provider);
+
+    $blocks = Page::query()->findOrFail($page->getKey())->blocks;
+
+    expect($blocks[0]['data'])->not->toHaveKey('image_id')
+        // …and the variant next to it, which does want one, still gets it: this
+        // is a per-variant rule, not a hero-wide retreat.
+        ->and($blocks[1]['data']['image_id'])->toBeInt();
+});
+
 it('fills a slot from the shared library without touching the provider', function (): void {
     // The payoff of the catalogue: once a photo is in it, the next site to want
     // that subject costs zero requests and zero downloads.

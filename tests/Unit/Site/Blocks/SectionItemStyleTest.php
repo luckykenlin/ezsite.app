@@ -41,3 +41,14 @@ it('paints nothing for plain and a thin border for outline', function (): void {
     expect(SectionItemStyle::Plain->classes(SectionTone::Base))->toBeEmpty()
         ->and(SectionItemStyle::Outline->classes(SectionTone::Base))->toBe('card border border-base-300');
 });
+
+/*
+ * The distinction a view gets wrong if it reaches for `isCard()`: `outline` has
+ * card anatomy and NO fill, so anything inside it still sits on the section's
+ * band. Asserted against `classes()` rather than restated, so the two can only
+ * disagree by someone giving outline a background and not saying so here.
+ */
+it('counts only a filled card as painting a surface of its own', function (SectionItemStyle $style): void {
+    expect($style->paintsSurface())->toBe($style === SectionItemStyle::Card)
+        ->and($style->paintsSurface())->toBe(str_contains($style->classes(SectionTone::Base), 'bg-'));
+})->with(SectionItemStyle::cases());

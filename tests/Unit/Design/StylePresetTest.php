@@ -64,7 +64,7 @@ it('only defaults block variants that exist in the vocabulary', function (StyleP
  * The other direction, and the one that was missing.
  *
  * The assertion above only checks the entries that EXIST are valid, so adding a
- * block type with variants and forgetting to give the six presets a default was
+ * block type with variants and forgetting to give every preset a default was
  * silent: `StampPresetDefaults::variantFor()` falls back to the first declared
  * variant, so every preset would quietly lay the new section out identically and
  * "make it more premium" would leave it untouched. Nothing failed, the site just
@@ -132,7 +132,7 @@ it('never gives a hero or a bare heading an appearance', function (StylePreset $
 })->with(StylePreset::cases());
 
 /*
- * The point of the whole feature: six presets that read as six websites. If
+ * The point of the whole feature: presets that read as different websites. If
  * every preset shipped the same appearances, tokens and variants would be doing
  * all the work again and "make it more premium" would keep producing the same
  * flat stack of bands in a different hue.

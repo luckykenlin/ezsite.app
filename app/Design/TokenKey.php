@@ -41,6 +41,7 @@ enum TokenKey: string
     case Density = 'density';
     case Divider = 'divider';
     case Accent = 'accent';
+    case Motion = 'motion';
 
     /**
      * @return list<string>
@@ -65,6 +66,7 @@ enum TokenKey: string
             self::Density => SpacingDensity::class,
             self::Divider => SectionDivider::class,
             self::Accent => AccentStyle::class,
+            self::Motion => MotionStyle::class,
         };
     }
 
@@ -83,6 +85,7 @@ enum TokenKey: string
             self::Density => 'Spacing density',
             self::Divider => 'Section dividers',
             self::Accent => 'Accent surface',
+            self::Motion => 'Motion',
         };
     }
 
@@ -106,6 +109,7 @@ enum TokenKey: string
             self::Density => $tokens->density->value,
             self::Divider => $tokens->divider->value,
             self::Accent => $tokens->accent->value,
+            self::Motion => $tokens->motion->value,
         };
     }
 

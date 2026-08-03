@@ -22,6 +22,7 @@ final readonly class DesignTokens
         public TypeStyle $typeStyle = TypeStyle::Classic,
         public SectionDivider $divider = SectionDivider::None,
         public AccentStyle $accent = AccentStyle::Flat,
+        public MotionStyle $motion = MotionStyle::Still,
     ) {
         //
     }
@@ -37,6 +38,7 @@ final readonly class DesignTokens
             typeStyle: TypeStyle::Classic,
             divider: SectionDivider::None,
             accent: AccentStyle::Flat,
+            motion: MotionStyle::Still,
         );
     }
 
@@ -54,11 +56,12 @@ final readonly class DesignTokens
             typeStyle: (is_string($data['type_style'] ?? null) ? TypeStyle::tryFrom($data['type_style']) : null) ?? TypeStyle::Classic,
             divider: (is_string($data['divider'] ?? null) ? SectionDivider::tryFrom($data['divider']) : null) ?? SectionDivider::None,
             accent: (is_string($data['accent'] ?? null) ? AccentStyle::tryFrom($data['accent']) : null) ?? AccentStyle::Flat,
+            motion: (is_string($data['motion'] ?? null) ? MotionStyle::tryFrom($data['motion']) : null) ?? MotionStyle::Still,
         );
     }
 
     /**
-     * @return array{preset: string|null, palette: string, font_pair: string, type_style: string, radius: string, density: string, divider: string, accent: string}
+     * @return array{preset: string|null, palette: string, font_pair: string, type_style: string, radius: string, density: string, divider: string, accent: string, motion: string}
      */
     public function toArray(): array
     {
@@ -71,6 +74,7 @@ final readonly class DesignTokens
             'density' => $this->density->value,
             'divider' => $this->divider->value,
             'accent' => $this->accent->value,
+            'motion' => $this->motion->value,
         ];
     }
 
@@ -109,6 +113,7 @@ final readonly class DesignTokens
         ?TypeStyle $typeStyle = null,
         ?SectionDivider $divider = null,
         ?AccentStyle $accent = null,
+        ?MotionStyle $motion = null,
     ): self {
         return new self(
             preset: null,
@@ -119,6 +124,7 @@ final readonly class DesignTokens
             typeStyle: $typeStyle ?? $this->typeStyle,
             divider: $divider ?? $this->divider,
             accent: $accent ?? $this->accent,
+            motion: $motion ?? $this->motion,
         );
     }
 }

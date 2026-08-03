@@ -91,11 +91,22 @@ final readonly class TemplateGallery
      * row, so the gallery renders with no database round trip per card — and
      * still renders before `demo:seed` has ever run, which is what a fresh
      * clone looks like.
+     *
+     * The SCHEME is the one part that cannot come from the app URL alone. The
+     * detail page embeds this in an `<iframe>`, and a browser silently blocks an
+     * insecure frame inside a secure page — so an installation served over HTTPS
+     * with an `http://` APP_URL (every Herd/Valet machine in this project, and
+     * any deployment behind a TLS proxy that forgot the env) shows a blank panel
+     * where the demo should be, with nothing wrong in the markup for a request
+     * test to catch. Either source saying "secure" wins, which cannot downgrade
+     * an HTTPS deployment when this is called with no real request (a console
+     * command, a queued job) the way reading the request alone would.
      */
     public function demoUrl(SiteTemplate $template): string
     {
         $appUrl = uri(Config::string('app.url'));
+        $secure = request()->isSecure() || $appUrl->scheme() === 'https';
 
-        return sprintf('%s://%s.%s/', $appUrl->scheme() ?? 'http', $template->demoSubdomain(), $appUrl->host());
+        return sprintf('%s://%s.%s/', $secure ? 'https' : 'http', $template->demoSubdomain(), $appUrl->host());
     }
 }

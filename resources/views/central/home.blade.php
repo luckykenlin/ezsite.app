@@ -81,7 +81,7 @@
 
             <ol class="mt-12 grid gap-8 sm:grid-cols-3">
                 @foreach ([
-                    ['Pick a template', 'Eight trades, each one a finished site rather than a wireframe. Open the live demo before you decide.'],
+                    ['Pick a template', \App\Templates\SiteTemplate::libraryCount().' trades, each one a finished site rather than a wireframe. Open the live demo before you decide.'],
                     ['Answer a few questions', 'Your name, your address, a handful of things you sell. Skip any of it and the example copy stays.'],
                     ['Go live', 'Your site is up on yourname.'.$host.' straight away, with the editor open on the home page.'],
                 ] as $index => [$title, $body])

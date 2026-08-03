@@ -73,6 +73,30 @@ it('renders no highlight at all when no plan claims one', function (): void {
         ->and(mb_substr_count($response->getContent(), 'btn-outline'))->toBe(0);
 });
 
+/*
+ * The featured plan's is the only filled button here, so it has to contrast with
+ * whatever is really behind it — and that is the CARD only while the items paint
+ * one. An outlined plan lets the band through, so on a brand-coloured band a
+ * brand-coloured button had nothing to stand out against.
+ */
+it('fills the recommended plan against the surface actually behind it', function (array $appearance, string $expected, string $forbidden): void {
+    renderPricing([
+        'appearance' => $appearance,
+        'plans' => [['name' => 'Studio', 'is_featured' => true, 'cta_label' => 'Start', 'cta_url' => '/contact']],
+    ])
+        ->assertSeeHtml($expected)
+        ->assertDontSeeHtml($forbidden);
+})->with([
+    // A filled card on the brand band is light (SectionTone::itemSurface()), so
+    // the brand-coloured button is right inside it.
+    'card on a brand band' => [['tone' => 'accent', 'item_style' => 'card'], 'btn btn-primary', 'bg-primary-content'],
+    // Take the fill away and the same button is standing on the brand band.
+    'outlined on a brand band' => [['tone' => 'accent', 'item_style' => 'outline'], 'bg-primary-content', 'btn btn-primary'],
+    'plain on a brand band' => [['tone' => 'accent', 'item_style' => 'plain'], 'bg-primary-content', 'btn btn-primary'],
+    // Nothing coloured to clash with: unchanged.
+    'outlined on the page background' => [['tone' => 'base', 'item_style' => 'outline'], 'btn btn-primary', 'bg-primary-content'],
+]);
+
 it('caps the column count so a fourth plan does not become a sliver', function (): void {
     $plans = array_map(static fn (int $i): array => ['name' => 'Plan '.$i], range(1, 4));
 

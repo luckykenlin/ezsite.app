@@ -175,6 +175,26 @@ final readonly class SectionLayout
     }
 
     /**
+     * The classes this section's primary call-to-action carries, chosen against
+     * the band it sits on ({@see SectionTone::buttonClasses()}).
+     *
+     * A view uses this for a button standing directly on the section. A button
+     * inside a filled item keeps `btn btn-primary`: the card, not the band, is
+     * what it has to contrast with, and {@see SectionTone::itemSurface()} has
+     * already guaranteed that surface is light.
+     */
+    public function button(): string
+    {
+        $tone = $this->axis(LayoutAxis::Tone);
+
+        // Narrowed on one line, like the accessors above: every page block
+        // declares a tone (and `axis()` throws for one that does not), so the
+        // fallback is here for the type checker rather than for a caller — and
+        // written this way it cannot show up as an uncovered line.
+        return ($tone instanceof SectionTone ? $tone : SectionTone::Base)->buttonClasses();
+    }
+
+    /**
      * Whether items render card anatomy (`card-body` wrappers) — views key
      * their inner structure on this rather than re-deriving it from classes.
      */
@@ -183,6 +203,18 @@ final readonly class SectionLayout
         $style = $this->axis(LayoutAxis::ItemStyle);
 
         return $style instanceof SectionItemStyle && $style->isCard();
+    }
+
+    /**
+     * Whether this section's items sit on a surface of their own — what a view
+     * asks before deciding that something INSIDE an item contrasts with the item
+     * rather than with the band ({@see SectionItemStyle::paintsSurface()}).
+     */
+    public function itemPaintsSurface(): bool
+    {
+        $style = $this->axis(LayoutAxis::ItemStyle);
+
+        return $style instanceof SectionItemStyle && $style->paintsSurface();
     }
 
     public function image(): string

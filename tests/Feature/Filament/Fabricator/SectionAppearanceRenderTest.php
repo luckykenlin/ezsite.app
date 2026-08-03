@@ -50,7 +50,12 @@ it('keeps every block view on the background and spacing it declared before the 
     // Both halves matter: the tone lands on the section element, the spacing on
     // the shell's inner wrapper. A view that passed its padding on as a tone
     // (or forgot it) would still render — just differently.
-    $response->assertSeeHtml($tone)->assertSeeHtml('<div class="'.$spacing.'">');
+    //
+    // The reveal marker rides on that same wrapper, so it is pinned here too:
+    // it is what App\Design\MotionStyle animates, and a wrapper that lost it
+    // would leave the motion token with nothing to act on and no failure
+    // anywhere. Inert until a site chooses a motion style.
+    $response->assertSeeHtml($tone)->assertSeeHtml('<div data-animate class="'.$spacing.'">');
 })->with([
     // The plain white majority, kept honest by naming each one: these are the
     // views whose defaults are the least interesting and the easiest to break
@@ -199,7 +204,7 @@ it('lets a stored appearance override the view defaults', function (): void {
         // `bg-base-100 text-base-content`, so a bare assertDontSee for the
         // default would fail on chrome that has nothing to do with this block.
         ->assertSeeHtml('<section class="bg-neutral text-neutral-content">')
-        ->assertSeeHtml('<div class="py-32 md:py-48">');
+        ->assertSeeHtml('<div data-animate class="py-32 md:py-48">');
 });
 
 it('overrides one dimension without disturbing the other', function (): void {
@@ -210,7 +215,7 @@ it('overrides one dimension without disturbing the other', function (): void {
         // The view's own shaded default survives an appearance that says nothing
         // about the background.
         ->assertSeeHtml('bg-base-200 text-base-content')
-        ->assertSeeHtml('<div class="py-8 md:py-12">');
+        ->assertSeeHtml('<div data-animate class="py-8 md:py-12">');
 });
 
 it('degrades to the view defaults on a malformed stored appearance rather than failing the page', function (): void {
@@ -225,7 +230,7 @@ it('degrades to the view defaults on a malformed stored appearance rather than f
         ],
     ])
         ->assertSeeHtml('bg-base-100 text-base-content')
-        ->assertSeeHtml('<div class="py-20 md:py-28">')
+        ->assertSeeHtml('<div data-animate class="py-20 md:py-28">')
         ->assertSee('Why us');
 });
 
@@ -245,6 +250,41 @@ it('never leaks the appearance value into the markup as an attribute', function 
         ->assertDontSeeHtml('appearance=')
         ->assertSee('We have been here a while.');
 });
+
+/*
+ * The one view that opts out of the shell's reveal, and the reason the `animate`
+ * prop exists at all: it stages its own children with a CSS animation instead,
+ * and a wrapper revealing at the same time would double every child's travel.
+ * Both halves are asserted together because either alone is satisfiable by a
+ * mistake — a view that opted out and staged nothing would simply never move.
+ */
+it('lets a view stage its own children instead of revealing as one block', function (): void {
+    renderBlock([
+        'type' => 'hero',
+        'data' => ['variant' => 'full-viewport-quiet', 'heading' => 'Hello', 'subheading' => 'A quiet line'],
+    ])
+        ->assertDontSeeHtml('<div data-animate class="py-32 md:py-48">')
+        ->assertSeeHtml('site-stage');
+});
+
+/*
+ * The height concession this variant makes for a photograph. A full-height
+ * opening with an image parked below the fold reads as an accident, so the
+ * viewport-filling height is what gives way — and the scroll cue goes with it,
+ * since there is now something visibly below to scroll to.
+ */
+it('drops the viewport-filling height from the quiet hero when it carries a photograph', function (array $data, bool $fillsViewport): void {
+    // Each case needs its own tenant, so they are a dataset rather than two
+    // renders in one test — a domain can only be occupied once per test.
+    $response = renderBlocks([['type' => 'hero', 'data' => $data]], 'acme');
+
+    $fillsViewport
+        ? $response->assertSeeHtml('min-h-[85svh]')->assertSeeHtml('site-scroll-cue')
+        : $response->assertDontSeeHtml('min-h-[85svh]')->assertDontSeeHtml('site-scroll-cue')->assertSeeHtml('room.jpg');
+})->with([
+    'type only' => [['variant' => 'full-viewport-quiet', 'heading' => 'Hello'], true],
+    'with a photograph' => [['variant' => 'full-viewport-quiet', 'heading' => 'Hello', 'image_url' => 'https://example.test/room.jpg'], false],
+]);
 
 /*
  * End to end, and the actual point of preset appearances: everything upstream is
@@ -268,13 +308,13 @@ it('renders a preset section rhythm end to end', function (StylePreset $preset, 
     // compact throughout.
     'bold-editorial goes dark and tight' => [
         StylePreset::BoldEditorial,
-        '<div class="py-16 md:py-20">',
-        '<div class="py-24 md:py-32">',
+        '<div data-animate class="py-16 md:py-20">',
+        '<div data-animate class="py-24 md:py-32">',
     ],
     // Coastal never goes dark and gives everything room.
     'calm-coastal stays light and airy' => [
         StylePreset::CalmCoastal,
-        '<div class="py-24 md:py-32">',
+        '<div data-animate class="py-24 md:py-32">',
         'bg-neutral text-neutral-content',
     ],
 ]);

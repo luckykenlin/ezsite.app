@@ -44,12 +44,23 @@
             <h2 data-editor-field="heading" @class(['site-h2', 'text-center' => $card && $centered])>{{ $heading }}</h2>
 
             @if ($body)
-                <p data-editor-field="body" @class(['site-intro max-w-2xl', 'mt-4' => ! $card, 'text-base-content/70' => $card, 'text-primary-content/80' => ! $card])>{{ $body }}</p>
+                {{-- `site-dim` rather than one literal per item style: the two
+                     branches this used to have were really one guess about the
+                     TONE — a card sits on the page, so base-content; a bare
+                     banner sits on the accent surface, so primary-content. The
+                     guess breaks the moment a preset moves the banner off accent
+                     (white text on a pale band, invisible). Dimming currentColor
+                     is right on every tone and identical on the two it covered. --}}
+                <p data-editor-field="body" @class(['site-intro site-dim max-w-2xl', 'mt-4' => ! $card])>{{ $body }}</p>
             @endif
 
             <div @class(['flex flex-wrap items-center gap-4', 'mt-8' => ! $card, 'mt-4' => $card, 'justify-center' => $centered])>
                 @if ($cta_label && $cta_url)
-                    <a href="{{ $cta_url }}" @class(['btn', 'btn-primary' => $card, 'btn-neutral' => ! $card])>{{ $cta_label }}</a>
+                    {{-- On a card the button contrasts with the CARD (always a
+                         light surface, see SectionTone::itemSurface()), so it
+                         stays the brand colour. Standing on the band it has to
+                         contrast with the band, which is the tone's call. --}}
+                    <a href="{{ $cta_url }}" class="{{ $card ? 'btn btn-primary' : $layout->button() }}">{{ $cta_label }}</a>
                 @endif
                 @if ($secondary_label && $secondary_url)
                     <a href="{{ $secondary_url }}" class="site-link-cta">{{ $secondary_label }}</a>

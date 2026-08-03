@@ -41,7 +41,7 @@
 
         <div @class(['mt-10 flex flex-wrap items-center gap-4', 'justify-center' => $centered])>
             @if ($cta_label && $cta_url)
-                <a href="{{ $cta_url }}" class="btn btn-primary">{{ $cta_label }}</a>
+                <a href="{{ $cta_url }}" class="{{ $layout->button() }}">{{ $cta_label }}</a>
             @endif
             @if ($secondary_label && $secondary_url)
                 <a href="{{ $secondary_url }}" class="site-link-cta">{{ $secondary_label }}</a>

@@ -70,6 +70,12 @@ export default defineConfig({
                 bunny('Playfair Display', {
                     weights: [500, 600, 700, 800],
                 }),
+                // The one face bundled below 500: TypeStyle::Serene sets its
+                // display at 300, and a garamond snapped up to 500 is not a
+                // softer version of that look but a different one.
+                bunny('Cormorant Garamond', {
+                    weights: [300, 400, 500, 600, 700],
+                }),
                 bunny('Source Sans 3', {
                     weights: [400, 600],
                 }),

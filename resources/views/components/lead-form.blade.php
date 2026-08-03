@@ -29,6 +29,7 @@
     'source' => LeadSource::ContactForm,
     'fields' => LeadFieldSet::Full,
     'buttonLabel' => null,
+    'buttonClass' => 'btn btn-primary',
     'finePrint' => null,
 ])
 @php
@@ -97,7 +98,13 @@
             <x-lead-form-field :bag="$bag" field="message" :label="__('How can we help?')" :textarea="true" maxlength="2000" />
         @endif
 
-        <button type="submit" class="btn btn-primary">
+        {{-- The submit button's colours come from whoever placed the form:
+             `btn-primary` is invisible on a section whose background IS the
+             primary colour, which is every signup block's own tone default
+             (see App\Site\Blocks\SectionTone::buttonClasses()). The default here
+             is for a caller with no section tone to ask — the offer popup, which
+             paints its own dialog surface. --}}
+        <button type="submit" class="{{ $buttonClass }}">
             {{ $buttonLabel ?: __('Send message') }}
         </button>
 

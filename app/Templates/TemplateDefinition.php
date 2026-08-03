@@ -8,6 +8,7 @@ use App\Design\AccentStyle;
 use App\Design\ColorPalette;
 use App\Design\DesignTokens;
 use App\Design\FontPair;
+use App\Design\MotionStyle;
 use App\Design\RadiusScale;
 use App\Design\SectionDivider;
 use App\Design\SpacingDensity;
@@ -29,7 +30,7 @@ use Spatie\OpeningHours\OpeningHours;
  * flat `variant`/`tone`/`spacing` siblings of `type`/`data`, an unprefixed
  * `image_query` inside `data`, and the same closed slug menu. A template that
  * drifts from what the model is allowed to produce is a template that renders
- * through a path nothing else uses — `SiteTemplateTest` runs all eight through
+ * through a path nothing else uses — `SiteTemplateTest` runs every one of them through
  * the validator and fails on a single dropped block.
  */
 final readonly class TemplateDefinition
@@ -60,6 +61,7 @@ final readonly class TemplateDefinition
         public ?TypeStyle $typeStyle = null,
         public ?SectionDivider $divider = null,
         public ?AccentStyle $accent = null,
+        public ?MotionStyle $motion = null,
     ) {
         //
     }
@@ -90,6 +92,7 @@ final readonly class TemplateDefinition
             typeStyle: $this->typeStyle ?? $base->typeStyle,
             divider: $this->divider ?? $base->divider,
             accent: $this->accent ?? $base->accent,
+            motion: $this->motion ?? $base->motion,
         );
     }
 
