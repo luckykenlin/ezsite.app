@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use Awcodes\Curator\Http\Controllers\MediaController;
+use Illuminate\Console\Application as ConsoleApplication;
 use Illuminate\Contracts\Http\Kernel;
+use Illuminate\Database\Console\Seeds\SeedCommand;
 use Illuminate\Database\Events\MigrationsEnded;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Config;
@@ -130,6 +132,7 @@ final class TenancyServiceProvider extends ServiceProvider
         $this->bootEvents();
         $this->mapRoutes();
         $this->syncRlsPoliciesAfterMigrations();
+        $this->reclaimDbSeedCommand();
 
         $this->makeTenancyMiddlewareHighestPriority();
         $this->tenantizeCuratorRoute();
@@ -201,6 +204,30 @@ final class TenancyServiceProvider extends ServiceProvider
             }
 
             Artisan::call('tenants:rls');
+        });
+    }
+
+    /**
+     * `Stancl\Tenancy\Commands\Seed` sets `protected $name = 'tenants:seed'`
+     * but extends Laravel's `SeedCommand`, which since laravel/framework
+     * v13.24.0 declares a `$signature` instead of a `$name`. A signature wins
+     * over `$name` in `Command::__construct()`, so the tenancy command now
+     * registers itself as **`db:seed`** — and, because a signature also skips
+     * `specifyParameters()`, without the `--tenants` option its own
+     * `handle()` reads, so plain `db:seed` dies on "The 'tenants' option does
+     * not exist".
+     *
+     * Package providers register before app providers, so re-adding Laravel's
+     * command here (eagerly — a lazily resolved `db:seed` would lose to the
+     * already-instantiated tenancy one) puts `db:seed` back. `tenants:seed`
+     * stays gone, which costs this app nothing: tenants share one database,
+     * so there is no per-tenant seeding to run. Drop this once upstream
+     * tenancy renames its command properly.
+     */
+    private function reclaimDbSeedCommand(): void
+    {
+        ConsoleApplication::starting(function (ConsoleApplication $artisan): void {
+            $artisan->addCommand($this->app->make(SeedCommand::class));
         });
     }
 

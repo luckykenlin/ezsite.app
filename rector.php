@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use Rector\Caching\ValueObject\Storage\FileCacheStorage;
 use Rector\CodingStyle\Rector\ClassMethod\MakeInheritedMethodVisibilitySameAsParentRector;
-use Rector\CodingStyle\Rector\Encapsed\EncapsedStringsToSprintfRector;
 use Rector\Config\RectorConfig;
 use Rector\DeadCode\Rector\MethodCall\RemoveNullArgOnNullDefaultParamRector;
 use Rector\EarlyReturn\Rector\If_\ChangeOrIfContinueToMultiContinueRector;
@@ -61,14 +60,10 @@ return RectorConfig::configure()
         MakeInheritedMethodVisibilitySameAsParentRector::class,
         AddOverrideAttributeToOverriddenPropertiesRector::class,
 
-        // The three below are rules this codebase has DECIDED AGAINST, written
+        // The two below are rules this codebase has DECIDED AGAINST, written
         // down here so the decision is enforced instead of re-argued every time
         // the gate goes red.
         //
-        // Interpolation is the house style for building a message out of a value
-        // — it reads left-to-right, and `sprintf` splits the sentence from the
-        // values that fill it. There is no correctness argument either way.
-        EncapsedStringsToSprintfRector::class,
         // Turns one three-condition guard into three `if (…) { continue; }`
         // blocks — 3 lines into 9, for the same branch — and eats the blank line
         // Pint then wants back. A compound guard is one idea; splitting it
