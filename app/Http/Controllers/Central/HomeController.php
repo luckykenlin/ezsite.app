@@ -26,9 +26,9 @@ final class HomeController extends Controller
      * the library happens to open with three warm restaurants.
      */
     private const array FANNED = [
-        SiteTemplate::DesignerPortfolio,
+        SiteTemplate::HairStudio,
         SiteTemplate::ChineseRestaurant,
-        SiteTemplate::MassageSpa,
+        SiteTemplate::BubbleTea,
     ];
 
     public function __invoke(): View

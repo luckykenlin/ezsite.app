@@ -8,9 +8,8 @@
     believed.
 --}}
 @use('App\Design\StylePreset')
+
 @php
-    // The real host, not a hard-coded one: the wizard shows this same suffix
-    // beside the address field, and the two must agree on every environment.
     $host = parse_url(config('app.url'), PHP_URL_HOST);
 
     $seo = new \RalphJSmit\Laravel\SEO\Support\SEOData(
@@ -21,6 +20,7 @@
         site_name: config('app.name'),
     );
 @endphp
+
 <x-central.layout :seo="$seo">
     <x-site.section tone="base" spacing="tall">
         <div class="mx-auto grid max-w-7xl items-center gap-12 px-6 lg:grid-cols-2">
@@ -34,8 +34,10 @@
                 </p>
 
                 <div class="flex flex-wrap items-center gap-4">
-                    <a href="{{ route('central.templates.index') }}" class="btn btn-primary btn-lg">Browse the templates</a>
-                    <a href="{{ route('central.templates.show', \App\Templates\SiteTemplate::ChineseRestaurant) }}" class="site-link-cta">
+                    <a href="{{ route('central.templates.index') }}" class="btn btn-primary btn-lg">Browse the
+                        templates</a>
+                    <a href="{{ route('central.templates.show', \App\Templates\SiteTemplate::ChineseRestaurant) }}"
+                       class="site-link-cta">
                         See a finished example
                     </a>
                 </div>
@@ -100,12 +102,13 @@
             <div class="mx-auto flex max-w-3xl flex-col items-center gap-3 text-center">
                 <p class="site-eyebrow text-primary">Templates</p>
                 <h2 class="site-h2 font-heading">Start from a site that already knows your trade</h2>
-                <p class="site-intro opacity-80">Every one is a real, published site you can open right now — not a screenshot of an idea.</p>
+                <p class="site-intro opacity-80">Every one is a real, published site you can open right now — not a
+                    screenshot of an idea.</p>
             </div>
 
             <div class="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
                 @foreach ($templates as $template)
-                    <x-central.template-card :template="$template" />
+                    <x-central.template-card :template="$template"/>
                 @endforeach
             </div>
         </div>
@@ -116,7 +119,8 @@
             <div class="mx-auto flex max-w-3xl flex-col items-center gap-3 text-center">
                 <p class="site-eyebrow text-primary">One design system</p>
                 <h2 class="site-h2 font-heading">Seven looks, and no way to make an ugly one</h2>
-                <p class="site-intro opacity-80">You never pick a font size or a hex code. You pick a look, and every section on every page follows it — headings, spacing, corners, the lot.</p>
+                <p class="site-intro opacity-80">You never pick a font size or a hex code. You pick a look, and every
+                    section on every page follows it — headings, spacing, corners, the lot.</p>
             </div>
 
             <div class="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
@@ -125,7 +129,8 @@
                     <div class="site-card overflow-hidden rounded-box bg-base-100">
                         <div class="flex h-24">
                             @foreach (['primary', 'secondary', 'accent', 'neutral'] as $slot)
-                                <div class="flex-1" style="background: {{ $tokens->palette->colors()['--color-'.$slot] ?? 'transparent' }}"></div>
+                                <div class="flex-1"
+                                     style="background: {{ $tokens->palette->colors()['--color-'.$slot] ?? 'transparent' }}"></div>
                             @endforeach
                         </div>
                         <div class="flex flex-col gap-1 p-5">

@@ -41,8 +41,6 @@
     @endif
 
     <x-site.head-assets :tokens="$tokens" />
-
-    @livewireStyles
 </head>
 
 <body class="min-h-dvh bg-base-100 text-base-content antialiased">
@@ -67,8 +65,6 @@
             <a href="{{ route('central.templates.index') }}" class="site-link-cta">Browse the templates</a>
         </div>
     </footer>
-
-    @livewireScripts
 </body>
 
 </html>
