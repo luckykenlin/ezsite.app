@@ -74,12 +74,12 @@ final readonly class PizzaShop
     private static function extraFields(): array
     {
         return [
-            new TemplateField('pizza_one', 'The pizza you are known for', 'The Margherita', help: 'It leads the menu section, so pick the one you would want a first-timer to order.'),
-            new TemplateField('pizza_one_price', 'Its price', '$16'),
-            new TemplateField('pizza_two', 'A second pizza', 'Hot Soppressata & Honey'),
-            new TemplateField('pizza_two_price', 'Its price', '$19'),
-            new TemplateField('pizza_three', 'One more', 'Mushroom, Taleggio & Thyme'),
-            new TemplateField('pizza_three_price', 'Its price', '$18'),
+            new TemplateField('pizza_one', 'The Margherita'),
+            new TemplateField('pizza_one_price', '$16'),
+            new TemplateField('pizza_two', 'Hot Soppressata & Honey'),
+            new TemplateField('pizza_two_price', '$19'),
+            new TemplateField('pizza_three', 'Mushroom, Taleggio & Thyme'),
+            new TemplateField('pizza_three_price', '$18'),
         ];
     }
 

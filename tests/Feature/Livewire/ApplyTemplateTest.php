@@ -7,6 +7,7 @@ use App\Models\Page;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Templates\SiteTemplate;
+use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Queue;
 use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
@@ -217,4 +218,32 @@ it('says nothing about an address that has been cleared', function (): void {
         ->set('subdomain', '')
         ->assertHasNoErrors('subdomain')
         ->assertSet('subdomainSuggestion', null);
+});
+
+it('keeps every link in the wizard in the language it was opened in', function (): void {
+    // The regression this exists for: /livewire/update is a route of its own —
+    // universal, shared with the tenant panels — so the central SetLocale
+    // middleware never runs on it and URL::defaults falls back to the
+    // application-wide default. This view calls route('central.templates.show')
+    // on EVERY re-render, so without ApplyTemplate::booted() an English
+    // visitor's back-link turns Chinese on their first keystroke.
+    App::setLocale('en');
+
+    wizard(SiteTemplate::PizzaShop)
+        ->assertSet('locale', 'en')
+        // A round trip: the update request is where the locale is lost.
+        ->set('businessName', 'Alley Slice')
+        ->assertSee(route('central.templates.show', ['locale' => 'en', 'template' => SiteTemplate::PizzaShop]))
+        ->assertDontSee(route('central.templates.show', ['locale' => 'zh', 'template' => SiteTemplate::PizzaShop]));
+});
+
+it('stays in Chinese across a round trip', function (): void {
+    App::setLocale('zh');
+
+    wizard(SiteTemplate::PizzaShop)
+        ->assertSet('locale', 'zh')
+        ->set('businessName', '巷口披萨')
+        ->assertSee(trans('marketing.wizard.business_name', locale: 'zh'))
+        ->assertSee(route('central.templates.show', ['locale' => 'zh', 'template' => SiteTemplate::PizzaShop]))
+        ->assertDontSee('What is the business called?');
 });

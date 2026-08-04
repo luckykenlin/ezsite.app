@@ -71,12 +71,12 @@ final readonly class BubbleTea
     private static function extraFields(): array
     {
         return [
-            new TemplateField('drink_one', 'Your signature drink', 'Brown Sugar Boba Milk', help: 'The one you would put in the window. It leads the menu.'),
-            new TemplateField('drink_one_price', 'Its price', '$6.75'),
-            new TemplateField('drink_two', 'A second favourite', 'Jasmine Milk Tea'),
-            new TemplateField('drink_two_price', 'Its price', '$5.50'),
-            new TemplateField('seasonal_drink', 'What is on special right now', 'Yuzu Green Tea with Lychee Pearls'),
-            new TemplateField('seasonal_drink_price', 'Its price', '$7.25'),
+            new TemplateField('drink_one', 'Brown Sugar Boba Milk'),
+            new TemplateField('drink_one_price', '$6.75'),
+            new TemplateField('drink_two', 'Jasmine Milk Tea'),
+            new TemplateField('drink_two_price', '$5.50'),
+            new TemplateField('seasonal_drink', 'Yuzu Green Tea with Lychee Pearls'),
+            new TemplateField('seasonal_drink_price', '$7.25'),
         ];
     }
 

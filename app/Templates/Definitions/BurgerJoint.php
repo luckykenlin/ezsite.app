@@ -68,12 +68,12 @@ final readonly class BurgerJoint
     private static function extraFields(): array
     {
         return [
-            new TemplateField('burger_one', 'Your house burger', 'The Alley Double', help: 'The one people say the name of when they walk in.'),
-            new TemplateField('burger_one_price', 'Its price', '$12'),
-            new TemplateField('burger_two', 'A second burger', 'Smoked Bacon Smash'),
-            new TemplateField('burger_two_price', 'Its price', '$14'),
-            new TemplateField('burger_three', 'One more', 'The Green Chile Melt'),
-            new TemplateField('burger_three_price', 'Its price', '$13'),
+            new TemplateField('burger_one', 'The Alley Double'),
+            new TemplateField('burger_one_price', '$12'),
+            new TemplateField('burger_two', 'Smoked Bacon Smash'),
+            new TemplateField('burger_two_price', '$14'),
+            new TemplateField('burger_three', 'The Green Chile Melt'),
+            new TemplateField('burger_three_price', '$13'),
         ];
     }
 

@@ -16,14 +16,19 @@ namespace App\Templates;
  * the wizard's "skip — use example content" path and the demo site both fall
  * back to it, so a field with no example would leave a literal `{dish_one}`
  * on a live page.
+ *
+ * The question and its hint are NOT here. They are marketing copy in two
+ * languages and live in `lang/{locale}/marketing.php`, reached through
+ * {@see SiteTemplate::fieldLabel()} — a field alone cannot resolve them,
+ * because the same key asks a different question in a different template.
+ * {@see $example} stays a literal: it is seeded into a tenant's pages as
+ * content, not shown as chrome.
  */
 final readonly class TemplateField
 {
     public function __construct(
         public string $key,
-        public string $label,
         public string $example,
-        public ?string $help = null,
         public bool $multiline = false,
     ) {
         //

@@ -146,8 +146,22 @@ it('pre-warms the library with photo searches, and asks a short answerable set o
     foreach ($definition->extraFields as $field) {
         // The example IS the skip-path content, so an empty one would leave a
         // literal placeholder on a published page.
+        //
+        // The question itself is translated, so it is asked of the template
+        // rather than the field: a field only knows its key, and `service_one`
+        // asks something different in the hair studio than in the nail salon. A
+        // missing key would render as the key path, not as nothing.
+        $help = $template->fieldHelp($field);
+
         expect($field->example)->not->toBeEmpty()
-            ->and($field->label)->not->toBeEmpty();
+            ->and($template->fieldLabel($field))->not->toBeEmpty()
+            ->and($template->fieldLabel($field))->not->toStartWith('marketing.');
+
+        // Most questions carry no hint, and the ones that do must not be
+        // resolving to their own key path either.
+        if ($help !== null) {
+            expect($help)->not->toBeEmpty()->and($help)->not->toStartWith('marketing.');
+        }
     }
 })->with('templates');
 

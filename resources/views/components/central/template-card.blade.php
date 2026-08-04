@@ -19,7 +19,7 @@
         @if ($screenshot)
             <img
                 src="{{ $screenshot }}"
-                alt="The {{ $template->label() }} template"
+                alt="{{ __('marketing.card.alt', ['template' => $template->label()]) }}"
                 loading="lazy"
                 class="h-full w-full object-cover object-top transition-transform duration-300 group-hover:scale-[1.02]"
             >
@@ -29,9 +29,9 @@
     </div>
 
     <div class="flex flex-1 flex-col gap-2 p-6">
-        <p class="site-eyebrow text-primary">{{ $definition->preset->label() }}</p>
+        <p class="site-eyebrow text-primary">{{ __('marketing.presets.'.$definition->preset->value.'.label') }}</p>
         <h3 class="site-h4 font-heading">{{ $template->label() }}</h3>
         <p class="flex-1 text-sm opacity-80">{{ $template->description() }}</p>
-        <span class="site-link-cta mt-2 text-sm text-primary">See the template</span>
+        <span class="site-link-cta mt-2 text-sm text-primary">{{ __('marketing.card.cta') }}</span>
     </div>
 </a>

@@ -76,11 +76,11 @@ final readonly class PersonalResume
     private static function extraFields(): array
     {
         return [
-            new TemplateField('current_title', 'Your title right now', 'Staff Engineer, Northwind Data', help: 'One line. It sits directly under your name in the hero.'),
-            new TemplateField('role_one', 'Your current or most recent role', 'Staff Engineer, Northwind Data (2021–now)'),
-            new TemplateField('role_two', 'The one before it', 'Senior Engineer, Cartogram (2017–2021)'),
-            new TemplateField('role_three', 'And the one before that', 'Software Engineer, Bellweather Health (2014–2017)'),
-            new TemplateField('focus', 'The work you want more of', 'Data platforms other teams can build on without asking me first'),
+            new TemplateField('current_title', 'Staff Engineer, Northwind Data'),
+            new TemplateField('role_one', 'Staff Engineer, Northwind Data (2021–now)'),
+            new TemplateField('role_two', 'Senior Engineer, Cartogram (2017–2021)'),
+            new TemplateField('role_three', 'Software Engineer, Bellweather Health (2014–2017)'),
+            new TemplateField('focus', 'Data platforms other teams can build on without asking me first'),
         ];
     }
 

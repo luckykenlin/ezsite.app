@@ -6,6 +6,7 @@ namespace App\Providers;
 
 use App\Actions\BuildOnboardingProgress;
 use App\Actions\StoreCuratorUpload;
+use App\Enums\Locale;
 use App\Filament\Fabricator\BlockRegistry;
 use App\Site\BindResolver;
 use App\Site\Blocks\BlockVocabulary;
@@ -22,6 +23,7 @@ use App\StockPhotos\PexelsProvider;
 use App\StockPhotos\StockPhotoProvider;
 use Awcodes\Curator\Components\Forms\Uploader;
 use Filament\Forms\Components\BaseFileUpload;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 
@@ -78,6 +80,16 @@ final class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // The `{locale}` segment every central marketing route carries, for the
+        // callers that generate one of those URLs WITHOUT going through
+        // SetLocale: the 404 view, robots.txt and sitemap.xml, and anything
+        // queued or run from the console. Without a default, `route('central.*')`
+        // there throws "Missing required parameter".
+        //
+        // SetLocale overwrites this per request, so a visitor reading English is
+        // never handed a Chinese link.
+        URL::defaults(['locale' => Locale::default()->value]);
+
         // Every Curator upload — every block's image picker, the business logo,
         // the SEO share image, the Media resource, bulk upload — is stored
         // through our own handler instead of the package's, which moves the

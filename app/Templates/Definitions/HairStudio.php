@@ -86,12 +86,12 @@ final readonly class HairStudio
     private static function extraFields(): array
     {
         return [
-            new TemplateField('service_one', 'Your most-booked service', 'Cut & Finish'),
-            new TemplateField('service_one_price', 'How long it runs and what it costs', '75 minutes · $110', help: 'Length first, then price — it reads as one line on the menu.'),
-            new TemplateField('service_two', 'A second service', 'Gloss & Tone'),
-            new TemplateField('service_two_price', 'Its length and price', '45 minutes · $75'),
-            new TemplateField('service_three', 'One more', 'Full Highlights'),
-            new TemplateField('service_three_price', 'Its length and price', '3 hours · $265'),
+            new TemplateField('service_one', 'Cut & Finish'),
+            new TemplateField('service_one_price', '75 minutes · $110'),
+            new TemplateField('service_two', 'Gloss & Tone'),
+            new TemplateField('service_two_price', '45 minutes · $75'),
+            new TemplateField('service_three', 'Full Highlights'),
+            new TemplateField('service_three_price', '3 hours · $265'),
         ];
     }
 

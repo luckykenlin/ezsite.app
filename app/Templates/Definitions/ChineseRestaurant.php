@@ -64,12 +64,12 @@ final readonly class ChineseRestaurant
     private static function extraFields(): array
     {
         return [
-            new TemplateField('dish_one', 'Your signature dish', 'Salt & Pepper Prawns'),
-            new TemplateField('dish_one_price', 'Its price', '$24'),
-            new TemplateField('dish_two', 'A second favourite', 'Clay Pot Chicken Rice'),
-            new TemplateField('dish_two_price', 'Its price', '$18'),
-            new TemplateField('dish_three', 'One more', 'Beef Chow Fun'),
-            new TemplateField('dish_three_price', 'Its price', '$17'),
+            new TemplateField('dish_one', 'Salt & Pepper Prawns'),
+            new TemplateField('dish_one_price', '$24'),
+            new TemplateField('dish_two', 'Clay Pot Chicken Rice'),
+            new TemplateField('dish_two_price', '$18'),
+            new TemplateField('dish_three', 'Beef Chow Fun'),
+            new TemplateField('dish_three_price', '$17'),
         ];
     }
 

@@ -11,34 +11,21 @@
 
 @php
     $host = parse_url(config('app.url'), PHP_URL_HOST);
-
-    $seo = new \RalphJSmit\Laravel\SEO\Support\SEOData(
-        title: 'A beautiful website for your business in minutes',
-        description: 'Pick a template built for your trade, answer a few questions, and your site is live on its own address. No page builder, no blank canvas.',
-        url: route('central.home'),
-        enableTitleSuffix: false,
-        site_name: config('app.name'),
-    );
 @endphp
 
 <x-central.layout :seo="$seo">
     <x-site.section tone="base" spacing="tall">
         <div class="mx-auto grid max-w-7xl items-center gap-12 px-6 lg:grid-cols-2">
             <div class="flex flex-col items-start gap-6">
-                <p class="site-eyebrow text-primary">For small businesses</p>
-                <h1 class="site-display-lg font-heading">A beautiful website for your business in minutes</h1>
-                <p class="site-intro max-w-xl opacity-80">
-                    Pick a template built for your trade. Answer a few questions about your business.
-                    Your site is live on its own address, with real photographs and copy already written —
-                    and an editor waiting whenever you want to change a word.
-                </p>
+                <p class="site-eyebrow text-primary">{{ __('marketing.home.hero.eyebrow') }}</p>
+                <h1 class="site-display-lg font-heading">{{ __('marketing.home.hero.title') }}</h1>
+                <p class="site-intro max-w-xl opacity-80">{{ __('marketing.home.hero.intro') }}</p>
 
                 <div class="flex flex-wrap items-center gap-4">
-                    <a href="{{ route('central.templates.index') }}" class="btn btn-primary btn-lg">Browse the
-                        templates</a>
+                    <a href="{{ route('central.templates.index') }}" class="btn btn-primary btn-lg">{{ __('marketing.actions.browse') }}</a>
                     <a href="{{ route('central.templates.show', \App\Templates\SiteTemplate::ChineseRestaurant) }}"
                        class="site-link-cta">
-                        See a finished example
+                        {{ __('marketing.home.hero.example') }}
                     </a>
                 </div>
             </div>
@@ -77,15 +64,18 @@
     <x-site.section tone="muted" spacing="airy">
         <div class="mx-auto max-w-7xl px-6">
             <div class="mx-auto flex max-w-3xl flex-col items-center gap-3 text-center">
-                <p class="site-eyebrow text-primary">How it works</p>
-                <h2 class="site-h2 font-heading">Three steps, and none of them are &quot;drag a box&quot;</h2>
+                <p class="site-eyebrow text-primary">{{ __('marketing.home.how.eyebrow') }}</p>
+                <h2 class="site-h2 font-heading">{{ __('marketing.home.how.title') }}</h2>
             </div>
 
+            {{-- Spelled out rather than looped over a lang array: only two of
+                 the three bodies take a replacement, and `__()` does not
+                 substitute into nested arrays. --}}
             <ol class="mt-12 grid gap-8 sm:grid-cols-3">
                 @foreach ([
-                    ['Pick a template', \App\Templates\SiteTemplate::libraryCount().' trades, each one a finished site rather than a wireframe. Open the live demo before you decide.'],
-                    ['Answer a few questions', 'Your name, your address, a handful of things you sell. Skip any of it and the example copy stays.'],
-                    ['Go live', 'Your site is up on yourname.'.$host.' straight away, with the editor open on the home page.'],
+                    [__('marketing.home.how.steps.pick.title'), __('marketing.home.how.steps.pick.body', ['count' => \App\Templates\SiteTemplate::libraryCount()])],
+                    [__('marketing.home.how.steps.answer.title'), __('marketing.home.how.steps.answer.body')],
+                    [__('marketing.home.how.steps.live.title'), __('marketing.home.how.steps.live.body', ['host' => $host])],
                 ] as $index => [$title, $body])
                     <li class="flex flex-col gap-3">
                         <span class="site-h2 font-heading text-primary/40">0{{ $index + 1 }}</span>
@@ -100,10 +90,9 @@
     <x-site.section tone="base" spacing="airy">
         <div class="mx-auto max-w-7xl px-6">
             <div class="mx-auto flex max-w-3xl flex-col items-center gap-3 text-center">
-                <p class="site-eyebrow text-primary">Templates</p>
-                <h2 class="site-h2 font-heading">Start from a site that already knows your trade</h2>
-                <p class="site-intro opacity-80">Every one is a real, published site you can open right now — not a
-                    screenshot of an idea.</p>
+                <p class="site-eyebrow text-primary">{{ __('marketing.home.templates.eyebrow') }}</p>
+                <h2 class="site-h2 font-heading">{{ __('marketing.home.templates.title') }}</h2>
+                <p class="site-intro opacity-80">{{ __('marketing.home.templates.intro') }}</p>
             </div>
 
             <div class="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
@@ -117,10 +106,9 @@
     <x-site.section tone="muted" spacing="airy">
         <div class="mx-auto max-w-7xl px-6">
             <div class="mx-auto flex max-w-3xl flex-col items-center gap-3 text-center">
-                <p class="site-eyebrow text-primary">One design system</p>
-                <h2 class="site-h2 font-heading">Seven looks, and no way to make an ugly one</h2>
-                <p class="site-intro opacity-80">You never pick a font size or a hex code. You pick a look, and every
-                    section on every page follows it — headings, spacing, corners, the lot.</p>
+                <p class="site-eyebrow text-primary">{{ __('marketing.home.design.eyebrow') }}</p>
+                <h2 class="site-h2 font-heading">{{ __('marketing.home.design.title', ['count' => count(StylePreset::cases())]) }}</h2>
+                <p class="site-intro opacity-80">{{ __('marketing.home.design.intro') }}</p>
             </div>
 
             <div class="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
@@ -133,9 +121,13 @@
                                      style="background: {{ $tokens->palette->colors()['--color-'.$slot] ?? 'transparent' }}"></div>
                             @endforeach
                         </div>
+                        {{-- The preset's MARKETING copy from lang/*/design.php,
+                             not StylePreset::label()/description(). Those two
+                             stay English literals because the AI prompts reason
+                             over them — see the note at the top of that file. --}}
                         <div class="flex flex-col gap-1 p-5">
-                            <h3 class="site-h5 font-heading">{{ $preset->label() }}</h3>
-                            <p class="text-sm opacity-70">{{ $preset->description() }}</p>
+                            <h3 class="site-h5 font-heading">{{ __('marketing.presets.'.$preset->value.'.label') }}</h3>
+                            <p class="text-sm opacity-70">{{ __('marketing.presets.'.$preset->value.'.description') }}</p>
                         </div>
                     </div>
                 @endforeach
@@ -145,11 +137,9 @@
 
     <x-site.section tone="accent" spacing="airy">
         <div class="mx-auto flex max-w-3xl flex-col items-center gap-6 px-6 text-center">
-            <h2 class="site-h2 font-heading">Your site is about four minutes away</h2>
-            <p class="site-intro opacity-90">
-                No card, no call, no blank page. Pick the template that fits and start filling it in.
-            </p>
-            <a href="{{ route('central.templates.index') }}" class="btn btn-lg">Browse the templates</a>
+            <h2 class="site-h2 font-heading">{{ __('marketing.home.cta.title') }}</h2>
+            <p class="site-intro opacity-90">{{ __('marketing.home.cta.intro') }}</p>
+            <a href="{{ route('central.templates.index') }}" class="btn btn-lg">{{ __('marketing.actions.browse') }}</a>
         </div>
     </x-site.section>
 </x-central.layout>

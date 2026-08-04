@@ -16,11 +16,13 @@
     <x-central.layout>
         <x-site.section>
             <div class="mx-auto max-w-2xl text-center">
-                <h1 class="site-h1 font-heading">Page not found</h1>
-                <p class="mt-4 text-lg text-base-content/70">
-                    That link does not lead anywhere. The templates are a better place to start.
-                </p>
-                <a href="{{ route('central.templates.index') }}" class="btn btn-primary mt-8">Browse templates</a>
+                {{-- Rendered in the app's default language, not the visitor's:
+                     no central route matched, so SetLocale never ran. The
+                     wrong-language 404 is the accepted cost of not adding a
+                     catch-all route inside the locale group. --}}
+                <h1 class="site-h1 font-heading">{{ __('marketing.not_found.title') }}</h1>
+                <p class="mt-4 text-lg text-base-content/70">{{ __('marketing.not_found.body') }}</p>
+                <a href="{{ route('central.templates.index') }}" class="btn btn-primary mt-8">{{ __('marketing.not_found.cta') }}</a>
             </div>
         </x-site.section>
     </x-central.layout>

@@ -74,12 +74,12 @@ final readonly class NailSalon
     private static function extraFields(): array
     {
         return [
-            new TemplateField('service_one', 'The service you are known for', 'Structured gel manicure', help: 'It leads the menu on both pages.'),
-            new TemplateField('service_one_price', 'Its price', '$65'),
-            new TemplateField('service_two', 'A second service', 'Hand-painted art set'),
-            new TemplateField('service_two_price', 'Its price', '$95'),
-            new TemplateField('service_three', 'Something for feet', 'Dry pedicure'),
-            new TemplateField('service_three_price', 'Its price', '$75'),
+            new TemplateField('service_one', 'Structured gel manicure'),
+            new TemplateField('service_one_price', '$65'),
+            new TemplateField('service_two', 'Hand-painted art set'),
+            new TemplateField('service_two_price', '$95'),
+            new TemplateField('service_three', 'Dry pedicure'),
+            new TemplateField('service_three_price', '$75'),
         ];
     }
 

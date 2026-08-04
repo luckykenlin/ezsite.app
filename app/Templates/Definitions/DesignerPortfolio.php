@@ -67,10 +67,10 @@ final readonly class DesignerPortfolio
     private static function extraFields(): array
     {
         return [
-            new TemplateField('discipline', 'What you actually do', 'Brand and product design', help: 'One line. It goes under your name in the hero.'),
-            new TemplateField('project_one', 'A project to lead with', 'Meridian — identity for a climate fund'),
-            new TemplateField('project_two', 'A second project', 'Halcyon — product design for a sleep app'),
-            new TemplateField('project_three', 'A third project', 'Field Notes — editorial system for a quarterly'),
+            new TemplateField('discipline', 'Brand and product design'),
+            new TemplateField('project_one', 'Meridian — identity for a climate fund'),
+            new TemplateField('project_two', 'Halcyon — product design for a sleep app'),
+            new TemplateField('project_three', 'Field Notes — editorial system for a quarterly'),
         ];
     }
 

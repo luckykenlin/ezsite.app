@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Central;
 
+use App\Enums\Locale;
 use App\Http\Controllers\Controller;
 use App\Site\RobotsDocument;
 use Illuminate\Http\Response;
@@ -23,6 +24,15 @@ final class RobotsController extends Controller
 {
     public function __invoke(RobotsDocument $document): Response
     {
-        return $document->respond(['/start'], route('central.sitemap'));
+        return $document->respond(
+            // One line per language: the wizard used to live at `/start`, and a
+            // `Disallow: /start` that no longer matches `/zh/start` is a rule
+            // that reads as protection while granting none.
+            array_map(
+                static fn (Locale $locale): string => '/'.$locale->value.'/start',
+                Locale::cases(),
+            ),
+            route('central.sitemap'),
+        );
     }
 }

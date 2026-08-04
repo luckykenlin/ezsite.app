@@ -11,8 +11,10 @@ use App\Models\User;
 use App\Templates\SignupDetails;
 use App\Templates\SiteTemplate;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
@@ -96,13 +98,45 @@ final class ApplyTemplate extends Component
     #[Locked]
     public bool $subdomainEdited = false;
 
+    /**
+     * The language the wizard was opened in.
+     *
+     * Carried as component state because `/livewire/update` is a route of its
+     * own — universal, shared with the tenant panels (see
+     * TenancyServiceProvider) — so the central SetLocale middleware never runs
+     * on it and there is no `{locale}` segment to read.
+     */
+    #[Locked]
+    public string $locale = '';
+
     public function mount(SiteTemplate $template): void
     {
         $this->template = $template;
+        $this->locale = App::getLocale();
 
         foreach ($template->definition()->extraFields as $field) {
             $this->answers[$field->key] = '';
         }
+    }
+
+    /**
+     * Livewire's own SupportLocales hook already restores app()->setLocale()
+     * from the snapshot, so the copy would survive a round trip on its own.
+     * What does not survive is URL::defaults() — and this view calls
+     * route('central.templates.show') on EVERY re-render, so without this an
+     * English visitor's back-link turns Chinese on their first keystroke, from
+     * the fallback default in AppServiceProvider.
+     *
+     * `booted`, not `boot`: SupportLifecycleHooks runs boot BEFORE mount on the
+     * first request, where $locale is still the empty string — setLocale('')
+     * there silently unsets the language for the whole render. `booted` runs
+     * after mount and after hydrate, which is the only point where this
+     * property is populated in both directions.
+     */
+    public function booted(): void
+    {
+        App::setLocale($this->locale);
+        URL::defaults(['locale' => $this->locale]);
     }
 
     /**
@@ -242,7 +276,7 @@ final class ApplyTemplate extends Component
     {
         if (RateLimiter::tooManyAttempts($this->rateLimiterKey(), Config::integer('templates.signup.max_attempts'))) {
             throw ValidationException::withMessages([
-                'email' => __('Too many sites created from this connection. Try again in :minutes minutes.', [
+                'email' => __('marketing.wizard.rate_limited', [
                     'minutes' => (int) ceil(RateLimiter::availableIn($this->rateLimiterKey()) / 60),
                 ]),
             ]);

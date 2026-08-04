@@ -3,18 +3,23 @@
 declare(strict_types=1);
 
 use App\Design\StylePreset;
+use App\Enums\Locale;
 use App\Models\Tenant;
 use App\Templates\SiteTemplate;
 use App\Templates\TemplateGallery;
 use Illuminate\Support\Facades\File;
 
-function centralUrl(string $path = '/'): string
-{
-    return 'http://'.test()->centralDomain().$path;
-}
+/*
+ * centralUrl()/localeUrl()/localeRoute() live in tests/Helpers/CentralUrls.php.
+ *
+ * Every content assertion here names English explicitly rather than leaning on a
+ * default: lang/en holds the original copy, so these expectations read as "the
+ * English page still says what it always said". The Chinese side, and the
+ * language plumbing itself, are LocaleRoutingTest's job.
+ */
 
 it('lands on a page that says what the product is and offers every template', function (): void {
-    $response = $this->get(centralUrl());
+    $response = $this->get(localeUrl(Locale::English));
 
     $response->assertOk()
         ->assertSee('A beautiful website for your business in minutes')
@@ -22,17 +27,19 @@ it('lands on a page that says what the product is and offers every template', fu
 
     foreach (SiteTemplate::cases() as $template) {
         $response->assertSee($template->label())
-            ->assertSee(route('central.templates.show', $template));
+            ->assertSee(localeRoute('central.templates.show', Locale::English, ['template' => $template]));
     }
 
-    // The design system is the pitch, so every preset is on the page.
+    // The design system is the pitch, so every preset is on the page — named
+    // from lang/*/design.php, NOT from StylePreset::description(), which stays
+    // English because two AI prompts reason over it.
     foreach (StylePreset::cases() as $preset) {
-        $response->assertSee($preset->label());
+        $response->assertSee(__('marketing.presets.'.$preset->value.'.label'));
     }
 });
 
 it('shows the whole gallery on the templates page', function (): void {
-    $response = $this->get(centralUrl('/templates'));
+    $response = $this->get(localeUrl(Locale::English, '/templates'));
 
     $response->assertOk();
 
@@ -48,27 +55,39 @@ it('shows the whole gallery on the templates page', function (): void {
  * shipped, on three surfaces at once.
  */
 it('counts the library correctly wherever the copy counts it', function (string $path): void {
-    $this->get(centralUrl($path))
+    $this->get(localeUrl(Locale::English, $path))
         ->assertOk()
         ->assertSee(SiteTemplate::libraryCount().' ', false)
         // The stale literal, named so nobody reintroduces it by pasting the copy
         // back in — the spelled form is exactly how it went unnoticed.
         ->assertDontSee('Eight ');
-})->with(['/', '/templates']);
+})->with(['', '/templates']);
+
+/*
+ * The design section counted its own cards wrong for two releases ("Seven
+ * looks" against eight presets) — the same failure libraryCount() exists to
+ * prevent, one section further down the same page.
+ */
+it('counts the presets in the copy that counts them', function (): void {
+    $this->get(localeUrl(Locale::English))
+        ->assertOk()
+        ->assertSee(count(StylePreset::cases()).' looks')
+        ->assertDontSee('Seven looks');
+});
 
 it('gives every template a detail page with a live demo and a way to start', function (SiteTemplate $template): void {
     $gallery = resolve(TemplateGallery::class);
 
-    $this->get(centralUrl('/templates/'.$template->value))
+    $this->get(localeUrl(Locale::English, '/templates/'.$template->value))
         ->assertOk()
         ->assertSee($template->label())
-        ->assertSee($template->definition()->preset->label())
+        ->assertSee(__('marketing.presets.'.$template->definition()->preset->value.'.label'))
         ->assertSee($template->highlights()[0])
         // The two things a visitor can do next.
         ->assertSee($gallery->demoUrl($template))
-        ->assertSee(route('central.templates.start', $template))
+        ->assertSee(localeRoute('central.templates.start', Locale::English, ['template' => $template]))
         // What the wizard will ask, so nobody is surprised by step two.
-        ->assertSee($template->definition()->extraFields[0]->label);
+        ->assertSee($template->fieldLabel($template->definition()->extraFields[0]));
 })->with(fn (): array => array_map(
     fn (SiteTemplate $template): array => [$template],
     SiteTemplate::cases(),
@@ -76,7 +95,7 @@ it('gives every template a detail page with a live demo and a way to start', fun
 
 it('404s on a template slug that does not exist', function (): void {
     // Enum-bound in the route, so a bad slug never reaches a controller.
-    $this->get(centralUrl('/templates/sushi-bar'))->assertNotFound();
+    $this->get(localeUrl(Locale::English, '/templates/sushi-bar'))->assertNotFound();
 });
 
 it('keeps the landing page off tenant domains', function (): void {
@@ -87,7 +106,7 @@ it('keeps the landing page off tenant domains', function (): void {
     $tenant = Tenant::factory()->withDomain('acme')->create();
     $this->createTenantHomePage($tenant);
 
-    $this->get(centralUrl())->assertOk()->assertSee('A beautiful website for your business in minutes');
+    $this->get(localeUrl(Locale::English))->assertOk()->assertSee('A beautiful website for your business in minutes');
 
     $this->get('http://acme.'.$this->centralDomain().'/')
         ->assertOk()
@@ -100,8 +119,11 @@ it('serves a central robots.txt that advertises the central sitemap', function (
         ->assertOk()
         ->assertHeader('Content-Type', 'text/plain; charset=UTF-8')
         ->assertSee(route('central.sitemap'))
-        // The signup form has nothing to rank for.
-        ->assertSee('Disallow: /start');
+        // The signup form has nothing to rank for — once per language, because
+        // `Disallow: /start` no longer matches anything now that the wizard
+        // lives under a prefix.
+        ->assertSee('Disallow: /en/start')
+        ->assertSee('Disallow: /zh/start');
 });
 
 it('leaves the tenant robots.txt pointing at its own sitemap', function (): void {
@@ -120,17 +142,27 @@ it('leaves the tenant robots.txt pointing at its own sitemap', function (): void
 it('lists the landing page, the gallery and every template in the central sitemap', function (): void {
     $response = $this->get(centralUrl('/sitemap.xml'));
 
-    $response->assertOk()
-        ->assertHeader('Content-Type', 'application/xml')
-        ->assertSee(route('central.home'))
-        ->assertSee(route('central.templates.index'));
+    $response->assertOk()->assertHeader('Content-Type', 'application/xml');
 
-    foreach (SiteTemplate::cases() as $template) {
-        $response->assertSee(route('central.templates.show', $template));
+    // Every page once per language, as its own entry: a crawler cannot index a
+    // language it is never given a URL for.
+    foreach (Locale::cases() as $locale) {
+        $response->assertSee(localeRoute('central.home', $locale))
+            ->assertSee(localeRoute('central.templates.index', $locale));
+
+        foreach (SiteTemplate::cases() as $template) {
+            $response->assertSee(localeRoute('central.templates.show', $locale, ['template' => $template]));
+        }
+
+        // Never the signup form.
+        $response->assertDontSee(localeRoute('central.templates.start', $locale, [
+            'template' => SiteTemplate::NailSalon,
+        ]));
     }
 
-    // Never the signup form.
-    $response->assertDontSee(route('central.templates.start', SiteTemplate::NailSalon));
+    // And never the negotiating root, which is a redirect: a sitemap entry that
+    // 302s spends a crawler's fetch teaching it nothing.
+    $response->assertDontSee('<loc>'.centralUrl('').'</loc>', escape: false);
 });
 
 it('falls back to a brand-coloured panel when a template has no screenshot', function (): void {
@@ -147,7 +179,7 @@ it('falls back to a brand-coloured panel when a template has no screenshot', fun
     try {
         expect($gallery->screenshot($template))->toBeNull();
 
-        $this->get(centralUrl('/templates'))
+        $this->get(localeUrl(Locale::English, '/templates'))
             ->assertOk()
             ->assertSee($template->definition()->brandPrimary, escape: false);
     } finally {
@@ -177,7 +209,7 @@ it('frames the demo over the scheme the page itself arrived on', function (): vo
     expect($gallery->demoUrl(SiteTemplate::PizzaShop))->toStartWith('http://');
 
     // The same call inside a secure request.
-    $this->get(str_replace('http://', 'https://', centralUrl('/templates/pizza-shop')))
+    $this->get(str_replace('http://', 'https://', localeUrl(Locale::English, '/templates/pizza-shop')))
         ->assertOk()
         ->assertSee('https://demo-pizza-shop.'.$this->centralDomain().'/')
         ->assertDontSee('http://demo-pizza-shop.'.$this->centralDomain().'/');
@@ -197,7 +229,7 @@ it('serves the committed screenshot for every template', function (): void {
     // fresh clone with no demo tenants and no photo provider key. This is what
     // fails if someone adds a template and forgets to run the capture script.
     $gallery = resolve(TemplateGallery::class);
-    $response = $this->get(centralUrl('/templates'));
+    $response = $this->get(localeUrl(Locale::English, '/templates'));
 
     foreach (SiteTemplate::cases() as $template) {
         expect($gallery->screenshot($template))->toBe(asset($gallery->screenshotPath($template)))
@@ -213,9 +245,11 @@ it('serves the apply wizard on the central domain, on step one', function (): vo
     // component, its layout and the central route actually compose.
     $template = SiteTemplate::DesignerPortfolio;
 
-    $this->get(centralUrl('/start/'.$template->value))
+    $this->get(localeUrl(Locale::English, '/start/'.$template->value))
         ->assertOk()
-        ->assertSee('Let&rsquo;s build your site', escape: false)
+        // A real ’ now, not `&rsquo;`: the copy lives in a lang file and is
+        // echoed through `{{ }}`, which would double-escape an entity.
+        ->assertSee('Let’s build your site')
         ->assertSee('What is the business called?')
         ->assertSee($template->label());
 });
@@ -236,12 +270,12 @@ it('serves the cards a card-sized webp and the detail hero a jpeg', function ():
         ->and($gallery->screenshotPath($template))->toEndWith('-800.webp')
         ->and($gallery->screenshotPath($template, TemplateGallery::DESKTOP_WIDTH))->toEndWith('-1440.jpg');
 
-    $this->get(centralUrl('/templates'))
+    $this->get(localeUrl(Locale::English, '/templates'))
         ->assertOk()
         ->assertSee($gallery->screenshotPath($template))
         ->assertDontSee($gallery->screenshotPath($template, TemplateGallery::DESKTOP_WIDTH));
 
-    $this->get(centralUrl('/templates/'.$template->value))
+    $this->get(localeUrl(Locale::English, '/templates/'.$template->value))
         ->assertOk()
         ->assertSee($gallery->screenshotPath($template, TemplateGallery::DESKTOP_WIDTH));
 });

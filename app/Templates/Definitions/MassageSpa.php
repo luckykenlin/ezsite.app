@@ -69,12 +69,12 @@ final readonly class MassageSpa
     private static function extraFields(): array
     {
         return [
-            new TemplateField('treatment_one', 'Your most-booked treatment', 'Deep Tissue Massage'),
-            new TemplateField('treatment_one_price', 'How long it runs and what it costs', '90 minutes · $145', help: 'Length first, then price — it reads as one line on the menu.'),
-            new TemplateField('treatment_two', 'A second treatment', 'Prenatal Massage'),
-            new TemplateField('treatment_two_price', 'Its length and price', '60 minutes · $115'),
-            new TemplateField('treatment_three', 'One more', 'Hot Stone Massage'),
-            new TemplateField('treatment_three_price', 'Its length and price', '75 minutes · $130'),
+            new TemplateField('treatment_one', 'Deep Tissue Massage'),
+            new TemplateField('treatment_one_price', '90 minutes · $145'),
+            new TemplateField('treatment_two', 'Prenatal Massage'),
+            new TemplateField('treatment_two_price', '60 minutes · $115'),
+            new TemplateField('treatment_three', 'Hot Stone Massage'),
+            new TemplateField('treatment_three_price', '75 minutes · $130'),
         ];
     }
 

@@ -61,15 +61,15 @@ final readonly class ValidateSubdomain
         $normalized = Str::slug($subdomain);
 
         if (preg_match(self::PATTERN, $normalized) !== 1) {
-            $this->fail($field, 'Use 3 to 63 letters, numbers or hyphens — for example "corner-cafe".');
+            $this->fail($field, (string) __('marketing.subdomain.invalid'));
         }
 
         if ($this->isReserved($normalized)) {
-            $this->fail($field, 'That address is reserved. Please choose another.');
+            $this->fail($field, (string) __('marketing.subdomain.reserved'));
         }
 
         if ($this->isTaken($normalized)) {
-            $this->fail($field, 'That address is already taken.');
+            $this->fail($field, (string) __('marketing.subdomain.taken'));
         }
 
         return $normalized;

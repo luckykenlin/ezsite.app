@@ -19,15 +19,18 @@
     compile to nothing.
 --}}
 @use('App\Design\StylePreset')
+@use('App\Site\LocaleUrls')
 @props(['seo' => null])
 @php
     // FreshModern for the marketing site: geometric, green-tinted and
     // energetic reads as "software" rather than as any one of the eight
     // trades in the gallery — the point is that we are not a restaurant.
     $tokens = StylePreset::FreshModern->tokens();
+
+    $localeUrls = resolve(LocaleUrls::class);
 @endphp
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
+<html lang="{{ $localeUrls->locale()->htmlLang() }}">
 
 <head>
     <meta charset="utf-8">
@@ -49,8 +52,9 @@
             <a href="{{ route('central.home') }}" class="site-h4 font-heading">{{ config('app.name') }}</a>
 
             <nav class="flex items-center gap-6 text-sm">
-                <a href="{{ route('central.templates.index') }}" class="hover:text-primary">Templates</a>
-                <a href="{{ route('central.templates.index') }}" class="btn btn-primary btn-sm">Build my site</a>
+                <a href="{{ route('central.templates.index') }}" class="hover:text-primary">{{ __('marketing.nav.templates') }}</a>
+                <x-central.locale-switcher :urls="$localeUrls->all()" :current="$localeUrls->locale()" />
+                <a href="{{ route('central.templates.index') }}" class="btn btn-primary btn-sm">{{ __('marketing.nav.build') }}</a>
             </nav>
         </div>
     </header>
@@ -62,7 +66,7 @@
     <footer class="border-t border-base-content/10">
         <div class="mx-auto flex max-w-7xl flex-col gap-2 px-6 py-10 text-sm sm:flex-row sm:items-center sm:justify-between">
             <p>&copy; {{ now()->year }} {{ config('app.name') }}</p>
-            <a href="{{ route('central.templates.index') }}" class="site-link-cta">Browse the templates</a>
+            <a href="{{ route('central.templates.index') }}" class="site-link-cta">{{ __('marketing.actions.browse') }}</a>
         </div>
     </footer>
 </body>

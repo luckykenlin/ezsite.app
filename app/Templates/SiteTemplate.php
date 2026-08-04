@@ -13,6 +13,7 @@ use App\Templates\Definitions\MassageSpa;
 use App\Templates\Definitions\NailSalon;
 use App\Templates\Definitions\PersonalResume;
 use App\Templates\Definitions\PizzaShop;
+use Illuminate\Support\Facades\Lang;
 
 /**
  * The hand-curated industry templates: the whole library, enumerable.
@@ -23,10 +24,11 @@ use App\Templates\Definitions\PizzaShop;
  * enumerability that the gallery, the router (`/templates/{template}` binds
  * this enum directly), `demo:seed` and every test iterate over.
  *
- * Each case's copy and page structure live in its own class under
- * {@see Definitions} — one `match` returning a dozen 250-line literals would be
- * a single unreadable method — and this enum is the index plus the
- * gallery-facing prose.
+ * Each case's page structure lives in its own class under {@see Definitions} —
+ * one `match` returning a dozen 250-line literals would be a single unreadable
+ * method — and this enum is the index plus the accessors for the
+ * gallery-facing prose, which lives under `marketing.templates` in
+ * `lang/{locale}/marketing.php`.
  */
 enum SiteTemplate: string
 {
@@ -96,20 +98,15 @@ enum SiteTemplate: string
      * enums the panel renders (PostKind, LeadFieldSet, ...) implement
      * HasLabel::getLabel() instead. Two styles, one rule: HasLabel when a
      * Filament component consumes the case, label() when the site does.
+     *
+     * Translated, unlike {@see \App\Design\StylePreset::label()}: this text is
+     * only ever read by a person on the marketing site. It reaches no AI prompt
+     * and no database column — the only thing stored about a template is the
+     * enum's own `value` (`tenants.template`).
      */
     public function label(): string
     {
-        return match ($this) {
-            self::ChineseRestaurant => 'Chinese restaurant',
-            self::PizzaShop => 'Pizza shop',
-            self::BurgerJoint => 'Burger joint',
-            self::BubbleTea => 'Bubble tea shop',
-            self::NailSalon => 'Nail salon',
-            self::HairStudio => 'Hair studio',
-            self::MassageSpa => 'Massage & spa',
-            self::PersonalResume => 'Personal resume',
-            self::DesignerPortfolio => 'Designer portfolio',
-        };
+        return (string) __('marketing.templates.'.$this->value.'.label');
     }
 
     /**
@@ -118,17 +115,7 @@ enum SiteTemplate: string
      */
     public function description(): string
     {
-        return match ($this) {
-            self::ChineseRestaurant => 'A menu, a story and a map. Built for a family kitchen that fills up on Friday nights.',
-            self::PizzaShop => 'Warm, loud and hungry. The neighbourhood pizzeria that people order from twice a week.',
-            self::BurgerJoint => 'Big type, big photographs, no fuss. For a counter with a queue out the door.',
-            self::BubbleTea => 'Bright and product-forward, with room for a seasonal menu that changes every month.',
-            self::NailSalon => 'A dark room, gold accents and a gallery of your work directly under the fold.',
-            self::HairStudio => 'A screenful of type before a single photograph. For a studio whose waiting list is the pitch.',
-            self::MassageSpa => 'Airy and unhurried, with one calm way to book. Nothing on the page raises its voice.',
-            self::PersonalResume => 'Your name, your work and a way to reach you. Type only — no stock photograph in sight.',
-            self::DesignerPortfolio => 'Magazine layout, work in the first viewport. For studios whose portfolio does the selling.',
-        };
+        return (string) __('marketing.templates.'.$this->value.'.description');
     }
 
     /**
@@ -139,16 +126,38 @@ enum SiteTemplate: string
      */
     public function highlights(): array
     {
-        return match ($this) {
-            self::ChineseRestaurant => ['A priced menu section you fill in during signup', 'Address, hours and phone bound to your real location', 'A story page that is already written'],
-            self::PizzaShop => ['Three signature pizzas with prices, straight from the form', 'A call-to-order banner on every page', 'Photography chosen for wood-fired warmth'],
-            self::BurgerJoint => ['Headline type sized for a photograph, not a paragraph', 'A menu block you can extend to the full board', 'Loud, casual copy you can keep as written'],
-            self::BubbleTea => ['A seasonal-specials section built to be swapped monthly', 'Pastel product photography from the shared library', 'A clean geometric grid that survives long drink names'],
-            self::NailSalon => ['A nail-art gallery immediately under the hero', 'A priced service menu, filled in during signup', 'The one dark preset in the library, with gold accents'],
-            self::HairStudio => ['A full-screen opening in type alone — no stock photograph above the fold', 'A cutting and colour menu with real times and prices', 'The one look in the library whose sections arrive as you scroll'],
-            self::MassageSpa => ['A tall, quiet hero with a single call to action', 'A treatment menu with durations and prices', 'Spacing tuned so nothing on the page hurries you'],
-            self::PersonalResume => ['A type-only hero: your name, your title, one line', 'Three experience entries you fill in during signup', 'No stock photograph pretending to be you'],
-            self::DesignerPortfolio => ['Your work on black, in the first viewport', 'Three project write-ups from the signup form', 'A services page with real engagement shapes and prices'],
-        };
+        /** @var list<string> $highlights */
+        $highlights = __('marketing.templates.'.$this->value.'.highlights');
+
+        return $highlights;
+    }
+
+    /**
+     * The wizard question behind one of this template's extra fields.
+     *
+     * On the enum rather than on TemplateField because a field only knows its
+     * own key, and a key means different things in different templates:
+     * `service_one` is "your most-booked service" in the hair studio and "the
+     * service you are known for" in the nail salon. The template is the half of
+     * the pair that can disambiguate.
+     */
+    public function fieldLabel(TemplateField $field): string
+    {
+        return (string) __($this->fieldKey($field, 'label'));
+    }
+
+    /**
+     * The hint under a field, for the handful of questions that need one.
+     */
+    public function fieldHelp(TemplateField $field): ?string
+    {
+        $key = $this->fieldKey($field, 'help');
+
+        return Lang::has($key) ? (string) __($key) : null;
+    }
+
+    private function fieldKey(TemplateField $field, string $attribute): string
+    {
+        return sprintf('marketing.templates.%s.fields.%s.%s', $this->value, $field->key, $attribute);
     }
 }

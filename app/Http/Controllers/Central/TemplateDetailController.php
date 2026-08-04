@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Central;
 
 use App\Actions\Templates\FillTemplatePlaceholders;
 use App\Http\Controllers\Controller;
+use App\Site\LocaleUrls;
 use App\Templates\SiteTemplate;
 use App\Templates\TemplateGallery;
 use Illuminate\Contracts\View\View;
@@ -23,8 +24,12 @@ use RalphJSmit\Laravel\SEO\Support\SEOData;
  */
 final class TemplateDetailController extends Controller
 {
-    public function __invoke(SiteTemplate $template, FillTemplatePlaceholders $fillPlaceholders, TemplateGallery $gallery): View
-    {
+    public function __invoke(
+        SiteTemplate $template,
+        FillTemplatePlaceholders $fillPlaceholders,
+        TemplateGallery $gallery,
+        LocaleUrls $localeUrls,
+    ): View {
         $definition = $template->definition();
         $desktop = $gallery->screenshot($template, TemplateGallery::DESKTOP_WIDTH);
 
@@ -40,12 +45,14 @@ final class TemplateDetailController extends Controller
             'mobile' => $gallery->screenshot($template, TemplateGallery::MOBILE_WIDTH),
             'demoUrl' => $gallery->demoUrl($template),
             'seo' => new SEOData(
-                title: $template->label().' website template',
+                title: (string) __('marketing.detail.meta_title', ['template' => $template->label()]),
                 description: $template->description(),
                 image: $desktop,
                 url: route('central.templates.show', $template),
                 enableTitleSuffix: false,
                 site_name: config()->string('app.name'),
+                locale: $localeUrls->locale()->openGraphLocale(),
+                alternates: $localeUrls->alternates(),
             ),
         ]);
     }

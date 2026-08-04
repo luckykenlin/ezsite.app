@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Design\Contrast;
 use App\Design\DesignTokens;
+use App\Design\StylePreset;
 use App\Design\ThemeVariables;
 use App\Design\TokenOptions;
 use App\Design\TokenSelection;
@@ -375,4 +376,70 @@ test('the central controllers never reach for a tenant-scoped model', function (
     }
 
     expect($offenders)->toBeEmpty();
+});
+
+test('both languages of the marketing site carry exactly the same keys', function (): void {
+    // A missing translation does not throw and does not blank — it renders the
+    // KEY PATH on the page (`templates.hair-studio.fields.service_one.label`).
+    // That failure mode is loud in the browser and invisible in CI, so this is
+    // the guard: whatever lang/en gains, lang/zh has to gain too.
+    //
+    // Driven off lang/en, not off the union: lang/zh/validation.php is
+    // deliberately a partial override (Laravel falls back to the framework's
+    // English for anything it omits), so requiring an English twin for it would
+    // mean committing a copy of a vendor file to satisfy a test.
+    $lang = dirname(__DIR__, 2).'/lang';
+
+    $flatten = function (array $values, string $prefix = '') use (&$flatten): array {
+        $keys = [];
+
+        foreach ($values as $key => $value) {
+            $path = $prefix === '' ? (string) $key : $prefix.'.'.$key;
+            $keys = [...$keys, ...(is_array($value) ? $flatten($value, $path) : [$path])];
+        }
+
+        sort($keys);
+
+        return $keys;
+    };
+
+    $files = array_map(basename(...), glob($lang.'/en/*.php') ?: []);
+
+    // One file per language, not three: a group name that doubles as a UI
+    // label (`design`) gets picked up by Filament's global ->translateLabel()
+    // and returns an array. See the note at the top of lang/en/marketing.php.
+    expect($files)->toEqualCanonicalizing(['marketing.php']);
+
+    foreach ($files as $file) {
+        expect($flatten(require $lang.'/zh/'.$file))
+            ->toBe($flatten(require $lang.'/en/'.$file), $file.' has drifted between languages');
+    }
+});
+
+test('every template, preset and wizard question is translated', function (): void {
+    // The copy moved out of PHP into lang files, so "did anyone forget one?" is
+    // no longer a question the type system answers. These are the three lists
+    // that have to stay in step with the enums and the definitions.
+    $marketing = require dirname(__DIR__, 2).'/lang/en/marketing.php';
+    $templates = $marketing['templates'];
+    $presets = $marketing['presets'];
+
+    foreach (StylePreset::cases() as $preset) {
+        expect($presets)->toHaveKey($preset->value.'.label')
+            ->and($presets)->toHaveKey($preset->value.'.description');
+    }
+
+    foreach (SiteTemplate::cases() as $template) {
+        expect($templates)->toHaveKey($template->value.'.label')
+            ->and($templates)->toHaveKey($template->value.'.description')
+            ->and($templates[$template->value]['highlights'])->toHaveCount(3);
+
+        // Keyed per template, because the same field key asks a different
+        // question in a different trade — `service_one` is "your most-booked
+        // service" in the hair studio and "the service you are known for" in the
+        // nail salon.
+        foreach ($template->definition()->extraFields as $field) {
+            expect($templates)->toHaveKey($template->value.'.fields.'.$field->key.'.label');
+        }
+    }
 });

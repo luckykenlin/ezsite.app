@@ -3,12 +3,9 @@
     <x-site.section tone="base" spacing="airy">
         <div class="mx-auto max-w-7xl px-6">
             <div class="flex max-w-3xl flex-col gap-4">
-                <p class="site-eyebrow text-primary">Templates</p>
-                <h1 class="site-display font-heading">{{ \App\Templates\SiteTemplate::libraryCount() }} finished sites. Pick the one that fits.</h1>
-                <p class="site-intro opacity-80">
-                    Each one is a real published site, not a wireframe — open the live demo, read the copy,
-                    scroll it on your phone. When you find the right one, it takes a few minutes to make it yours.
-                </p>
+                <p class="site-eyebrow text-primary">{{ __('marketing.gallery.eyebrow') }}</p>
+                <h1 class="site-display font-heading">{{ __('marketing.gallery.title', ['count' => \App\Templates\SiteTemplate::libraryCount()]) }}</h1>
+                <p class="site-intro opacity-80">{{ __('marketing.gallery.intro') }}</p>
             </div>
 
             <div class="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">

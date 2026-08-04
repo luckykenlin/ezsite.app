@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Central;
 
 use App\Http\Controllers\Controller;
+use App\Site\LocaleUrls;
 use App\Templates\SiteTemplate;
 use Illuminate\Contracts\View\View;
 use RalphJSmit\Laravel\SEO\Support\SEOData;
@@ -16,16 +17,18 @@ use RalphJSmit\Laravel\SEO\Support\SEOData;
  */
 final class TemplateGalleryController extends Controller
 {
-    public function __invoke(): View
+    public function __invoke(LocaleUrls $localeUrls): View
     {
         return view('central.templates.index', [
             'templates' => SiteTemplate::cases(),
             'seo' => new SEOData(
-                title: 'Website templates for small businesses',
-                description: SiteTemplate::libraryCount().' finished websites, one for each trade. Open the live demo, then make it yours in a few minutes.',
+                title: (string) __('marketing.gallery.meta_title'),
+                description: (string) __('marketing.gallery.meta_description', ['count' => SiteTemplate::libraryCount()]),
                 url: route('central.templates.index'),
                 enableTitleSuffix: false,
                 site_name: config()->string('app.name'),
+                locale: $localeUrls->locale()->openGraphLocale(),
+                alternates: $localeUrls->alternates(),
             ),
         ]);
     }
