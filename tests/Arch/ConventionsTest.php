@@ -378,6 +378,45 @@ test('the central controllers never reach for a tenant-scoped model', function (
     expect($offenders)->toBeEmpty();
 });
 
+test('the database lifecycle the suite depends on is not undermined', function (): void {
+    // Both halves of this guard exist because tests/Pest.php migrates ONCE per
+    // parallel worker and TRUNCATEs between tests. The schema therefore outlives
+    // a test, and two things that used to be harmless are now not:
+    //
+    //   - a migration that seeds rows: present for the first test in a worker,
+    //     truncated away for every one after it. Seed from a factory or a seeder
+    //     the test calls itself.
+    //   - a test that creates a table: it survives into every later test in that
+    //     worker, and `RlsPolicyTest`'s "every table is RLS-protected" guard then
+    //     fails somewhere else entirely.
+    $offenders = [];
+
+    foreach (glob(dirname(__DIR__, 2).'/database/migrations/*.php') ?: [] as $migration) {
+        if (preg_match('/->insert(?:OrIgnore|Using)?\(|DB::table\(/', (string) file_get_contents($migration)) === 1) {
+            $offenders[] = 'migration seeds rows: '.basename($migration);
+        }
+    }
+
+    // Pest.php itself is exempt: creating the per-token database and running that
+    // one migration IS the lifecycle this guard protects. (Arch tests get no
+    // application, so this walks the tree by hand rather than via the File facade.)
+    $tests = new RecursiveIteratorIterator(new RecursiveDirectoryIterator(dirname(__DIR__), FilesystemIterator::SKIP_DOTS));
+
+    foreach ($tests as $test) {
+        if ($test->getExtension() !== 'php' || $test->getFilename() === 'Pest.php') {
+            continue;
+        }
+
+        // The raw-SQL half of the pattern is concatenated so this file does not
+        // match itself — same reason stripBladeComments() exists above.
+        if (preg_match('/Schema::(?:connection\([^)]*\)->)?(?:create|createDatabase|drop|dropIfExists|dropColumns|rename|table)\(|'.'CREATE'.'\s+TABLE/i', (string) file_get_contents($test->getPathname())) === 1) {
+            $offenders[] = 'test mutates the schema: '.$test->getFilename();
+        }
+    }
+
+    expect($offenders)->toBeEmpty();
+});
+
 test('both languages of the marketing site carry exactly the same keys', function (): void {
     // A missing translation does not throw and does not blank — it renders the
     // KEY PATH on the page (`templates.hair-studio.fields.service_one.label`).

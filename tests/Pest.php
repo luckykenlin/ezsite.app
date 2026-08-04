@@ -24,7 +24,8 @@ use Tests\TestCase;
 /*
  * The whole suite runs against a real Postgres database with RLS — the same
  * engine as production — so tenant isolation is always exercised for real.
- * Each test gets its own migrate:fresh (one database per parallel token).
+ * Each test gets an empty database (one database per parallel token, migrated
+ * once per process and truncated between tests — see $resetDatabase).
  * Non-tenancy tests run as the superuser connection, which bypasses RLS, so
  * they read/write freely; tenancy tests call tenancy()->initialize() to switch
  * to the restricted RLS role and observe isolation.
@@ -38,8 +39,67 @@ use Tests\TestCase;
 $createdTenantKeys = [];
 
 /**
+ * Hands the next test an empty database — schema and RLS policies intact.
+ *
+ * The schema is built ONCE per process (per parallel token, since each token
+ * owns its own database) and every later test only clears rows. A
+ * `migrate:fresh` per test cost ~250ms — 18 migrations plus the full
+ * `tenants:rls` policy regeneration its MigrationsEnded listener fires — and
+ * that setup, not the tests themselves, was almost the entire runtime of the
+ * suite.
+ *
+ * TRUNCATE, deliberately, and not a wrapping transaction (`RefreshDatabase`):
+ * tenancy runs its queries on a SEPARATE connection under the restricted RLS
+ * role, so a transaction opened on the superuser connection would neither
+ * cover nor roll back what that one wrote — the isolation tests would stop
+ * testing anything. Truncation is connection-agnostic.
+ *
+ * Keeping the schema is only safe while two things hold, and both are load
+ * bearing: no migration seeds rows, and no test creates its own tables. Either
+ * one would now survive into the next test.
+ */
+$resetDatabase = function (string $database): void {
+    /** @var array<string, list<string>> $tablesPerDatabase */
+    static $tablesPerDatabase = [];
+
+    if (isset($tablesPerDatabase[$database])) {
+        try {
+            DB::connection('pgsql')->statement(sprintf(
+                'TRUNCATE TABLE %s RESTART IDENTITY CASCADE',
+                collect($tablesPerDatabase[$database])
+                    ->map(fn (string $table): string => sprintf('"%s"', $table))
+                    ->implode(', '),
+            ));
+
+            return;
+        } catch (QueryException) {
+            // The schema vanished between two tests. The way that happens is a
+            // SECOND `pest` run started while this one is going: both runs use
+            // the same per-token databases, and the newcomer's `migrate:fresh`
+            // drops these tables. Rebuilding beats failing every remaining test
+            // in this worker with an unattributable "relation does not exist" —
+            // which is exactly what the old per-test `migrate:fresh` did for
+            // free.
+            unset($tablesPerDatabase[$database]);
+        }
+    }
+
+    Artisan::call('migrate:fresh', [
+        '--path' => ['database/migrations'],
+        '--force' => true,
+    ]);
+
+    // `migrations` keeps its rows: the schema it describes is still there.
+    $tablesPerDatabase[$database] = collect(Schema::connection('pgsql')->getTables('public'))
+        ->pluck('name')
+        ->reject(fn (string $table): bool => $table === 'migrations')
+        ->values()
+        ->all();
+};
+
+/**
  * The database every suite runs against: one Postgres database per parallel
- * token, migrated fresh, with the tenancy bootstrappers pointed at it.
+ * token, emptied before each test, with the tenancy bootstrappers pointed at it.
  *
  * Shared by the two bindings below rather than copied into each, because the
  * awkward parts — the per-token database name, creating that database on first
@@ -47,9 +107,9 @@ $createdTenantKeys = [];
  * drift between them.
  *
  * @param  array<string, mixed>  $overrides  extra config a suite needs applied
- *                                           before the migration runs
+ *                                           before the database is prepared
  */
-$prepareDatabase = function (array $overrides = []) use (&$createdTenantKeys): void {
+$prepareDatabase = function (array $overrides = []) use (&$createdTenantKeys, $resetDatabase): void {
     $createdTenantKeys = [];
 
     Event::listen(TenantCreated::class, function (TenantCreated $event) use (&$createdTenantKeys): void {
@@ -109,10 +169,7 @@ $prepareDatabase = function (array $overrides = []) use (&$createdTenantKeys): v
         }
     }
 
-    Artisan::call('migrate:fresh', [
-        '--path' => ['database/migrations'],
-        '--force' => true,
-    ]);
+    $resetDatabase($database);
 };
 
 /**

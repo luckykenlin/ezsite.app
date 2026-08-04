@@ -10,9 +10,12 @@ load-bearing — everything else is in tenancy.md:
   tenant-owned table a `tenant_id` FK and it's scoped automatically — read
   tenancy.md's "RLS conventions" before adding one.
 - **The test DB role must be a SUPERUSER / have BYPASSRLS** (`DB_USERNAME=postgres`).
-  The whole suite runs on real Postgres with per-test `migrate:fresh`; non-tenancy
-  tests rely on bypassing RLS, and call `tenancy()->initialize()` to exercise
-  isolation. The `pest-testing` skill is the source of truth for tests.
+  The whole suite runs on real Postgres, migrated once per parallel worker and
+  truncated between tests; non-tenancy tests rely on bypassing RLS, and call
+  `tenancy()->initialize()` to exercise isolation. Truncation keeps the schema,
+  so **no migration may seed rows and no test may create its own tables** —
+  either would leak into the next test. The `pest-testing` skill is the source
+  of truth for tests.
 - **Panel access ≠ RLS.** RLS scopes rows only; `User::canAccessPanel()` gates the
   Filament panels separately, so a plain `User::factory()->create()` has no panel
   access.

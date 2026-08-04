@@ -44,18 +44,32 @@ numbers are exactly what needs covering — write a test that hits those branche
 The **entire** suite runs against a real Postgres database with RLS — the same
 engine as production — configured in `tests/Pest.php` and `phpunit.xml`
 (`DB_CONNECTION=pgsql`, `DB_DATABASE=ezsite_testing`). There is no sqlite tier.
-Each test gets its own `migrate:fresh` (one database per parallel token); the
+Each test gets an empty database (one database per parallel token): the schema
+is migrated **once per worker process** and every later test starts with a
+`TRUNCATE ... RESTART IDENTITY CASCADE` over every table but `migrations`. The
 `InteractsWithTenancy` trait, `freezeTime()`, stray-request/process guards, and
 the `database` cache store are applied to every test.
 
-**Why `migrate:fresh` per test and not `RefreshDatabase` transactions?** A
-deliberate choice: one uniform lifecycle for the whole suite, and it sidesteps
-unverified interactions between RLS (per-connection role switching + the
-`my.current_tenant` session variable) and a wrapping transaction. The cost is a
-per-test schema rebuild — real but modest at this suite size (a few seconds
-parallel). If you ever move non-tenancy tests onto transactions for speed,
-**first prove the RLS isolation tests still hold** under that lifecycle before
-trusting them.
+**Why truncation, and not `migrate:fresh` per test or `RefreshDatabase`
+transactions?** It used to be `migrate:fresh` per test, which cost ~250ms of
+setup — 18 migrations plus the full `tenants:rls` regeneration its
+`MigrationsEnded` listener fires — and that, not the tests, was almost the
+entire runtime: the `test:unit` gate went from ~290s to ~130s for the same 2126
+tests (239s → 55s with coverage off, so Xdebug's overhead was never the
+problem).
+Transactions are the other obvious option and are **wrong here**: tenancy runs
+its queries on a separate connection under the restricted RLS role, so a
+transaction opened on the superuser connection would neither cover nor roll back
+what that one writes, and the isolation tests would quietly stop testing
+anything. Truncation is connection-agnostic, so the RLS lifecycle is unchanged.
+
+Two invariants keep this safe, because the schema now outlives a test:
+
+- **No migration may seed rows** — they would be truncated away, so anything a
+  test expects to exist must come from a factory or a seeder it calls itself.
+- **No test may create its own table** — it would survive into every later test
+  in that worker (and trip `RlsPolicyTest`'s "every table is RLS-protected"
+  guard). Assert against the real schema instead.
 
 Key mechanic — **the test connection's role bypasses RLS** (`DB_USERNAME=postgres`,
 a superuser; even `FORCE ROW LEVEL SECURITY` is bypassed):
