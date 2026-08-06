@@ -1,0 +1,194 @@
+<?php
+
+declare(strict_types=1);
+
+use App\Design\ColorPalette;
+use App\Design\StylePreset;
+use App\Models\Business;
+use App\Models\Location;
+use App\Models\Media;
+use App\Models\Tenant;
+use Illuminate\Database\QueryException;
+
+test('a tenant can only have one business (unique tenant_id)', function (): void {
+    $tenant = Tenant::factory()->create();
+
+    $this->runInTenant($tenant, function () use ($tenant): void {
+        Business::factory()->create(['tenant_id' => $tenant->id, 'name' => 'First Business']);
+
+        expect(fn () => Business::factory()->create(['tenant_id' => $tenant->id, 'name' => 'Second Business']))
+            ->toThrow(QueryException::class, 'tenant_id');
+    });
+});
+
+test('tenant relation returns the owning tenant', function (): void {
+    $tenant = Tenant::factory()->create();
+    $business = $this->runInTenant($tenant, fn (): Business => Business::factory()->create(['tenant_id' => $tenant->id]));
+    $business = Business::query()->findOrFail($business->getKey());
+
+    expect($business->tenant->is($tenant))->toBeTrue();
+});
+
+test('locations relation returns the business locations', function (): void {
+    $tenant = Tenant::factory()->create();
+    $business = $this->runInTenant($tenant, function () use ($tenant): Business {
+        $business = Business::factory()->create(['tenant_id' => $tenant->id]);
+        Location::factory()->count(2)->create(['tenant_id' => $tenant->id, 'business_id' => $business->id]);
+
+        return $business;
+    });
+
+    expect(Business::query()->findOrFail($business->getKey())->locations)->toHaveCount(2);
+});
+
+test('slug is auto-generated from the name and scoped per tenant', function (): void {
+    $tenantA = Tenant::factory()->create();
+    $tenantB = Tenant::factory()->create();
+
+    $businessA = $this->runInTenant($tenantA, fn (): Business => Business::factory()->create(['tenant_id' => $tenantA->id, 'name' => 'Shared Name']));
+    $businessB = $this->runInTenant($tenantB, fn (): Business => Business::factory()->create(['tenant_id' => $tenantB->id, 'name' => 'Shared Name']));
+
+    expect($businessA->slug)->toBe('shared-name')
+        ->and($businessB->slug)->toBe('shared-name');
+});
+
+test('soft-deleting a business cascades to its locations and restoring brings them back', function (): void {
+    $tenant = Tenant::factory()->create();
+    $businessId = $this->runInTenant($tenant, function () use ($tenant): int {
+        $business = Business::factory()->create(['tenant_id' => $tenant->id]);
+        Location::factory()->count(2)->create(['tenant_id' => $tenant->id, 'business_id' => $business->id]);
+
+        return $business->getKey();
+    });
+
+    $this->runInTenant($tenant, fn () => Business::query()->findOrFail($businessId)->delete());
+    expect(Location::query()->count())->toBe(0)
+        ->and(Location::withTrashed()->count())->toBe(2);
+
+    $this->runInTenant($tenant, fn () => Business::withTrashed()->findOrFail($businessId)->restore());
+    expect(Location::query()->count())->toBe(2);
+});
+
+test('force-deleting a business skips the soft-delete cascade and removes locations via the DB cascade', function (): void {
+    $tenant = Tenant::factory()->create();
+    $businessId = $this->runInTenant($tenant, function () use ($tenant): int {
+        $business = Business::factory()->create(['tenant_id' => $tenant->id]);
+        Location::factory()->count(2)->create(['tenant_id' => $tenant->id, 'business_id' => $business->id]);
+
+        return $business->getKey();
+    });
+
+    $this->runInTenant($tenant, fn () => Business::query()->findOrFail($businessId)->forceDelete());
+
+    expect(Location::withTrashed()->count())->toBe(0);
+});
+
+test('to array', function (): void {
+    $tenant = Tenant::factory()->create();
+    $business = $this->runInTenant($tenant, fn (): Business => Business::factory()->create(['tenant_id' => $tenant->id]));
+    $business = Business::query()->findOrFail($business->getKey());
+
+    expect(array_keys($business->toArray()))
+        ->toBe([
+            'id',
+            'tenant_id',
+            'name',
+            'slug',
+            'category',
+            'tagline',
+            'description',
+            'logo_path',
+            'logo_media_id',
+            'brand_primary',
+            'brand_secondary',
+            'brand_accent',
+            'design_tokens',
+            'contact_email',
+            'contact_phone',
+            'website_url',
+            'timezone',
+            'locale',
+            'currency',
+            'status',
+            'created_at',
+            'updated_at',
+            'deleted_at',
+        ]);
+});
+
+test('logoUrl prefers the media-library pick and falls back to the legacy upload', function (): void {
+    $tenant = Tenant::factory()->create();
+
+    [$mediaUrl, $legacyUrl, $none] = $this->runInTenant($tenant, function () use ($tenant): array {
+        $media = Media::factory()->create(['tenant_id' => $tenant->id, 'path' => 'media/logo.png']);
+
+        $business = Business::factory()->create([
+            'tenant_id' => $tenant->id,
+            'logo_media_id' => $media->id,
+            'logo_path' => 'logos/legacy.png',
+        ]);
+        $mediaUrl = $business->logoUrl();
+
+        $business->update(['logo_media_id' => null]);
+        $legacyUrl = $business->logoUrl();
+
+        $business->update(['logo_path' => null]);
+
+        return [$mediaUrl, $legacyUrl, $business->logoUrl()];
+    });
+
+    expect($mediaUrl)->toContain('media/logo.png')
+        ->and($legacyUrl)->toContain('logos/legacy.png')
+        ->and($none)->toBeNull();
+});
+
+test('design tokens are cast to the value object', function (): void {
+    $tenant = Tenant::factory()->create();
+
+    $business = $this->runInTenant($tenant, fn (): Business => Business::factory()
+        ->themed(StylePreset::WarmCraft)
+        ->create(['tenant_id' => $tenant->id]));
+    $business = Business::query()->findOrFail($business->getKey());
+
+    expect($business->design_tokens->preset)->toBe(StylePreset::WarmCraft)
+        ->and($business->design_tokens->palette)->toBe(ColorPalette::WarmSand);
+});
+
+test('malformed stored design tokens hydrate as the defaults', function (): void {
+    $tenant = Tenant::factory()->create();
+    $business = $this->runInTenant($tenant, fn (): Business => Business::factory()->create(['tenant_id' => $tenant->id]));
+
+    // A JSON scalar — jsonb rejects broken syntax outright, so a non-array
+    // document is the malformed shape that can actually survive in the column.
+    // It exercises the cast's own reads-never-fail guard (the value object's
+    // leniency for valid-but-unknown values is covered in DesignTokensTest).
+    $this->runInTenant($tenant, function () use ($business): void {
+        Business::query()->whereKey($business->getKey())->update(['design_tokens' => '"not-an-object"']);
+    });
+    $business = Business::query()->findOrFail($business->getKey());
+
+    expect($business->design_tokens->palette)->toBe(ColorPalette::Default)
+        ->and($business->design_tokens->preset)->toBeNull();
+});
+
+test('design tokens can be reset to null, hydrating as the defaults', function (): void {
+    $tenant = Tenant::factory()->create();
+    $business = $this->runInTenant($tenant, fn (): Business => Business::factory()
+        ->themed(StylePreset::WarmCraft)
+        ->create(['tenant_id' => $tenant->id]));
+
+    $this->runInTenant($tenant, fn (): bool => $business->update(['design_tokens' => null]));
+    $business = Business::query()->findOrFail($business->getKey());
+
+    expect($business->design_tokens->preset)->toBeNull()
+        ->and($business->design_tokens->palette)->toBe(ColorPalette::Default);
+});
+
+test('design tokens reject raw array assignment', function (): void {
+    $tenant = Tenant::factory()->create();
+    $business = $this->runInTenant($tenant, fn (): Business => Business::factory()->create(['tenant_id' => $tenant->id]));
+
+    expect(function () use ($tenant, $business): void {
+        $this->runInTenant($tenant, fn (): bool => $business->update(['design_tokens' => ['palette' => 'ocean']]));
+    })->toThrow(InvalidArgumentException::class);
+});

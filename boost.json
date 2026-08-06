@@ -10,12 +10,15 @@
         "filament/filament",
         "aldesrahim/filament-compass",
         "nunomaduro/laravel-sluggable",
-        "fruitcake/laravel-debugbar"
+        "fruitcake/laravel-debugbar",
+        "laraveldaily/filacheck"
     ],
     "sail": false,
     "skills": [
+        "infer-conventions",
         "ai-sdk-development",
         "laravel-best-practices",
+        "pest-testing",
         "tailwindcss-development",
         "filament-compass",
         "debug-using-debugbar",

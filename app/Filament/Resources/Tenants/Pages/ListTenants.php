@@ -29,6 +29,6 @@ final class ListTenants extends ListRecords
      */
     private function createTenant(array $data): Tenant
     {
-        return resolve(CreateTenantAction::class)->handle($data['name'], $data['email'] ?? null);
+        return resolve(CreateTenantAction::class)->handle($data['name'], $data['email']);
     }
 }

@@ -1,0 +1,31 @@
+<?php
+
+declare(strict_types=1);
+
+use App\Filament\Resources\Tenants\Pages\ManageUsers;
+use App\Models\Tenant;
+use App\Models\User;
+use Filament\Actions\AttachAction;
+use Filament\Actions\DetachAction;
+use Filament\Actions\Testing\TestAction;
+use Livewire\Livewire;
+
+beforeEach(function (): void {
+    $this->actingAs(User::factory()->create());
+});
+
+test('can attach and detach a tenant member', function (): void {
+    $tenant = Tenant::factory()->create();
+    $user = User::factory()->create();
+
+    Livewire::test(ManageUsers::class, ['record' => $tenant->getKey()])
+        ->callAction(TestAction::make(AttachAction::class)->table(), ['recordId' => $user->id])
+        ->assertHasNoFormErrors();
+
+    expect($tenant->users()->whereKey($user->id)->exists())->toBeTrue();
+
+    Livewire::test(ManageUsers::class, ['record' => $tenant->getKey()])
+        ->callAction(TestAction::make(DetachAction::class)->table($user));
+
+    expect($tenant->users()->whereKey($user->id)->exists())->toBeFalse();
+});

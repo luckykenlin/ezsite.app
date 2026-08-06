@@ -1,0 +1,678 @@
+/*
+ * Tenant public-site stylesheet (FilamentFabricator front-end).
+ *
+ * Kept separate from app.css so the site's design system (DaisyUI: semantic
+ * slots, themes) stays out of the admin bundle, and so per-tenant
+ * token/theme derivation has a clean home. Loaded via
+ * FilamentFabricator::registerStyles() in FilamentServiceProvider.
+ */
+@import 'tailwindcss';
+
+@plugin 'daisyui';
+
+@source '../views/components/filament-fabricator/**/*.blade.php';
+
+/*
+ * The shared section shell, and the two enums whose cases ARE Tailwind class
+ * strings (`bg-base-200 text-base-content`, `py-20 md:py-28`).
+ *
+ * Both are load-bearing: a section's background and vertical rhythm now live
+ * only in App\Site\Blocks\SectionTone / SectionSpacing, so without the PHP
+ * source every page block would render with no background and no padding.
+ * Guarded by "the section shell's Tailwind sources are declared" in
+ * tests/Arch/ConventionsTest.php.
+ */
+@source '../views/components/site/**/*.blade.php';
+@source '../../app/Site/Blocks/Section*.php';
+
+/*
+ * The standalone public pages that are not Fabricator pages — `/updates` and its
+ * permalinks, and the coming-soon notice. They render through the same
+ * `x-site.document` shell and the same `site-*` classes, but they live outside
+ * every glob above, so without this line they ship with no styling at all and no
+ * test can see it (a PHP request test asserts on class NAMES, which are still
+ * emitted). Guarded by the same arch test as the two lines above.
+ */
+@source '../views/site/**/*.blade.php';
+
+/*
+ * The CENTRAL marketing site, which dogfoods this stylesheet rather than
+ * carrying one of its own — the pitch is "one closed design system", and a
+ * landing page built out of different CSS would be arguing against itself.
+ * Same failure mode as the two lines above: without these, every class on the
+ * landing page and the template gallery compiles to nothing.
+ */
+@source '../views/central/**/*.blade.php';
+@source '../views/components/central/**/*.blade.php';
+
+@theme {
+    --font-sans:
+        'Instrument Sans', ui-sans-serif, system-ui, sans-serif,
+        'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
+        'Noto Color Emoji';
+    --font-heading:
+        'Instrument Sans', ui-sans-serif, system-ui, sans-serif,
+        'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
+        'Noto Color Emoji';
+}
+
+/*
+ * Headings track the tenant's heading font token; both --font-heading and
+ * --font-sans are overridden per tenant at runtime via the inline
+ * `data-site-theme` style tag (see App\Design\ThemeVariables).
+ */
+@layer base {
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+        font-family: var(--font-heading);
+    }
+}
+
+/*
+ * The shared type treatments for tenant sites — the ONE definition of what a
+ * section heading, a hero title, an eyebrow and an intro line look like.
+ * These used to be per-view utility literals (the same
+ * `text-3xl font-bold tracking-tight md:text-4xl` pasted into a dozen block
+ * views), which made every treatment un-themable; an arch test now keeps
+ * those literals out of the page-block views.
+ *
+ * Every declaration reads a `--type-*` variable with today's exact value as
+ * the fallback, so a site with no type tokens renders byte-identically to the
+ * pre-class markup. The variables are the contract the TypeStyle design token
+ * fills in per tenant (via the inline `data-site-theme` tag) — sizes multiply
+ * by `--type-scale`, so line-heights here are unitless ratios, exactly the
+ * ratios Tailwind's own text-* utilities use.
+ *
+ * Colour and layout stay OUT of these classes on purpose: an eyebrow is
+ * `text-primary` on a light hero but inherits the overlay's light text on a
+ * dark one, and margins/widths/alignment belong to each view's composition.
+ */
+@layer components {
+    .site-display-lg,
+    .site-display,
+    .site-h1 {
+        font-weight: var(--type-display-weight, 700);
+        letter-spacing: var(--type-display-tracking, -0.025em);
+        line-height: calc(2.5 / 2.25);
+        text-wrap: balance;
+    }
+
+    /*
+     * The display sizes carry --type-display-scale on top of --type-scale, so
+     * a style can make the hero headline enormous without dragging the body
+     * copy up with it (TypeStyle's docblock has the argument). Defaults to 1,
+     * so a site with no type tokens is unchanged.
+     */
+    .site-display-lg {
+        font-size: calc(
+            3rem * var(--type-scale, 1) * var(--type-display-scale, 1)
+        );
+        line-height: 1;
+    }
+
+    .site-display,
+    .site-h1 {
+        font-size: calc(
+            2.25rem * var(--type-scale, 1) * var(--type-display-scale, 1)
+        );
+    }
+
+    .site-h2 {
+        font-size: calc(1.875rem * var(--type-scale, 1));
+        line-height: calc(2.25 / 1.875);
+        font-weight: var(--type-heading-weight, 700);
+        letter-spacing: var(--type-heading-tracking, -0.025em);
+        text-transform: var(--type-heading-case, none);
+        text-wrap: balance;
+    }
+
+    .site-h3,
+    .site-h4,
+    .site-h5,
+    .site-h6 {
+        font-weight: var(--type-subheading-weight, 600);
+        letter-spacing: var(--type-heading-tracking, -0.025em);
+        text-wrap: balance;
+    }
+
+    .site-h3 {
+        font-size: calc(1.5rem * var(--type-scale, 1));
+        line-height: calc(2 / 1.5);
+    }
+
+    .site-h4 {
+        font-size: calc(1.25rem * var(--type-scale, 1));
+        line-height: calc(1.75 / 1.25);
+    }
+
+    .site-h5 {
+        font-size: calc(1.125rem * var(--type-scale, 1));
+        line-height: calc(1.75 / 1.125);
+    }
+
+    .site-h6 {
+        font-size: calc(1rem * var(--type-scale, 1));
+        line-height: 1.5;
+    }
+
+    .site-eyebrow {
+        font-size: var(--type-eyebrow-size, 0.875rem);
+        line-height: calc(1.25 / 0.875);
+        font-weight: var(--type-eyebrow-weight, 600);
+        text-transform: var(--type-eyebrow-case, uppercase);
+        letter-spacing: var(--type-eyebrow-tracking, 0.1em);
+    }
+
+    .site-intro {
+        font-size: var(--type-intro-size, 1.125rem);
+        line-height: calc(1.75 / 1.125);
+        text-wrap: pretty;
+    }
+
+    /*
+     * Motion (App\Design\MotionStyle), in two mechanisms for two different
+     * moments. Both read the same `--reveal-*` token variables, so the `still`
+     * style is a no-op in both rather than a branch in either: opacity 1, no
+     * shift, no duration. A site that never chose a motion style is untouched.
+     *
+     * `prefers-reduced-motion` cancels both, unconditionally. It is not a look
+     * an operator may choose between, so it does not live in the enum.
+     *
+     * Only `translate` and `opacity` move: both are compositor-only, so a long
+     * page settling several sections at once costs no layout.
+     */
+
+    /*
+     * 1. The opening, staged by position — a CSS animation, and deliberately not
+     * the scroll reveal below.
+     *
+     * An animation always ENDS at the element's own state, so this needs no
+     * JavaScript, cannot strand content invisible, and is applied by the first
+     * paint rather than after the bundle lands. That last part is why the hero
+     * cannot use the observer: anything the observer hides is visible until the
+     * script runs, and a first screenful that appears, vanishes and fades back
+     * in is worse than one that never moved.
+     *
+     * `both` fill mode is what makes the delays a stagger rather than six
+     * simultaneous fades — each child holds its `from` state until its turn.
+     *
+     * The editor canvas stands down from this too, but through the token
+     * variables at the end of this file rather than through a selector here —
+     * see the note there.
+     */
+    @keyframes site-enter {
+        from {
+            opacity: var(--reveal-opacity, 1);
+            translate: 0 var(--reveal-shift, 0px);
+        }
+    }
+
+    .site-stage > * {
+        animation: site-enter var(--reveal-duration, 0ms)
+            cubic-bezier(0.22, 1, 0.36, 1) both;
+        animation-delay: calc(var(--stage-step, 90ms) * var(--stage-index, 0));
+    }
+
+    /* Position IS the stagger, so a view stages its children by ordering them
+       rather than by labelling each one. Past the sixth child everything lands
+       together, which is the right ceiling: a staged entrance longer than about
+       half a second stops reading as craft. */
+    .site-stage > :nth-child(2) {
+        --stage-index: 1;
+    }
+
+    .site-stage > :nth-child(3) {
+        --stage-index: 2;
+    }
+
+    .site-stage > :nth-child(4) {
+        --stage-index: 3;
+    }
+
+    .site-stage > :nth-child(5) {
+        --stage-index: 4;
+    }
+
+    .site-stage > :nth-child(n + 6) {
+        --stage-index: 5;
+    }
+
+    /*
+     * 2. The scroll reveal, for everything below the opening.
+     *
+     * `[data-site-reveal]` is set on the root by resources/js/site/reveal.ts,
+     * and only once it has an IntersectionObserver to take it back off with — a
+     * visitor with no JavaScript never matches this rule and reads the page
+     * normally, which is the failure mode every hand-rolled version of this
+     * effect gets wrong. The same script also marks anything already on screen
+     * visible in the same task it sets the attribute, so nothing that a visitor
+     * can see at that moment ever flashes.
+     */
+    [data-site-reveal] [data-animate] {
+        opacity: var(--reveal-opacity, 1);
+        translate: 0 var(--reveal-shift, 0px);
+        transition-property: opacity, translate;
+        transition-duration: var(--reveal-duration, 0ms);
+        transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    [data-site-reveal] [data-animate].is-visible {
+        opacity: 1;
+        translate: none;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .site-stage > * {
+            animation: none;
+        }
+
+        [data-site-reveal] [data-animate] {
+            opacity: 1;
+            translate: none;
+            transition: none;
+        }
+    }
+
+    /*
+     * The accent section surface (App\Site\Blocks\SectionTone::Accent).
+     * A component class rather than `bg-primary` because the surface is the
+     * AccentStyle token's to paint: --accent-surface may be a flat colour or
+     * a palette-derived gradient, and `background` (not -color) accepts both.
+     * The token keeps the secondary share small enough that primary-content
+     * stays the right text colour across the whole surface.
+     */
+    .site-tone-accent {
+        background: var(--accent-surface, var(--color-primary));
+        color: var(--color-primary-content);
+    }
+
+    /*
+     * The section seam (App\Design\SectionDivider). Rendered by
+     * <x-site.section> at the top of every section; inert until the divider
+     * token sets --divider-display. It paints in the section's own inherited
+     * background, clipped to the token's silhouette, and overlaps the
+     * previous section's bottom padding — position: relative so it paints
+     * above that section's background in the negative-margin overlap.
+     * Sections with no background of their own (the `plain` tone) inherit
+     * transparent and the seam stays invisible, by design.
+     */
+    .site-divider {
+        display: var(--divider-display, none);
+        position: relative;
+        height: 3rem;
+        margin-top: -3rem;
+        background-color: inherit;
+        clip-path: var(--divider-clip, none);
+    }
+
+    /* Accent surfaces may be gradients, which background-color cannot
+       inherit — the seam picks the same token surface up directly. */
+    .site-tone-accent > .site-divider {
+        background: var(--accent-surface, var(--color-primary));
+    }
+
+    /* The first section on a page has nothing above it to seam against —
+       an overlap there would ride up over the site header, which is exactly
+       what it did while this read `:first-child`. The page's blocks are
+       siblings of the chrome (`<x-site.document>` renders `<header>`, the
+       notice bar and the blocks into one flow), so the first section is never
+       the first child of anything; `:first-of-type` is the one that matches,
+       and header/footer/notice are deliberately not `<section>`s. */
+    section:first-of-type > .site-divider {
+        display: none;
+    }
+
+    /*
+     * The craft layer — the shared finishing details that keep block views
+     * from reading as bare DaisyUI defaults. Same contract as the type
+     * classes above: every value derives from the tenant's tokens
+     * (--color-*, --radius-*, --type-*, --font-heading) or from
+     * currentColor, so one declaration holds across all palettes (including
+     * the dark ones) and across accent/inverted section tones, which
+     * re-assert their own `color`. Colour stays out of these classes for the
+     * same reason it stays out of .site-h2.
+     */
+
+    /*
+     * Card chrome. Applied by SectionItemStyle::Card (the enum, never a
+     * view — arch-tested) on top of the tone-picked surface: a
+     * currentColor hairline reads dark-on-light and light-on-dark without
+     * per-tone variants, and the hover lift is gated to real pointers.
+     */
+    .site-card {
+        border: 1px solid color-mix(in oklch, currentcolor 10%, transparent);
+        box-shadow:
+            0 1px 2px oklch(0% 0 0 / 0.04),
+            0 10px 24px -14px oklch(0% 0 0 / 0.12);
+        transition:
+            translate 0.2s ease,
+            box-shadow 0.2s ease;
+    }
+
+    @media (hover: hover) {
+        .site-card:hover {
+            translate: 0 -3px;
+            box-shadow:
+                0 2px 4px oklch(0% 0 0 / 0.05),
+                0 16px 32px -16px oklch(0% 0 0 / 0.18);
+        }
+    }
+
+    /*
+     * The closure / changed-hours notice bar, above the header.
+     *
+     * Themed from the tenant's own accent rather than a fixed amber, because it
+     * sits directly above their logo and a stock warning colour would be the one
+     * thing on the page the design system did not choose. It reads as
+     * information, not as an error: this is "closed Monday for Lunar New Year",
+     * which a visitor is grateful to see.
+     */
+    .site-notice-bar {
+        background-color: var(--color-neutral);
+        color: var(--color-neutral-content);
+        font-size: 0.875rem;
+        line-height: 1.4;
+    }
+
+    .site-notice-bar-inner {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 0.25rem 0.75rem;
+        max-width: 80rem;
+        margin-inline: auto;
+        padding: 0.625rem 1.5rem;
+    }
+
+    .site-notice-bar-label {
+        font-weight: 600;
+    }
+
+    .site-notice-bar-detail {
+        opacity: 0.8;
+    }
+
+    .site-notice-bar-link {
+        margin-inline-start: auto;
+        text-decoration: underline;
+        text-underline-offset: 0.2em;
+        white-space: nowrap;
+    }
+
+    /*
+     * The two ornaments of the full-viewport hero.
+     *
+     * Both are here rather than in the view for the reason the type classes
+     * are: they derive from the tenant's palette, so one declaration holds
+     * across every palette including the dark ones. And both are decorative —
+     * `aria-hidden` in the markup, nothing behind them to miss.
+     */
+
+    /* A low, wide pool of light behind the copy, so a type-only opening is not
+       a flat field of one colour. base-300 rather than primary: on this hero
+       the palette's hue belongs to the words, not to the air around them. */
+    .site-hero-glow {
+        background: radial-gradient(
+            ellipse at 50% 60%,
+            color-mix(in oklch, var(--color-base-300) 55%, transparent),
+            transparent 70%
+        );
+    }
+
+    /* The scroll cue: a hairline that breathes rather than a bouncing arrow,
+       which is the same gesture at a volume this look can afford. currentColor
+       so it inverts with the section tone. */
+    @keyframes site-scroll-cue {
+        0%,
+        100% {
+            scale: 1 0.35;
+            opacity: 0.3;
+        }
+
+        50% {
+            scale: 1 1;
+            opacity: 0.85;
+        }
+    }
+
+    .site-scroll-cue {
+        width: 1px;
+        height: 3rem;
+        transform-origin: top;
+        background: linear-gradient(
+            to bottom,
+            color-mix(in oklch, currentcolor 45%, transparent),
+            transparent
+        );
+        animation: site-scroll-cue 2.6s ease-in-out infinite;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .site-scroll-cue {
+            animation: none;
+        }
+    }
+
+    /*
+     * Body copy one step quieter than the surface it sits on.
+     *
+     * The tone-aware replacement for a literal `text-base-content/70`, which is
+     * the colour a section INTRO used to be pinned to — invisible on an accent or
+     * inverted band, because those surfaces re-assert `color` and the literal
+     * overrides it back to the page's dark ink. On a light base this computes to
+     * exactly what the literal did (currentColor IS base-content there), so
+     * nothing changes for the sections that were already right.
+     *
+     * Same currentColor argument as `.site-card`'s hairline, and the same reason
+     * it lives here rather than in a view.
+     */
+    .site-dim {
+        color: color-mix(in oklch, currentcolor 70%, transparent);
+    }
+
+    /*
+     * The menu-style dotted leader between an offering's name and its
+     * price. An empty flex-growing span so the dots always span exactly the
+     * gap; the baseline nudge sits the rule on the text baseline.
+     */
+    .site-leaders {
+        flex: 1 1 auto;
+        min-width: 2rem;
+        translate: 0 -0.3em;
+        border-bottom: 2px dotted
+            color-mix(in oklch, currentcolor 25%, transparent);
+    }
+
+    /*
+     * Testimonial quote mark, hung above the quote in the heading face.
+     * A fixed em height crops the glyph's descender space so the quote text
+     * tucks up under it regardless of the tenant's font pair.
+     */
+    .site-quote {
+        position: relative;
+    }
+
+    .site-quote::before {
+        content: '\201C';
+        display: block;
+        height: 0.55em;
+        font-family: var(--font-heading);
+        font-size: calc(3rem * var(--type-scale, 1));
+        font-weight: var(--type-display-weight, 700);
+        line-height: 1;
+        color: var(--color-primary);
+        opacity: 0.9;
+    }
+
+    /*
+     * Stat values get display-grade type without the .site-display
+     * responsive jump (a stat row holds three or four of them), and
+     * adjacent stats are seamed by a hairline once the grid goes
+     * multi-column.
+     */
+    .site-stat {
+        font-size: calc(3rem * var(--type-scale, 1));
+        line-height: 1;
+        font-weight: var(--type-display-weight, 700);
+        letter-spacing: var(--type-display-tracking, -0.025em);
+        font-variant-numeric: tabular-nums;
+    }
+
+    @media (width >= 48rem) {
+        .site-stat-item + .site-stat-item {
+            border-inline-start: 1px solid
+                color-mix(in oklch, currentcolor 14%, transparent);
+        }
+    }
+
+    /*
+     * The photo-overlay scrim (full-bleed hero, full-photo CTA). Bottom-
+     * weighted so the copy zone keeps at least the contrast the old flat
+     * bg-neutral/60 gave it while the top of the photo stays legible;
+     * tracks --color-neutral so dark palettes keep one coherent cast.
+     * The flat 60% overlay literal is arch-banned from views in its favour.
+     */
+    .site-scrim {
+        background: linear-gradient(
+            to top,
+            color-mix(in oklch, var(--color-neutral) 88%, transparent),
+            color-mix(in oklch, var(--color-neutral) 52%, transparent) 55%,
+            color-mix(in oklch, var(--color-neutral) 28%, transparent)
+        );
+    }
+
+    /*
+     * Secondary call-to-action as an arrow link instead of a second pill —
+     * two pills flatten the action hierarchy. Inherits currentColor so it
+     * needs no accent/inverted variants.
+     */
+    .site-link-cta {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.375rem;
+        font-weight: 600;
+        text-underline-offset: 4px;
+    }
+
+    .site-link-cta::after {
+        content: '\2192';
+        transition: translate 0.15s ease;
+    }
+
+    @media (hover: hover) {
+        .site-link-cta:hover {
+            text-decoration: underline;
+        }
+
+        .site-link-cta:hover::after {
+            translate: 3px 0;
+        }
+    }
+
+    /*
+     * Offset frame behind a hero/feature photo — a primary-tinted echo of
+     * the image's own radius. Needs `relative isolate` on the element so
+     * the -1 z-index stays inside the block's own stacking context.
+     */
+    .site-frame {
+        position: relative;
+    }
+
+    .site-frame::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        translate: 0.875rem 0.875rem;
+        z-index: -1;
+        border-radius: var(--radius-box, 1rem);
+        background: color-mix(in oklch, var(--color-primary) 14%, transparent);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .site-card,
+        .site-card:hover,
+        .site-link-cta::after {
+            transition: none;
+        }
+
+        .site-card:hover {
+            translate: none;
+        }
+    }
+
+    @media (width >= 48rem) {
+        .site-display-lg {
+            font-size: calc(
+                4.5rem * var(--type-scale, 1) * var(--type-display-scale, 1)
+            );
+        }
+
+        .site-display {
+            font-size: calc(
+                3.75rem * var(--type-scale, 1) * var(--type-display-scale, 1)
+            );
+            line-height: 1;
+        }
+
+        .site-h1 {
+            font-size: calc(
+                3rem * var(--type-scale, 1) * var(--type-display-scale, 1)
+            );
+            line-height: 1;
+        }
+
+        .site-h2 {
+            font-size: calc(2.25rem * var(--type-scale, 1));
+            line-height: calc(2.5 / 2.25);
+        }
+
+        .site-h3 {
+            font-size: calc(1.875rem * var(--type-scale, 1));
+            line-height: calc(2.25 / 1.875);
+        }
+
+        .site-h4 {
+            font-size: calc(1.5rem * var(--type-scale, 1));
+            line-height: calc(2 / 1.5);
+        }
+
+        .site-h5 {
+            font-size: calc(1.25rem * var(--type-scale, 1));
+            line-height: calc(1.75 / 1.25);
+        }
+
+        .site-h6 {
+            font-size: calc(1.125rem * var(--type-scale, 1));
+            line-height: calc(1.75 / 1.125);
+        }
+    }
+}
+
+/*
+ * The editor canvas is a still page, whatever the tenant's motion token says.
+ *
+ * `initSite()` already bails out there, which stands the scroll reveal down —
+ * but the staged opening is a CSS animation and does not care whether any script
+ * ran. The canvas reloads its iframe on every committed edit, so without this an
+ * operator on a motion preset would re-watch the whole opening walk in every
+ * time they typed in the headline field.
+ *
+ * Done by overriding the three token variables rather than by cancelling the
+ * animation: the same three values the `still` style emits, so there is one
+ * definition of "no motion" and both mechanisms read it.
+ *
+ * Deliberately UNLAYERED, and that is the whole reason it sits at the end of the
+ * file: the per-tenant `<style data-site-theme>:root{…}` tag is unlayered too,
+ * and an unlayered declaration beats anything inside `@layer` no matter how
+ * specific. Inside the components layer this rule would silently lose to the
+ * very variables it exists to override.
+ */
+:root:has([data-editor-canvas]) {
+    --reveal-opacity: 1;
+    --reveal-shift: 0px;
+    --reveal-duration: 0ms;
+}

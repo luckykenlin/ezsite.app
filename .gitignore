@@ -17,10 +17,13 @@
 /public/build
 /public/fonts-manifest.dev.json
 /public/hot
+/public/library
+/public/public-*
 /public/storage
 /storage/*.key
 /storage/pail
 /storage/tenant*/
+/tests/Browser/Screenshots
 /vendor
 _ide_helper.php
 Homestead.json

@@ -17,13 +17,18 @@
     "license": "MIT",
     "require": {
         "php": "^8.5.0",
-        "filament/filament": "^5.6.8",
+        "awcodes/filament-curator": "^5.1",
+        "filament/filament": "^5.7.1",
+        "intervention/image": "^3.9",
         "laravel/ai": "^0.9.0",
         "laravel/framework": "^13.19",
         "laravel/tinker": "^3.0.2",
         "nunomaduro/essentials": "^1.2",
         "nunomaduro/laravel-sluggable": "^1.0",
-        "stancl/tenancy": "dev-master"
+        "ralphjsmit/laravel-seo": "^1.8",
+        "spatie/opening-hours": "^4.2",
+        "stancl/tenancy": "dev-master",
+        "z3d0x/filament-fabricator": "^4.1"
     },
     "require-dev": {
         "aldesrahim/filament-compass": "^1.5",
@@ -53,10 +58,7 @@
             "App\\": "app/",
             "Database\\Factories\\": "database/factories/",
             "Database\\Seeders\\": "database/seeders/"
-        },
-        "files": [
-            "app/Helpers.php"
-        ]
+        }
     },
     "autoload-dev": {
         "psr-4": {
@@ -74,7 +76,7 @@
         ],
         "dev": [
             "Composer\\Config::disableProcessTimeout",
-            "npx concurrently -c \"#93c5fd,#c4b5fd,#fb7185,#fdba74\" \"php artisan serve\" \"php artisan queue:listen --tries=1 --timeout=0\" \"php artisan pail --timeout=0\" \"npm run dev\" --names=server,queue,logs,vite --kill-others"
+            "npx concurrently -c \"#93c5fd,#c4b5fd,#fb7185,#fdba74\" \"php artisan serve\" \"php artisan queue:listen --tries=1 --timeout=0 --sleep=0\" \"php artisan pail --timeout=0\" \"npm run dev\" --names=server,queue,logs,vite --kill-others"
         ],
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
@@ -105,13 +107,16 @@
             "pint --parallel",
             "npm run lint"
         ],
-        "test:type-coverage": "pest --type-coverage --min=100",
+        "test:type-coverage": "pest --type-coverage --min=100 --exclude-testsuite=Browser",
         "test:lint": [
             "pint --parallel --test",
             "rector --dry-run",
+            "filacheck",
             "npm run test:lint"
         ],
-        "test:unit": "XDEBUG_MODE=\"coverage\" pest --parallel --coverage --exactly=100.0",
+        "test:unit": "XDEBUG_MODE=\"coverage\" pest --parallel --processes=10 --coverage --exactly=100.0 --tia --exclude-testsuite=Browser",
+        "test:tia:clear": "@php -r 'require \"vendor/autoload.php\"; Pest\\Plugins\\Tia\\Storage::purge(getcwd()); echo \"TIA cache cleared: \".Pest\\Plugins\\Tia\\Storage::tempDir(getcwd()).PHP_EOL;'",
+        "test:browser": "sh -c 'ulimit -n 1024; pest --testsuite=Browser'",
         "test:types": [
             "phpstan --memory-limit=-1",
             "npm run test:types"
@@ -120,7 +125,13 @@
             "@test:lint",
             "@test:type-coverage",
             "@test:types",
+            "npm run test:unit",
             "@test:unit"
+        ],
+        "test:all": [
+            "@test",
+            "npm run build",
+            "@test:browser"
         ]
     },
     "extra": {

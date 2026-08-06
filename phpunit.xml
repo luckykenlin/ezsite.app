@@ -11,8 +11,17 @@
         <testsuite name="Feature">
             <directory>tests/Feature</directory>
         </testsuite>
-        <testsuite name="Tenancy">
-            <directory>tests/Tenancy</directory>
+        <testsuite name="Arch">
+            <directory>tests/Arch</directory>
+        </testsuite>
+        <!--
+            Run on its own (composer test:browser), never as part of the
+            coverage run: it drives a real Chromium, so it is slow, and it
+            executes app/ out of band where the exact-100 coverage gate cannot
+            account for it. composer test:unit excludes it explicitly.
+        -->
+        <testsuite name="Browser">
+            <directory>tests/Browser</directory>
         </testsuite>
     </testsuites>
     <source>
@@ -23,15 +32,31 @@
     <php>
         <env name="APP_ENV" value="testing"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
+        <!--
+            force: APP_URL is the suite's only source for the central host AND
+            for the scheme every generated link comes out on (Domain::getUrl(),
+            tenancy.identification.central_domains, route()). Securing the local
+            site in Herd flips a developer's .env to https, which silently
+            rewrites those expectations and fails a handful of tests that a
+            fresh clone on .env.example passes. Pin both here so the suite reads
+            the same installation everywhere; tests that care about https set
+            config('app.url') themselves.
+        -->
+        <env name="APP_URL" value="http://ezsite.test" force="true"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="BROADCAST_CONNECTION" value="null"/>
         <env name="CACHE_STORE" value="array"/>
-        <env name="DB_CONNECTION" value="sqlite" force="true"/>
-        <env name="DB_DATABASE" value=":memory:" force="true"/>
+        <env name="CURATOR_GLIDE_TOKEN" value="testing-glide-token" force="true"/>
+        <env name="DB_CONNECTION" value="pgsql" force="true"/>
+        <env name="DB_DATABASE" value="ezsite_testing" force="true"/>
         <env name="DB_URL" value=""/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>
+        <!-- force: the suite's baseline is pipeline-off (tests opt in via
+             config()->set), and a developer's .env toggle must not flip it. -->
+        <env name="STOCK_PHOTOS_ENABLED" value="false" force="true"/>
+        <env name="PEXELS_API_KEY" value="" force="true"/>
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>

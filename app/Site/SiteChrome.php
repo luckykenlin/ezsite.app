@@ -1,0 +1,70 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Site;
+
+use App\Enums\ChromeSlot;
+use App\Models\Business;
+use App\Models\SiteSetting;
+
+/**
+ * The tenant's site-wide header/footer block entries, rendered by the main
+ * layout around every page body.
+ *
+ * Saved configuration (site_settings.header/footer, Fabricator block-entry
+ * shape) wins; otherwise a default header/footer renders as soon as the
+ * tenant has a Business. A tenant with neither renders no chrome at all —
+ * silently, because logging here would emit warnings on every page view of a
+ * not-yet-onboarded tenant. Request-scoped for the same reason as
+ * {@see BindResolver}: one settings query per render.
+ */
+final readonly class SiteChrome
+{
+    public function __construct(
+        private BindResolver $bindResolver,
+        private SiteSettingsLoader $settingsLoader,
+    ) {
+        //
+    }
+
+    /**
+     * @return array<int, mixed>
+     */
+    public function headerBlocks(): array
+    {
+        return $this->blocks(ChromeSlot::Header);
+    }
+
+    /**
+     * @return array<int, mixed>
+     */
+    public function footerBlocks(): array
+    {
+        return $this->blocks(ChromeSlot::Footer);
+    }
+
+    /**
+     * @return array<int, mixed>
+     */
+    private function blocks(ChromeSlot $slot): array
+    {
+        $settings = $this->settings();
+        $stored = $slot === ChromeSlot::Header ? $settings?->header : $settings?->footer;
+
+        if ($stored !== null && $stored !== []) {
+            return array_values($stored);
+        }
+
+        if (! $this->bindResolver->business() instanceof Business) {
+            return [];
+        }
+
+        return [['type' => $slot->value, 'data' => []]];
+    }
+
+    private function settings(): ?SiteSetting
+    {
+        return $this->settingsLoader->get();
+    }
+}

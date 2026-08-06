@@ -202,6 +202,11 @@ return [
         QueueTenancyBootstrapper::class,
         // Bootstrappers\RedisTenancyBootstrapper::class, // Note: phpredis is needed
 
+        // Creates the `tenant` connection (RLS credentials + session variable).
+        // MUST come before DatabaseSessionBootstrapper, which resolves that
+        // connection by name — bootstrappers run in array order.
+        PostgresRLSBootstrapper::class,
+
         // Adds support for the database session driver
         DatabaseSessionBootstrapper::class,
 
@@ -217,8 +222,6 @@ return [
         // Integration bootstrappers
         // Bootstrappers\Integrations\FortifyRouteBootstrapper::class,
         // Bootstrappers\Integrations\ScoutPrefixBootstrapper::class,
-
-        PostgresRLSBootstrapper::class,
     ],
 
     /**

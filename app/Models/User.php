@@ -9,6 +9,7 @@ use Database\Factories\UserFactory;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
+use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -76,8 +77,25 @@ final class User extends Authenticatable implements FilamentUser
     }
 
     /**
-     * Get the attributes that should be cast.
+     * Everyone with panel access to the given tenant, through the `tenant_user`
+     * pivot.
      *
+     * That pivot is exempt from RLS on purpose, so this resolves the same set
+     * whatever the connection's tenant context is — which is what lets both the
+     * in-request notification listener and the queued mail job share it.
+     * Super admins are deliberately NOT included: they can open any panel, but
+     * "who runs this site" is a membership question, and mailing every enquiry
+     * of every tenant to the platform's staff is not what either side wants.
+     *
+     * @param  Builder<static>  $query
+     */
+    #[Scope]
+    protected function memberOf(Builder $query, string $tenantId): void
+    {
+        $query->whereHas('tenants', fn (Builder $tenants): Builder => $tenants->whereKey($tenantId));
+    }
+
+    /**
      * @return array<string, string>
      */
     protected function casts(): array
@@ -91,9 +109,10 @@ final class User extends Authenticatable implements FilamentUser
 
     private function belongsToCurrentTenant(): bool
     {
+        /** @var Tenant|null $currentTenant */
         $currentTenant = tenant();
 
-        if (! $currentTenant instanceof Tenant) {
+        if ($currentTenant === null) {
             return false;
         }
 

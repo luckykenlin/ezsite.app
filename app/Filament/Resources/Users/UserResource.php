@@ -32,13 +32,6 @@ final class UserResource extends Resource
         return UsersTable::configure($table);
     }
 
-    public static function getRelations(): array
-    {
-        return [
-            //
-        ];
-    }
-
     public static function getPages(): array
     {
         return [

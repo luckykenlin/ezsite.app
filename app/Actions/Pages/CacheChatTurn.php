@@ -1,0 +1,219 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Actions\Pages;
+
+use App\Design\TokenSelection;
+use App\Enums\ChromeSlot;
+use Illuminate\Support\Facades\Cache;
+
+/**
+ * The handoff between a chat turn running on the queue worker
+ * ({@see \App\Jobs\ChatEditPageJob}) and the editor component polling for it.
+ *
+ * A turn cannot return through the request that started it: an LLM turn takes
+ * tens of seconds, and holding a php-fpm worker open that long is what used to
+ * kill the request on `max_execution_time` — as an uncatchable fatal, mid
+ * `wire:stream`, which the editor rendered as a blank modal. So the worker
+ * writes progress here and the component reads it, the same token-through-cache
+ * pattern {@see CachePageEditorPreview} uses for the canvas preview.
+ *
+ * Deliberately plain arrays, so no `cache.serializable_classes` allowlisting is
+ * needed. The panel and the worker both run inside the tenant (the job is
+ * TenantAware), so CacheTenancyBootstrapper prefixes both sides identically and
+ * a token is only resolvable inside the tenant that wrote it.
+ */
+final readonly class CacheChatTurn
+{
+    /**
+     * Long enough to outlive any turn the job's own timeout allows, short enough
+     * that an abandoned turn does not linger.
+     */
+    private const int TTL_MINUTES = 30;
+
+    public static function key(string $token): string
+    {
+        return 'page-chat-turn:'.$token;
+    }
+
+    /**
+     * Publish the turn's state.
+     *
+     * Called repeatedly while the provider streams (reply only, so the operator
+     * watches the answer arrive instead of a spinner) and once at the end with
+     * the resulting blocks. Carrying the blocks IS what marks it finished —
+     * there is no result to apply until they exist, and a failed turn still
+     * carries them, unchanged.
+     *
+     * @param  list<array{key: string, type: string, data: array<string, mixed>}>|null  $blocks  null while still running
+     * @param  list<string>  $activity  what the turn has done so far, one line per tool
+     *                                  call. Cumulative like `$reply`, and for the
+     *                                  same reason: the stream forwards only the
+     *                                  increment, so a browser that reconnects
+     *                                  mid-turn still gets the lines it missed.
+     * @param  array<string, array{type: string, data: array<string, mixed>}>|null  $chrome  the
+     *                                                                                       header/footer slots the turn STAGED, or null when
+     *                                                                                       it left chrome alone. Beside the blocks for the
+     *                                                                                       same reason as `$design`: chrome is site-scoped and
+     *                                                                                       is not part of any page.
+     * @param  array<string, string|null>|null  $design  the site style the turn STAGED, or
+     *                                                   null when it left the style alone.
+     *                                                   Travels beside the blocks rather than
+     *                                                   inside them because tokens are
+     *                                                   site-scoped — they are not part of any
+     *                                                   page — and the editor has to apply both
+     *                                                   halves under one undo snapshot.
+     * @param  int  $preview  how many times the turn has repainted the canvas preview
+     *                        so far — a counter, not content, because the paint itself
+     *                        goes through {@see CachePageEditorPreview}; the stream only
+     *                        needs to know THAT there is something new to show.
+     */
+    public function handle(string $token, string $reply, ?array $blocks = null, bool $failed = false, array $activity = [], ?array $design = null, ?array $chrome = null, int $preview = 0): void
+    {
+        Cache::put(self::key($token), [
+            'status' => $blocks === null ? 'running' : 'done',
+            'reply' => $reply,
+            'blocks' => $blocks,
+            'failed' => $failed,
+            'activity' => $activity,
+            'design' => $design,
+            'chrome' => $chrome,
+            'preview' => $preview,
+        ], now()->addMinutes(self::TTL_MINUTES));
+    }
+
+    /**
+     * The turn as the editor consumes it. Normalised rather than trusted: this
+     * comes back from an external store and its `blocks` go straight into the
+     * editor's state and from there into the page, so a malformed entry is
+     * dropped here instead of downstream.
+     *
+     * @return array{status: string, reply: string, blocks: list<array{key: string, type: string, data: array<string, mixed>}>|null, failed: bool, activity: list<string>, design: array<string, string|null>|null, chrome: array<string, array{type: string, data: array<string, mixed>}>|null, preview: int}|null
+     */
+    public function read(string $token): ?array
+    {
+        $turn = Cache::get(self::key($token));
+
+        if (! is_array($turn)) {
+            return null;
+        }
+
+        return [
+            'status' => ($turn['status'] ?? null) === 'done' ? 'done' : 'running',
+            'reply' => is_string($turn['reply'] ?? null) ? $turn['reply'] : '',
+            'blocks' => $this->normalisedBlocks($turn['blocks'] ?? null),
+            'failed' => (bool) ($turn['failed'] ?? false),
+            'activity' => $this->normalisedActivity($turn['activity'] ?? null),
+            // Normalised for the same reason the blocks are: it arrives from an
+            // external store and goes straight into the editor's `$designDraft`,
+            // from which ThemeVariables compiles a <style> tag. Null doubles as
+            // the "this turn left the style alone" signal.
+            'design' => TokenSelection::normalise($turn['design'] ?? null),
+            'chrome' => $this->normalisedChrome($turn['chrome'] ?? null),
+            // Same normalise-not-trust treatment as the rest: anything but a
+            // non-negative int (a corrupted entry, an older writer) reads as
+            // "never painted", which only costs a repaint that was not needed.
+            'preview' => is_int($turn['preview'] ?? null) ? max(0, $turn['preview']) : 0,
+        ];
+    }
+
+    public function forget(string $token): void
+    {
+        Cache::forget(self::key($token));
+    }
+
+    /**
+     * The staged chrome slots that carry a usable entry; null when the turn left
+     * chrome alone or stored nothing recognisable.
+     *
+     * Normalised for the same reason the blocks are: this comes back from an
+     * external store and goes straight into the editor's `$chrome` draft, and from
+     * there — via SaveSiteChrome — into `site_settings`. Only the two real slots
+     * survive, so a malformed entry cannot invent a third.
+     *
+     * @return array<string, array{type: string, data: array<string, mixed>}>|null
+     */
+    private function normalisedChrome(mixed $chrome): ?array
+    {
+        if (! is_array($chrome)) {
+            return null;
+        }
+
+        $normalised = [];
+
+        foreach (ChromeSlot::values() as $slot) {
+            $entry = $chrome[$slot] ?? null;
+
+            if (! is_array($entry)) {
+                continue;
+            }
+
+            $data = $entry['data'] ?? null;
+            $fields = [];
+
+            foreach (is_array($data) ? $data : [] as $field => $value) {
+                $fields[(string) $field] = $value;
+            }
+
+            $normalised[$slot] = ['type' => $slot, 'data' => $fields];
+        }
+
+        return $normalised === [] ? null : $normalised;
+    }
+
+    /**
+     * The activity lines that are actually strings. They are rendered in the chat
+     * rail, so anything else in the entry is dropped rather than reaching a view.
+     *
+     * @return list<string>
+     */
+    private function normalisedActivity(mixed $activity): array
+    {
+        if (! is_array($activity)) {
+            return [];
+        }
+
+        return array_values(array_filter($activity, is_string(...)));
+    }
+
+    /**
+     * Every entry that carries the editor's block shape; null when the turn has
+     * not finished (there is no result yet) or stored nothing usable.
+     *
+     * @return list<array{key: string, type: string, data: array<string, mixed>}>|null
+     */
+    private function normalisedBlocks(mixed $blocks): ?array
+    {
+        if (! is_array($blocks)) {
+            return null;
+        }
+
+        $normalised = [];
+
+        foreach ($blocks as $block) {
+            if (! is_array($block)) {
+                continue;
+            }
+
+            if (! is_string($block['key'] ?? null)) {
+                continue;
+            }
+
+            if (! is_string($block['type'] ?? null)) {
+                continue;
+            }
+
+            $data = $block['data'] ?? null;
+            $fields = [];
+
+            foreach (is_array($data) ? $data : [] as $field => $value) {
+                $fields[(string) $field] = $value;
+            }
+
+            $normalised[] = ['key' => $block['key'], 'type' => $block['type'], 'data' => $fields];
+        }
+
+        return $normalised;
+    }
+}

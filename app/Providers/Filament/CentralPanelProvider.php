@@ -28,10 +28,16 @@ final class CentralPanelProvider extends PanelProvider
     {
         return $panel
             ->default()
+            ->login()
+            // Gated the same way the login is: `canAccessPanel('central')`
+            // requires `is_super_admin`, so a tenant operator who wanders onto
+            // the central domain gets no reset mail here — theirs is issued on
+            // their own site's domain.
+            ->passwordReset()
+            ->profile()
             ->id('central')
             ->path('admin')
             ->domains(array_filter(Config::array('tenancy.identification.central_domains'), is_string(...)))
-            ->login()
             ->colors([
                 'primary' => Color::Amber,
             ])
@@ -58,6 +64,7 @@ final class CentralPanelProvider extends PanelProvider
             ])
             ->authMiddleware([
                 Authenticate::class,
-            ]);
+            ])
+            ->spa();
     }
 }

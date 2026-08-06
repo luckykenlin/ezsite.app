@@ -1,0 +1,141 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Concerns;
+
+use App\Models\Business;
+use App\Models\Location;
+use App\Models\Page;
+use App\Models\Tenant;
+use App\Models\User;
+use App\Tenancy\RunInTenant;
+use Closure;
+use Filament\Facades\Filament;
+use Illuminate\Auth\SessionGuard;
+
+/**
+ * Shared tenancy helpers, mixed into the whole suite by tests/Pest.php, which
+ * runs against a real Postgres database with RLS enabled.
+ */
+trait InteractsWithTenancy
+{
+    /**
+     * The first configured central domain, e.g. the host tenant subdomains
+     * hang off of.
+     */
+    protected function centralDomain(): string
+    {
+        return array_first(config('tenancy.identification.central_domains'));
+    }
+
+    /**
+     * Create a tenant, sign in a member of it, initialize tenancy (so RLS
+     * scopes rows), and point Filament at the tenant panel. Returns the tenant.
+     */
+    protected function actingAsTenantPanelMember(): Tenant
+    {
+        $tenant = Tenant::factory()->create();
+
+        $this->actingAs(User::factory()->memberOf($tenant)->create());
+
+        tenancy()->initialize($tenant);
+
+        Filament::setCurrentPanel(Filament::getPanel('tenant'));
+        Filament::setTenant($tenant);
+
+        return $tenant;
+    }
+
+    /**
+     * Sign a user in the way a browser does: through the session, leaving the
+     * guard UNRESOLVED until the request under test asks for the user.
+     *
+     * `actingAs()` puts the user instance straight onto the guard, so a route
+     * that inspects an already-resolved user (`auth()->hasUser()`) passes under
+     * `actingAs()` and 404s for every real request. Use this for routes outside
+     * the panel's `auth` middleware, where nothing resolves the guard first.
+     */
+    protected function actingAsThroughSession(User $user): void
+    {
+        /** @var SessionGuard $guard */
+        $guard = auth()->guard();
+
+        $this->withSession([$guard->getName() => $user->getKey()]);
+    }
+
+    /**
+     * Run a callback inside the tenant's RLS context via the same sanctioned
+     * channel production uses, so tests write RLS-scoped models the way real
+     * out-of-band writers must (the RequiresTenantContext guard rejects writes
+     * made in central context).
+     *
+     * @template TReturn
+     *
+     * @param  Closure(): TReturn  $callback
+     * @return TReturn
+     */
+    protected function runInTenant(Tenant|string $tenant, Closure $callback): mixed
+    {
+        return resolve(RunInTenant::class)->handle($tenant, $callback);
+    }
+
+    /**
+     * Create a tenant's home page (slug "/") with a single heading block
+     * echoing the tenant id, so routing tests can assert which tenant a request
+     * resolved to. Wraps the write in the tenant's context so RLS accepts it.
+     */
+    protected function createTenantHomePage(Tenant $tenant): void
+    {
+        $this->createTenantPage($tenant, [
+            ['type' => 'heading', 'data' => ['content' => (string) $tenant->id]],
+        ]);
+    }
+
+    /**
+     * Create a tenant's Business plus a number of Locations (the first one
+     * primary), wrapping the writes in the tenant's context so RLS accepts
+     * them. Returns the business.
+     *
+     * @param  array<string, mixed>  $attributes
+     */
+    protected function createTenantBusiness(Tenant $tenant, array $attributes = [], int $locations = 1): Business
+    {
+        return $this->runInTenant($tenant, function () use ($tenant, $attributes, $locations): Business {
+            $business = Business::factory()->create($attributes + ['tenant_id' => $tenant->id]);
+
+            for ($index = 0; $index < $locations; $index++) {
+                Location::factory()->create([
+                    'tenant_id' => $tenant->id,
+                    'business_id' => $business->id,
+                    'is_primary' => $index === 0,
+                ]);
+            }
+
+            return $business;
+        });
+    }
+
+    /**
+     * Create a page (default slug "/") with the given block set, wrapping the
+     * write in the tenant's context so RLS accepts it. Returns the page.
+     *
+     * @param  array<int, mixed>  $blocks
+     */
+    protected function createTenantPage(Tenant $tenant, array $blocks, string $slug = '/'): Page
+    {
+        tenancy()->initialize($tenant);
+
+        $page = Page::query()->create([
+            'tenant_id' => $tenant->id,
+            'title' => 'Home',
+            'slug' => $slug,
+            'layout' => 'main',
+            'blocks' => $blocks,
+        ]);
+
+        tenancy()->end();
+
+        return $page;
+    }
+}

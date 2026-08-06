@@ -1,0 +1,61 @@
+<?php
+
+declare(strict_types=1);
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('locations', function (Blueprint $table): void {
+            $table->id();
+            $table->string('tenant_id');
+            $table->foreignId('business_id')->constrained()->cascadeOnDelete();
+
+            $table->string('label');
+            $table->boolean('is_primary')->default(false);
+
+            $table->string('address_line1')->nullable();
+            $table->string('address_line2')->nullable();
+            $table->string('city')->nullable();
+            $table->string('state')->nullable();
+            $table->string('postal_code')->nullable();
+            $table->string('country')->nullable();
+
+            $table->decimal('latitude', 10, 7)->nullable();
+            $table->decimal('longitude', 10, 7)->nullable();
+
+            $table->string('phone')->nullable();
+            $table->string('email')->nullable();
+
+            // The Google Business Profile place id, pasted by the operator.
+            //
+            // Only used to build the "leave us a review" link today
+            // (search.google.com/local/writereview?placeid=…), which needs no API
+            // and no approval — but it is also the id the eventual Business Profile
+            // connector addresses a location by, so it lives on the location rather
+            // than in a settings blob.
+            $table->string('google_place_id')->nullable();
+            $table->string('timezone')->nullable();
+            $table->json('opening_hours')->nullable();
+            $table->string('status')->default('active');
+
+            $table->timestamps();
+            $table->softDeletes();
+
+            // Leads with tenant_id for the RLS-injected predicate; the second column
+            // also serves the Business::locations() / soft-delete-cascade lookups.
+            $table->index(['tenant_id', 'business_id']);
+
+            $table->foreign('tenant_id')->references('id')->on('tenants')->onUpdate('cascade')->onDelete('cascade');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('locations');
+    }
+};

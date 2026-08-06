@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Models\Page;
 use Illuminate\Support\Str;
 
 return [
@@ -133,6 +134,12 @@ return [
     |
     */
 
-    'serializable_classes' => false,
+    // Allowlist instead of the safe default (false): filament-peek caches the
+    // whole preview payload, including the Eloquent record being previewed —
+    // with false it unserializes into an incomplete object and the preview
+    // 500s. Keep this a narrow list (no gadget-chain surface) rather than true.
+    'serializable_classes' => [
+        Page::class,
+    ],
 
 ];

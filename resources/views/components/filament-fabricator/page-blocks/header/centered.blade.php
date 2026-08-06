@@ -1,0 +1,34 @@
+@aware(['page'])
+@props([
+    'nav_links' => [],
+    'cta_label' => null,
+    'cta_url' => null,
+    'business' => null,
+])
+@php
+    $links = is_array($nav_links) ? $nav_links : [];
+@endphp
+<header class="border-base-300 bg-base-100 text-base-content border-b">
+    <div class="mx-auto flex max-w-7xl flex-col items-center gap-4 px-6 py-6">
+        <a href="/" class="flex items-center gap-3">
+            @if ($business->logoUrl())
+                <img src="{{ $business->logoUrl() }}" alt="{{ $business->name }}" class="h-10 w-auto" />
+            @endif
+            <span class="font-heading text-xl font-bold">{{ $business->name }}</span>
+        </a>
+
+        <nav class="flex flex-wrap items-center justify-center gap-1">
+            @foreach ($links as $link)
+                @continue(! is_array($link) || ! ($link['label'] ?? null) || ! ($link['url'] ?? null))
+                <a
+                    href="{{ $link['url'] }}"
+                    class="px-3 py-2 text-sm font-medium underline-offset-8 opacity-75 transition hover:underline hover:opacity-100"
+                >{{ $link['label'] }}</a>
+            @endforeach
+
+            @if ($cta_label && $cta_url)
+                <a href="{{ $cta_url }}" class="btn btn-primary btn-sm ml-2">{{ $cta_label }}</a>
+            @endif
+        </nav>
+    </div>
+</header>

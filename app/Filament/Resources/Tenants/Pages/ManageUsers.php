@@ -19,11 +19,6 @@ final class ManageUsers extends ManageRelatedRecords
 
     protected static string $relationship = 'users';
 
-    public static function getNavigationLabel(): string
-    {
-        return 'Users';
-    }
-
     public function table(Table $table): Table
     {
         return $table

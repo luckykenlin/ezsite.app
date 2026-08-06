@@ -72,3 +72,110 @@ jobs:
 
       - name: Check Types
         run: composer test:types
+
+      # vitest, via vite-plus (`vp test`) — no extra dependency. Covers the
+      # editor's pure browser code: the shortcut table, the postMessage origin
+      # check, and the canvas layout store's fallbacks. Everything that needs a
+      # real document is in the browser job below instead.
+      - name: Test Front-end Units
+        run: npm run test:unit
+
+      # The test suite stubs Vite out (tests/Pest.php), so nothing else in CI
+      # would catch a broken front-end build. Keep this last: it's the slowest
+      # step and the cheap lint/type failures should surface first.
+      - name: Build Assets
+        run: npm run build
+
+  # The browser suite drives a real Chromium against the compiled bundle. Its
+  # own job, deliberately: it must never join the `pest --coverage
+  # --exactly=100.0 --tia` run in tests.yml, which it would both slow down and
+  # confuse (it executes app/ out of band). Postgres setup mirrors tests.yml.
+  browser:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: ezsite_testing
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          extensions: pdo, pdo_pgsql, pgsql, sockets
+          tools: composer:v2
+          coverage: none
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v6
+        with:
+          path: /tmp/composer-cache
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-composer-
+
+      - name: Install Dependencies
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+        env:
+          COMPOSER_CACHE_DIR: /tmp/composer-cache
+
+      - name: Install Node Dependencies
+        run: npm ci
+
+      - name: Copy Environment File
+        run: cp .env.example .env
+
+      - name: Generate Application Key
+        run: php artisan key:generate
+
+      # Same race as tests.yml: create the cluster-global RLS role once,
+      # serially, so the first migrate:fresh takes the "already exists" path.
+      - name: Pre-create the RLS role
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h 127.0.0.1 -p 5432 -U postgres -d ezsite_testing -v ON_ERROR_STOP=1 <<'SQL'
+          DO $$
+          BEGIN
+            IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'tenancy_rls') THEN
+              CREATE ROLE tenancy_rls LOGIN PASSWORD 'tenancy_rls_local_dev_password';
+            END IF;
+          END
+          $$;
+          SQL
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      # Required, not incidental: these tests do NOT stub Vite out, because
+      # running the real compiled bundle is the entire point of them.
+      - name: Build Assets
+        run: npm run build
+
+      - name: Browser Tests
+        run: composer test:browser

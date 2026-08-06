@@ -22,4 +22,15 @@ final class TenantFactory extends Factory
             'email' => fake()->unique()->safeEmail(),
         ];
     }
+
+    /**
+     * Give the tenant a domain once created. Pass a bare label ("acme") for a
+     * subdomain or a dotted host ("acme.test") for a custom domain.
+     */
+    public function withDomain(string $domain): static
+    {
+        return $this->afterCreating(function (Tenant $tenant) use ($domain): void {
+            $tenant->domains()->create(['domain' => $domain]);
+        });
+    }
 }

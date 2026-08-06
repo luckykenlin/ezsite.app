@@ -16,9 +16,14 @@ final class TenantForm
             ->components([
                 TextInput::make('name')
                     ->required(),
+                // `tenants.email` is a NOT NULL unique column — without these
+                // rules a blank or duplicate address reaches the insert and
+                // surfaces as a 500 instead of a field error.
                 TextInput::make('email')
                     ->label('Email address')
-                    ->email(),
+                    ->email()
+                    ->required()
+                    ->unique(),
             ]);
     }
 }

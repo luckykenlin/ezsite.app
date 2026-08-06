@@ -7,14 +7,20 @@
         "dev": "vp dev",
         "lint": "NODE_OPTIONS='--experimental-strip-types' vp fmt resources/ && NODE_OPTIONS='--experimental-strip-types' vp lint --fix resources/",
         "test:lint": "NODE_OPTIONS='--experimental-strip-types' vp fmt --check resources/ && NODE_OPTIONS='--experimental-strip-types' vp lint resources/",
-        "test:types": "tsc --noEmit"
+        "test:types": "tsc --noEmit",
+        "test:unit": "vp test run"
     },
     "devDependencies": {
-        "@tailwindcss/vite": "^4.3.2",
+        "@tailwindcss/vite": "^4.3.3",
         "concurrently": "^10.0.3",
+        "daisyui": "^5.7.0",
         "laravel-vite-plugin": "^3.1",
         "npm-check-updates": "^22.2.9",
-        "tailwindcss": "^4.3.2",
+        "playwright": "^1.62.1",
+        "prettier": "^3.9.6",
+        "prettier-plugin-blade": "^3.2.2",
+        "prettier-plugin-tailwindcss": "^0.8.1",
+        "tailwindcss": "^4.3.3",
         "typescript": "^7.0.2",
         "vite": "npm:@voidzero-dev/vite-plus-core@latest",
         "vite-plus": "latest"
