@@ -13,7 +13,7 @@
         {{-- No card list here on purpose: Livewire re-renders the cards on
              every create/delete/publish, so anything captured at x-data time
              goes stale. The component reads the cards from the DOM instead. --}}
-        x-data="pageCanvas({ storageKey: @js('ezsite:page-canvas:' . tenant('id')) })"
+        x-data="pageCanvas({ storageKey: @js('ezsite:page-canvas:'.tenant('id')) })"
         x-on:keydown.escape.window="closeMenu()"
     >
         <div class="pc-toolbar">
@@ -125,8 +125,10 @@
 
             @if ($this->cards === [])
                 <div class="pc-empty">
-                    <p style="font-weight: 600;">{{ __('No pages yet') }}</p>
-                    <p style="font-size: 0.875rem; opacity: 0.6;">{{ __('Right-click anywhere on the canvas to create your first one.') }}</p>
+                    <p style="font-weight: 600">{{ __('No pages yet') }}</p>
+                    <p style="font-size: 0.875rem; opacity: 0.6">
+                        {{ __('Right-click anywhere on the canvas to create your first one.') }}
+                    </p>
                 </div>
             @endif
         </div>
@@ -160,18 +162,34 @@
                         <x-filament::icon icon="heroicon-o-pencil-square" class="pc-menu-icon" />
                         {{ __('Open in editor') }}
                     </button>
-                    <button type="button" role="menuitem" class="pc-menu-item" x-on:click="run('publishPage', menu.page)">
+                    <button
+                        type="button"
+                        role="menuitem"
+                        class="pc-menu-item"
+                        x-on:click="run('publishPage', menu.page)"
+                    >
                         <x-filament::icon icon="heroicon-o-globe-alt" class="pc-menu-icon" />
                         <span x-text="menu.isDraft ? @js(__('Publish')) : @js(__('Unpublish'))"></span>
                     </button>
-                    <button type="button" role="menuitem" class="pc-menu-item" x-on:click="run('duplicatePage', menu.page)">
+                    <button
+                        type="button"
+                        role="menuitem"
+                        class="pc-menu-item"
+                        x-on:click="run('duplicatePage', menu.page)"
+                    >
                         <x-filament::icon icon="heroicon-o-square-2-stack" class="pc-menu-icon" />
                         {{ __('Duplicate') }}
                     </button>
 
                     <div class="pc-menu-separator" role="separator"></div>
 
-                    <button type="button" role="menuitem" class="pc-menu-item" data-danger x-on:click="run('deletePage', menu.page)">
+                    <button
+                        type="button"
+                        role="menuitem"
+                        class="pc-menu-item"
+                        data-danger
+                        x-on:click="run('deletePage', menu.page)"
+                    >
                         <x-filament::icon icon="heroicon-o-trash" class="pc-menu-icon" />
                         {{ __('Delete') }}
                     </button>

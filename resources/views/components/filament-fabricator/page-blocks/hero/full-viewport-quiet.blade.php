@@ -57,7 +57,7 @@
          photograph are counted children too — which is what they should be. --}}
     <div @class(['site-stage', $layout->container(), 'flex flex-col', 'items-center text-center' => $centered, 'items-start' => ! $centered])>
         @if ($eyebrow)
-            <p data-editor-field="eyebrow" class="site-eyebrow mb-8 text-secondary">{{ $eyebrow }}</p>
+            <p data-editor-field="eyebrow" class="site-eyebrow text-secondary mb-8">{{ $eyebrow }}</p>
         @endif
 
         <h1 data-editor-field="heading" class="site-display-lg">{{ $heading }}</h1>
@@ -65,7 +65,7 @@
         {{-- The hairline under the headline. Decorative, and the one piece of
              this hero that is not type: it gives the eye a place to stop
              before the sentence underneath. --}}
-        <div class="my-8 h-px w-12 bg-base-content/25" aria-hidden="true"></div>
+        <div class="bg-base-content/25 my-8 h-px w-12" aria-hidden="true"></div>
 
         @if ($subheading)
             <p data-editor-field="subheading" class="site-intro site-dim max-w-md">{{ $subheading }}</p>
@@ -80,8 +80,12 @@
 
         @if ($image_url)
             <div class="site-frame isolate mt-16 w-full">
-                <div class="overflow-hidden rounded-box">
-                    <img src="{{ $image_url }}" alt="{{ $heading }}" class="{{ $layout->image() }} w-full object-cover" />
+                <div class="rounded-box overflow-hidden">
+                    <img
+                        src="{{ $image_url }}"
+                        alt="{{ $heading }}"
+                        class="{{ $layout->image() }} w-full object-cover"
+                    />
                 </div>
             </div>
         @endif

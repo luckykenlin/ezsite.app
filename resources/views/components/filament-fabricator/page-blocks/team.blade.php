@@ -31,7 +31,7 @@
                     $avatar = $item['avatar_url'] ?? null;
                     // Initials rather than a broken frame when there is no photo:
                     // mb_* because a tenant's names are not necessarily ASCII.
-                    $initials = mb_strtoupper(mb_substr(trim($item['name']), 0, 1));
+                    $initials = mb_strtoupper(mb_substr(mb_trim($item['name']), 0, 1));
                 @endphp
                 <div @class([$layout->item(), 'overflow-hidden' => $layout->isCard(), 'text-center' => ! $layout->isCard()])>
                     @if ($avatar)
@@ -50,12 +50,27 @@
                         >{{ $initials }}</span>
                     @endif
                     <div @class(['card-body' => $layout->isCard()])>
-                        <h3 data-editor-field="members.{{ $loop->index }}.name" @class(['card-title' => $layout->isCard(), 'mt-4 text-lg font-semibold' => ! $layout->isCard()])>{{ $item['name'] }}</h3>
+                        <h3
+                            data-editor-field="members.{{ $loop->index }}.name"
+                            @class(['card-title' => $layout->isCard(), 'mt-4 text-lg font-semibold' => ! $layout->isCard()])
+                        >
+                            {{ $item['name'] }}
+                        </h3>
                         @if ($item['role'] ?? null)
-                            <p data-editor-field="members.{{ $loop->index }}.role" class="text-sm font-medium text-primary">{{ $item['role'] }}</p>
+                            <p
+                                data-editor-field="members.{{ $loop->index }}.role"
+                                class="text-primary text-sm font-medium"
+                            >
+                                {{ $item['role'] }}
+                            </p>
                         @endif
                         @if ($item['bio'] ?? null)
-                            <p data-editor-field="members.{{ $loop->index }}.bio" @class(['text-base-content/70', 'mt-2' => ! $layout->isCard()])>{{ $item['bio'] }}</p>
+                            <p
+                                data-editor-field="members.{{ $loop->index }}.bio"
+                                @class(['text-base-content/70', 'mt-2' => ! $layout->isCard()])
+                            >
+                                {{ $item['bio'] }}
+                            </p>
                         @endif
                     </div>
                 </div>

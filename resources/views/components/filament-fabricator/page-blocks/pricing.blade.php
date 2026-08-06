@@ -73,19 +73,32 @@
                             <span class="badge badge-primary self-start">Recommended</span>
                         @endif
 
-                        <h3 data-editor-field="plans.{{ $index }}.name" @class(['card-title' => $layout->isCard(), 'text-lg font-semibold' => ! $layout->isCard()])>{{ $item['name'] }}</h3>
+                        <h3
+                            data-editor-field="plans.{{ $index }}.name"
+                            @class(['card-title' => $layout->isCard(), 'text-lg font-semibold' => ! $layout->isCard()])
+                        >
+                            {{ $item['name'] }}
+                        </h3>
 
                         @if ($item['price'] ?? null)
                             <p class="mt-2">
-                                <span data-editor-field="plans.{{ $index }}.price" class="text-4xl font-bold tabular-nums">{{ $item['price'] }}</span>
+                                <span
+                                    data-editor-field="plans.{{ $index }}.price"
+                                    class="text-4xl font-bold tabular-nums"
+                                >{{ $item['price'] }}</span>
                                 @if ($item['period'] ?? null)
-                                    <span data-editor-field="plans.{{ $index }}.period" class="text-base-content/60">{{ $item['period'] }}</span>
+                                    <span
+                                        data-editor-field="plans.{{ $index }}.period"
+                                        class="text-base-content/60"
+                                    >{{ $item['period'] }}</span>
                                 @endif
                             </p>
                         @endif
 
                         @if ($item['description'] ?? null)
-                            <p data-editor-field="plans.{{ $index }}.description" class="text-base-content/70">{{ $item['description'] }}</p>
+                            <p data-editor-field="plans.{{ $index }}.description" class="text-base-content/70">
+                                {{ $item['description'] }}
+                            </p>
                         @endif
 
                         @if ($lines !== [])

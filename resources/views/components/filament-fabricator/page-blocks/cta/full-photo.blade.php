@@ -27,7 +27,12 @@
         @if ($image_url)
             {{-- Decorative: the heading carries the message, the photo sets
                  the mood behind the scrim. --}}
-            <img src="{{ $image_url }}" alt="" loading="lazy" class="absolute inset-0 -z-10 h-full w-full object-cover" />
+            <img
+                src="{{ $image_url }}"
+                alt=""
+                loading="lazy"
+                class="absolute inset-0 -z-10 h-full w-full object-cover"
+            />
             <div class="site-scrim absolute inset-0 -z-10"></div>
         @endif
     </x-slot:backdrop>

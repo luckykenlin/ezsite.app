@@ -15,8 +15,10 @@ return new class extends Migration
 
             // Its own tenant_id with a direct FK, per the single-hop RLS
             // convention (.claude/docs/tenancy.md) — the policy is generated
-            // from this FK, and the index doubles as its predicate index.
-            $table->string('tenant_id')->index();
+            // from this FK. Its predicate index is the composite at the bottom
+            // of this table, which leads with tenant_id and so serves the RLS
+            // `WHERE tenant_id = current_setting(...)` on its own.
+            $table->string('tenant_id');
 
             // Which location the enquiry came in for, and which page it was
             // submitted from — both nulled rather than deleted with their
@@ -60,6 +62,12 @@ return new class extends Migration
             $table->string('ip_address')->nullable();
 
             $table->timestamps();
+
+            // Exactly the inbox query: RLS injects `WHERE tenant_id = …` and
+            // LeadsTable sorts newest-first, so this serves both halves from one
+            // index. With tenant_id indexed alone Postgres has to sort the
+            // tenant's entire lead history on every page of the list.
+            $table->index(['tenant_id', 'created_at']);
 
             $table->foreign('tenant_id')->references('id')->on('tenants')->onUpdate('cascade')->onDelete('cascade');
         });

@@ -21,8 +21,11 @@
                      wrong-language 404 is the accepted cost of not adding a
                      catch-all route inside the locale group. --}}
                 <h1 class="site-h1 font-heading">{{ __('marketing.not_found.title') }}</h1>
-                <p class="mt-4 text-lg text-base-content/70">{{ __('marketing.not_found.body') }}</p>
-                <a href="{{ route('central.templates.index') }}" class="btn btn-primary mt-8">{{ __('marketing.not_found.cta') }}</a>
+                <p class="text-base-content/70 mt-4 text-lg">{{ __('marketing.not_found.body') }}</p>
+                <a
+                    href="{{ route('central.templates.index') }}"
+                    class="btn btn-primary mt-8"
+                >{{ __('marketing.not_found.cta') }}</a>
             </div>
         </x-site.section>
     </x-central.layout>

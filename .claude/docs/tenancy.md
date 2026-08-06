@@ -44,6 +44,30 @@ DatabaseSessionBootstrapper, PostgresRLSBootstrapper.
   the migration in production. The *"rls policy generation succeeds"* canary test
   catches these in CI first. Keep tenant-owned tables single-column-FK and acyclic.
 
+## Writing tenant data (RLS does NOT protect writes)
+
+RLS scopes *reads*. In the central context the connection runs as a
+BYPASSRLS role with `my.current_tenant` unset, so
+`INSERT … tenant_id = <anything>` **succeeds silently** — writing a row into the
+wrong tenant is not an error there. Cross-tenant aggregate reads depend on that
+bypass, so the write hole cannot be closed by demoting the central role. Two
+gates close it instead:
+
+- **`App\Tenancy\RunInTenant` is the only sanctioned write channel.** Anything
+  writing tenant data from outside a tenant request — cron, queue, AI, MCP,
+  webhook, or a super-admin acting on a tenant from the central panel — goes
+  through it. Jobs get this for free by extending `App\Jobs\TenantAware`.
+- **`App\Tenancy\RequiresTenantContext` is the runtime guard.** It refuses
+  create/update/delete/restore when tenancy is not initialized, turning a
+  forgotten `RunInTenant` into a loud exception instead of a misfiled row. Every
+  model backed by an RLS-protected table must use it; central models omit it and
+  say so in their docblock. The list is not hand-maintained — *"every model on an
+  RLS-protected table guards writes with RequiresTenantContext"*
+  (`RlsPolicyTest`) derives it from the live policy set, so a new RLS table whose
+  model forgets the trait fails CI.
+
+Design rationale and the worked threat model: `docs/tenant-write-context.md`.
+
 ## Identification
 - Default middleware: `InitializeTenancyByDomainOrSubdomain` (supports both
   bare subdomains and fully custom domains through one middleware).

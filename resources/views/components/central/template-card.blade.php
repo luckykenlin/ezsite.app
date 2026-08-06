@@ -13,16 +13,16 @@
 @endphp
 <a
     href="{{ route('central.templates.show', $template) }}"
-    class="site-card group flex flex-col overflow-hidden rounded-box bg-base-100"
+    class="site-card group rounded-box bg-base-100 flex flex-col overflow-hidden"
 >
-    <div class="aspect-[16/10] overflow-hidden bg-base-200">
+    <div class="bg-base-200 aspect-[16/10] overflow-hidden">
         @if ($screenshot)
             <img
                 src="{{ $screenshot }}"
                 alt="{{ __('marketing.card.alt', ['template' => $template->label()]) }}"
                 loading="lazy"
                 class="h-full w-full object-cover object-top transition-transform duration-300 group-hover:scale-[1.02]"
-            >
+            />
         @else
             <x-central.template-placeholder :definition="$definition" :label="$template->label()" class="h-full p-6" />
         @endif
@@ -32,6 +32,6 @@
         <p class="site-eyebrow text-primary">{{ __('marketing.presets.'.$definition->preset->value.'.label') }}</p>
         <h3 class="site-h4 font-heading">{{ $template->label() }}</h3>
         <p class="flex-1 text-sm opacity-80">{{ $template->description() }}</p>
-        <span class="site-link-cta mt-2 text-sm text-primary">{{ __('marketing.card.cta') }}</span>
+        <span class="site-link-cta text-primary mt-2 text-sm">{{ __('marketing.card.cta') }}</span>
     </div>
 </a>

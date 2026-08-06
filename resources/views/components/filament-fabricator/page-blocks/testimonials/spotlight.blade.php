@@ -22,17 +22,30 @@
                  doubles as the variant's only ornament. --}}
             <figure @class(['mt-12' => (bool) $heading])>
                 {{-- Always item 0: this layout spotlights the first quote. --}}
-                <blockquote data-editor-field="testimonials.0.quote" class="site-quote site-h3">{{ $item['quote'] ?? '' }}</blockquote>
+                <blockquote data-editor-field="testimonials.0.quote" class="site-quote site-h3">
+                    {{ $item['quote'] ?? '' }}
+                </blockquote>
                 <figcaption class="mt-8 flex flex-col items-center gap-3">
                     @if ($item['avatar_url'] ?? null)
                         {{-- Decorative: the cite below is the accessible name, so
                              an alt here would be announced twice. --}}
-                        <img src="{{ $item['avatar_url'] }}" alt="" loading="lazy" class="size-14 rounded-full object-cover ring-1 ring-base-content/10" />
+                        <img
+                            src="{{ $item['avatar_url'] }}"
+                            alt=""
+                            loading="lazy"
+                            class="ring-base-content/10 size-14 rounded-full object-cover ring-1"
+                        />
                     @endif
                     <div>
-                        <cite data-editor-field="testimonials.0.author" class="not-italic font-semibold">{{ $item['author'] ?? '' }}</cite>
+                        <cite
+                            data-editor-field="testimonials.0.author"
+                            class="font-semibold not-italic"
+                        >{{ $item['author'] ?? '' }}</cite>
                         @if ($item['role'] ?? null)
-                            <span data-editor-field="testimonials.0.role" class="block text-sm text-base-content/60">{{ $item['role'] }}</span>
+                            <span
+                                data-editor-field="testimonials.0.role"
+                                class="text-base-content/60 block text-sm"
+                            >{{ $item['role'] }}</span>
                         @endif
                     </div>
                 </figcaption>

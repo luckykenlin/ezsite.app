@@ -13,7 +13,15 @@
     <div
         data-block-key="{{ $chromeSlot->editorKey() }}"
         data-block-type="{{ $chromeSlot->value }}"
-        style="margin: 0.75rem; padding: 1.25rem 1.5rem; border: 2px dashed #a5b4fc; border-radius: 0.5rem; color: #6366f1; font-family: ui-sans-serif, system-ui, sans-serif; text-align: center;"
+        style="
+            margin: 0.75rem;
+            padding: 1.25rem 1.5rem;
+            border: 2px dashed #a5b4fc;
+            border-radius: 0.5rem;
+            color: #6366f1;
+            font-family: ui-sans-serif, system-ui, sans-serif;
+            text-align: center;
+        "
     >
         {{ __('Click to add a site :slot', ['slot' => $chromeSlot->value]) }}
     </div>

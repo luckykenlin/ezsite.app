@@ -24,6 +24,10 @@
          header, so the section-header component's fixed site-h2 scale does
          not fit the level-mapped tag here. --}}
     <div class="{{ $layout->container() }}">
-        <{{ $tag }} data-editor-field="content" @class(['text-base-content', $scale[$tag], 'text-center' => str_contains($layout->heading(), 'text-center')])>{{ $content }}</{{ $tag }}>
+        <{{ $tag }}
+            data-editor-field="content"
+            @class(['text-base-content', $scale[$tag], 'text-center' => str_contains($layout->heading(), 'text-center')])
+            >{{ $content }}</{{ $tag }}
+        >
     </div>
 </x-site.section>

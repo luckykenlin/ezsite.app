@@ -9,6 +9,7 @@ use App\Models\Tenant;
 use App\StockPhotos\PhotoOrientation;
 use Carbon\CarbonInterface;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\Schema;
 
 test('media relation returns every tenant copy adopted from the photo', function (): void {
     $photo = LibraryPhoto::factory()->create();
@@ -72,6 +73,19 @@ test('provider and source id are unique across the whole catalogue', function ()
 
     LibraryPhoto::factory()->create(['provider' => 'pexels', 'source_id' => '42']);
 })->throws(QueryException::class);
+
+/*
+ * The coupling this guards is invisible from either end: both photo pickers
+ * declare `defaultSort('usage_count')` in a Filament table class, and the index
+ * that keeps it from sorting the entire shared catalogue on every page lives in
+ * a migration. Dropping either one leaves the other looking correct.
+ */
+test('the usage count both pickers sort on is indexed', function (): void {
+    $indexed = collect(Schema::getIndexes('library_photos'))
+        ->contains(fn (array $index): bool => $index['columns'] === ['usage_count']);
+
+    expect($indexed)->toBeTrue();
+});
 
 test('casts', function (): void {
     $photo = LibraryPhoto::factory()->create([

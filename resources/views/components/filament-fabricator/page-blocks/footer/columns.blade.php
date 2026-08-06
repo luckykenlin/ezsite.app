@@ -9,13 +9,13 @@
     $links = is_array($nav_links) ? $nav_links : [];
     $addressLines = array_filter([
         $location->address_line1,
-        trim(implode(', ', array_filter([$location->city, $location->state]))." {$location->postal_code}"),
+        mb_trim(implode(', ', array_filter([$location->city, $location->state]))." {$location->postal_code}"),
     ]);
     $phone = $location->phone ?? $business->contact_phone;
     $email = $location->email ?? $business->contact_email;
 @endphp
 <footer class="bg-neutral text-neutral-content">
-    <div class="footer mx-auto max-w-7xl px-6 py-12 sm:footer-horizontal">
+    <div class="footer sm:footer-horizontal mx-auto max-w-7xl px-6 py-12">
         <aside>
             <span class="font-heading text-lg font-bold">{{ $business->name }}</span>
             @if ($business->tagline)
@@ -49,7 +49,7 @@
 
     {{-- The legal line gets its own seamed tier so the columns above stay
          about wayfinding, not small print. --}}
-    <div class="mx-auto max-w-7xl border-t border-neutral-content/10 px-6 py-6 text-sm">
+    <div class="border-neutral-content/10 mx-auto max-w-7xl border-t px-6 py-6 text-sm">
         <p class="opacity-70">&copy; {{ now()->year }} {{ $business->name }}</p>
         @if ($note)
             <p class="mt-1 opacity-60">{{ $note }}</p>

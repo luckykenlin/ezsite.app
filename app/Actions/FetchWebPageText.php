@@ -6,6 +6,7 @@ namespace App\Actions;
 
 use Closure;
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
 
@@ -60,8 +61,14 @@ final readonly class FetchWebPageText
             $this->guard($url);
 
             try {
+                // `stream` is what makes max_bytes below a real cap: without it
+                // Guzzle buffers the entire body into memory before anything
+                // here can truncate it, so a hostile URL answering with a
+                // gigabyte OOMs the worker no matter what the limit says.
+                // Headers still arrive eagerly, so the redirect and status
+                // branches below are unaffected.
                 $response = Http::timeout(config()->integer('chat.fetch.timeout'))
-                    ->withOptions(['allow_redirects' => false])
+                    ->withOptions(['allow_redirects' => false, 'stream' => true])
                     ->get($url);
             } catch (ConnectionException $connectionException) {
                 throw new RuntimeException("The page could not be fetched: {$connectionException->getMessage()}", $connectionException->getCode(), $connectionException);
@@ -80,10 +87,50 @@ final readonly class FetchWebPageText
 
             throw_unless($response->successful(), RuntimeException::class, "The page answered with HTTP {$response->status()}.");
 
-            return $this->extractText(mb_substr($response->body(), 0, config()->integer('chat.fetch.max_bytes')));
+            return $this->extractText($this->readCapped($response));
         }
 
         throw new RuntimeException('The page redirected too many times.');
+    }
+
+    /**
+     * At most `max_bytes` off the wire, and never a byte more.
+     *
+     * A loop rather than one `read()`, because a single read on a network
+     * stream returns whatever has arrived, not what was asked for — reading
+     * once would silently truncate a slow page to its first packet.
+     *
+     * The budget being defended is memory, so every length here is a BYTE
+     * count: `mb_strlen($s, '8bit')` rather than a bare `strlen`, which pint's
+     * `mb_str_functions` rule would rewrite into a character count and quietly
+     * turn the cap back into the thing it replaced.
+     *
+     * The read runs three bytes past the cap so `mb_strcut` has something to
+     * cut. It only backs off to a character boundary when it actually shortens
+     * the string — asked for exactly the length it was given it is a no-op, and
+     * a UTF-8 sequence split by the cap survives into the extracted text. Three
+     * is the most a split character can leave behind.
+     */
+    private function readCapped(Response $response): string
+    {
+        $maxBytes = config()->integer('chat.fetch.max_bytes');
+        $body = $response->toPsrResponse()->getBody();
+        $limit = $maxBytes + 3;
+        $buffer = '';
+
+        while (mb_strlen($buffer, '8bit') < $limit && ! $body->eof()) {
+            $chunk = $body->read($limit - mb_strlen($buffer, '8bit'));
+
+            // A non-eof stream can still answer empty; without this the loop
+            // spins forever on one.
+            if ($chunk === '') {
+                break;
+            }
+
+            $buffer .= $chunk;
+        }
+
+        return mb_strcut($buffer, 0, $maxBytes);
     }
 
     /**

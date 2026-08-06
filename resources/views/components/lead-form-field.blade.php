@@ -36,7 +36,7 @@
                 @if ($autocomplete) autocomplete="{{ $autocomplete }}" @endif
                 placeholder="{{ $label }}"
                 class="input input-bordered w-full @if ($bag->has($field)) input-error @endif"
-            >
+            />
         @endif
     </label>
     <x-lead-form-error :bag="$bag" :field="$field" />

@@ -64,20 +64,20 @@
     >
         @csrf
 
-        <input type="hidden" name="form_id" value="{{ $formId }}">
-        <input type="hidden" name="source" value="{{ $source->value }}">
+        <input type="hidden" name="form_id" value="{{ $formId }}" />
+        <input type="hidden" name="source" value="{{ $source->value }}" />
 
         @if ($location)
-            <input type="hidden" name="location_id" value="{{ $location->id }}">
+            <input type="hidden" name="location_id" value="{{ $location->id }}" />
         @endif
 
         @if ($page && $page->id)
-            <input type="hidden" name="page_id" value="{{ $page->id }}">
+            <input type="hidden" name="page_id" value="{{ $page->id }}" />
         @endif
 
         <div class="hidden" aria-hidden="true">
             <label for="lead-hp-{{ $formId }}">{{ __('Leave this field empty') }}</label>
-            <input id="lead-hp-{{ $formId }}" type="text" name="_hp" value="" tabindex="-1" autocomplete="off">
+            <input id="lead-hp-{{ $formId }}" type="text" name="_hp" value="" tabindex="-1" autocomplete="off" />
         </div>
 
         @if ($fields->showsName())
@@ -86,16 +86,36 @@
 
         <div @class(['grid gap-4', 'sm:grid-cols-2' => $side])>
             @if ($fields->showsPhone())
-                <x-lead-form-field :bag="$bag" field="phone" :label="__('Phone')" type="tel" maxlength="40" autocomplete="tel" />
+                <x-lead-form-field
+                    :bag="$bag"
+                    field="phone"
+                    :label="__('Phone')"
+                    type="tel"
+                    maxlength="40"
+                    autocomplete="tel"
+                />
             @endif
 
             @if ($fields->showsEmail())
-                <x-lead-form-field :bag="$bag" field="email" :label="__('Email')" type="email" maxlength="255" autocomplete="email" />
+                <x-lead-form-field
+                    :bag="$bag"
+                    field="email"
+                    :label="__('Email')"
+                    type="email"
+                    maxlength="255"
+                    autocomplete="email"
+                />
             @endif
         </div>
 
         @if ($fields->showsMessage())
-            <x-lead-form-field :bag="$bag" field="message" :label="__('How can we help?')" :textarea="true" maxlength="2000" />
+            <x-lead-form-field
+                :bag="$bag"
+                field="message"
+                :label="__('How can we help?')"
+                :textarea="true"
+                maxlength="2000"
+            />
         @endif
 
         {{-- The submit button's colours come from whoever placed the form:
@@ -104,9 +124,7 @@
              (see App\Site\Blocks\SectionTone::buttonClasses()). The default here
              is for a caller with no section tone to ask — the offer popup, which
              paints its own dialog surface. --}}
-        <button type="submit" class="{{ $buttonClass }}">
-            {{ $buttonLabel ?: __('Send message') }}
-        </button>
+        <button type="submit" class="{{ $buttonClass }}">{{ $buttonLabel ?: __('Send message') }}</button>
 
         @if ($finePrint)
             <p class="text-xs opacity-70">{{ $finePrint }}</p>

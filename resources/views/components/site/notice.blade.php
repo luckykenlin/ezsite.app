@@ -28,15 +28,14 @@
 @endphp
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
-
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
 
     <title>{{ $title }} &middot; {{ $siteName }}</title>
 
     @if ($noindex)
-        <meta name="robots" content="noindex">
+        <meta name="robots" content="noindex" />
     @endif
 
     <x-site.head-assets :tokens="$tokens" :business="$business" />
@@ -46,20 +45,17 @@
     @endif
 </head>
 
-<body class="min-h-dvh bg-base-100 text-base-content antialiased">
+<body class="bg-base-100 text-base-content min-h-dvh antialiased">
     <main class="mx-auto flex min-h-dvh max-w-2xl flex-col items-center justify-center gap-6 px-6 py-16 text-center">
-        <p class="font-heading text-sm font-semibold tracking-widest text-base-content/50 uppercase">
-            {{ $siteName }}
-        </p>
+        <p class="font-heading text-base-content/50 text-sm font-semibold tracking-widest uppercase">{{ $siteName }}</p>
 
         <h1 class="site-h1 font-heading">{{ $heading }}</h1>
 
         @if (filled($body))
-            <p class="max-w-prose text-lg text-base-content/70">{{ $body }}</p>
+            <p class="text-base-content/70 max-w-prose text-lg">{{ $body }}</p>
         @endif
 
         {{ $slot }}
     </main>
 </body>
-
 </html>

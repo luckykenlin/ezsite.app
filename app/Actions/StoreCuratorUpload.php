@@ -121,7 +121,7 @@ final readonly class StoreCuratorUpload
     private function filename(BaseFileUpload $component, TemporaryUploadedFile $file): string
     {
         return $component->shouldPreserveFilenames()
-            ? (string) Str::of(pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME))->slug()
+            ? Str::slug(pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME))
             : (string) Str::uuid();
     }
 

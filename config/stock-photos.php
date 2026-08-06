@@ -37,4 +37,26 @@ return [
 
     'http_timeout' => 10,
 
+    // Separate from the total budget above, because they bound different
+    // failures. `http_timeout` is the whole request; this is the TCP handshake
+    // alone, and it is short because a host that has not answered in three
+    // seconds is down rather than slow. Without it a blackholed connect burns
+    // the full 10s — and PopulateDraftImages walks its photos serially inside a
+    // 120s job, so a handful of those is the difference between a site with
+    // photographs and one without.
+    'http_connect_timeout' => 3,
+
+    // TOTAL attempts per request, not retries on top of one — this is the
+    // number Laravel's `retry()` takes, and reading it the other way silently
+    // buys one fewer attempt than intended. Deliberately small: the provider is
+    // not on the critical path (every failure degrades to no photo) and the
+    // job's timeout is the real budget. Two extra tries turn the common
+    // transient — a dropped connection, a 502 from the CDN — from "this site
+    // gets no photographs" into a short pause. Only connection errors and 5xx
+    // are retried; a 429 means the rate limiter above already lost, and hitting
+    // it again would only dig deeper.
+    'http_attempts' => 3,
+
+    'http_retry_delay_ms' => 200,
+
 ];

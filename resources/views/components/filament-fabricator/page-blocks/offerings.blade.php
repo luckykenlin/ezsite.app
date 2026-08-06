@@ -20,7 +20,7 @@
     // first item on the page.
     foreach ($entries as $index => $entry) {
         $group = $entry['group'] ?? null;
-        $groups[is_string($group) ? trim($group) : ''][$index] = $entry;
+        $groups[is_string($group) ? mb_trim($group) : ''][$index] = $entry;
     }
 
     // Plain single-column offerings read as a priced list (the old "list"
@@ -34,7 +34,9 @@
         @foreach ($groups as $group => $groupItems)
             <div class="mt-12">
                 @if ($group !== '')
-                    <h3 @class(['site-eyebrow text-base-content/60', 'text-center' => str_contains($layout->heading(), 'text-center')])>{{ $group }}</h3>
+                    <h3 @class(['site-eyebrow text-base-content/60', 'text-center' => str_contains($layout->heading(), 'text-center')])>
+                        {{ $group }}
+                    </h3>
                 @endif
 
                 <div @class([
@@ -53,9 +55,16 @@
                         @if ($priceList)
                             <div class="flex items-baseline justify-between gap-4 py-4">
                                 <div>
-                                    <h4 data-editor-field="items.{{ $index }}.name" class="font-semibold">{{ $item['name'] ?? '' }}</h4>
+                                    <h4 data-editor-field="items.{{ $index }}.name" class="font-semibold">
+                                        {{ $item['name'] ?? '' }}
+                                    </h4>
                                     @if ($item['description'] ?? null)
-                                        <p data-editor-field="items.{{ $index }}.description" class="text-base-content/70">{{ $item['description'] }}</p>
+                                        <p
+                                            data-editor-field="items.{{ $index }}.description"
+                                            class="text-base-content/70"
+                                        >
+                                            {{ $item['description'] }}
+                                        </p>
                                     @endif
                                 </div>
                                 @if ($item['price'] ?? null)
@@ -63,7 +72,10 @@
                                          fill, so name and price stay connected
                                          however wide the row is. --}}
                                     <span class="site-leaders" aria-hidden="true"></span>
-                                    <span data-editor-field="items.{{ $index }}.price" class="shrink-0 font-semibold tabular-nums">{{ $item['price'] }}</span>
+                                    <span
+                                        data-editor-field="items.{{ $index }}.price"
+                                        class="shrink-0 font-semibold tabular-nums"
+                                    >{{ $item['price'] }}</span>
                                 @endif
                             </div>
                         @else
@@ -72,17 +84,32 @@
                                     {{-- Decorative: the item name beside it is the
                                          accessible label, so alt text would be
                                          announced twice. --}}
-                                    <figure><img src="{{ $image }}" alt="" loading="lazy" class="{{ $layout->image() }} w-full object-cover"></figure>
+                                    <figure>
+                                        <img
+                                            src="{{ $image }}"
+                                            alt=""
+                                            loading="lazy"
+                                            class="{{ $layout->image() }} w-full object-cover"
+                                        />
+                                    </figure>
                                 @endif
                                 <div @class(['card-body' => $layout->isCard()])>
                                     <h4 @class(['justify-between gap-4', 'card-title' => $layout->isCard(), 'flex text-lg font-semibold' => ! $layout->isCard()])>
                                         <span data-editor-field="items.{{ $index }}.name">{{ $item['name'] ?? '' }}</span>
                                         @if ($item['price'] ?? null)
-                                            <span data-editor-field="items.{{ $index }}.price" class="shrink-0 tabular-nums">{{ $item['price'] }}</span>
+                                            <span
+                                                data-editor-field="items.{{ $index }}.price"
+                                                class="shrink-0 tabular-nums"
+                                            >{{ $item['price'] }}</span>
                                         @endif
                                     </h4>
                                     @if ($item['description'] ?? null)
-                                        <p data-editor-field="items.{{ $index }}.description" class="text-base-content/70">{{ $item['description'] }}</p>
+                                        <p
+                                            data-editor-field="items.{{ $index }}.description"
+                                            class="text-base-content/70"
+                                        >
+                                            {{ $item['description'] }}
+                                        </p>
                                     @endif
                                 </div>
                             </div>

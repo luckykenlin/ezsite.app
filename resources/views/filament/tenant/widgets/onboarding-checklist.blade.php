@@ -11,7 +11,7 @@
                     @if ($step['done'])
                         <x-filament::icon
                             icon="heroicon-s-check-circle"
-                            class="mt-0.5 h-5 w-5 shrink-0 text-success-600 dark:text-success-400"
+                            class="text-success-600 dark:text-success-400 mt-0.5 h-5 w-5 shrink-0"
                         />
                     @else
                         <span
@@ -31,13 +31,11 @@
                                  it, which reads as nagging once it is done. --}}
                             <a
                                 href="{{ $step['url'] }}"
-                                class="text-sm font-semibold text-gray-950 hover:text-primary-600 dark:text-white dark:hover:text-primary-400"
+                                class="hover:text-primary-600 dark:hover:text-primary-400 text-sm font-semibold text-gray-950 dark:text-white"
                             >
                                 {{ $step['task']->label() }}
                             </a>
-                            <p class="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
-                                {{ $step['task']->why() }}
-                            </p>
+                            <p class="mt-0.5 text-sm text-gray-500 dark:text-gray-400">{{ $step['task']->why() }}</p>
                         @endif
                     </div>
                 </li>

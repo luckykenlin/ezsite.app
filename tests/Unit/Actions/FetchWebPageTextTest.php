@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use App\Actions\FetchWebPageText;
+use GuzzleHttp\Psr7\FnStream;
+use GuzzleHttp\Psr7\Utils;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 
@@ -34,6 +36,53 @@ it('caps the returned text', function (): void {
     Http::fake(['https://example.com/*' => Http::response('<p>'.str_repeat('word ', 200).'</p>')]);
 
     expect(mb_strlen(fetcher()->handle('https://example.com/long')))->toBeLessThanOrEqual(40);
+});
+
+/*
+ * The two halves of the byte cap. It is a memory bound, not a formatting one:
+ * the body is read off a streamed response so an enormous page is never fully
+ * buffered, and the point where the read stops has to be a character boundary,
+ * or the extractor is handed a string ending in half a UTF-8 sequence.
+ */
+it('stops reading the body at the byte cap', function (): void {
+    config()->set('chat.fetch.max_bytes', 64);
+    config()->set('chat.fetch.max_chars', 12000);
+
+    Http::fake(['https://example.com/*' => Http::response('<p>'.str_repeat('a', 5000).'</p>')]);
+
+    // Everything past the cap never entered the buffer, so the extracted text
+    // cannot be longer than it. '8bit' counts bytes, which is what is bounded.
+    expect(mb_strlen(fetcher()->handle('https://example.com/huge'), '8bit'))->toBeLessThanOrEqual(64);
+});
+
+/*
+ * The read loop's only other way out. A PSR-7 stream may answer an empty read
+ * while still reporting itself as not-at-EOF; a loop that trusted `eof()` alone
+ * would spin on one forever, hanging the worker on a page that simply stopped
+ * sending. Unreachable through Http::fake's ordinary in-memory bodies, which is
+ * exactly why the branch is easy to delete as dead code — it is not.
+ */
+it('stops reading a stream that answers empty without reaching the end', function (): void {
+    Http::fake(['https://example.com/*' => Http::response(FnStream::decorate(
+        Utils::streamFor('<p>never delivered</p>'),
+        ['read' => fn (): string => '', 'eof' => fn (): bool => false],
+    ))]);
+
+    expect(fetcher()->handle('https://example.com/stalled'))->toBeEmpty();
+});
+
+it('cuts the body back to a character boundary', function (): void {
+    // 30 three-byte characters: a 64-byte cap lands inside the 22nd, which
+    // mb_strcut drops rather than emitting a truncated sequence.
+    config()->set('chat.fetch.max_bytes', 64);
+    config()->set('chat.fetch.max_chars', 12000);
+
+    Http::fake(['https://example.com/*' => Http::response(str_repeat('漢', 30))]);
+
+    $text = fetcher()->handle('https://example.com/cjk');
+
+    expect(mb_check_encoding($text, 'UTF-8'))->toBeTrue()
+        ->and($text)->toBe(str_repeat('漢', 21));
 });
 
 it('follows a redirect, re-guarding every hop', function (): void {

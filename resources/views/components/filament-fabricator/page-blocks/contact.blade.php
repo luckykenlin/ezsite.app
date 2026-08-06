@@ -14,7 +14,7 @@
     $addressLines = array_filter([
         $location->address_line1,
         $location->address_line2,
-        trim(implode(', ', array_filter([$location->city, $location->state]))." {$location->postal_code}"),
+        mb_trim(implode(', ', array_filter([$location->city, $location->state]))." {$location->postal_code}"),
     ]);
     $phone = $location->phone ?? $business->contact_phone;
     $email = $location->email ?? $business->contact_email;
@@ -37,7 +37,10 @@
                      buttons have always pointed at, so it stays on the
                      wrapper; the form carries its own `#lead-contact` for the
                      per-form redirect fragment. --}}
-                <div id="contact" @class(['mt-8' => $split, 'order-last mt-10 flex w-full text-start' => ! $split, 'justify-center' => ! $split && $centered])>
+                <div
+                    id="contact"
+                    @class(['mt-8' => $split, 'order-last mt-10 flex w-full text-start' => ! $split, 'justify-center' => ! $split && $centered])
+                >
                     <x-lead-form
                         form-id="contact"
                         class="max-w-xl"
@@ -52,7 +55,7 @@
 
         <div @class(['space-y-8' => $split, 'mt-8 w-full space-y-8' => ! $split, 'flex flex-col items-center' => ! $split && $centered])>
             @if ($addressLines !== [])
-                <address class="not-italic leading-relaxed">
+                <address class="leading-relaxed not-italic">
                     @foreach ($addressLines as $line)
                         <span class="block">{{ $line }}</span>
                     @endforeach
@@ -69,12 +72,14 @@
             </div>
 
             @if ($hours !== [])
-                <table class="table table-sm max-w-sm">
+                <table class="table-sm table max-w-sm">
                     <tbody>
                         @foreach ($hours as $day => $ranges)
                             <tr>
                                 <th class="font-medium capitalize">{{ $day }}</th>
-                                <td>{{ $ranges->isEmpty() ? __('Closed') : implode(', ', $ranges->map(fn ($range): string => (string) $range)) }}</td>
+                                <td>
+                                    {{ $ranges->isEmpty() ? __('Closed') : implode(', ', $ranges->map(fn ($range): string => (string) $range)) }}
+                                </td>
                             </tr>
                         @endforeach
                     </tbody>

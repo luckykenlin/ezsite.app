@@ -8,7 +8,7 @@
 @php
     $links = is_array($nav_links) ? $nav_links : [];
 @endphp
-<footer class="footer footer-center gap-4 border-t border-base-300 bg-base-200 px-6 py-10 text-base-content">
+<footer class="footer footer-center border-base-300 bg-base-200 text-base-content gap-4 border-t px-6 py-10">
     @if ($links !== [])
         <nav class="flex flex-wrap justify-center gap-4">
             @foreach ($links as $link)
@@ -21,7 +21,7 @@
     <aside>
         <p class="text-base-content/70">&copy; {{ now()->year }} {{ $business->name }}</p>
         @if ($note)
-            <p class="text-sm text-base-content/60">{{ $note }}</p>
+            <p class="text-base-content/60 text-sm">{{ $note }}</p>
         @endif
     </aside>
 </footer>

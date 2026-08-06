@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Design;
 
+use Illuminate\Support\Str;
+
 /**
  * Curated heading/body font pairings. All families are self-hosted at build
  * time via the vite `bunny()` plugin (see vite.config.js); per-tenant
@@ -82,7 +84,7 @@ enum FontPair: string
     public function viteAliases(): array
     {
         return array_values(array_unique(array_map(
-            fn (string $family): string => str($family)->slug()->toString(),
+            fn (string $family): string => Str::slug($family),
             [$this->headingFamily(), $this->bodyFamily()],
         )));
     }

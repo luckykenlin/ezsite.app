@@ -7,5 +7,5 @@
 @props(['bag', 'field'])
 
 @if ($bag->has($field))
-    <p class="text-sm text-error">{{ $bag->first($field) }}</p>
+    <p class="text-error text-sm">{{ $bag->first($field) }}</p>
 @endif

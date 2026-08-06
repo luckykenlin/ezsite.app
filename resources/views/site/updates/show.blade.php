@@ -32,27 +32,31 @@
             @endif
 
             @if ($coverUrl)
-                <figure class="mt-8 overflow-hidden rounded-box">
-                    <img src="{{ $coverUrl }}" alt="{{ $post->title }}" class="{{ $layout->image() }} w-full object-cover">
+                <figure class="rounded-box mt-8 overflow-hidden">
+                    <img
+                        src="{{ $coverUrl }}"
+                        alt="{{ $post->title }}"
+                        class="{{ $layout->image() }} w-full object-cover"
+                    />
                 </figure>
             @endif
 
             @foreach ($paragraphs as $paragraph)
-                <p class="mt-6 text-base-content/80">{{ $paragraph }}</p>
+                <p class="text-base-content/80 mt-6">{{ $paragraph }}</p>
             @endforeach
 
             @if ($post->kind->isOffer() && (filled($post->offer_coupon_code) || filled($post->offer_terms)))
                 {{-- Not `.site-card`: that class is owned by SectionItemStyle::Card
                      and arch-banned from a view. This is a callout inside an
                      article, not a section item. --}}
-                <div class="mt-8 rounded-box border border-base-content/15 p-6">
+                <div class="rounded-box border-base-content/15 mt-8 border p-6">
                     @if (filled($post->offer_coupon_code))
                         <p class="site-eyebrow">{{ __('Use code') }}</p>
                         <p class="site-h4">{{ $post->offer_coupon_code }}</p>
                     @endif
 
                     @if (filled($post->offer_terms))
-                        <p class="mt-2 text-sm text-base-content/60">{{ $post->offer_terms }}</p>
+                        <p class="text-base-content/60 mt-2 text-sm">{{ $post->offer_terms }}</p>
                     @endif
                 </div>
             @endif
@@ -60,13 +64,18 @@
             <div class="mt-10">
                 @if ($expired)
                     <p class="text-base-content/60">
-                        {{ __('This :kind ended on :date.', [
-                            'kind' => mb_strtolower($post->kind->getLabel()),
-                            'date' => $post->ends_at?->isoFormat('LL'),
-                        ]) }}
+                        {{
+                            __('This :kind ended on :date.', [
+                                'kind' => mb_strtolower($post->kind->getLabel()),
+                                'date' => $post->ends_at?->isoFormat('LL'),
+                            ])
+                        }}
                     </p>
                 @elseif ($post->cta_action !== null)
-                    <a href="{{ $post->ctaHref($business) }}" class="btn btn-primary">{{ $post->cta_action->getLabel() }}</a>
+                    <a
+                        href="{{ $post->ctaHref($business) }}"
+                        class="btn btn-primary"
+                    >{{ $post->cta_action->getLabel() }}</a>
                 @endif
             </div>
 

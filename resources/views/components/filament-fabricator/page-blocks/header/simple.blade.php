@@ -8,7 +8,7 @@
 @php
     $links = is_array($nav_links) ? $nav_links : [];
 @endphp
-<header class="border-b border-base-300 bg-base-100 text-base-content">
+<header class="border-base-300 bg-base-100 text-base-content border-b">
     <div class="navbar mx-auto max-w-7xl px-6">
         <div class="navbar-start">
             <a href="/" class="flex items-center gap-3">
@@ -21,7 +21,10 @@
         <nav class="navbar-end flex-wrap gap-1">
             @foreach ($links as $link)
                 @continue(! is_array($link) || ! ($link['label'] ?? null) || ! ($link['url'] ?? null))
-                <a href="{{ $link['url'] }}" class="px-3 py-2 text-sm font-medium underline-offset-8 opacity-75 transition hover:underline hover:opacity-100">{{ $link['label'] }}</a>
+                <a
+                    href="{{ $link['url'] }}"
+                    class="px-3 py-2 text-sm font-medium underline-offset-8 opacity-75 transition hover:underline hover:opacity-100"
+                >{{ $link['label'] }}</a>
             @endforeach
 
             @if ($cta_label && $cta_url)

@@ -4,7 +4,9 @@
         <div class="mx-auto max-w-7xl px-6">
             <div class="flex max-w-3xl flex-col gap-4">
                 <p class="site-eyebrow text-primary">{{ __('marketing.gallery.eyebrow') }}</p>
-                <h1 class="site-display font-heading">{{ __('marketing.gallery.title', ['count' => \App\Templates\SiteTemplate::libraryCount()]) }}</h1>
+                <h1 class="site-display font-heading">
+                    {{ __('marketing.gallery.title', ['count' => \App\Templates\SiteTemplate::libraryCount()]) }}
+                </h1>
                 <p class="site-intro opacity-80">{{ __('marketing.gallery.intro') }}</p>
             </div>
 

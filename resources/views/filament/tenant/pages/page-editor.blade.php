@@ -52,11 +52,12 @@
         x-on:resize.window="fitLayout()"
     >
         <div class="pe-layout" x-ref="layout" x-bind:data-chat="chatOpen ? 'open' : 'closed'">
-        @include('filament.tenant.pages.partials.page-editor-chat')
+            @include('filament.tenant.pages.partials.page-editor-chat')
 
-        @include('filament.tenant.pages.partials.page-editor-canvas-pane')
-        @include('filament.tenant.pages.partials.page-editor-inspector')
-        </div>{{-- /.pe-layout --}}
+            @include('filament.tenant.pages.partials.page-editor-canvas-pane')
+            @include('filament.tenant.pages.partials.page-editor-inspector')
+        </div>
+        {{-- /.pe-layout --}}
 
         @include('filament.tenant.pages.partials.page-editor-block-library')
     </div>

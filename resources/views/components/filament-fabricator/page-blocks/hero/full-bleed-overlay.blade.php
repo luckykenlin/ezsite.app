@@ -25,7 +25,11 @@
 >
     <x-slot:backdrop>
         @if ($image_url)
-            <img src="{{ $image_url }}" alt="{{ $heading }}" class="absolute inset-0 -z-10 h-full w-full object-cover" />
+            <img
+                src="{{ $image_url }}"
+                alt="{{ $heading }}"
+                class="absolute inset-0 -z-10 h-full w-full object-cover"
+            />
             <div class="site-scrim absolute inset-0 -z-10"></div>
         @endif
     </x-slot:backdrop>

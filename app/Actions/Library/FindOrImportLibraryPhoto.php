@@ -6,12 +6,12 @@ namespace App\Actions\Library;
 
 use App\Actions\OptimizeImage;
 use App\Models\LibraryPhoto;
+use App\StockPhotos\PhotoHttp;
 use App\StockPhotos\PhotoOrientation;
 use App\StockPhotos\PhotoPalette;
 use App\StockPhotos\StockPhoto;
 use App\StockPhotos\StockPhotoProvider;
 use Illuminate\Http\Client\ConnectionException;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -146,7 +146,7 @@ final readonly class FindOrImportLibraryPhoto
     private function download(StockPhoto $photo): ?string
     {
         try {
-            $response = Http::timeout(config()->integer('stock-photos.http_timeout'))->get($photo->downloadUrl);
+            $response = PhotoHttp::client()->get($photo->downloadUrl);
         } catch (ConnectionException $connectionException) {
             Log::warning('stock_photos.download_failed', ['url' => $photo->downloadUrl, 'reason' => $connectionException->getMessage()]);
 

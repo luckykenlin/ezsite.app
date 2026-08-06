@@ -1,6 +1,6 @@
 # 带外租户写入地基（Tenant Write Context）— 技术方案
 
-> 状态：**已实现**（`App\Actions\RunInTenant` + `App\Jobs\TenantAware` + `App\Concerns\RequiresTenantContext`，测试见 `tests/Feature/Tenancy/TenantWriteContextTest.php`）。本文件保留为方案说明与设计理由；实现细节以代码与 `.claude/docs/tenancy.md` 为准。任何 AI / 队列 / MCP / webhook / cron 写租户数据都必须走这条通道。
+> 状态：**已实现**（`App\Tenancy\RunInTenant` + `App\Jobs\TenantAware` + `App\Tenancy\RequiresTenantContext`，测试见 `tests/Feature/Tenancy/TenantWriteContextTest.php`）。本文件保留为方案说明与设计理由；实现细节以代码与 `.claude/docs/tenancy.md` 为准。任何 AI / 队列 / MCP / webhook / cron 写租户数据都必须走这条通道。
 > 关联：[2026-07-17 评审快照](./archive/2026-07-17-review.md) · [.claude/docs/tenancy.md](../.claude/docs/tenancy.md) · [reviews-module.md](./reviews-module.md)（第一个消费者）
 
 ## 1. 问题（基于真实代码，不是假设）
@@ -38,7 +38,7 @@
 
 `tenancy()->run()` 本身已支持"初始化→跑→还原上一个上下文"（含嵌套还原）。我们**包一层**加上「初始化后断言 RLS 会话变量确实生效」——防止 bootstrapper 配置漂移导致的假初始化，把安全从"信任框架"提升到"运行时验证"。
 
-`app/Actions/RunInTenant.php`
+`app/Tenancy/RunInTenant.php`
 
 ```php
 <?php
@@ -62,7 +62,7 @@ use Stancl\Tenancy\Contracts\Tenant as TenantContract;
  * + `my.current_tenant` session var to be active for the duration of $callback,
  * asserts it actually took effect, and always reverts — even on exception.
  *
- * @see \App\Concerns\RequiresTenantContext runtime guard (belt-and-suspenders)
+ * @see \App\Tenancy\RequiresTenantContext runtime guard (belt-and-suspenders)
  */
 final readonly class RunInTenant
 {
@@ -116,7 +116,7 @@ app(RunInTenant::class)->handle($tenant, function () use ($payload): void {
 
 > 注：`Business` 曾计划为 no-rls 花名册，但已改为受 RLS 保护（见 [business-data-model.md](./business-data-model.md) 的 RLS 放置更新），因此它也挂守卫。central 面板读花名册靠 BYPASSRLS，写回单租户走 `RunInTenant`。
 
-`app/Concerns/RequiresTenantContext.php`
+`app/Tenancy/RequiresTenantContext.php`
 
 ```php
 <?php
@@ -170,7 +170,7 @@ declare(strict_types=1);
 
 namespace App\Jobs;
 
-use App\Actions\RunInTenant;
+use App\Tenancy\RunInTenant;
 use App\Models\Tenant;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;

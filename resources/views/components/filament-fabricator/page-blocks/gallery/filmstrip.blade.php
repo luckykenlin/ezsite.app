@@ -25,11 +25,16 @@
                 <figure class="group w-72 shrink-0 snap-center md:w-96">
                     {{-- The clip wrapper keeps the hover zoom inside the frame
                          without clipping the caption below it. --}}
-                    <div class="overflow-hidden rounded-box">
-                        <img src="{{ $item['url'] }}" alt="{{ $item['alt'] ?? '' }}" class="{{ $layout->image() }} w-full object-cover transition duration-300 group-hover:scale-105 motion-reduce:transition-none motion-reduce:group-hover:scale-100" loading="lazy" />
+                    <div class="rounded-box overflow-hidden">
+                        <img
+                            src="{{ $item['url'] }}"
+                            alt="{{ $item['alt'] ?? '' }}"
+                            class="{{ $layout->image() }} w-full object-cover transition duration-300 group-hover:scale-105 motion-reduce:transition-none motion-reduce:group-hover:scale-100"
+                            loading="lazy"
+                        />
                     </div>
                     @if ($item['caption'] ?? null)
-                        <figcaption class="px-1 pt-3 text-sm text-base-content/60">{{ $item['caption'] }}</figcaption>
+                        <figcaption class="text-base-content/60 px-1 pt-3 text-sm">{{ $item['caption'] }}</figcaption>
                     @endif
                 </figure>
             @endforeach

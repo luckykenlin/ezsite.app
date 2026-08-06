@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\StockPhotos;
 
 use Illuminate\Http\Client\ConnectionException;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 
@@ -49,8 +48,8 @@ final readonly class PexelsProvider implements StockPhotoProvider
         }
 
         try {
-            $response = Http::withHeaders(['Authorization' => $this->apiKey])
-                ->timeout(config()->integer('stock-photos.http_timeout'))
+            $response = PhotoHttp::client()
+                ->withHeaders(['Authorization' => $this->apiKey])
                 ->get(self::SEARCH_URL, [
                     'query' => $query,
                     'orientation' => $orientation->value,

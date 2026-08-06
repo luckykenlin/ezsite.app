@@ -14,9 +14,13 @@
 <div class="flex items-center gap-2" role="group" aria-label="{{ __('marketing.nav.language') }}">
     @foreach (Locale::cases() as $locale)
         @if ($locale === $current)
-            <span aria-current="true" class="font-semibold text-primary">{{ $locale->nativeLabel() }}</span>
+            <span aria-current="true" class="text-primary font-semibold">{{ $locale->nativeLabel() }}</span>
         @else
-            <a href="{{ $urls[$locale->value] }}" hreflang="{{ $locale->htmlLang() }}" class="opacity-60 hover:text-primary hover:opacity-100">
+            <a
+                href="{{ $urls[$locale->value] }}"
+                hreflang="{{ $locale->htmlLang() }}"
+                class="hover:text-primary opacity-60 hover:opacity-100"
+            >
                 {{ $locale->nativeLabel() }}
             </a>
         @endif

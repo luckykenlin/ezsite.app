@@ -18,7 +18,7 @@
         {{-- Decorative: the title beside it is the accessible name, so an alt
              here would be announced twice. --}}
         <figure @class(['overflow-hidden rounded-box' => ! $layout->isCard()])>
-            <img src="{{ $coverUrl }}" alt="" loading="lazy" class="{{ $layout->image() }} w-full object-cover">
+            <img src="{{ $coverUrl }}" alt="" loading="lazy" class="{{ $layout->image() }} w-full object-cover" />
         </figure>
     @endif
 

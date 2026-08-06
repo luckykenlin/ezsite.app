@@ -64,7 +64,5 @@
     {{-- The marker is emitted as a string rather than through `@if`, which
          cannot open and close around a bare attribute without leaving a stray
          space in the tag either way. --}}
-    <div{{ $animate ? ' data-animate' : '' }} class="{{ $section->spacingClasses() }}">
-        {{ $slot }}
-    </div>
+    <div{{ $animate ? ' data-animate' : '' }} class="{{ $section->spacingClasses() }}"> {{ $slot }} </div>
 </section>

@@ -33,7 +33,12 @@
                         @if ($image)
                             {{-- Decorative: the title beside it is the accessible
                                  name, so an alt here would be read out twice. --}}
-                            <img src="{{ $image }}" alt="" loading="lazy" class="{{ $layout->image() }} w-full rounded-box object-cover">
+                            <img
+                                src="{{ $image }}"
+                                alt=""
+                                loading="lazy"
+                                class="{{ $layout->image() }} w-full rounded-box object-cover"
+                            />
                         @else
                             <div class="flex {{ $layout->image() }} items-center justify-center rounded-box bg-base-200">
                                 <span class="text-6xl" aria-hidden="true">{{ $item['icon'] ?? '✦' }}</span>
@@ -44,13 +49,21 @@
                         <h3 data-editor-field="features.{{ $loop->index }}.title" class="site-h3">
                             {{-- Same stretched-link pattern as the grid view. --}}
                             @if ($link)
-                                <a href="{{ $link }}" class="after:absolute after:inset-0">{{ $item['title'] ?? '' }}</a>
+                                <a
+                                    href="{{ $link }}"
+                                    class="after:absolute after:inset-0"
+                                >{{ $item['title'] ?? '' }}</a>
                             @else
                                 {{ $item['title'] ?? '' }}
                             @endif
                         </h3>
                         @if ($item['description'] ?? null)
-                            <p data-editor-field="features.{{ $loop->index }}.description" class="mt-3 text-base-content/70">{{ $item['description'] }}</p>
+                            <p
+                                data-editor-field="features.{{ $loop->index }}.description"
+                                class="text-base-content/70 mt-3"
+                            >
+                                {{ $item['description'] }}
+                            </p>
                         @endif
                     </div>
                 </div>

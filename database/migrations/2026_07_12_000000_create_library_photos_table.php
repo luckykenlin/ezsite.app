@@ -89,8 +89,10 @@ return new class extends Migration
 
             // Ascending usage is the default search order: reuse must not make
             // every generated site look the same, so the least-used photo is
-            // offered first.
-            $table->unsignedInteger('usage_count')->default(0);
+            // offered first. Indexed because that makes it the ORDER BY of both
+            // photo pickers as well — unindexed, every page of the library sorts
+            // the whole table.
+            $table->unsignedInteger('usage_count')->default(0)->index();
 
             // The curation gate. Imports publish immediately (an unusable
             // library would break the draft pipeline); the central panel

@@ -36,7 +36,7 @@
                      image_shape axis (the full-photo variant needs none), and
                      an aspect class hand-rolled here would be exactly the drift
                      ConventionsTest forbids. Capped width does the work. --}}
-                <div class="w-full max-w-xs overflow-hidden rounded-box">
+                <div class="rounded-box w-full max-w-xs overflow-hidden">
                     <img src="{{ $image_url }}" alt="" loading="lazy" class="w-full object-cover" />
                 </div>
             @endif
@@ -60,7 +60,10 @@
                          light surface, see SectionTone::itemSurface()), so it
                          stays the brand colour. Standing on the band it has to
                          contrast with the band, which is the tone's call. --}}
-                    <a href="{{ $cta_url }}" class="{{ $card ? 'btn btn-primary' : $layout->button() }}">{{ $cta_label }}</a>
+                    <a
+                        href="{{ $cta_url }}"
+                        class="{{ $card ? 'btn btn-primary' : $layout->button() }}"
+                    >{{ $cta_label }}</a>
                 @endif
                 @if ($secondary_label && $secondary_url)
                     <a href="{{ $secondary_url }}" class="site-link-cta">{{ $secondary_label }}</a>

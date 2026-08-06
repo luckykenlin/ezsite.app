@@ -1,6 +1,6 @@
 ---
 name: pest-testing
-description: "Write and organize Pest tests for this project. Activate when adding or modifying tests, when a change needs coverage, when the CI coverage gate (--exactly=100.0) fails, or when deciding where a test belongs. Covers the all-Postgres backend, the type-first tests/ folder taxonomy (Unit vs Feature, mirroring app/ and grouped by concern), naming conventions, the InteractsWithTenancy trait, factory states, datasets, arch tests, the per-model test template (relations, side-effects, casts, constraints, `to array`), and the 100% coverage requirement."
+description: "Write and organize Pest 5 tests for this project. Activate whenever a test is written, edited, fixed, or refactored — including tests that broke after a code change, adding assertions or datasets, converting PHPUnit to Pest, TDD, browser/smoke tests, arch tests, and when the CI coverage gate (--exactly=100.0) fails or you're deciding where a test belongs. Covers the all-Postgres backend, the type-first tests/ folder taxonomy (Unit vs Feature, mirroring app/ and grouped by concern), naming conventions, the InteractsWithTenancy trait, factory states, datasets, arch tests, Livewire/Filament component tests, Tia (--tia), the per-model test template (relations, side-effects, casts, constraints, `to array`), and the 100% coverage requirement. Do not use for factories, seeders, migrations, controllers, models, or non-test PHP code."
 metadata:
   author: ezsite
 ---
@@ -10,6 +10,13 @@ metadata:
 This skill is the **single source of truth** for test layout and conventions.
 `CLAUDE.md` and `.claude/docs/tenancy.md` only point here — when the test setup
 changes, update this file and leave those as pointers, so the three don't drift.
+
+> Maintenance note: this file is **project-authored** and its home is
+> `.ai/skills/pest-testing/SKILL.md`. `.claude/skills/pest-testing` is a symlink
+> Boost creates; edit the `.ai/` copy. Living here is what stops
+> `php artisan boost:update` from overwriting us with the stock Pest skill —
+> Boost discovers `.ai/skills/*` last and a user skill wins. Do not move it back
+> under `.claude/skills/`; see `.ai/rules/skills.md`.
 
 This project runs Pest with a **hard 100% code-coverage gate**. Every runtime
 line must be exercised by a test or `composer test:unit` (and therefore CI)
@@ -26,18 +33,47 @@ documents *why* it exists (see the rollback guard in `RlsPolicyTest`).
 ## Commands
 
 - `composer test:unit` — the coverage gate CI runs:
-  `XDEBUG_MODE=coverage pest --parallel --coverage --exactly=100.0`.
+  `XDEBUG_MODE=coverage pest --parallel --processes=10 --coverage --exactly=100.0 --tia --exclude-testsuite=Browser`.
 - `php artisan test --compact {path|--filter=...}` — fast iteration on specific
   tests. Prefer a path or `--filter` over the whole suite.
 - `composer test:browser` — the browser suite (see below). Excluded from
   `test:unit` and `test:type-coverage` with `--exclude-testsuite=Browser`;
   keep it that way.
+- `composer test:tia:clear` — purge the Tia graph (see the Tia gotcha below).
 - `npm run test:unit` — vitest over `resources/js/**/*.test.ts`.
 - After editing PHP, run `vendor/bin/pint --dirty --format agent`.
 
 When the coverage run fails it prints `File .. <uncovered lines> / <pct>%` for
 each short file (e.g. `Models/Business .. 50, 69 / 80.0%`). The listed line
 numbers are exactly what needs covering — write a test that hits those branches.
+
+### Gotcha: `--tia` reports false coverage drops after a refactor
+
+The Tia (test impact analysis) graph lives **outside the repo**, in
+`~/.pest/tia/<project-hash>/`, so it never shows in `git status`. After files
+move, get renamed, change namespace, or gain/lose tests, the graph goes stale
+and the gate reports a **false** coverage drop while every test still passes
+(seen twice: `91.3%` then `88.9%` where the truth was `100.0%` both times).
+
+The files Tia lists as under-covered are exactly the ones whose test mapping
+changed. Confirm with a non-Tia run — if that says 100% and `--tia` does not,
+the graph is stale, not the tests — then fix it with `composer test:tia:clear`
+(or `rm -rf ~/.pest`). The next run prints a fresh-graph notice and the real
+number.
+
+### Creating test files
+
+`php artisan make:test --pest {name}` — `{name}` must **not** repeat the suite
+directory, or it nests:
+
+- Wrong: `make:test --pest Feature/PostResourceTest` → `tests/Feature/Feature/…`
+- Right: `make:test --pest PostResourceTest` → `tests/Feature/PostResourceTest.php`
+- Right: `make:test --pest --unit BusinessTest` → `tests/Unit/BusinessTest.php`
+
+Then move it into the correct concern subfolder (see the taxonomy below); the
+generator only knows about the two suite roots.
+
+**Do NOT delete tests without approval** — they are core application code.
 
 ## One backend: real Postgres + RLS
 
@@ -49,6 +85,10 @@ is migrated **once per worker process** and every later test starts with a
 `TRUNCATE ... RESTART IDENTITY CASCADE` over every table but `migrations`. The
 `InteractsWithTenancy` trait, `freezeTime()`, stray-request/process guards, and
 the `database` cache store are applied to every test.
+
+**Do not reach for `RefreshDatabase`.** The generic Pest/Laravel advice to use
+it does not apply here — this project's `Pest.php` owns the database lifecycle,
+and the reasons are below.
 
 **Why truncation, and not `migrate:fresh` per test or `RefreshDatabase`
 transactions?** It used to be `migrate:fresh` per test, which cost ~250ms of
@@ -70,6 +110,22 @@ Two invariants keep this safe, because the schema now outlives a test:
 - **No test may create its own table** — it would survive into every later test
   in that worker (and trip `RlsPolicyTest`'s "every table is RLS-protected"
   guard). Assert against the real schema instead.
+
+**`--processes` is capped by Postgres, not by CPU** — which is why `test:unit`
+pins it explicitly. Peak connection count is worker-bound, not test-bound: each
+worker holds pgsql + tenant + tenant_host + database-cache connections, and all
+workers spike together at startup. Past the server's `max_connections` the suite
+dies with `FATAL: sorry, too many clients already`.
+
+The pin has moved, so **read the current value out of `composer.json` rather than
+quoting a number from memory**. History: at 8 workers the peak was 96/100 and 9+
+blew through it; the per-worker connection cost then dropped (`a0ceaab` replaced
+`migrate:fresh`-per-test with migrate-once-per-worker + truncate), and `10` now
+passes clean at `max_connections = 100` (verified 2026-08-06: 2126 tests, 100.0%,
+~107s). Untested above 10. If `too many clients` ever returns, the durable fix is
+raising `max_connections` (200), not shaving workers — but re-measure before
+raising the pin again, because the ceiling is a property of the current lifecycle,
+not a constant.
 
 Key mechanic — **the test connection's role bypasses RLS** (`DB_USERNAME=postgres`,
 a superuser; even `FORCE ROW LEVEL SECURITY` is bypassed):
@@ -137,6 +193,28 @@ DB setup (arch expectations need no app/DB).
 - **`test()`/`it()` descriptions state behavior, not method names**: CRUD reads
   `can <verb> a <noun>`; rules read `<subject> <present-tense behavior>` (e.g.
   `a tenant sees only its own posts`). Don't restate the class name.
+- **Match the surrounding file's choice of `test()` vs `it()`** rather than
+  switching styles mid-directory.
+
+## Assertion style
+
+- Prefer the specific response assertion over `assertStatus()`:
+  `assertSuccessful()` not `assertStatus(200)`, `assertNotFound()` not
+  `assertStatus(404)`, `assertForbidden()` not `assertStatus(403)`.
+- Prefer a Pest 5 validation matcher over a hand-rolled regex where one exists
+  (all support `.not`): `toBeEmail()`, `toBeUlid()`, `toBeIpAddress()`,
+  `toBeMacAddress()`, `toBeHostname()`, `toBeDomain()`, `toBeBase64()`,
+  `toBeHexadecimal()`. `toBeUlid()`/`toBeDomain()` are the useful ones here —
+  tenant ids and `Domain->domain`.
+- **Don't reach for Mockery to double a first-party class.** Write an anonymous
+  class implementing its interface and bind it with `app()->instance()`; hoist a
+  double used by more than one file into a `tests/Concerns` trait
+  (`MakesStockPhotos` is the reference). Prefer a class's own static `::fake()`
+  where it has one (`PageEditorAgent::fake([...])`). Mockery is for framework
+  contracts you cannot cheaply implement.
+- Reach for a dataset whenever the same body repeats over inputs (validation
+  rules, the `tenant_domains` subdomain/custom-domain pair). Datasets are also
+  how you cover two tenants — see `one tenant per test` below.
 
 ## Shared helpers, datasets, factory states
 
@@ -174,6 +252,12 @@ passes even when the bridge is severed. Assert something only the editor could
 know: the inspector's field value, the Save button going dirty, a notification.
 Both bridge tests were verified by cutting the `post()` call and watching them
 go red.
+
+Always include `->assertNoJavaScriptErrors()` in a browser test — a page that
+renders but throws is the failure mode these tests exist to catch. The generic
+`visit([...])` smoke-test form (`$pages->assertNoJavaScriptErrors()
+->assertNoConsoleLogs()`) is available if a batch of public pages ever needs a
+cheap sweep, but the current suite is targeted, not a smoke suite.
 
 Harness facts, each of which cost something to find:
 
@@ -290,6 +374,21 @@ one render per test — that is what production does, and it keeps the test free
 container-lifecycle knowledge. If a test genuinely needs two renders of changed
 data, `$this->app->forgetScopedInstances()` between them reproduces the fresh
 container a real second request would get.
+
+### Gotcha: one *domained, rendered* tenant per test
+
+A test that renders a tenant site gets ONE tenant. A second
+`Tenant::factory()->withDomain('acme')` in the same test throws "The acme domain
+is occupied by another tenant" (stancl's `EnsuresDomainIsNotOccupied`), and
+giving the second a *different* subdomain gets past that but then **403**s the
+request, because the first render's tenancy context is still in play. This bites
+whenever you call a `Feature/Filament/Fabricator/*` render helper twice to
+compare two outputs (two style presets, linked vs unlinked, before vs after).
+
+Compare via a **dataset** (`->with([...])`) so each case is its own test with its
+own tenant. This is a *domain + HTTP render* constraint, not a rule about
+`tenancy()->initialize()` — `RlsIsolationTest` legitimately switches between two
+domainless tenants inside one test, which is exactly how it proves isolation.
 
 ## Model tests (the per-model template)
 

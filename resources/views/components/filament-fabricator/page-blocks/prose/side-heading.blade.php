@@ -35,7 +35,7 @@
             @foreach ($items as $item)
                 @continue(! is_array($item))
                 @php($text = $item['text'] ?? null)
-                @continue(! is_string($text) || trim($text) === '')
+                @continue(! is_string($text) || mb_trim($text) === '')
                 {{-- Escaped, like every other block view. The value is plain
                      text by construction (see the block class), so there is no
                      markup to preserve and nothing to sanitise. --}}

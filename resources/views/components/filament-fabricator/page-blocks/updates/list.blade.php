@@ -17,7 +17,7 @@
         <div class="{{ $layout->container() }}">
             <x-site.section-header :layout="$layout" :heading="$heading" :intro="$intro" />
 
-            <ul class="mt-10 divide-y divide-base-content/10">
+            <ul class="divide-base-content/10 mt-10 divide-y">
                 @foreach ($posts as $post)
                     <li class="relative py-5">
                         <x-site.update-meta :post="$post" />
@@ -27,7 +27,7 @@
                         </h3>
 
                         @if (filled($post->excerpt))
-                            <p class="mt-1 text-base-content/70">{{ $post->excerpt }}</p>
+                            <p class="text-base-content/70 mt-1">{{ $post->excerpt }}</p>
                         @endif
                     </li>
                 @endforeach

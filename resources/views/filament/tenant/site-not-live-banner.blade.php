@@ -18,22 +18,14 @@
         />
 
         <div class="text-sm">
-            <p class="font-semibold text-amber-900 dark:text-amber-200">
-                {{ __('Your site is not live yet') }}
-            </p>
+            <p class="font-semibold text-amber-900 dark:text-amber-200">{{ __('Your site is not live yet') }}</p>
             <p class="text-amber-800 dark:text-amber-300/90">
                 {{ __('Everything you have built is still a draft, so anyone who visits gets a "page not found". Open your pages and publish them.') }}
             </p>
         </div>
     </div>
 
-    <x-filament::button
-        :href="$pagesUrl"
-        tag="a"
-        color="warning"
-        icon="heroicon-m-rocket-launch"
-        class="shrink-0"
-    >
+    <x-filament::button :href="$pagesUrl" tag="a" color="warning" icon="heroicon-m-rocket-launch" class="shrink-0">
         {{ __('Open your pages') }}
     </x-filament::button>
 </div>

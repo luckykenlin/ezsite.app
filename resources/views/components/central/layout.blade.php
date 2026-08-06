@@ -31,11 +31,10 @@
 @endphp
 <!DOCTYPE html>
 <html lang="{{ $localeUrls->locale()->htmlLang() }}">
-
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="csrf-token" content="{{ csrf_token() }}" />
 
     @if ($seo)
         {!! seo($seo) !!}
@@ -46,29 +45,35 @@
     <x-site.head-assets :tokens="$tokens" />
 </head>
 
-<body class="min-h-dvh bg-base-100 text-base-content antialiased">
-    <header class="border-b border-base-content/10">
+<body class="bg-base-100 text-base-content min-h-dvh antialiased">
+    <header class="border-base-content/10 border-b">
         <div class="mx-auto flex max-w-7xl items-center justify-between gap-6 px-6 py-5">
             <a href="{{ route('central.home') }}" class="site-h4 font-heading">{{ config('app.name') }}</a>
 
             <nav class="flex items-center gap-6 text-sm">
-                <a href="{{ route('central.templates.index') }}" class="hover:text-primary">{{ __('marketing.nav.templates') }}</a>
+                <a
+                    href="{{ route('central.templates.index') }}"
+                    class="hover:text-primary"
+                >{{ __('marketing.nav.templates') }}</a>
                 <x-central.locale-switcher :urls="$localeUrls->all()" :current="$localeUrls->locale()" />
-                <a href="{{ route('central.templates.index') }}" class="btn btn-primary btn-sm">{{ __('marketing.nav.build') }}</a>
+                <a
+                    href="{{ route('central.templates.index') }}"
+                    class="btn btn-primary btn-sm"
+                >{{ __('marketing.nav.build') }}</a>
             </nav>
         </div>
     </header>
 
-    <main>
-        {{ $slot }}
-    </main>
+    <main>{{ $slot }}</main>
 
-    <footer class="border-t border-base-content/10">
+    <footer class="border-base-content/10 border-t">
         <div class="mx-auto flex max-w-7xl flex-col gap-2 px-6 py-10 text-sm sm:flex-row sm:items-center sm:justify-between">
             <p>&copy; {{ now()->year }} {{ config('app.name') }}</p>
-            <a href="{{ route('central.templates.index') }}" class="site-link-cta">{{ __('marketing.actions.browse') }}</a>
+            <a
+                href="{{ route('central.templates.index') }}"
+                class="site-link-cta"
+            >{{ __('marketing.actions.browse') }}</a>
         </div>
     </footer>
 </body>
-
 </html>

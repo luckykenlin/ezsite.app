@@ -31,7 +31,9 @@
                 {{-- 200, not 404: this address is linked from the site's own
                      chrome and from share cards, and a 404 on a page the site
                      points at reads as a broken website. --}}
-                <p class="mt-10 text-center text-base-content/70">{{ __('Nothing here just yet — check back soon.') }}</p>
+                <p class="text-base-content/70 mt-10 text-center">
+                    {{ __('Nothing here just yet — check back soon.') }}
+                </p>
             @else
                 <div class="mt-12 grid gap-8 {{ $layout->gridFor($posts->count()) }}">
                     @foreach ($posts as $post)

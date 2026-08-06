@@ -22,9 +22,14 @@
                 <p class="site-intro max-w-xl opacity-80">{{ __('marketing.home.hero.intro') }}</p>
 
                 <div class="flex flex-wrap items-center gap-4">
-                    <a href="{{ route('central.templates.index') }}" class="btn btn-primary btn-lg">{{ __('marketing.actions.browse') }}</a>
-                    <a href="{{ route('central.templates.show', \App\Templates\SiteTemplate::ChineseRestaurant) }}"
-                       class="site-link-cta">
+                    <a
+                        href="{{ route('central.templates.index') }}"
+                        class="btn btn-primary btn-lg"
+                    >{{ __('marketing.actions.browse') }}</a>
+                    <a
+                        href="{{ route('central.templates.show', \App\Templates\SiteTemplate::ChineseRestaurant) }}"
+                        class="site-link-cta"
+                    >
                         {{ __('marketing.home.hero.example') }}
                     </a>
                 </div>
@@ -48,7 +53,7 @@
                                  on the only breakpoint that shows them, and
                                  deferring an above-the-fold image just buys a
                                  second round trip. --}}
-                            <img src="{{ $shot }}" alt="" class="w-full object-cover object-top">
+                            <img src="{{ $shot }}" alt="" class="w-full object-cover object-top" />
                         @else
                             <div
                                 class="aspect-[16/10] w-full"
@@ -97,7 +102,7 @@
 
             <div class="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
                 @foreach ($templates as $template)
-                    <x-central.template-card :template="$template"/>
+                    <x-central.template-card :template="$template" />
                 @endforeach
             </div>
         </div>
@@ -107,18 +112,22 @@
         <div class="mx-auto max-w-7xl px-6">
             <div class="mx-auto flex max-w-3xl flex-col items-center gap-3 text-center">
                 <p class="site-eyebrow text-primary">{{ __('marketing.home.design.eyebrow') }}</p>
-                <h2 class="site-h2 font-heading">{{ __('marketing.home.design.title', ['count' => count(StylePreset::cases())]) }}</h2>
+                <h2 class="site-h2 font-heading">
+                    {{ __('marketing.home.design.title', ['count' => count(StylePreset::cases())]) }}
+                </h2>
                 <p class="site-intro opacity-80">{{ __('marketing.home.design.intro') }}</p>
             </div>
 
             <div class="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
                 @foreach (StylePreset::cases() as $preset)
                     @php $tokens = $preset->tokens(); @endphp
-                    <div class="site-card overflow-hidden rounded-box bg-base-100">
+                    <div class="site-card rounded-box bg-base-100 overflow-hidden">
                         <div class="flex h-24">
                             @foreach (['primary', 'secondary', 'accent', 'neutral'] as $slot)
-                                <div class="flex-1"
-                                     style="background: {{ $tokens->palette->colors()['--color-'.$slot] ?? 'transparent' }}"></div>
+                                <div
+                                    class="flex-1"
+                                    style="background: {{ $tokens->palette->colors()['--color-'.$slot] ?? 'transparent' }}"
+                                ></div>
                             @endforeach
                         </div>
                         {{-- The preset's MARKETING copy from lang/*/design.php,
@@ -127,7 +136,9 @@
                              over them — see the note at the top of that file. --}}
                         <div class="flex flex-col gap-1 p-5">
                             <h3 class="site-h5 font-heading">{{ __('marketing.presets.'.$preset->value.'.label') }}</h3>
-                            <p class="text-sm opacity-70">{{ __('marketing.presets.'.$preset->value.'.description') }}</p>
+                            <p class="text-sm opacity-70">
+                                {{ __('marketing.presets.'.$preset->value.'.description') }}
+                            </p>
                         </div>
                     </div>
                 @endforeach

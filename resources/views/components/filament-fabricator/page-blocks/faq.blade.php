@@ -31,11 +31,18 @@
                     $question = $item['question'] ?? null;
                     $answer = $item['answer'] ?? null;
                 @endphp
-                @continue(! is_string($question) || trim($question) === '')
+                @continue(! is_string($question) || mb_trim($question) === '')
                 <div @class(['py-6' => $singleColumn, 'border-t border-base-content/10 pt-6' => ! $singleColumn])>
-                    <dt data-editor-field="questions.{{ $loop->index }}.question" class="text-lg font-semibold">{{ $question }}</dt>
-                    @if (is_string($answer) && trim($answer) !== '')
-                        <dd data-editor-field="questions.{{ $loop->index }}.answer" class="mt-2 leading-relaxed text-base-content/70">{{ $answer }}</dd>
+                    <dt data-editor-field="questions.{{ $loop->index }}.question" class="text-lg font-semibold">
+                        {{ $question }}
+                    </dt>
+                    @if (is_string($answer) && mb_trim($answer) !== '')
+                        <dd
+                            data-editor-field="questions.{{ $loop->index }}.answer"
+                            class="text-base-content/70 mt-2 leading-relaxed"
+                        >
+                            {{ $answer }}
+                        </dd>
                     @endif
                 </div>
             @endforeach

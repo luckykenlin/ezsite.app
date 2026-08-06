@@ -8,7 +8,7 @@
 @php
     $links = is_array($nav_links) ? $nav_links : [];
 @endphp
-<footer class="footer footer-center gap-4 bg-neutral px-6 py-10 text-neutral-content">
+<footer class="footer footer-center bg-neutral text-neutral-content gap-4 px-6 py-10">
     @if ($links !== [])
         <nav class="flex flex-wrap justify-center gap-4">
             @foreach ($links as $link)

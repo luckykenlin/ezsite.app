@@ -3210,11 +3210,16 @@ describe('composer attachments', function (): void {
  */
 describe('the zoom toolbar', function (): void {
     it('offers all three zoom levels, each setting its own scale', function (): void {
-        $component = Livewire::test(PageEditor::class, ['record' => editorPage([])->id]);
+        $html = Livewire::test(PageEditor::class, ['record' => editorPage([])->id])->html();
 
+        /*
+         * Matched as a regex, not assertSee: the pairing is what matters, and
+         * the Blade formatter is free to put the label on its own line.
+         */
         foreach (['50%' => '0.5', '75%' => '0.75', '100%' => '1'] as $label => $level) {
-            $component->assertSee('x-on:click="zoom = '.$level.'"', false)
-                ->assertSee('>'.$label.'</button>', false);
+            expect($html)->toMatch(
+                '/zoom = '.preg_quote($level, '/').'"[^>]*>\s*'.preg_quote($label, '/').'\s*<\/button>/',
+            );
         }
     });
 });

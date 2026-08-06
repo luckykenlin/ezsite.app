@@ -10,5 +10,4 @@
 --}}
 @props(['tokens', 'business' => null])
 @vite(['resources/css/site.css'])
-{{ app(\Illuminate\Foundation\Vite::class)->fonts($tokens->fontPair->viteAliases()) }}
-{{ \App\Design\ThemeVariables::styleFor($tokens, $business) }}
+{{ app(\Illuminate\Foundation\Vite::class)->fonts($tokens->fontPair->viteAliases()) }} {{ \App\Design\ThemeVariables::styleFor($tokens, $business) }}

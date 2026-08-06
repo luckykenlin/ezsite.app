@@ -34,22 +34,17 @@
          would need a global stylesheet rule. --}}
     <div class="h-16 sm:hidden" aria-hidden="true"></div>
 
-    <div data-call-bar class="fixed inset-x-0 bottom-0 z-40 border-t border-base-300 bg-base-100 p-3 sm:hidden">
+    <div data-call-bar class="border-base-300 bg-base-100 fixed inset-x-0 bottom-0 z-40 border-t p-3 sm:hidden">
         <div class="flex gap-2">
-            <a href="tel:{{ $phone }}" class="btn btn-primary flex-1">
-                {{ $capture->callBarLabel() }}
-            </a>
+            <a href="tel:{{ $phone }}" class="btn btn-primary flex-1"> {{ $capture->callBarLabel() }} </a>
 
             @if ($capture->callBarOffersPopup())
                 {{-- Opening the popup needs JavaScript, so this button only
                      appears once the enhancement has run — a dead button is
                      worse than no button. --}}
-                <button
-                    type="button"
-                    class="btn btn-outline flex-1"
-                    data-call-bar-popup
-                    hidden
-                >{{ __('Message us') }}</button>
+                <button type="button" class="btn btn-outline flex-1" data-call-bar-popup hidden>
+                    {{ __('Message us') }}
+                </button>
             @endif
         </div>
     </div>

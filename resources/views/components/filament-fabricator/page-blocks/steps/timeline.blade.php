@@ -20,7 +20,7 @@
              block from features, and a screen reader should hear "list, 3 items"
              rather than three unrelated headings. The rail is this variant's
              structure — the columns axis deliberately does not reach it. --}}
-        <ol class="relative mt-12 space-y-10 border-l-2 border-base-300 pl-8">
+        <ol class="border-base-300 relative mt-12 space-y-10 border-l-2 pl-8">
             @foreach ($items as $item)
                 @continue(! ($item['title'] ?? null))
                 <li class="relative">
@@ -31,12 +31,16 @@
                     {{-- rounded-selector, not rounded-full: the chip follows the
                          tenant's radius token, square on the sharp presets. --}}
                     <span
-                        class="absolute -left-[2.6rem] flex size-8 items-center justify-center rounded-selector bg-primary text-sm font-bold text-primary-content ring-4 ring-primary/10"
+                        class="rounded-selector bg-primary text-primary-content ring-primary/10 absolute -left-[2.6rem] flex size-8 items-center justify-center text-sm font-bold ring-4"
                         aria-hidden="true"
                     >{{ $loop->iteration }}</span>
-                    <h3 data-editor-field="steps.{{ $loop->index }}.title" class="text-lg font-semibold">{{ $item['title'] }}</h3>
+                    <h3 data-editor-field="steps.{{ $loop->index }}.title" class="text-lg font-semibold">
+                        {{ $item['title'] }}
+                    </h3>
                     @if ($item['description'] ?? null)
-                        <p data-editor-field="steps.{{ $loop->index }}.description" class="mt-1 text-base-content/70">{{ $item['description'] }}</p>
+                        <p data-editor-field="steps.{{ $loop->index }}.description" class="text-base-content/70 mt-1">
+                            {{ $item['description'] }}
+                        </p>
                     @endif
                 </li>
             @endforeach

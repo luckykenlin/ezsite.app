@@ -31,13 +31,20 @@
                     {{-- rounded-selector, not rounded-full: the chip follows the
                          tenant's radius token, square on the sharp presets. --}}
                     <span
-                        class="flex size-10 shrink-0 items-center justify-center rounded-selector bg-primary font-bold text-primary-content ring-4 ring-primary/10"
+                        class="rounded-selector bg-primary text-primary-content ring-primary/10 flex size-10 shrink-0 items-center justify-center font-bold ring-4"
                         aria-hidden="true"
                     >{{ $loop->iteration }}</span>
                     <div>
-                        <h3 data-editor-field="steps.{{ $loop->index }}.title" class="text-lg font-semibold">{{ $item['title'] }}</h3>
+                        <h3 data-editor-field="steps.{{ $loop->index }}.title" class="text-lg font-semibold">
+                            {{ $item['title'] }}
+                        </h3>
                         @if ($item['description'] ?? null)
-                            <p data-editor-field="steps.{{ $loop->index }}.description" class="mt-1 text-base-content/70">{{ $item['description'] }}</p>
+                            <p
+                                data-editor-field="steps.{{ $loop->index }}.description"
+                                class="text-base-content/70 mt-1"
+                            >
+                                {{ $item['description'] }}
+                            </p>
                         @endif
                     </div>
                 </li>
