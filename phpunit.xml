@@ -32,6 +32,17 @@
     <php>
         <env name="APP_ENV" value="testing"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
+        <!--
+            force: APP_URL is the suite's only source for the central host AND
+            for the scheme every generated link comes out on (Domain::getUrl(),
+            tenancy.identification.central_domains, route()). Securing the local
+            site in Herd flips a developer's .env to https, which silently
+            rewrites those expectations and fails a handful of tests that a
+            fresh clone on .env.example passes. Pin both here so the suite reads
+            the same installation everywhere; tests that care about https set
+            config('app.url') themselves.
+        -->
+        <env name="APP_URL" value="http://ezsite.test" force="true"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="BROADCAST_CONNECTION" value="null"/>
         <env name="CACHE_STORE" value="array"/>
