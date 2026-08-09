@@ -23,7 +23,6 @@ use App\Enums\DesignDraftSource;
 use App\Filament\Fabricator\BlockRegistry;
 use App\Filament\Fabricator\PageBlocks\Block;
 use App\Filament\Tenant\Resources\PageResource;
-use App\Filament\Tenant\Resources\PageResource\Actions\DesignAction;
 use App\Filament\Tenant\Resources\PageResource\Actions\DiscardDraftAction;
 use App\Filament\Tenant\Resources\PageResource\Actions\DuplicatePageAction;
 use App\Filament\Tenant\Resources\PageResource\Actions\PageHistoryAction;
@@ -33,6 +32,7 @@ use App\Filament\Tenant\Resources\PageResource\Actions\SharePreviewAction;
 use App\Filament\Tenant\Resources\PageResource\Concerns\HasBlockHistory;
 use App\Filament\Tenant\Resources\PageResource\Concerns\HasSiteChromeDraft;
 use App\Filament\Tenant\Resources\PageResource\Concerns\HostsEditorModals;
+use App\Filament\Tenant\Resources\PageResource\Concerns\HostsStyleRail;
 use App\Filament\Tenant\Resources\PageResource\Concerns\InteractsWithPageChat;
 use App\Filament\Tenant\Resources\PageResource\Concerns\ManagesPageVersions;
 use App\Filament\Tenant\Resources\PageResource\Concerns\RestoresEditorDraft;
@@ -90,6 +90,7 @@ final class PageEditor extends Page
     use HasBlockHistory;
     use HasSiteChromeDraft;
     use HostsEditorModals;
+    use HostsStyleRail;
     use InteractsWithPageChat;
     use InteractsWithRecord;
     use ManagesPageVersions;
@@ -361,6 +362,12 @@ final class PageEditor extends Page
         }
 
         $this->selectedBlockKey = $key;
+
+        // Picking a block is a request to edit it, so the inspector shows the
+        // block rather than leaving Site Styles up over a selection it cannot
+        // act on. Deselecting does NOT do the reverse: clicking the canvas
+        // background while restyling should not close the rail.
+        $this->showPageInspector();
 
         // Selecting an empty chrome slot starts a fresh draft entry.
         $slot = $this->chromeSlot($key);
@@ -852,8 +859,6 @@ final class PageEditor extends Page
             SharePreviewAction::make($this),
 
             PageSettingsAction::make($this),
-
-            DesignAction::make($this),
 
             PageHistoryAction::make($this),
 

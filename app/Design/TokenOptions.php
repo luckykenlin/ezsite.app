@@ -8,28 +8,25 @@ use BackedEnum;
 use Illuminate\Support\Str;
 
 /**
- * The human-readable option maps for every design token, in the
- * `value => label` shape Filament selects and radios consume.
+ * The human-readable label for every value a design token can take, as a
+ * `value => label` map.
  *
- * Lives in the design module rather than on either editing surface: the
- * Design settings page and the page editor's Design modal both need the same
- * lists, and a UI class owning them would make one page depend on the other.
+ * Lives in the design module rather than on a consumer: the Site Styles panel
+ * labels its specimens from this, and {@see \App\Ai\Tools\SetSiteStyle} builds
+ * the assistant's enum from the same keys — so a UI class owning it would put
+ * the AI tool behind a Filament page.
+ *
+ * A `presets()` counterpart used to sit beside this, for a `Radio` of preset
+ * NAMES. The panel draws each preset as a specimen of itself now and reads
+ * {@see StylePreset::label()} directly, so the map went with the radio.
  */
 final class TokenOptions
 {
     /**
-     * @return array<string, string>
-     */
-    public static function presets(): array
-    {
-        return self::map(StylePreset::cases(), static fn (StylePreset $preset): string => $preset->label());
-    }
-
-    /**
      * One token's options. Replaces the four near-identical per-token methods
-     * that used to live here, so both design surfaces can render their
-     * fine-tune fields by looping {@see TokenKey::cases()} instead of naming
-     * each key twice (once for the field, once for the option map).
+     * that used to live here, so a surface can render every token by looping
+     * {@see TokenKey::cases()} instead of naming each key twice (once for the
+     * control, once for the option map).
      *
      * @return array<string, string>
      */
@@ -57,24 +54,6 @@ final class TokenOptions
         }
 
         return self::headline((string) $case->value);
-    }
-
-    /**
-     * @template TCase of \BackedEnum
-     *
-     * @param  list<TCase>  $cases
-     * @param  callable(TCase): string  $label
-     * @return array<string, string>
-     */
-    private static function map(array $cases, callable $label): array
-    {
-        $options = [];
-
-        foreach ($cases as $case) {
-            $options[(string) $case->value] = $label($case);
-        }
-
-        return $options;
     }
 
     private static function headline(string $value): string

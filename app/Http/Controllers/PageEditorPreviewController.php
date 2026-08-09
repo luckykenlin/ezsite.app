@@ -175,9 +175,11 @@ final class PageEditorPreviewController extends Controller
 
     /**
      * A `<style>` override compiled from the editor's unsaved design-token
-     * draft. Emitted AFTER the saved theme's HEAD_END style so it wins; all
-     * values come from enum constants / validated hexes (see ThemeVariables),
-     * so the raw echo is safe.
+     * draft. It wins over the saved theme on SPECIFICITY, not order: this block
+     * is written by the preview view and the saved one by the layout's HEAD_END
+     * hook, which runs later, so an equal-weight `:root` here lost every time.
+     * All values come from enum constants / validated hexes (see
+     * ThemeVariables), so the raw echo is safe.
      */
     private function themeDraftStyle(mixed $tokens): ?HtmlString
     {
@@ -210,6 +212,15 @@ final class PageEditorPreviewController extends Controller
             $business = (clone $business)->forceFill($overrides);
         }
 
-        return ThemeVariables::styleFor(DesignTokens::fromArray($tokens), $business, 'data-editor-theme-draft');
+        return ThemeVariables::styleFor(
+            DesignTokens::fromArray($tokens),
+            $business,
+            'data-editor-theme-draft',
+            // Doubled on purpose — see ThemeVariables::styleFor(). This block
+            // lands BEFORE the saved theme's, so equal specificity meant the
+            // saved one silently won and no staged restyle ever reached the
+            // canvas.
+            ':root:root',
+        );
     }
 }

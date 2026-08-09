@@ -114,8 +114,8 @@ it('withholds every tool in Ask mode and overlays the advisory instructions', fu
 /*
  * Design tokens live on the Business row, so without one there is nowhere for a
  * style to land and every SetSiteStyle call would be a dead end the model cannot
- * diagnose. Mirrors DesignAction::visible(hasBusinessProfile()) — and saves the
- * tool's schema tokens on every turn of a profile-less tenant.
+ * diagnose. Mirrors the Site Styles tab's own `hasBusinessProfile()` gate — and
+ * saves the tool's schema tokens on every turn of a profile-less tenant.
  */
 it('adds the site-style verb only when a style draft is supplied', function (): void {
     $tools = editorAgent(new PageDraft([]), style: new SiteStyleDraft(DesignTokens::default()))->tools();

@@ -50,6 +50,20 @@ it('compiles stored tokens into the variable set, defaulting without them, and r
         ->toContain('--color-primary: oklch(55% 0.12 40);');
 });
 
+it('renders the same declarations as an attribute body, for one element instead of a document', function (): void {
+    $business = Business::query()->findOrFail(themedBusiness(StylePreset::WarmCraft)->getKey());
+    $tokens = $business->design_tokens;
+
+    $inline = ThemeVariables::inline($tokens, $business);
+
+    // The last assertion is the one that matters: it pins the document form to
+    // this body, so re-forking the declaration loop into styleFor() fails here.
+    expect($inline)->toContain('--color-primary: oklch(55% 0.12 40);')
+        ->not->toContain('<style')
+        ->not->toContain(':root')
+        ->and(ThemeVariables::styleFor($tokens, $business)->toHtml())->toContain($inline);
+});
+
 it('tells the browser the palette scheme, so native UI follows a dark site', function (): void {
     $business = Business::query()->findOrFail(themedBusiness()->getKey());
 

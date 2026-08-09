@@ -183,10 +183,20 @@ it('layers a design-token draft style over the saved theme', function (): void {
         fn () => resolve(CachePageEditorPreview::class)->handle($page, [], 'valid-token', null, ['palette' => 'ocean']),
     );
 
-    $this->get(sprintf('http://acme.%s/_editor/preview?token=valid-token', $this->centralDomain()))
+    $html = $this->get(sprintf('http://acme.%s/_editor/preview?token=valid-token', $this->centralDomain()))
         ->assertOk()
         ->assertSee('data-editor-theme-draft', false)
-        ->assertSee('--color-primary', false);
+        ->assertSee('--color-primary', false)
+        ->getContent();
+
+    // "Layers over" is the part that used to be untrue. The draft is written by
+    // this view and the saved theme by the layout's HEAD_END hook, so the draft
+    // lands FIRST — and at equal specificity the saved one silently won, which
+    // meant no staged restyle ever reached the canvas. The doubled selector is
+    // what settles it; assert both halves so neither can drift back.
+    expect(mb_strpos($html, 'data-editor-theme-draft'))
+        ->toBeLessThan(mb_strpos($html, 'data-site-theme'))
+        ->and($html)->toContain('<style data-editor-theme-draft>:root:root{');
 });
 
 it('renders a staged brand hex without the business row changing', function (): void {

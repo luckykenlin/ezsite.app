@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Design;
 
+use BackedEnum;
+
 /**
  * The tenant's chosen design tokens — enum keys only, never derived CSS
  * values (those live in the enums so they can evolve without data
@@ -99,6 +101,26 @@ final readonly class DesignTokens
         $preset = $this->preset;
 
         return ($preset instanceof StylePreset ? $preset->value : 'custom').' — '.implode(', ', $values);
+    }
+
+    /**
+     * A copy with ONE token replaced, addressed by its key.
+     *
+     * The keyed door onto {@see with()}, which takes named arguments and so
+     * cannot be reached from a loop over {@see TokenKey::cases()} — exactly the
+     * gap {@see TokenKey::valueOn()} fills in the read direction. The specimen
+     * renderer lives on that loop: "these tokens, but with `radius` set to
+     * `full`", once per option, for every key.
+     *
+     * Routed through {@see toArray()}/{@see fromArray()} rather than a `match`
+     * over eight cases, because those two are already the symmetric pair and a
+     * `match` would be a third place listing every key. It inherits their
+     * leniency too: an enum that does not belong to `$key` falls back to that
+     * token's default instead of raising a TypeError mid-render.
+     */
+    public function withToken(TokenKey $key, BackedEnum $value): self
+    {
+        return self::fromArray([...$this->toArray(), 'preset' => null, $key->value => (string) $value->value]);
     }
 
     /**

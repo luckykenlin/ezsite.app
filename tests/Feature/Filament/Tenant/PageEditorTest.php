@@ -9,6 +9,7 @@ use App\Actions\Pages\CachePageEditorPreview;
 use App\Ai\Agents\PageEditorAgent;
 use App\Design\ColorPalette;
 use App\Design\DesignTokens;
+use App\Design\StyleGroup;
 use App\Design\StylePreset;
 use App\Enums\ChatMode;
 use App\Enums\ChatRole;
@@ -875,17 +876,18 @@ describe('surviving a reload', function (): void {
         expect(Livewire::test(PageEditor::class, ['record' => $page->id])->get('draftRestored'))->toBeFalse();
     });
 
-    it('does not restore a design preview the Design modal staged', function (): void {
-        // The modal's draft is scoped to its own fields, and it is not open after a
-        // reload — so its preview should be gone exactly as it would be had the modal
-        // simply been closed. Restoring it would resurrect a theme override with no
-        // modal to clear it.
+    it('does not restore a design preview the styles rail staged', function (): void {
+        // A rail draft belongs to the pane the operator was looking at, and the
+        // rail comes back at the saved tokens after a reload — so restoring it
+        // would resurrect a theme override nothing on screen accounts for. Only
+        // a chat-staged draft survives, because that one is an unanswered
+        // question (see the test below).
         $this->createTenantBusiness($this->tenant, ['name' => 'Corner Cafe']);
         $page = editorPage([['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']]]);
 
         Livewire::test(PageEditor::class, ['record' => $page->id])
             ->call('addBlock', 'cta')
-            ->call('previewDesign', ['palette' => 'ocean']);
+            ->call('stageToken', 'palette', 'ocean');
 
         expect(Livewire::test(PageEditor::class, ['record' => $page->id])->get('designDraft'))->toBeNull();
     });
@@ -1323,76 +1325,312 @@ describe('site chrome in the inspector', function (): void {
     });
 });
 
-describe('design tokens from the editor modal', function (): void {
-    it('previews design-token drafts on the canvas only, and discards them on close', function (): void {
+describe('the site styles rail', function (): void {
+    it('shows the saved tokens until something is staged, then the draft', function (): void {
+        $this->createTenantBusiness($this->tenant, ['name' => 'Corner Cafe']);
+        $page = editorPage([]);
+
+        $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
+
+        expect($component->instance()->styleSelection()['palette'])
+            ->toBe(Business::query()->sole()->design_tokens->palette->value)
+            ->and($component->instance()->hasStagedStyles())->toBeFalse();
+
+        $component->call('stageToken', 'palette', 'ocean');
+
+        expect($component->instance()->styleSelection()['palette'])->toBe('ocean')
+            ->and($component->instance()->styleTokens()->palette)->toBe(ColorPalette::Ocean)
+            ->and($component->instance()->hasStagedStyles())->toBeTrue();
+    });
+
+    it('stages a token onto the canvas without writing anything', function (): void {
         $this->createTenantBusiness($this->tenant, ['name' => 'Corner Cafe']);
         $page = editorPage([]);
 
         $component = Livewire::test(PageEditor::class, ['record' => $page->id])
-            ->mountAction('design')
-            ->fillForm(['palette' => 'ocean']);
+            ->call('stageToken', 'palette', 'ocean');
 
         expect($component->get('designDraft')['palette'])->toBe('ocean')
             ->and(cachedPreview($component)['design_tokens']['palette'])->toBe('ocean')
-            // Nothing persisted.
-            ->and(Business::query()->sole()->design_tokens->palette->value)->not->toBe('ocean');
-
-        // Closing the modal without applying discards the canvas draft.
-        $component->unmountAction();
-
-        expect($component->get('designDraft'))->toBeNull()
-            ->and(cachedPreview($component)['design_tokens'])->toBeNull();
+            ->and(Business::query()->sole()->design_tokens->palette)->not->toBe(ColorPalette::Ocean);
     });
 
-    it('applies a design preset to the whole site from the editor modal', function (): void {
+    it('ignores a token key or value the browser invented', function (): void {
+        // The pair reaches the canvas as a silent fallback to the default token
+        // and only fails on save, so it is refused here instead.
+        $this->createTenantBusiness($this->tenant, ['name' => 'Corner Cafe']);
+        $page = editorPage([]);
+
+        $component = Livewire::test(PageEditor::class, ['record' => $page->id])
+            ->call('stageToken', 'palette', 'no-such-palette')
+            ->call('stageToken', 'no_such_key', 'ocean');
+
+        expect($component->get('designDraft'))->toBeNull();
+    });
+
+    it('stages a whole preset from one click, and applies it to the site', function (): void {
         $this->createTenantBusiness($this->tenant, ['name' => 'Corner Cafe']);
         $page = editorPage([]);
 
         $tokens = StylePreset::BoldEditorial->tokens();
 
-        Livewire::test(PageEditor::class, ['record' => $page->id])
-            ->callAction('design', [
-                'preset' => 'bold-editorial',
-                'palette' => $tokens->palette->value,
-                'font_pair' => $tokens->fontPair->value,
-                'radius' => $tokens->radius->value,
-                'density' => $tokens->density->value,
-            ])
-            ->assertNotified();
+        $component = Livewire::test(PageEditor::class, ['record' => $page->id])
+            ->call('stagePreset', 'bold-editorial');
+
+        expect($component->get('designDraft')['preset'])->toBe('bold-editorial')
+            ->and($component->get('designDraft')['palette'])->toBe($tokens->palette->value)
+            ->and(Business::query()->sole()->design_tokens->preset)->not->toBe(StylePreset::BoldEditorial);
+
+        $component->call('applySiteStyles')->assertNotified();
 
         $saved = Business::query()->sole()->design_tokens;
 
         expect($saved->preset)->toBe(StylePreset::BoldEditorial)
-            ->and($saved->palette)->toBe($tokens->palette);
+            ->and($saved->palette)->toBe($tokens->palette)
+            // Applied means no longer staged: the footer bar goes away with it.
+            ->and($component->get('designDraft'))->toBeNull();
     });
 
-    it('applies a custom token combination from the editor modal, preset detached', function (): void {
+    it('ignores a preset the browser invented', function (): void {
         $this->createTenantBusiness($this->tenant, ['name' => 'Corner Cafe']);
         $page = editorPage([]);
 
-        Livewire::test(PageEditor::class, ['record' => $page->id])
-            ->callAction('design', [
-                'preset' => 'bold-editorial',
-                'palette' => 'ocean',
-                'font_pair' => StylePreset::BoldEditorial->tokens()->fontPair->value,
-                'radius' => StylePreset::BoldEditorial->tokens()->radius->value,
-                'density' => StylePreset::BoldEditorial->tokens()->density->value,
-            ]);
+        $component = Livewire::test(PageEditor::class, ['record' => $page->id])
+            ->call('stagePreset', 'no-such-preset');
 
-        $saved = Business::query()->sole()->design_tokens;
-
-        expect($saved->preset)->toBeNull()
-            ->and($saved->palette->value)->toBe('ocean');
+        expect($component->get('designDraft'))->toBeNull();
     });
 
-    it('hides the Design action until a business profile exists', function (): void {
+    it('keeps the preset marker on a token change, so changing it back saves as the preset again', function (): void {
+        // SaveDesignSelection decides preset-vs-custom by comparing the whole
+        // selection. Clearing the marker on the first token click would make
+        // that a one-way door.
+        $this->createTenantBusiness($this->tenant, ['name' => 'Corner Cafe']);
+        $page = editorPage([]);
+
+        $preset = StylePreset::BoldEditorial->tokens();
+
+        $component = Livewire::test(PageEditor::class, ['record' => $page->id])
+            ->call('stagePreset', 'bold-editorial')
+            ->call('stageToken', 'palette', 'ocean');
+
+        expect($component->get('designDraft')['preset'])->toBe('bold-editorial');
+
+        $component->call('applySiteStyles');
+
+        expect(Business::query()->sole()->design_tokens->preset)->toBeNull();
+
+        $component->call('stagePreset', 'bold-editorial')
+            ->call('stageToken', 'palette', 'ocean')
+            ->call('stageToken', 'palette', $preset->palette->value)
+            ->call('applySiteStyles');
+
+        expect(Business::query()->sole()->design_tokens->preset)->toBe(StylePreset::BoldEditorial);
+    });
+
+    it('applies a staged brand hex to the business column', function (): void {
+        $this->createTenantBusiness($this->tenant, ['name' => 'Corner Cafe', 'brand_primary' => '#111111']);
+        $page = editorPage([]);
+
+        $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
+
+        expect($component->instance()->brandColor('brand_primary'))->toBe('#111111');
+
+        $component->call('stageToken', 'palette', 'brand')
+            ->call('stageBrandColor', 'brand_primary', '#ff6b35');
+
+        // Staged, so the swatch shows the new hex before it is applied.
+        expect($component->instance()->brandColor('brand_primary'))->toBe('#ff6b35');
+
+        $component->call('applySiteStyles');
+
+        expect(Business::query()->sole()->brand_primary)->toBe('#ff6b35');
+    });
+
+    it('ignores a brand colour key the browser invented', function (): void {
+        $this->createTenantBusiness($this->tenant, ['name' => 'Corner Cafe']);
         $page = editorPage([]);
 
         $component = Livewire::test(PageEditor::class, ['record' => $page->id])
-            ->assertActionHidden('design');
+            ->call('stageBrandColor', 'brand_nonsense', '#ff6b35');
 
-        // The modal's own reads fail loud rather than null-dereference, in case a
-        // future caller reaches them around the visibility guard.
+        expect($component->get('designDraft'))->toBeNull();
+    });
+
+    it('discards a staged look on reset, and does nothing when there is none', function (): void {
+        $this->createTenantBusiness($this->tenant, ['name' => 'Corner Cafe']);
+        $page = editorPage([]);
+
+        $component = Livewire::test(PageEditor::class, ['record' => $page->id])
+            ->call('stageToken', 'palette', 'ocean')
+            ->call('resetSiteStyles');
+
+        expect($component->get('designDraft'))->toBeNull()
+            ->and(cachedPreview($component)['design_tokens'])->toBeNull();
+
+        // Apply with nothing staged is a no-op, not a write of the saved values.
+        $component->call('applySiteStyles')->assertNotNotified();
+
+        // And Reset again is not a second repaint: clearDesignDraft() returns
+        // before pushing a preview when there is no draft to clear, so the
+        // canvas is not reloaded for nothing.
+        $component->call('resetSiteStyles')->assertNotDispatched('page-editor:refresh-canvas');
+
+        expect($component->get('designDraft'))->toBeNull();
+    });
+
+    it('survives another modal opening and closing, unlike the design modal it replaces', function (): void {
+        // unmountAction() discards a Modal-sourced draft on ANY modal close, so
+        // a rail draft carries its own source. Opening page settings while a
+        // restyle is staged must not throw the restyle away.
+        $this->createTenantBusiness($this->tenant, ['name' => 'Corner Cafe']);
+        $page = editorPage([]);
+
+        $component = Livewire::test(PageEditor::class, ['record' => $page->id])
+            ->call('stageToken', 'palette', 'ocean')
+            ->mountAction('pageSettings')
+            ->unmountAction();
+
+        expect($component->get('designDraft')['palette'])->toBe('ocean');
+    });
+
+    it('opens a style group, drills back out, and keeps the staged look across both', function (): void {
+        $this->createTenantBusiness($this->tenant, ['name' => 'Corner Cafe']);
+        $page = editorPage([]);
+
+        $component = Livewire::test(PageEditor::class, ['record' => $page->id])
+            ->call('showSiteStyles')
+            ->call('stageToken', 'palette', 'ocean')
+            ->call('openStyleGroup', 'theme');
+
+        expect($component->get('styleGroup'))->toBe('theme')
+            ->and($component->instance()->openedStyleGroup())->toBe(StyleGroup::Theme);
+
+        $component->call('closeStyleGroup');
+
+        expect($component->get('styleGroup'))->toBeNull()
+            ->and($component->instance()->openedStyleGroup())->toBeNull()
+            ->and($component->get('designDraft')['palette'])->toBe('ocean');
+    });
+
+    it('reads a group the browser invented as the top level', function (): void {
+        $this->createTenantBusiness($this->tenant, ['name' => 'Corner Cafe']);
+        $page = editorPage([]);
+
+        $component = Livewire::test(PageEditor::class, ['record' => $page->id])
+            ->call('openStyleGroup', 'no-such-group');
+
+        expect($component->get('styleGroup'))->toBeNull();
+
+        $component->set('styleGroup', 'still-not-a-group');
+
+        expect($component->instance()->openedStyleGroup())->toBeNull();
+    });
+
+    it('returns the inspector to the page face when a block is selected', function (): void {
+        // Picking a block is a request to edit it. Deselecting is not the
+        // reverse — clicking the canvas background while restyling should not
+        // close the rail.
+        $this->createTenantBusiness($this->tenant, ['name' => 'Corner Cafe']);
+        $page = editorPage([
+            ['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']],
+            ['type' => 'heading', 'data' => ['content' => 'About us', 'level' => 'h2']],
+        ]);
+
+        $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
+        $second = $component->get('blocks')[1]['key'];
+
+        $component->call('showSiteStyles');
+
+        expect($component->get('showingSiteStyles'))->toBeTrue();
+
+        $component->call('selectBlock', $second);
+
+        expect($component->get('showingSiteStyles'))->toBeFalse();
+
+        $component->call('showSiteStyles')->call('deselectBlock');
+
+        expect($component->get('showingSiteStyles'))->toBeTrue();
+    });
+
+    it('renders every group card and every preset as a live specimen', function (): void {
+        $this->createTenantBusiness($this->tenant, ['name' => 'Corner Cafe']);
+        $page = editorPage([]);
+
+        $component = Livewire::test(PageEditor::class, ['record' => $page->id])
+            ->call('showSiteStyles');
+
+        // Each card carries the facet it previews, so the strip is five
+        // different specimens rather than five copies of one.
+        foreach (StyleGroup::cases() as $group) {
+            $component->assertSee($group->label());
+        }
+
+        $component->assertSeeHtml('data-facet="theme"')
+            ->assertSeeHtml('data-facet="font_pair"')
+            ->assertSeeHtml('data-facet="palette"');
+
+        // Drilled in, every preset is drawn with its OWN tokens — the palette
+        // that only Bold Editorial has proves the tile is not the current look
+        // repeated eight times.
+        $component->call('openStyleGroup', 'theme')
+            ->assertSeeHtml(StylePreset::BoldEditorial->tokens()->palette->colors()['--color-primary'])
+            ->assertSeeHtml(StylePreset::CalmCoastal->tokens()->palette->colors()['--color-primary']);
+    });
+
+    it('offers every option of every token in its group, each drawn as itself', function (StyleGroup $group): void {
+        $this->createTenantBusiness($this->tenant, ['name' => 'Corner Cafe']);
+        $page = editorPage([]);
+
+        $component = Livewire::test(PageEditor::class, ['record' => $page->id])
+            ->call('showSiteStyles')
+            ->call('openStyleGroup', $group->value);
+
+        foreach ($group->keys() as $axis) {
+            $component->assertSee($axis->label());
+
+            foreach ($axis->tokenClass()::cases() as $option) {
+                // The click that stages it, and the specimen drawn for the
+                // facet it belongs to — an option rendered without either is a
+                // label, which is the thing this rail exists to stop being.
+                $component->assertSeeHtml("stageToken('{$axis->value}', '{$option->value}')")
+                    ->assertSeeHtml('data-facet="'.$axis->value.'"');
+            }
+        }
+    })->with([
+        'fonts' => StyleGroup::Fonts,
+        'colors' => StyleGroup::Colors,
+        'shapes' => StyleGroup::Shapes,
+        'layout' => StyleGroup::Layout,
+    ]);
+
+    it('offers the brand hexes only once the brand palette is chosen', function (): void {
+        $this->createTenantBusiness($this->tenant, ['name' => 'Corner Cafe']);
+        $page = editorPage([]);
+
+        $component = Livewire::test(PageEditor::class, ['record' => $page->id])
+            ->call('showSiteStyles')
+            ->call('openStyleGroup', 'colors')
+            ->assertDontSee('Your brand colours');
+
+        $component->call('stageToken', 'palette', ColorPalette::Brand->value)
+            ->assertSee('Your brand colours');
+    });
+
+    it('is not offered until a business profile exists', function (): void {
+        // Design tokens live on the Business row. The tab is hidden without
+        // one, and a click that arrives anyway is refused rather than throwing
+        // out of styleSelection().
+        $page = editorPage([]);
+
+        $component = Livewire::test(PageEditor::class, ['record' => $page->id])
+            ->assertDontSee('Site styles')
+            ->call('showSiteStyles');
+
+        expect($component->get('showingSiteStyles'))->toBeFalse();
+
+        // The underlying read still fails loud rather than null-dereferencing,
+        // in case a future caller reaches it around both guards.
         expect(fn (): Business => $component->instance()->businessOrFail())
             ->toThrow(ModelNotFoundException::class);
     });
@@ -2276,7 +2514,9 @@ describe('the selection that rides with a turn', function (): void {
         );
     });
 
-    it('sends no design draft when the staged style came from the modal', function (): void {
+    it('sends no design draft when the staged style came from the styles rail', function (): void {
+        // The turn describes the style the ASSISTANT staged, so an operator's
+        // own unapplied rail experiment must not be handed to it as context.
         Queue::fake();
         $this->createTenantBusiness($this->tenant, ['name' => 'Corner Cafe']);
 
@@ -2284,7 +2524,7 @@ describe('the selection that rides with a turn', function (): void {
 
         $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
 
-        $component->call('previewDesign', StylePreset::WarmCraft->tokens()->toArray());
+        $component->call('stagePreset', StylePreset::WarmCraft->value);
 
         $component->call('sendChatMessage', 'shorten the headline');
 

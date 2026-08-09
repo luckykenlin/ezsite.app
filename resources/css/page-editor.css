@@ -1320,3 +1320,379 @@
     width: 0.9rem;
     height: 0.9rem;
 }
+
+/* ---------------------------------------------------------------------------
+ * Site Styles specimens.
+ *
+ * Each `.pe-specimen` carries a full theme variable set in its `style`
+ * attribute (App\Design\ThemeVariables::inline over a hypothetical token set),
+ * and every rule below paints itself FROM those variables. That is the whole
+ * mechanism: `--accent-surface` is already a background value, `--divider-clip`
+ * is already a clip-path, so a specimen is the real thing at miniature scale
+ * rather than a drawing of it.
+ *
+ * The one rule to keep: read variable names here, never the values behind
+ * them. A token enum's `variables()` is the single definition; duplicating a
+ * radius or a hex into this sheet is how the specimens start lying.
+ *
+ * The site's own `.site-*` rules consume the same variables, but they live in
+ * a Tailwind-compiled sheet with `@source` globs and cannot be loaded into the
+ * panel. This re-read is therefore deliberate, and bounded: a specimen is a
+ * miniature, not the block.
+ * ------------------------------------------------------------------------- */
+
+.pe-specimen {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 0.375rem;
+    width: 100%;
+    min-height: 3.25rem;
+    padding: 0.625rem 0.75rem;
+    border-radius: 0.5rem;
+    overflow: hidden;
+    background: var(--color-base-100);
+    color: var(--color-base-content);
+}
+
+.pe-specimen[data-facet='theme'],
+.pe-specimen[data-facet='font_pair'],
+.pe-specimen[data-facet='type_style'] {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+}
+
+/* Themes tile: the type, the palette and a button in one brick, so the single
+   decision that moves everything is also the one that shows the most. */
+.pe-specimen-aa {
+    font-family: var(--font-heading);
+    font-size: calc(1.5rem * var(--type-scale, 1));
+    font-weight: var(--type-display-weight, 700);
+    letter-spacing: var(--type-display-tracking, normal);
+    line-height: 1.1;
+}
+
+.pe-specimen-strip {
+    display: flex;
+    gap: 0.1875rem;
+}
+
+.pe-specimen-chip {
+    width: 1.125rem;
+    height: 1.125rem;
+    border-radius: 9999px;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+}
+
+.pe-specimen-heading {
+    font-family: var(--font-heading);
+    font-size: calc(1.125rem * var(--type-scale, 1));
+    font-weight: var(--type-heading-weight, 700);
+    letter-spacing: var(--type-heading-tracking, normal);
+    text-transform: var(--type-heading-case, none);
+    line-height: 1.2;
+}
+
+.pe-specimen-body {
+    font-family: var(--font-sans);
+    font-size: 0.8125rem;
+    line-height: 1.35;
+    opacity: 0.75;
+}
+
+/* Shapes: the button reads both axes at once — `--radius-field` for its corner
+   and `--accent-surface` for its fill — which is why Shapes groups them. */
+.pe-specimen-button {
+    padding: 0.3125rem 0.875rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+    border-radius: var(--radius-field);
+    background: var(--accent-surface);
+    color: var(--color-primary-content);
+}
+
+.pe-specimen-card {
+    width: 2.25rem;
+    height: 1.75rem;
+    border-radius: var(--radius-box);
+    background: var(--color-base-300);
+}
+
+/* Density: `--spacing` is the Tailwind spacing unit the whole site scales from,
+   so two bands padded by a multiple of it separate the three steps honestly. */
+.pe-specimen-band {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: calc(var(--spacing) * 5) 0;
+    background: var(--color-base-200);
+}
+
+.pe-specimen-rule {
+    width: 60%;
+    height: 0.1875rem;
+    border-radius: 9999px;
+    background: var(--color-primary);
+    opacity: 0.55;
+}
+
+/* Dividers: `--divider-clip` is the clip-path the real section edge uses, and
+   `--divider-display` is `none` for the `none` case — which collapses the shape
+   exactly as it does on the page. The wrapper's min-height keeps all four
+   options the same size regardless. */
+.pe-specimen[data-facet='divider'] {
+    flex-direction: column;
+    gap: 0;
+    padding: 0;
+}
+
+.pe-specimen-divider-band {
+    width: 100%;
+    height: 1.5rem;
+    background: var(--color-base-200);
+}
+
+.pe-specimen-divider-shape {
+    width: 100%;
+    height: 1.25rem;
+    display: var(--divider-display);
+    clip-path: var(--divider-clip);
+    background: var(--color-primary);
+}
+
+/* Motion: settled at rest, replaying the real reveal on hover or keyboard
+   focus. `still` has a 0ms duration, so it simply does not move — which is the
+   difference the specimen exists to show. */
+.pe-specimen-reveal {
+    width: 70%;
+    height: 1.25rem;
+    border-radius: var(--radius-box);
+    background: var(--accent-surface);
+}
+
+.pe-option:hover .pe-specimen-reveal,
+.pe-option:focus-visible .pe-specimen-reveal {
+    animation: pe-specimen-reveal var(--reveal-duration) ease-out;
+}
+
+@keyframes pe-specimen-reveal {
+    from {
+        opacity: var(--reveal-opacity);
+        transform: translateY(var(--reveal-shift));
+    }
+
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pe-option:hover .pe-specimen-reveal,
+    .pe-option:focus-visible .pe-specimen-reveal {
+        animation: none;
+    }
+}
+
+/* ---------------------------------------------------------------------------
+ * Site Styles rail — the inspector column's second face.
+ * ------------------------------------------------------------------------- */
+
+.pe-tabs {
+    display: flex;
+    gap: 0.25rem;
+    margin-bottom: 0.75rem;
+    flex: none;
+}
+
+.pe-tab {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    border-radius: 0.5rem;
+    padding: 0.3125rem 0.625rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: rgba(0, 0, 0, 0.55);
+}
+
+.dark .pe-tab {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.pe-tab[data-active] {
+    background: rgba(99, 102, 241, 0.12);
+    color: #6366f1;
+}
+
+/* The staged-changes dot: the rail is persistent, so the operator can leave it
+   for the Page face with a restyle still unapplied. Without this, the only
+   evidence would be the canvas, which they are no longer comparing. */
+.pe-tab-dot {
+    width: 0.375rem;
+    height: 0.375rem;
+    border-radius: 9999px;
+    background: currentColor;
+}
+
+.pe-styles {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+/* Scrolling belongs to the pane, not the panel: on the Design settings page the
+   same markup should simply flow down the page. */
+.pe-inspector .pe-styles {
+    overflow-y: auto;
+    min-height: 0;
+}
+
+/* The specimens are sized for a 26rem rail; stretched across a settings page
+   they stop reading as a comparable set. */
+.pe-styles-page {
+    max-width: 30rem;
+}
+
+.pe-styles-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    width: 100%;
+    text-align: start;
+    border-radius: 0.625rem;
+    padding: 0.625rem;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+
+.dark .pe-styles-card {
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+
+.pe-styles-card:hover {
+    box-shadow: inset 0 0 0 1px rgba(99, 102, 241, 0.5);
+}
+
+.pe-styles-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.pe-styles-card-title {
+    font-size: 0.8125rem;
+    font-weight: 600;
+}
+
+.pe-styles-card-chevron {
+    font-size: 1rem;
+    opacity: 0.45;
+}
+
+.pe-styles-card-hint {
+    font-size: 0.6875rem;
+    line-height: 1.35;
+    opacity: 0.6;
+    margin-bottom: 0.125rem;
+}
+
+.pe-styles-back {
+    align-self: flex-start;
+    font-size: 0.75rem;
+    font-weight: 600;
+    opacity: 0.7;
+}
+
+.pe-styles-back:hover {
+    opacity: 1;
+}
+
+.pe-options {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+}
+
+.pe-options[data-columns='1'] {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.pe-option {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3125rem;
+    border-radius: 0.625rem;
+    padding: 0.375rem;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+
+.dark .pe-option {
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+
+.pe-option:hover {
+    box-shadow: inset 0 0 0 1px rgba(99, 102, 241, 0.5);
+}
+
+.pe-option[data-active] {
+    box-shadow: inset 0 0 0 2px #6366f1;
+}
+
+.pe-option-label {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-align: center;
+    opacity: 0.75;
+}
+
+/* Sticky, because the options list scrolls and an Apply button that scrolls
+   away is an Apply button nobody presses. */
+.pe-styles-footer {
+    position: sticky;
+    bottom: 0;
+    display: flex;
+    gap: 0.375rem;
+    margin-top: auto;
+    padding-top: 0.625rem;
+    background: var(--fi-color-white, #fff);
+}
+
+.dark .pe-styles-footer {
+    background: #1f2937;
+}
+
+.pe-styles-axis {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    opacity: 0.5;
+    margin-top: 0.375rem;
+}
+
+.pe-brand-colors {
+    display: flex;
+    gap: 0.75rem;
+}
+
+.pe-brand-color {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.6875rem;
+    opacity: 0.75;
+    cursor: pointer;
+}
+
+.pe-brand-swatch {
+    width: 2.5rem;
+    height: 2rem;
+    border-radius: 0.375rem;
+    background: none;
+    cursor: pointer;
+}

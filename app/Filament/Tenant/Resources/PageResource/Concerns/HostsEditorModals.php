@@ -15,21 +15,21 @@ use Livewire\Attributes\Locked;
 /**
  * The callbacks the editor's modal builders reach back into.
  *
- * {@see \App\Filament\Tenant\Resources\PageResource\Actions\DesignAction} and
  * {@see \App\Filament\Tenant\Resources\PageResource\Actions\PageSettingsAction}
- * are built as `static make(PageEditor $editor)` (a documented convention in
- * CLAUDE.md), so they close over the concrete page and call it back. That is why
- * these members are public — they are an API for exactly two callers, not for the
- * blade — and grouping them here says so in one place instead of leaving them
- * scattered through the block/undo state machine.
+ * and its siblings are built as `static make(PageEditor $editor)` (a documented
+ * convention in CLAUDE.md), so they close over the concrete page and call it
+ * back. That is why these members are public — they are an API for those
+ * builders and for {@see HostsStyleRail}, not for the blade — and grouping them
+ * here says so in one place instead of leaving them scattered through the
+ * block/undo state machine.
  *
  * No `EditorHost` interface: the convention pins the parameter type to the
  * concrete class, and an interface method is public by definition, so it would
  * make these no less public while adding a second thing to keep in step.
  *
  * The business record is memoized on the component rather than read through
- * `BindResolver` because the editor mutates it (the Design modal writes tokens)
- * and must see its own writes within the request.
+ * `BindResolver` because the editor mutates it (applying Site Styles writes
+ * tokens) and must see its own writes within the request.
  *
  * Expects the host to provide `pageRecord()` and `pushPreview()`.
  */
@@ -71,15 +71,19 @@ trait HostsEditorModals
      * the canvas simply re-renders with the draft theme layered over the saved
      * one; "Apply to site" is still the only write path.
      *
-     * Two producers now: the Design modal's live fields, and
+     * Two producers: the Site Styles rail's controls, and
      * {@see \App\Ai\Tools\SetSiteStyle} by way of the chat turn. Both go through
      * {@see TokenSelection::normalise()} rather than a literal key list, because
      * a literal list silently DROPS any token not named in it — the assistant
      * would describe a change the canvas never shows.
      *
+     * `$source` has no default on purpose: it decides whether the draft survives
+     * a reload, and a caller that has not thought about that should not be able
+     * to omit it.
+     *
      * @param  array<string, mixed>  $draft
      */
-    public function previewDesign(array $draft, DesignDraftSource $source = DesignDraftSource::Modal): void
+    public function previewDesign(array $draft, DesignDraftSource $source): void
     {
         $this->designDraft = TokenSelection::normalise($draft);
         $this->designDraftSource = $source;
@@ -96,24 +100,6 @@ trait HostsEditorModals
         $this->designDraft = null;
         $this->designDraftSource = null;
         $this->pushPreview();
-    }
-
-    /**
-     * Closing a modal without applying discards the draft the MODAL staged —
-     * its fields are gone, so the preview they were driving should be too.
-     *
-     * A chat-staged draft survives: it is the result of a turn the operator has
-     * not answered yet, and it has its own Apply affordance in the chat rail.
-     */
-    public function unmountAction(bool|string|null $cancelParentActions = null): void
-    {
-        parent::unmountAction($cancelParentActions);
-
-        if ($this->designDraftSource === DesignDraftSource::Chat) {
-            return;
-        }
-
-        $this->clearDesignDraft();
     }
 
     /**
