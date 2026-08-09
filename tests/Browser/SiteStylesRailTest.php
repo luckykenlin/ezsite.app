@@ -81,7 +81,7 @@ it('draws each font option in its own family, not the current one', function ():
         JS);
 
     // One specimen per pair, and they must not all resolve to the same stack.
-    expect($families)->toHaveCount(count(FontPair::cases()))
+    expect($families)->toHaveSameSize(FontPair::cases())
         ->and(array_unique($families))->not->toHaveCount(1);
 });
 

@@ -58,7 +58,7 @@ it('emits nothing when there is no usable manifest', function (mixed $contents):
     $path = $contents === null ? '/nonexistent/fonts-manifest.json' : fontManifest($contents);
 
     try {
-        expect(FontStylesheet::link($path)->toHtml())->toBe('');
+        expect(FontStylesheet::link($path)->toHtml())->toBeEmpty();
     } finally {
         if ($contents !== null) {
             unlink($path);

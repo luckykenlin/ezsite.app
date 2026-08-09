@@ -11,6 +11,7 @@ use App\Design\StylePreset;
 use App\Design\TokenKey;
 use App\Design\TokenSelection;
 use App\Models\Business;
+use BackedEnum;
 use Filament\Notifications\Notification;
 
 /**
@@ -117,7 +118,7 @@ trait EditsSiteStyles
     {
         $token = TokenKey::tryFrom($key);
 
-        if (! $token instanceof TokenKey || $token->tryValue($value) === null) {
+        if (! $token instanceof TokenKey || ! $token->tryValue($value) instanceof BackedEnum) {
             return;
         }
 
@@ -197,7 +198,13 @@ trait EditsSiteStyles
     {
         $staged = $this->styleSelection()[$key] ?? null;
 
-        return is_string($staged) ? $staged : $this->styleBusiness()->{$key};
+        if (is_string($staged)) {
+            return $staged;
+        }
+
+        $saved = $this->styleBusiness()->{$key};
+
+        return is_string($saved) ? $saved : null;
     }
 
     public function hasStagedStyles(): bool

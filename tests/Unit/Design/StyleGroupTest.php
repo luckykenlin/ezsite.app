@@ -19,11 +19,11 @@ it('groups every design token exactly once', function (): void {
     }
 
     expect($grouped)->toEqualCanonicalizing(TokenKey::values())
-        ->and(array_unique($grouped))->toHaveCount(count($grouped));
+        ->and(array_unique($grouped))->toHaveSameSize($grouped);
 });
 
 it('leaves the theme group owning no single token, because the preset sets them all', function (): void {
-    expect(StyleGroup::Theme->keys())->toBe([]);
+    expect(StyleGroup::Theme->keys())->toBeEmpty();
 });
 
 it('gives every group a distinct label and a hint', function (): void {
@@ -32,9 +32,9 @@ it('gives every group a distinct label and a hint', function (): void {
     // to evolve.
     $labels = array_map(static fn (StyleGroup $group): string => $group->label(), StyleGroup::cases());
 
-    expect(array_unique($labels))->toHaveCount(count(StyleGroup::cases()));
+    expect(array_unique($labels))->toHaveSameSize(StyleGroup::cases());
 
     foreach (StyleGroup::cases() as $group) {
-        expect($group->hint())->not->toBe('');
+        expect($group->hint())->not->toBeEmpty();
     }
 });

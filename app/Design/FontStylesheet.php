@@ -61,7 +61,8 @@ final class FontStylesheet
         }
 
         $manifest = json_decode((string) file_get_contents($path), true);
-        $file = is_array($manifest) ? ($manifest['style']['file'] ?? null) : null;
+        $style = is_array($manifest) ? ($manifest['style'] ?? null) : null;
+        $file = is_array($style) ? ($style['file'] ?? null) : null;
 
         return is_string($file) ? $file : null;
     }
