@@ -15,14 +15,15 @@
             <directory>tests/Arch</directory>
         </testsuite>
         <!--
-            Run on its own (composer test:browser), never as part of the
-            coverage run: it drives a real Chromium, so it is slow, and it
-            executes app/ out of band where the exact-100 coverage gate cannot
-            account for it. composer test:unit excludes it explicitly.
+            tests/Browser is deliberately NOT a testsuite here. It runs on its
+            own (composer test:browser, which passes the directory as a path),
+            never as part of the coverage run: it drives a real Chromium, so it
+            is slow, and it executes app/ out of band where the exact-100
+            coverage gate cannot account for it. Leaving it out of <testsuites>
+            excludes it from the default run without an exclude-testsuite flag:
+            Pest classifies any suite/filter flag as a "partial run", which
+            silently disabled test impact analysis on composer test:unit.
         -->
-        <testsuite name="Browser">
-            <directory>tests/Browser</directory>
-        </testsuite>
     </testsuites>
     <source>
         <include>
