@@ -62,7 +62,7 @@ it('de-tags and truncates the meta description', function (): void {
     $description = draftValidator()->handle($draft, 'Fallback')['pages'][0]['metaDescription'];
 
     expect($description)->toStartWith('Fresh sourdough baked daily in Austin.')
-        ->and(mb_strlen((string) $description))->toBe(160);
+        ->and((string) $description)->toHaveLength(160);
 });
 
 it('accepts a draft with no meta description at all', function (): void {
@@ -181,7 +181,7 @@ it('harvests image queries into the reserved transit key when the pipeline is en
     $blocks = draftValidator()->handle($draft, 'Fallback')['pages'][0]['blocks'];
 
     expect($blocks[0]['data']['_image_query'])->toStartWith('barber shop interior')
-        ->and(mb_strlen($blocks[0]['data']['_image_query']))->toBe(80)
+        ->and($blocks[0]['data']['_image_query'])->toHaveLength(80)
         ->and($blocks[0]['data'])->not->toHaveKey('image_query')
         ->and($blocks[1]['data'])->not->toHaveKey('_image_query');
 });

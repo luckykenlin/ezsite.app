@@ -30,7 +30,25 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version-file: '.nvmrc'
-          cache: npm
+
+      # package.json pins npm exactly via `devEngines`, and Node does not bundle
+      # that exact version. The check fires on nearly every npm command, which
+      # rules out two conveniences: setup-node's own `cache: npm` (it shells out
+      # to `npm config get cache` and would fail here), hence the hand-rolled
+      # ~/.npm cache below; and running this install from the repo root, hence
+      # the working-directory. `onFail: download` does not self-heal — as of npm
+      # 12.0.2 it still just errors — so the version has to be installed here.
+      - name: Pin npm
+        working-directory: /tmp
+        run: npm i -g npm@$(jq -r .devEngines.packageManager.version "$GITHUB_WORKSPACE/package.json")
+
+      - name: Cache npm downloads
+        uses: actions/cache@v6
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-npm-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-
 
       - name: Cache Composer dependencies
         uses: actions/cache@v6
@@ -123,7 +141,19 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version-file: '.nvmrc'
-          cache: npm
+
+      # Same reasoning as the quality job above.
+      - name: Pin npm
+        working-directory: /tmp
+        run: npm i -g npm@$(jq -r .devEngines.packageManager.version "$GITHUB_WORKSPACE/package.json")
+
+      - name: Cache npm downloads
+        uses: actions/cache@v6
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-npm-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-
 
       - name: Cache Composer dependencies
         uses: actions/cache@v6

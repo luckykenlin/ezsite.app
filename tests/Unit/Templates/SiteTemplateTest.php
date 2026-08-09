@@ -47,11 +47,11 @@ it('survives the site draft validator with no page and no block dropped', functi
     $validated = validateTemplate($template);
 
     expect($validated['preset'])->toBe($definition->preset)
-        ->and($validated['pages'])->toHaveCount(count($definition->pages));
+        ->and($validated['pages'])->toHaveSameSize($definition->pages);
 
     foreach ($definition->pages as $index => $authored) {
         expect($validated['pages'][$index]['slug'])->toBe($authored['slug'])
-            ->and($validated['pages'][$index]['blocks'])->toHaveCount(count($authored['blocks']));
+            ->and($validated['pages'][$index]['blocks'])->toHaveSameSize($authored['blocks']);
     }
 })->with('templates');
 

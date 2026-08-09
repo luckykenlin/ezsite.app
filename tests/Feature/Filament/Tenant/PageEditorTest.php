@@ -240,7 +240,7 @@ describe('committing and saving the draft', function (): void {
         $saved = Page::query()->findOrFail($page->id)->blocks;
 
         expect($component->get('isDirty'))->toBeFalse()
-            ->and(array_is_list($saved))->toBeTrue()
+            ->and($saved)->toBeList()
             ->and($saved[0]['type'])->toBe('hero')
             ->and($saved[0]['data']['heading'])->toBe('Saved heading')
             ->and($saved[0])->not->toHaveKey('key');
@@ -277,7 +277,7 @@ describe('committing and saving the draft', function (): void {
         // Hydrated form state keys repeater items by uuid...
         $editing = $component->get('data')['block']['features'];
         expect($editing)->toHaveCount(2)
-            ->and(array_is_list($editing))->toBeFalse();
+            ->and($editing)->not->toBeList();
 
         $component->call('save')->assertNotified();
 

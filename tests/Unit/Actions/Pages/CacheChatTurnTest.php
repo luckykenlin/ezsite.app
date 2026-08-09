@@ -206,7 +206,7 @@ it('keeps only the two real chrome slots, with string-keyed data', function (): 
         // array stops being a list, so json_encode emits an object rather than an
         // array and the stored shape does not silently change (see BlockData).
         ->and(array_keys($chrome['header']['data']))->toBe(['nav_links', 0])
-        ->and(array_is_list($chrome['header']['data']))->toBeFalse();
+        ->and($chrome['header']['data'])->not->toBeList();
 });
 
 it('reads absent or unusable chrome as "the turn left it alone"', function (mixed $chrome): void {

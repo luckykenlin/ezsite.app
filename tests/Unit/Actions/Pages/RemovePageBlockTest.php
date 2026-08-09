@@ -14,5 +14,5 @@ it('removes the addressed block and reindexes the list', function (): void {
     $result = resolve(RemovePageBlock::class)->handle($blocks, 'b');
 
     expect(array_column($result, 'key'))->toBe(['a', 'c'])
-        ->and(array_is_list($result))->toBeTrue();
+        ->and($result)->toBeList();
 });

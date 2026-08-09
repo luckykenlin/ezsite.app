@@ -39,7 +39,7 @@ it('publishes a complete site for every template', function (SiteTemplate $templ
             // preset keeps the override — and keeps the preset marker with it.
             ->and($business->design_tokens->toArray())->toBe($definition->tokens()->toArray())
             ->and(Location::query()->sole()->city)->toBe($definition->demoProfile->city)
-            ->and($pages)->toHaveCount(count($definition->pages))
+            ->and($pages)->toHaveSameSize($definition->pages)
             ->and($pages->pluck('status')->unique()->all())->toBe([PageStatus::Published])
             ->and($pages->pluck('slug')->all())->toBe(array_column($definition->pages, 'slug'));
 

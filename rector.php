@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Pest\Rector\Set\PestSetList;
 use Rector\Caching\ValueObject\Storage\FileCacheStorage;
 use Rector\CodingStyle\Rector\ClassMethod\MakeInheritedMethodVisibilitySameAsParentRector;
 use Rector\Config\RectorConfig;
@@ -10,11 +11,10 @@ use Rector\EarlyReturn\Rector\If_\ChangeOrIfContinueToMultiContinueRector;
 use Rector\Php83\Rector\ClassMethod\AddOverrideAttributeToOverriddenMethodsRector;
 use Rector\Php85\Rector\Property\AddOverrideAttributeToOverriddenPropertiesRector;
 use RectorLaravel\Rector\ClassMethod\AddGenericReturnTypeToRelationsRector;
+use RectorLaravel\Rector\MethodCall\AssertSeeToAssertSeeHtmlRector;
 use RectorLaravel\Set\LaravelLevelSetList;
 use RectorLaravel\Set\LaravelSetList;
 use RectorLaravel\Set\LaravelSetProvider;
-use RectorPest\Set\PestLevelSetList;
-use RectorPest\Set\PestSetList;
 
 return RectorConfig::configure()
     ->withSetProviders(LaravelSetProvider::class)
@@ -31,9 +31,7 @@ return RectorConfig::configure()
         LaravelSetList::LARAVEL_IF_HELPERS,
         LaravelSetList::LARAVEL_LEGACY_FACTORIES_TO_CLASSES,
 
-        PestLevelSetList::UP_TO_PEST_40,
-        PestSetList::PEST_CODE_QUALITY,
-        PestSetList::PEST_CHAIN,
+        PestSetList::CODING_STYLE,
     ])
     ->withRules([
         AddGenericReturnTypeToRelationsRector::class,
@@ -60,7 +58,7 @@ return RectorConfig::configure()
         MakeInheritedMethodVisibilitySameAsParentRector::class,
         AddOverrideAttributeToOverriddenPropertiesRector::class,
 
-        // The two below are rules this codebase has DECIDED AGAINST, written
+        // The three below are rules this codebase has DECIDED AGAINST, written
         // down here so the decision is enforced instead of re-argued every time
         // the gate goes red.
         //
@@ -75,6 +73,14 @@ return RectorConfig::configure()
         // `config()->set('services.pexels.key')`, which scans as a GETTER. The
         // argument is the whole point of the line in the tests that use it.
         RemoveNullArgOnNullDefaultParamRector::class,
+        // `assertSee($x, false)` → `assertSeeHtml($x)` is the better API, but the
+        // rule rebuilds the whole fluent chain: it collapses a 7-assertion
+        // response chain onto one 400-column line AND silently drops the
+        // comments interleaved between the links, which in the render tests are
+        // the only thing explaining WHY a given escape sequence is expected.
+        // Losing those costs more than the method name gains. Migrate by hand if
+        // ever, not as a lint gate.
+        AssertSeeToAssertSeeHtmlRector::class,
     ])
     ->withPreparedSets(
         deadCode: true,

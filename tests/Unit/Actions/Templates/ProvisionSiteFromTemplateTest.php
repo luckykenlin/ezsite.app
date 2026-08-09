@@ -65,7 +65,7 @@ it('builds an account, a tenant and a whole draft site for every template', func
             // The template's street address belongs to its invented business;
             // blank beats wrong, and the location form is one click away.
             ->and(Location::query()->sole()->address_line1)->toBeNull()
-            ->and($pages)->toHaveCount(count($definition->pages))
+            ->and($pages)->toHaveSameSize($definition->pages)
             // Drafts, unlike the demo sites: the owner has not read a word of
             // this copy yet, and publishing is their first deliberate act.
             ->and($pages->pluck('status')->unique()->all())->toBe([PageStatus::Draft]);
