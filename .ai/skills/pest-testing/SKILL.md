@@ -40,6 +40,9 @@ documents *why* it exists (see the rollback guard in `RlsPolicyTest`).
   `test:unit` and `test:type-coverage` with `--exclude-testsuite=Browser`;
   keep it that way.
 - `composer test:tia:clear` — purge the Tia graph (see the Tia gotcha below).
+- `composer test:tia:baseline` — re-record the Tia graph after a purge.
+  **Required since pest v5.1**: coverage runs no longer record Tia edges, so a
+  purge without this leaves every `test:unit` running the full suite.
 - `npm run test:unit` — vitest over `resources/js/**/*.test.ts`.
 - After editing PHP, run `vendor/bin/pint --dirty --format agent`.
 
@@ -58,8 +61,13 @@ and the gate reports a **false** coverage drop while every test still passes
 The files Tia lists as under-covered are exactly the ones whose test mapping
 changed. Confirm with a non-Tia run — if that says 100% and `--tia` does not,
 the graph is stale, not the tests — then fix it with `composer test:tia:clear`
-(or `rm -rf ~/.pest`). The next run prints a fresh-graph notice and the real
-number.
+(or `rm -rf ~/.pest`) **followed by `composer test:tia:baseline`**. Since pest
+v5.1 a run with an active coverage report skips Tia recording ("an active
+coverage report narrows the edges it could record"), so the baseline must come
+from that plain `--tia` run; without it, narrowing never comes back and every
+`test:unit` runs the whole suite. The first `test:unit` after the baseline
+still runs everything (it records the coverage side); from the second run on
+an unchanged tree finishes in seconds.
 
 ### Creating test files
 
