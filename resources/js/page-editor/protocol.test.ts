@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
     NAMESPACE,
+    type ShortcutName,
     isChromeKey,
     isFieldName,
     matchShortcut,
     readMessage,
+    resolveShortcut,
 } from './protocol';
 
 /**
@@ -111,6 +113,98 @@ describe('matchShortcut', () => {
 
     it('ignores a modified key it has no binding for', () => {
         expect(matchShortcut(keydown({ key: 'a', metaKey: true }))).toBeNull();
+    });
+});
+
+describe('resolveShortcut', () => {
+    const names: ShortcutName[] = [
+        'save',
+        'undo',
+        'redo',
+        'deselect',
+        'remove-selected',
+        'move-selected-up',
+        'move-selected-down',
+    ];
+
+    it('runs everything with nothing over the canvas', () => {
+        for (const name of names) {
+            expect(
+                resolveShortcut(name, {
+                    blocked: false,
+                    drawerOpen: false,
+                    source: 'editor',
+                }),
+            ).toBe('run');
+        }
+    });
+
+    it('ignores everything while a blocking overlay is up', () => {
+        // The block library / remove confirmation sit OVER the canvas: a held
+        // Delete must not stack removals against the block behind them.
+        for (const name of names) {
+            expect(
+                resolveShortcut(name, {
+                    blocked: true,
+                    drawerOpen: true,
+                    source: 'canvas',
+                }),
+            ).toBe('ignore');
+        }
+    });
+
+    it.each(['save', 'undo', 'redo'] as ShortcutName[])(
+        'keeps %s live while the click-through drawer is up',
+        (name: ShortcutName) => {
+            expect(
+                resolveShortcut(name, {
+                    blocked: false,
+                    drawerOpen: true,
+                    source: 'editor',
+                }),
+            ).toBe('run');
+        },
+    );
+
+    it.each([
+        'remove-selected',
+        'move-selected-up',
+        'move-selected-down',
+    ] as ShortcutName[])(
+        'ignores the structural verb %s while the drawer is up',
+        (name: ShortcutName) => {
+            // Delete while adjusting a form must not remove the very block
+            // being edited.
+            expect(
+                resolveShortcut(name, {
+                    blocked: false,
+                    drawerOpen: true,
+                    source: 'canvas',
+                }),
+            ).toBe('ignore');
+        },
+    );
+
+    it('closes the drawer on a canvas Escape, but defers a parent one', () => {
+        // A keydown inside the iframe never reaches Filament's own
+        // keydown.window.escape handler, so the editor must close the drawer
+        // itself; from the parent window Filament already does, and acting
+        // too would pop a second action off the stack.
+        expect(
+            resolveShortcut('deselect', {
+                blocked: false,
+                drawerOpen: true,
+                source: 'canvas',
+            }),
+        ).toBe('close-drawer');
+
+        expect(
+            resolveShortcut('deselect', {
+                blocked: false,
+                drawerOpen: true,
+                source: 'editor',
+            }),
+        ).toBe('ignore');
     });
 });
 

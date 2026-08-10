@@ -25,6 +25,7 @@ use App\Filament\Fabricator\PageBlocks\Block;
 use App\Filament\Tenant\Resources\PageResource;
 use App\Filament\Tenant\Resources\PageResource\Actions\DiscardDraftAction;
 use App\Filament\Tenant\Resources\PageResource\Actions\DuplicatePageAction;
+use App\Filament\Tenant\Resources\PageResource\Actions\EditBlockAction;
 use App\Filament\Tenant\Resources\PageResource\Actions\PageHistoryAction;
 use App\Filament\Tenant\Resources\PageResource\Actions\PageSettingsAction;
 use App\Filament\Tenant\Resources\PageResource\Actions\PublishPageAction;
@@ -55,20 +56,24 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Locked;
 use Z3d0X\FilamentFabricator\Facades\FilamentFabricator;
+use Z3d0X\FilamentFabricator\Services\PageRoutesService;
 
 /**
- * The visual page editor, replacing the stock form-only EditPage. Three
- * columns: a collapsible AI chat rail, an iframe canvas rendering the DRAFT
+ * The visual page editor, replacing the stock form-only EditPage. A
+ * collapsible AI chat rail, a full-bleed iframe canvas rendering the DRAFT
  * state through the real tenant layout chain (see
- * {@see CachePageEditorPreview}), and a PERSISTENT inspector showing the
- * selected block's Filament schema — or, with nothing selected, the page
- * itself. The block library ({@see BlockVocabulary::pageTypes()}) lives in a
- * modal, opened by the chat composer's "+" or by a canvas insert line.
+ * {@see CachePageEditorPreview}), and an on-demand Site Styles rail
+ * ({@see HostsStyleRail}). The block library
+ * ({@see BlockVocabulary::pageTypes()}) lives in a modal, opened by the chat
+ * composer's "+" or by a canvas insert line.
  *
- * The inspector is a plain column, not a drawer. Editing block content is the
- * main activity here, not an interruption, so the panel that serves it has to
- * be where you left it — a drawer made every edit a four-step open/edit/close
- * loop, and reflowed the canvas underneath on each one.
+ * The canvas IS the editing surface: click selects, double-click edits text
+ * in place, and the block's full schema opens in the editBlock slide-over
+ * ({@see EditBlockAction}) from the toolbar's Edit button. An earlier drawer
+ * design was rejected because it reflowed the canvas and broke
+ * double-click-to-edit; this one is a click-through fixed-position overlay —
+ * no dimming, no focus trap, no reflow — so that objection no longer applies,
+ * and it freed the third column for Site Styles alone.
  *
  * State model: `$blocks` holds every block in persisted shape plus a
  * transient uuid `key` (stripped on save). The selected block's live edits
@@ -191,6 +196,11 @@ final class PageEditor extends Page
             }
         }
 
+        // The rail opens by default (user preference — the canvas cedes the
+        // width): showSiteStyles() carries the no-Business guard, so a tenant
+        // without design tokens still mounts full-bleed.
+        $this->showSiteStyles();
+
         $this->loadHistoryDepths();
         $this->pushPreview();
     }
@@ -247,7 +257,7 @@ final class PageEditor extends Page
      *
      * Site chrome is excluded ({@see BlockVocabulary::pageTypes()}): a header
      * belongs around the page, not inside one, and it is edited through the
-     * inspector's `chrome:*` pseudo blocks.
+     * canvas's `chrome:*` pseudo blocks.
      *
      * @return array<string, array{label: string, icon: string|null}>
      */
@@ -303,39 +313,7 @@ final class PageEditor extends Page
     }
 
     /**
-     * The page's blocks as the inspector's outline panel lists them: a type
-     * label and the first line of real content, so a row is recognisable
-     * without the canvas. The panel is the keyboard/touch path the canvas
-     * cannot offer — its reorder rides native HTML5 drag, which touch never
-     * fires — and Wix's lesson that redundant selection paths ARE the polish.
-     *
-     * @return list<array{key: string, label: string, snippet: string|null}>
-     */
-    public function blockOutline(): array
-    {
-        return array_map(static function (array $block): array {
-            $snippet = null;
-
-            foreach ($block['data'] as $field => $value) {
-                // The first authored string names the block better than any
-                // field label; reserved keys (variant) are presentation.
-                if (is_string($value) && mb_trim($value) !== '' && ! in_array($field, BlockShape::reservedKeys(), true)) {
-                    $snippet = Str::limit(mb_trim($value), 40);
-
-                    break;
-                }
-            }
-
-            return [
-                'key' => $block['key'],
-                'label' => Str::headline($block['type'] === '' ? 'broken' : $block['type']),
-                'snippet' => $snippet,
-            ];
-        }, $this->blocks);
-    }
-
-    /**
-     * The selected block's bind target, if any — drives the right pane's
+     * The selected block's bind target, if any — drives the drawer's
      * "this data comes from your Business profile" hint.
      */
     public function selectedBlockBindType(): ?BindType
@@ -362,12 +340,6 @@ final class PageEditor extends Page
         }
 
         $this->selectedBlockKey = $key;
-
-        // Picking a block is a request to edit it, so the inspector shows the
-        // block rather than leaving Site Styles up over a selection it cannot
-        // act on. Deselecting does NOT do the reverse: clicking the canvas
-        // background while restyling should not close the rail.
-        $this->showPageInspector();
 
         // Selecting an empty chrome slot starts a fresh draft entry.
         $slot = $this->chromeSlot($key);
@@ -424,7 +396,7 @@ final class PageEditor extends Page
 
             Notification::make()
                 ->title('Sample content added')
-                ->body('Double-click any text on the canvas to edit it, or edit its settings in the panel on the right.')
+                ->body("Double-click text on the canvas to edit it in place — double-click anything else for the block's settings.")
                 ->info()
                 ->send();
         }
@@ -450,11 +422,65 @@ final class PageEditor extends Page
         $this->selectedBlockKey = null;
         $this->fillBlockForm();
 
+        // The drawer edits the selection, so with nothing selected it has
+        // nothing to show — a blank-canvas click takes it down too.
+        if ($this->getMountedAction()?->getName() === 'editBlock') {
+            $this->unmountAction();
+        }
+
         if ($before !== [$this->blocks, $this->chrome]) {
             $this->pushPreview();
         }
 
         $this->dispatch('page-editor:select-canvas-block', key: null, scroll: false);
+    }
+
+    /**
+     * Follow a chrome nav link clicked on the canvas: resolve the href
+     * against this site's pages and switch the editor to the one it points
+     * at (Squarespace behavior). Safe without a prompt — the draft is
+     * persisted on every change ({@see RestoresEditorDraft}), so following a
+     * link never costs work. The leave-guard bypass lives on the CALLER
+     * (editor.ts raises `navigatingAway` before this roundtrip): a flag
+     * dispatched from here would race the redirect's own livewire:navigate
+     * event and lose.
+     *
+     * Anything that is not a page on this site — an external URL, a mailto:,
+     * the posts index — answers with a notification instead of a dead click.
+     */
+    public function openLinkedPage(string $href): void
+    {
+        $parts = parse_url($href);
+
+        $scheme = is_array($parts) ? ($parts['scheme'] ?? null) : null;
+        $host = is_array($parts) ? ($parts['host'] ?? null) : null;
+
+        $internal = is_array($parts)
+            && ($scheme === null || in_array($scheme, ['http', 'https'], true))
+            && ($host === null || $host === request()->getHost());
+
+        $page = $internal
+            ? resolve(PageRoutesService::class)->getPageFromUri($parts['path'] ?? '/')
+            : null;
+
+        if (! $page instanceof PageModel) {
+            Notification::make()
+                ->title(__("That link doesn't open a page on this site"))
+                ->body(__('It will work as a normal link on the published site.'))
+                ->info()
+                ->send();
+
+            return;
+        }
+
+        if ($page->is($this->pageRecord())) {
+            return;
+        }
+
+        // SPA-style: the editor's assets are registered panel-wide precisely
+        // so they survive wire:navigate (see FilamentServiceProvider), so the
+        // switch swaps the page without a full reload or a flash.
+        $this->redirect(PageResource::getUrl('edit', ['record' => $page]), navigate: true);
     }
 
     /**
@@ -747,9 +773,7 @@ final class PageEditor extends Page
 
         // Typing must not re-render the whole editor component — the canvas
         // patches itself from the fragment route. The one exception is the
-        // first edit, which flips the Save button to its dirty state. Known
-        // trade-off: the structure row snippet only refreshes on the next
-        // full render (commit/selection), not per keystroke.
+        // first edit, which flips the Save button to its dirty state.
         if (! $becameDirty) {
             $this->skipRender();
         }
@@ -765,8 +789,8 @@ final class PageEditor extends Page
 
     /**
      * Whether the current selection maps to a registered block type whose
-     * schema the right pane can render (a stored-but-unregistered type shows
-     * an explanation instead).
+     * schema the settings drawer can render (a stored-but-unregistered type
+     * shows an explanation instead).
      */
     public function hasEditableSelection(): bool
     {
@@ -774,8 +798,8 @@ final class PageEditor extends Page
     }
 
     /**
-     * The selected block's structure-list entry, if any — used by the blade
-     * for the right pane's heading and empty states.
+     * The selected block in editor shape, if any — used by the settings
+     * drawer for its heading and empty states.
      *
      * @return array{key: string, type: string, data: array<string, mixed>}|null
      */
@@ -800,6 +824,17 @@ final class PageEditor extends Page
         $record = $this->getRecord();
 
         return $record;
+    }
+
+    /**
+     * The block settings drawer, mounted by the canvas toolbar's Edit button
+     * (via editor.ts) for whichever block is selected. No arguments: the
+     * drawer always renders the CURRENT selection, so switching blocks while
+     * it is open simply refills it.
+     */
+    public function editBlockAction(): Action
+    {
+        return EditBlockAction::make($this);
     }
 
     /**
@@ -976,7 +1011,7 @@ final class PageEditor extends Page
     }
 
     /**
-     * Validate + dehydrate the right pane into the blocks list. Returns false
+     * Validate + dehydrate the block form into the blocks list. Returns false
      * (with the validation errors left visible on the form) when the draft is
      * invalid, so callers abort their state change.
      */

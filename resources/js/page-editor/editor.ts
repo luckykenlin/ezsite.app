@@ -29,12 +29,14 @@ import { findDraftPathByText, resolveDraftPath } from './draft-fields';
 import {
     type CanvasMessage,
     type EditorMessage,
+    type ShortcutDecision,
     type ShortcutName,
     isChromeKey,
     isFieldName,
     matchShortcut,
     NAMESPACE,
     readMessage,
+    resolveShortcut,
 } from './protocol';
 
 declare global {
@@ -80,8 +82,8 @@ export function pageEditor(
         ...chatRail(config),
 
         device: 'desktop',
-        zoom: 1,
         reloading: false,
+        navigatingAway: false,
         deviceWidths: {
             desktop: '100%',
             tablet: '768px',
@@ -144,7 +146,46 @@ export function pageEditor(
             }
         },
 
-        runShortcut(this: PageEditorComponent, name: ShortcutName): void {
+        /**
+         * The shared gate for both keydown paths — see
+         * {@see resolveShortcut} in protocol.ts for the policy itself.
+         */
+        shortcutDecision(
+            this: PageEditorComponent,
+            name: ShortcutName,
+            source: 'editor' | 'canvas',
+        ): ShortcutDecision {
+            return resolveShortcut(name, {
+                blocked: this.blockingModalOpen(),
+                drawerOpen: this.drawerOpen(),
+                source,
+            });
+        },
+
+        runShortcut(
+            this: PageEditorComponent,
+            name: ShortcutName,
+            decision: ShortcutDecision,
+        ): void {
+            if (decision === 'ignore') {
+                return;
+            }
+
+            if (decision === 'close-drawer') {
+                void this.$wire.unmountAction().then(() => {
+                    // The canvas clears its selection ring optimistically on
+                    // Escape; closing the drawer KEEPS the selection, so hand
+                    // it back.
+                    this.postToCanvas({
+                        type: 'select',
+                        key: this.$wire.selectedBlockKey,
+                        scroll: false,
+                    });
+                });
+
+                return;
+            }
+
             if (name === 'save') this.$wire.save();
             if (name === 'undo') this.$wire.undo();
             if (name === 'redo') this.$wire.redo();
@@ -164,7 +205,8 @@ export function pageEditor(
         /**
          * Removal confirms through a mounted Filament action, not a native
          * confirm(): same dialog chrome as the rest of the panel, and while it
-         * is mounted the canvas keyboard verbs are gated by modalOpen().
+         * is mounted the canvas keyboard verbs are gated by
+         * blockingModalOpen().
          */
         removeSelected(this: PageEditorComponent): void {
             const key = this.selectedPageBlockKey();
@@ -191,23 +233,36 @@ export function pageEditor(
         },
 
         /**
-         * Whether a modal is swallowing the canvas keyboard verbs.
+         * Whether a BLOCKING overlay is swallowing the canvas keyboard verbs.
          *
-         * The block library counts: it sits over the canvas, so Delete would
-         * remove the block behind it. The settings drawer deliberately does
-         * NOT — it is click-through, and Save and Undo have to keep working
-         * while you edit. Neither is a mounted action, hence the explicit flag.
+         * The block library counts (an <x-filament::modal>, not a mounted
+         * action — hence the explicit libraryOpen flag), and so does any
+         * mounted action EXCEPT the editBlock drawer: the remove confirmation
+         * must gate a held Delete key. The drawer deliberately does not — it
+         * is click-through, and Save and Undo have to keep working while you
+         * edit; its own gating lives in resolveShortcut().
          */
-        modalOpen(this: PageEditorComponent): boolean {
+        blockingModalOpen(this: PageEditorComponent): boolean {
             return (
-                (this.$wire.mountedActions ?? []).length > 0 || this.libraryOpen
+                this.libraryOpen ||
+                (this.$wire.mountedActions ?? []).some(
+                    (action) => action?.name !== 'editBlock',
+                )
+            );
+        },
+
+        /** Whether the click-through editBlock drawer is mounted. */
+        drawerOpen(this: PageEditorComponent): boolean {
+            return (this.$wire.mountedActions ?? []).some(
+                (action) => action?.name === 'editBlock',
             );
         },
 
         /**
-         * Hand the canvas the draft path to make editable, or tell it the
-         * request cannot be honoured (so it can say so — a double-click that
-         * silently does nothing reads as broken).
+         * Hand the canvas the draft path to make editable — or, when the
+         * double-clicked text maps to no editable field (bound business
+         * data, rich content), open the settings drawer instead: the gesture
+         * means "edit this", and it must never dead-end.
          *
          * Two resolution paths, in order of trust: a `data-editor-field`
          * annotation from the block's own view is deterministic and wins;
@@ -229,7 +284,9 @@ export function pageEditor(
                 findDraftPathByText(draft, text);
 
             if (field === null) {
-                this.postToCanvas({ type: 'inline-edit-deny' });
+                // The block is already selected (the inline-edit-request
+                // flow guarantees it), so the drawer opens on it.
+                void this.$wire.mountAction('editBlock');
 
                 return;
             }
@@ -291,6 +348,16 @@ export function pageEditor(
             }
 
             if (message.type === 'action') {
+                // Select first, THEN mount: the drawer always renders the
+                // current selection, so mounting before selectBlock resolves
+                // would open it on the previous block. A refused selection
+                // (invalid draft) opens it on the old block with its errors
+                // visible — correct.
+                if (message.action === 'edit') {
+                    void this.$wire
+                        .selectBlock(message.key)
+                        .then(() => this.$wire.mountAction('editBlock'));
+                }
                 if (message.action === 'move-up')
                     this.$wire.moveBlock(message.key, -1);
                 if (message.action === 'move-down')
@@ -353,6 +420,19 @@ export function pageEditor(
                 this.$wire.$refresh();
             }
 
+            if (message.type === 'navigate') {
+                // Raised BEFORE the roundtrip: the SPA redirect can fire
+                // livewire:navigate ahead of the server's own dispatch, and
+                // the leave guard must already be down by then. Reset once
+                // the response is in — if the server redirected, the guard
+                // has already been consulted; if it answered with a
+                // notification instead, the guards are live again.
+                this.navigatingAway = true;
+                void this.$wire.openLinkedPage(message.href).then(() => {
+                    this.navigatingAway = false;
+                });
+            }
+
             if (message.type === 'ask-ai') {
                 // The button lives on the selected block's toolbar, so this is
                 // normally a no-op — but selection is re-asserted rather than
@@ -370,13 +450,16 @@ export function pageEditor(
             }
 
             if (message.type === 'shortcut') {
-                this.runShortcut(message.name);
+                this.runShortcut(
+                    message.name,
+                    this.shortcutDecision(message.name, 'canvas'),
+                );
             }
         },
 
         onKeydown(this: PageEditorComponent, event: KeyboardEvent): void {
-            // Never hijack keys while typing or while a modal is open.
-            if (this.modalOpen() || this.inField(event.target)) {
+            // Never hijack keys while typing.
+            if (this.inField(event.target)) {
                 return;
             }
 
@@ -386,11 +469,19 @@ export function pageEditor(
                 return;
             }
 
+            const decision = this.shortcutDecision(shortcut.name, 'editor');
+
+            // An ignored shortcut keeps its browser default too (matching the
+            // old early return while a modal was open).
+            if (decision === 'ignore') {
+                return;
+            }
+
             if (shortcut.preventDefault) {
                 event.preventDefault();
             }
 
-            this.runShortcut(shortcut.name);
+            this.runShortcut(shortcut.name, decision);
         },
 
         /**
@@ -400,8 +491,18 @@ export function pageEditor(
          * the assistant for a change on an otherwise clean page and then reloading
          * used to produce NO warning at all, while the turn's edits were dropped on
          * the floor.
+         *
+         * `navigatingAway` bypasses both guards ONCE: it is raised while a
+         * chrome nav link is being followed (see the `navigate` message
+         * handler) — the draft is persisted on every change, so warning
+         * about "unsaved changes" there would be warning about work that is
+         * already safe.
          */
         hasUnsavedWork(this: PageEditorComponent): boolean {
+            if (this.navigatingAway) {
+                return false;
+            }
+
             return this.$wire.isDirty || this.$wire.chatTurnToken !== null;
         },
 

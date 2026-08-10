@@ -59,10 +59,11 @@ let clickTimer: ReturnType<typeof setTimeout> | undefined;
 let highlightTimer: ReturnType<typeof setTimeout> | undefined;
 
 /**
- * How long a click on a block waits before it becomes "open the settings
- * drawer". Double-clicking text starts an inline edit, and the drawer narrows
- * the canvas as it slides in — so without this grace period the first click of
- * a double-click would shift the very words the second click is aiming at.
+ * How long a click on a block waits before `block-clicked` is posted to the
+ * parent. Double-clicking text starts an inline edit, and `block-clicked`
+ * makes the parent commit/refill the selection — so without this grace period
+ * the first click of a double-click would race the second one's
+ * inline-edit-request.
  */
 const DOUBLE_CLICK_GRACE = 250;
 
@@ -100,20 +101,41 @@ const dragHandle = (): HTMLElement => {
     return handle;
 };
 
-const toolbar = (): HTMLElement => {
+/**
+ * The selected block's floating toolbar. `structural: false` is the chrome
+ * (header/footer) variant: Edit and Ask AI only — no drag handle and no
+ * structural verbs, which do not apply to a site-wide header — and since the
+ * old sidebar's Header/Footer links are gone, this IS chrome's entry point.
+ */
+const toolbar = (structural: boolean): HTMLElement => {
     const el = document.createElement('div');
     el.setAttribute('data-editor-toolbar', '');
-    el.appendChild(dragHandle());
 
-    // Not a BlockAction: the structural verbs mutate the page, this one aims
-    // the chat at the block. First in the row so it reads as "do something
-    // with this block" rather than as a fifth way to rearrange it.
+    if (structural) {
+        el.appendChild(dragHandle());
+    }
+
+    // Edit before everything else: opening the settings drawer is the
+    // primary thing to do with a selected block, the rest rearranges it.
+    const edit = document.createElement('button');
+    edit.type = 'button';
+    edit.dataset.editorAction = 'edit';
+    edit.title = 'Edit this section';
+    edit.textContent = '✎';
+    el.appendChild(edit);
+
+    // Not a structural verb: it mutates nothing, it aims the chat at the
+    // block — hence its own message type rather than an action.
     const ask = document.createElement('button');
     ask.type = 'button';
     ask.setAttribute('data-editor-ask', '');
     ask.title = 'Ask AI about this section';
     ask.textContent = '✦';
     el.appendChild(ask);
+
+    if (!structural) {
+        return el;
+    }
 
     const buttons: [BlockAction, string, string][] = [
         ['move-up', '↑', 'Move up'],
@@ -211,8 +233,9 @@ const highlightChanged = (keys: string[]): void => {
  * buttons under the cursor on the way past. A single handle on hover keeps
  * reordering immediate without the noise.
  *
- * Chrome pseudo-blocks get neither: the structural verbs don't apply to a
- * site-wide header or footer.
+ * A selected chrome pseudo-block gets the reduced toolbar (Edit + Ask AI) —
+ * its only entry point now that the sidebar's Header/Footer links are gone —
+ * but never the hover handle: there is nowhere to drag a header to.
  */
 const paintToolbar = (): void => {
     document
@@ -220,7 +243,13 @@ const paintToolbar = (): void => {
         .forEach((el) => el.remove());
 
     const attach = (key: string | null, full: boolean): void => {
-        if (key === null || isChromeKey(key)) {
+        if (key === null) {
+            return;
+        }
+
+        const chrome = isChromeKey(key);
+
+        if (chrome && !full) {
             return;
         }
 
@@ -233,7 +262,7 @@ const paintToolbar = (): void => {
         }
 
         if (full) {
-            block.appendChild(toolbar());
+            block.appendChild(toolbar(!chrome));
 
             return;
         }
@@ -347,13 +376,36 @@ document.addEventListener(
             return;
         }
 
-        const key = blockKeyOf(closestFrom(event.target, '[data-block-key]'));
+        const block = closestFrom(event.target, '[data-block-key]');
+        const key = blockKeyOf(block);
 
         if (key !== null) {
-            // Outline and toolbar land immediately; only telling the parent
-            // (which opens the drawer) waits to see if a second click follows.
+            // The ring and toolbar land immediately; only telling the parent
+            // waits to see if a second click follows.
             select(key);
             clearTimeout(clickTimer);
+
+            // A nav link inside the chrome is a request to EDIT the page it
+            // points at, so the parent decides and navigates. Content-block
+            // links stay inert — they are the content being edited. Same
+            // grace as block-clicked, so a double-click (inline edit of the
+            // link's label) can still cancel it.
+            const anchor = closestFrom(event.target, 'a[href]');
+
+            if (
+                anchor instanceof HTMLAnchorElement &&
+                isChromeKey(key) &&
+                block?.contains(anchor)
+            ) {
+                const href = anchor.href;
+                clickTimer = setTimeout(
+                    () => post({ type: 'navigate', href }),
+                    DOUBLE_CLICK_GRACE,
+                );
+
+                return;
+            }
+
             clickTimer = setTimeout(
                 () => post({ type: 'block-clicked', key }),
                 DOUBLE_CLICK_GRACE,
@@ -391,16 +443,19 @@ document.addEventListener('mouseover', (event) => {
     paintToolbar();
 });
 
-// Double-click starts inline text editing: the parent matches the
-// clicked text against the selected block's draft fields and grants
-// (or ignores) the request.
+// Double-click is "edit this": on text it starts inline editing (the parent
+// matches the clicked text against the selected block's draft fields and
+// grants the request); on anything else — an image, a button, the section's
+// own padding — it opens the block's settings drawer, same as the toolbar's
+// Edit. A double-click that maps to no editable text also lands in the
+// drawer (the parent decides), so the gesture never dead-ends.
 document.addEventListener('dblclick', (event) => {
     if (editing) {
         return;
     }
 
-    // This is a double-click, so the pending single-click never happens: no
-    // drawer, no canvas reflow under the caret.
+    // This is a double-click, so the pending single-click action (selection
+    // report, or a chrome nav-link navigation) never happens.
     clearTimeout(clickTimer);
 
     const key = blockKeyOf(closestFrom(event.target, '[data-block-key]'));
@@ -418,6 +473,9 @@ document.addEventListener('dblclick', (event) => {
     const text = el.textContent ?? '';
 
     if (text.trim() === '') {
+        select(key);
+        post({ type: 'action', action: 'edit', key });
+
         return;
     }
 
@@ -432,25 +490,6 @@ document.addEventListener('dblclick', (event) => {
     pendingEdit = { el, key };
     post({ type: 'inline-edit-request', key, text, field });
 });
-
-/**
- * Tell the operator why nothing happened: the double-clicked text maps to no
- * editable field (a list item, bound business data, rich content). Transient
- * and self-removing — it answers the click, it is not a state.
- */
-const showEditHint = (el: HTMLElement): void => {
-    document
-        .querySelectorAll('[data-editor-hint]')
-        .forEach((hint) => hint.remove());
-
-    const hint = document.createElement('div');
-
-    hint.setAttribute('data-editor-hint', '');
-    hint.textContent = 'Edit this in the panel on the right';
-    el.closest<HTMLElement>('[data-block-key]')?.appendChild(hint);
-
-    setTimeout(() => hint.remove(), 2200);
-};
 
 // --- drag-and-drop reorder (toolbar ⠿ handle) ---
 
@@ -677,13 +716,6 @@ window.addEventListener('message', (event: MessageEvent) => {
 
     if (message.type === 'inline-edit-grant') {
         beginInlineEdit(message.field);
-    }
-
-    if (message.type === 'inline-edit-deny') {
-        if (pendingEdit) {
-            showEditHint(pendingEdit.el);
-            pendingEdit = null;
-        }
     }
 
     // Swap one block's HTML in place (debounced field edits) — no

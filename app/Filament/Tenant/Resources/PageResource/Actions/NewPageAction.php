@@ -61,7 +61,7 @@ final readonly class NewPageAction
                 TextInput::make('title')
                     ->label(__('Page name'))
                     ->maxLength(120)
-                    ->placeholder(__('Defaults to the layout\'s own name'))
+                    ->placeholder(__("Defaults to the layout's own name"))
                     ->helperText(__('The web address is generated from the name.')),
             ])
             ->action(function (array $data) use ($canvas): void {

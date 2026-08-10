@@ -20,6 +20,7 @@ Before planning or editing, find the row whose globs match the file's path and r
 | app/Models/** | .ai/rules/models.md |
 | app/Filament/Fabricator/PageBlocks/** | .ai/rules/page-blocks.md |
 | app/Templates/PagePresets/** | .ai/rules/page-presets.md |
+| app/Filament/Tenant/Resources/PageResource/** | .ai/rules/page-resource.md |
 | routes/** | .ai/rules/routes.md |
 | resources/js/site/** | .ai/rules/site.md |
 | .claude/skills/**, .ai/skills/**, .ai/rules/** | .ai/rules/skills.md |

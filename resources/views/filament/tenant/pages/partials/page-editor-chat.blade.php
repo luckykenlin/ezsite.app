@@ -436,16 +436,16 @@
                     <button
                         type="button"
                         class="pe-chat-mode-option"
-                        x-bind:data-active="$wire.chatMode === 'edit' || undefined"
-                        x-on:click="$wire.set('chatMode', 'edit', false)"
+                        x-bind:data-active="chatMode === 'edit' || undefined"
+                        x-on:click="setChatMode('edit')"
                     >
                         {{ __('Edit') }}
                     </button>
                     <button
                         type="button"
                         class="pe-chat-mode-option"
-                        x-bind:data-active="$wire.chatMode === 'ask' || undefined"
-                        x-on:click="$wire.set('chatMode', 'ask', false)"
+                        x-bind:data-active="chatMode === 'ask' || undefined"
+                        x-on:click="setChatMode('ask')"
                     >
                         {{ __('Ask') }}
                     </button>

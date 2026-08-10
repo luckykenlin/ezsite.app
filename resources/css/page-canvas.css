@@ -299,7 +299,9 @@
     border-radius: 0.5rem;
     border: 1px solid rgba(0, 0, 0, 0.08);
     cursor: pointer;
-    transition: border-color 0.1s ease, box-shadow 0.1s ease;
+    transition:
+        border-color 0.1s ease,
+        box-shadow 0.1s ease;
 }
 
 .dark .pc-preset-card {

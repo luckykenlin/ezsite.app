@@ -15,6 +15,7 @@ use App\Enums\ChatMode;
 use App\Enums\ChatRole;
 use App\Enums\ChromeSlot;
 use App\Enums\PageStatus;
+use App\Filament\Tenant\Resources\PageResource;
 use App\Filament\Tenant\Resources\PageResource\Actions\PageIdentityFields;
 use App\Filament\Tenant\Resources\PageResource\Pages\PageEditor;
 use App\Jobs\ChatEditPageJob;
@@ -247,7 +248,7 @@ describe('committing and saving the draft', function (): void {
             ->and($saved[0])->not->toHaveKey('key');
     });
 
-    it('shows a placeholder-only right pane for a stored block whose type is unregistered', function (): void {
+    it('shows a placeholder-only drawer for a stored block whose type is unregistered', function (): void {
         $page = editorPage([
             ['type' => 'carousel', 'data' => ['anything' => true]],
         ]);
@@ -256,6 +257,9 @@ describe('committing and saving the draft', function (): void {
 
         expect($component->get('selectedBlockKey'))->not->toBeNull()
             ->and($component->instance()->hasEditableSelection())->toBeFalse();
+
+        $component->mountAction('editBlock')
+            ->assertMountedActionModalSee("This block can't be edited");
 
         // The unknown block round-trips through save untouched.
         $component->call('save');
@@ -1167,15 +1171,18 @@ describe('the block library', function (): void {
             ['type' => 'header', 'data' => ['variant' => 'simple']],
         ]);
 
-        // No business yet: the hint escalates to a warning.
+        // The hint lives in the settings drawer, beside the fields it
+        // explains. No business yet: it escalates to a warning.
         Livewire::test(PageEditor::class, ['record' => $page->id])
-            ->assertSee("needs business details that aren't set up yet")
-            ->assertSee('Edit business profile');
+            ->mountAction('editBlock')
+            ->assertMountedActionModalSee("needs business details that aren't set up yet")
+            ->assertMountedActionModalSee('Edit business profile');
 
         $this->createTenantBusiness($this->tenant, ['name' => 'Corner Cafe']);
 
         Livewire::test(PageEditor::class, ['record' => $page->id])
-            ->assertSee('come from your business profile');
+            ->mountAction('editBlock')
+            ->assertMountedActionModalSee('come from your business profile');
     });
 
     it('guides an empty page towards its first block', function (): void {
@@ -1527,10 +1534,10 @@ describe('the site styles rail', function (): void {
         expect($component->instance()->openedStyleGroup())->toBeNull();
     });
 
-    it('returns the inspector to the page face when a block is selected', function (): void {
-        // Picking a block is a request to edit it. Deselecting is not the
-        // reverse — clicking the canvas background while restyling should not
-        // close the rail.
+    it('stays open across selection changes, closing only on demand', function (): void {
+        // The rail is the right column's only face now — block editing lives
+        // in the drawer — so restyling continues around the selection. Only
+        // the X (closeSiteStyles) takes it down.
         $this->createTenantBusiness($this->tenant, ['name' => 'Corner Cafe']);
         $page = editorPage([
             ['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']],
@@ -1544,13 +1551,13 @@ describe('the site styles rail', function (): void {
 
         expect($component->get('showingSiteStyles'))->toBeTrue();
 
-        $component->call('selectBlock', $second);
-
-        expect($component->get('showingSiteStyles'))->toBeFalse();
-
-        $component->call('showSiteStyles')->call('deselectBlock');
+        $component->call('selectBlock', $second)->call('deselectBlock');
 
         expect($component->get('showingSiteStyles'))->toBeTrue();
+
+        $component->call('closeSiteStyles');
+
+        expect($component->get('showingSiteStyles'))->toBeFalse();
     });
 
     it('renders every group card and every preset as a live specimen', function (): void {
@@ -1636,6 +1643,41 @@ describe('the site styles rail', function (): void {
     });
 });
 
+describe('following chrome nav links', function (): void {
+    it('switches the editor to the page a nav link points at', function (): void {
+        $home = editorPage([]);
+        $studio = editorPage([], 'studio');
+
+        // Query string and fragment are link decoration, not address.
+        Livewire::test(PageEditor::class, ['record' => $home->id])
+            ->call('openLinkedPage', '/studio?utm=nav#top')
+            ->assertRedirect(PageResource::getUrl('edit', ['record' => $studio]));
+    });
+
+    it('stays put when the link points at the page already being edited', function (): void {
+        $home = editorPage([]);
+
+        Livewire::test(PageEditor::class, ['record' => $home->id])
+            ->call('openLinkedPage', '/')
+            ->assertNoRedirect()
+            ->assertNotNotified();
+    });
+
+    it('answers a link that is not a page on this site with a notification', function (string $href): void {
+        $home = editorPage([]);
+
+        Livewire::test(PageEditor::class, ['record' => $home->id])
+            ->call('openLinkedPage', $href)
+            ->assertNoRedirect()
+            ->assertNotified("That link doesn't open a page on this site");
+    })->with([
+        'unknown path' => '/no-such-page',
+        'external host' => 'https://example.com/studio',
+        'mailto' => 'mailto:hello@example.com',
+        'executable scheme' => 'javascript:alert(1)',
+    ]);
+});
+
 describe('deselecting, and inserting at a position', function (): void {
     it('deselects on demand, keeping the selection when the draft is invalid', function (): void {
         $page = editorPage([
@@ -1697,8 +1739,8 @@ describe('deselecting, and inserting at a position', function (): void {
  * point — editing block content is the main activity here, so the panel that
  * serves it never has to be summoned.
  */
-describe('the inspector as a persistent column', function (): void {
-    it('shows the selected block in the inspector, and the page itself when nothing is selected', function (): void {
+describe('the block settings drawer', function (): void {
+    it('shows the selected block in the drawer, refilling as the selection moves', function (): void {
         $page = editorPage([
             ['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']],
             ['type' => 'heading', 'data' => ['content' => 'About us', 'level' => 'h2']],
@@ -1707,42 +1749,59 @@ describe('the inspector as a persistent column', function (): void {
         $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
         $second = $component->get('blocks')[1]['key'];
 
-        $component->call('selectBlock', $second)->assertSee('Heading');
+        // Mounting selects the first block, so the drawer opens on the Hero.
+        $component->mountAction('editBlock')
+            ->assertMountedActionModalSee('Hero');
 
-        // Deselecting leaves the column in place showing the page, rather than
-        // taking the panel away.
-        $component->call('deselectBlock')
-            ->assertSee('Home')
-            ->assertSee('Click a block on the canvas to edit it.');
+        // Switching the selection refills the mounted drawer — no remount.
+        $component->call('selectBlock', $second)
+            ->assertActionMounted('editBlock')
+            ->assertMountedActionModalSee('Heading');
     });
 
-    it('offers the site-wide chrome from the inspector, marked as such', function (): void {
-        // Header and footer render like any other block on the canvas, so the one
-        // thing that must be obvious — that editing them changes every page — is
-        // said here rather than discovered after the fact.
-        $page = editorPage([]);
-
-        Livewire::test(PageEditor::class, ['record' => $page->id])
-            ->assertSee('Site-wide')
-            ->assertSee('every page')
-            ->assertSeeHtml("selectBlock('".ChromeSlot::Header->editorKey()."')")
-            ->assertSeeHtml("selectBlock('".ChromeSlot::Footer->editorKey()."')");
-    });
-
-    it('keeps the chrome entry reachable while a block is selected', function (): void {
-        // "Add a link to the menu" is a request about the SITE — hiding its
-        // entry behind deselecting first was a step nobody guessed. Mounting
-        // selects the first block, so this asserts the selected-block branch.
+    it('unmounts the drawer when the selection is cleared', function (): void {
+        // A blank-canvas click (or Escape) deselects; a drawer left up would
+        // be editing nothing.
         $page = editorPage([
             ['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']],
         ]);
 
-        $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
+        Livewire::test(PageEditor::class, ['record' => $page->id])
+            ->mountAction('editBlock')
+            ->assertActionMounted('editBlock')
+            ->call('deselectBlock')
+            ->assertActionNotMounted('editBlock');
+    });
 
-        expect($component->get('selectedBlockKey'))->not->toBeNull();
+    it('edits the site-wide chrome through the same drawer, marked as such', function (): void {
+        // Header and footer render like any other block on the canvas, and
+        // their toolbar's Edit is now their only entry point — so the one
+        // thing that must be obvious, that editing them changes every page,
+        // is said in the drawer itself.
+        $page = editorPage([]);
 
-        $component->assertSee('Site-wide')
-            ->assertSeeHtml("selectBlock('".ChromeSlot::Header->editorKey()."')");
+        Livewire::test(PageEditor::class, ['record' => $page->id])
+            ->call('selectBlock', ChromeSlot::Header->editorKey())
+            ->mountAction('editBlock')
+            ->assertMountedActionModalSee('Header')
+            ->assertMountedActionModalSee('Shown on every page');
+    });
+
+    it('keeps typing patching the canvas while the drawer is mounted', function (): void {
+        // The click-through payoff: the drawer overlays the canvas without
+        // owning it, so the per-keystroke preview path must keep working
+        // with the action mounted.
+        $page = editorPage([
+            ['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']],
+        ]);
+
+        $component = Livewire::test(PageEditor::class, ['record' => $page->id])
+            ->mountAction('editBlock')
+            ->set('data.block.heading', 'Live draft')
+            ->assertDispatched('page-editor:patch-canvas')
+            ->assertActionMounted('editBlock');
+
+        expect(cachedPreview($component)['blocks'][0]['data']['heading'])->toBe('Live draft');
     });
 
     it('drops every library block in valid: sample content passes its own validation', function (): void {
@@ -2123,27 +2182,11 @@ describe('retrying a failed turn', function (): void {
  * from a keyboard or touchscreen, which the canvas's native HTML5 drag never
  * will. Same verbs as the canvas (selectBlock / moveBlock), new surface.
  */
-describe('the outline panel', function (): void {
-    it('outlines the page with a label and the first line of real content', function (): void {
-        $page = editorPage([
-            ['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Fresh bread daily']],
-            // Variant is presentation, not content — never the snippet.
-            ['type' => 'cta', 'data' => ['variant' => 'banner']],
-            ['type' => '', 'data' => []],
-        ]);
-
-        $component = Livewire::test(PageEditor::class, ['record' => $page->id])
-            ->assertSee('Page structure');
-
-        expect($component->instance()->blockOutline())->toBe([
-            ['key' => $component->get('blocks')[0]['key'], 'label' => 'Hero', 'snippet' => 'Fresh bread daily'],
-            ['key' => $component->get('blocks')[1]['key'], 'label' => 'Cta', 'snippet' => null],
-            // A broken stored entry stays listed (and thus reachable/removable).
-            ['key' => $component->get('blocks')[2]['key'], 'label' => 'Broken', 'snippet' => null],
-        ]);
-    });
-
-    it('reorders from the outline with the same undoable verb as the canvas', function (): void {
+describe('keyboard reordering', function (): void {
+    it('reorders with the same undoable verb as the canvas drag', function (): void {
+        // moveBlock is the reorder path that works without a pointer (the
+        // canvas forwards Cmd+arrow as this verb) — the outline panel that
+        // used to expose it as buttons is gone, the verb is not.
         $page = editorPage([
             ['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']],
             ['type' => 'heading', 'data' => ['content' => 'Section', 'level' => 'h2']],
@@ -3443,23 +3486,55 @@ describe('composer attachments', function (): void {
 });
 
 /*
- * The zoom toolbar, pinned as rendered markup because the bug it guards is a
- * Blade-literal one no type checker can see: written level => label, PHP
- * truncates the float keys to int, 0.5 and 0.75 both collapse to 0, the 50%
- * button disappears and "75%" emits `zoom = 0` — scale(0), canvas gone.
+ * The canvas toolbar: breakpoints preview at full scale (the zoom control is
+ * gone — the canvas is the editing surface, not a thumbnail of one), and the
+ * Site Styles toggle is the closed rail's reopen affordance.
  */
-describe('the zoom toolbar', function (): void {
-    it('offers all three zoom levels, each setting its own scale', function (): void {
+describe('the canvas toolbar', function (): void {
+    it('offers the three breakpoints and no zoom control', function (): void {
         $html = Livewire::test(PageEditor::class, ['record' => editorPage([])->id])->html();
 
-        /*
-         * Matched as a regex, not assertSee: the pairing is what matters, and
-         * the Blade formatter is free to put the label on its own line.
-         */
-        foreach (['50%' => '0.5', '75%' => '0.75', '100%' => '1'] as $label => $level) {
-            expect($html)->toMatch(
-                '/zoom = '.preg_quote($level, '/').'"[^>]*>\s*'.preg_quote($label, '/').'\s*<\/button>/',
-            );
+        foreach (['Desktop', 'Tablet', 'Mobile'] as $label) {
+            expect($html)->toContain($label);
         }
+
+        expect($html)->not->toContain('zoom =');
+    });
+
+    it('opens the Site Styles rail by default, closable from the toolbar toggle', function (): void {
+        $this->createTenantBusiness($this->tenant, ['name' => 'Corner Cafe']);
+        $page = editorPage([]);
+
+        // Open on a fresh mount (user preference); the toggle closes it.
+        $component = Livewire::test(PageEditor::class, ['record' => $page->id])
+            ->assertSeeHtml('data-styles="open"')
+            ->assertSeeHtml('wire:click="closeSiteStyles"');
+
+        $component->call('closeSiteStyles')
+            ->assertSeeHtml('data-styles="closed"')
+            ->assertSeeHtml('wire:click="showSiteStyles"');
+    });
+
+    it('mounts with the rail closed when there is no business profile', function (): void {
+        // No Business row means no design tokens to edit — the default-open
+        // rule defers to the same gate the toggle uses.
+        $page = editorPage([]);
+
+        Livewire::test(PageEditor::class, ['record' => $page->id])
+            ->assertSeeHtml('data-styles="closed"');
+    });
+
+    it('keeps the staged-changes dot visible while the rail is closed', function (): void {
+        // Staging previews on the canvas without writing anything, so once
+        // the rail that staged it closes, the dot on the toolbar toggle is
+        // the only evidence a restyle is waiting to be applied.
+        $this->createTenantBusiness($this->tenant, ['name' => 'Corner Cafe']);
+        $page = editorPage([]);
+
+        Livewire::test(PageEditor::class, ['record' => $page->id])
+            ->call('showSiteStyles')
+            ->call('stageToken', 'palette', 'ocean')
+            ->call('closeSiteStyles')
+            ->assertSeeHtml('pe-rail-dot');
     });
 });

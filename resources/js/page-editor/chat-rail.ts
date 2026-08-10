@@ -72,6 +72,8 @@ export type ChatRailSlice = Pick<
     | 'stopChat'
     | 'scrollChatToEnd'
     | 'settleChatTurn'
+    | 'chatMode'
+    | 'setChatMode'
     | 'initChatRail'
 >;
 
@@ -120,6 +122,7 @@ export function chatRail(config: PageEditorConfig): ChatRailSlice {
 
     return {
         chatOpen: readChatOpen(),
+        chatMode: 'edit',
         chatSending: false,
         chatPending: '',
         chatStream: '',
@@ -194,9 +197,22 @@ export function chatRail(config: PageEditorConfig): ChatRailSlice {
                 return;
             }
 
-            this.$wire.set('chatMode', 'edit', false);
+            this.setChatMode('edit');
             this.$wire.set('chatInput', text, false);
             this.sendChat();
+        },
+
+        /**
+         * The Edit/Ask toggle's single writer. The toggle's active state is
+         * ALPINE state (like the device buttons), not a `$wire.chatMode`
+         * binding: binding attributes to `$wire` reads raced Livewire's
+         * morphs and intermittently left BOTH segments marked active. The
+         * server copy rides along as a deferred write — it only matters at
+         * send time.
+         */
+        setChatMode(this: PageEditorComponent, mode: 'edit' | 'ask'): void {
+            this.chatMode = mode;
+            this.$wire.set('chatMode', mode, false);
         },
 
         /**
@@ -577,6 +593,10 @@ export function chatRail(config: PageEditorConfig): ChatRailSlice {
          * object would otherwise silently drop whichever came first.
          */
         initChatRail(this: PageEditorComponent): void {
+            // Seed the toggle from the server copy (a restored draft may have
+            // sent a different mode); from here on the Alpine copy leads.
+            this.chatMode = this.$wire.chatMode === 'ask' ? 'ask' : 'edit';
+
             // A turn the server restored from the draft: the page was reloaded
             // while the assistant was still answering. Reconnect to the stream so
             // the reply resumes typing instead of appearing all at once whenever

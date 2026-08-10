@@ -1,14 +1,13 @@
-{{-- The centre pane: the device/zoom toolbar and the preview iframe.
+{{-- The centre pane: the device toolbar and the preview iframe.
 
      Named -canvas-pane, not -canvas: partials/page-editor-canvas.blade.php
      already exists and is a different thing — the assets the PREVIEW
      document loads (see tests/Arch/ConventionsTest.php). --}}
 {{-- Center pane: the canvas --}}
 <div class="pe-canvas">
-    {{-- Breakpoint and zoom are two different questions — "how wide is
-                 the viewport I'm previewing" and "how much of it can I see" —
-                 so they get two controls instead of one row that mixed
-                 Desktop/Tablet/Mobile with a stray 50%. --}}
+    {{-- Always 100% scale — the canvas is the editing surface, not a
+         thumbnail of one. The device buttons change the previewed
+         BREAKPOINT (the frame's width), never its scale. --}}
     <div class="pe-canvas-toolbar">
         <button
             type="button"
@@ -33,40 +32,30 @@
             @endforeach
         </div>
 
-        <div class="pe-toolbar-group">
-            {{-- Label => level, NOT level => label: PHP truncates float
-                         array keys to int, so 0.5 and 0.75 both collapsed to 0
-                         — the 50% button vanished and "75%" emitted zoom = 0,
-                         scaling the canvas to nothing. --}}
-            @foreach (['50%' => 0.5, '75%' => 0.75, '100%' => 1] as $label => $level)
-                <button
-                    type="button"
-                    class="pe-device-button"
-                    x-bind:data-active="zoom === {{ $level }} || undefined"
-                    x-on:click="zoom = {{ $level }}"
-                >
-                    {{ $label }}
-                </button>
-            @endforeach
-        </div>
+        {{-- The Site Styles rail's reopen affordance — the rail's own X is
+             its only other control. Same gate as the rail: no Business row,
+             no tokens to edit. The dot mirrors the rail head's: a staged
+             restyle must stay visible after the rail that staged it closes. --}}
+        @if ($this->hasBusinessProfile())
+            <button
+                type="button"
+                class="pe-toolbar-toggle pe-toolbar-styles"
+                @if ($this->showingSiteStyles) data-active @endif
+                title="{{ $this->showingSiteStyles ? __('Hide site styles') : __('Show site styles') }}"
+                wire:click="{{ $this->showingSiteStyles ? 'closeSiteStyles' : 'showSiteStyles' }}"
+            >
+                <x-filament::icon icon="heroicon-m-paint-brush" class="pe-toolbar-icon" />
+                @if ($this->hasStagedStyles() && ! $this->showingSiteStyles)
+                    <span class="pe-rail-dot" title="{{ __('Unapplied style changes') }}"></span>
+                @endif
+            </button>
+        @endif
     </div>
 
     <div class="pe-canvas-body" x-on:click.self="$wire.deselectBlock()">
         <div class="pe-progress" x-show="reloading" x-cloak></div>
 
-        {{-- Zoom scales the frame without touching its width, so the
-                     page inside still lays out at the previewed breakpoint —
-                     scaling by changing the width would silently preview a
-                     different breakpoint than the one selected. --}}
-        <div
-            class="pe-canvas-frame"
-            x-bind:style="{
-                maxWidth: deviceWidths[device],
-                transform: zoom === 1 ? null : `scale(${zoom})`,
-                height: zoom === 1 ? null : `${100 / zoom}%`,
-            }"
-            wire:ignore
-        >
+        <div class="pe-canvas-frame" x-bind:style="{ maxWidth: deviceWidths[device] }" wire:ignore>
             <iframe x-ref="canvas" src="{{ $this->previewUrl() }}" title="{{ __('Page preview') }}"></iframe>
         </div>
 

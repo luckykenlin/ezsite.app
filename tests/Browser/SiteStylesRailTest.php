@@ -44,8 +44,8 @@ function stylesRailUrl(): string
  * a link that 404s or never loads fails exactly here and nowhere else.
  */
 it('loads the real font faces the specimens are drawn in', function (): void {
+    // The rail is open by default (the URL's tenant has a Business).
     $browser = visit(stylesRailUrl())
-        ->click('Site styles')
         ->click('Fonts')
         ->assertSee('Heading')
         // The stylesheet is a <link>, so its faces register on load rather than
@@ -69,7 +69,6 @@ it('loads the real font faces the specimens are drawn in', function (): void {
  */
 it('draws each font option in its own family, not the current one', function (): void {
     $families = visit(stylesRailUrl())
-        ->click('Site styles')
         ->click('Fonts')
         // Only the drilled-in panel has a way back, so this pins the state the
         // specimens below belong to. Without it the script races the Livewire
@@ -92,7 +91,6 @@ it('draws each font option in its own family, not the current one', function ():
  */
 it('repaints the canvas when a swatch is clicked, without saving', function (): void {
     $browser = visit(stylesRailUrl())
-        ->click('Site styles')
         ->click('Themes')
         // The enum's own label, not a copy of it: a literal that drifts does
         // not fail here, it hangs — Playwright waits for a match forever.

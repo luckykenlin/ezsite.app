@@ -1,6 +1,8 @@
 <x-filament-panels::page>
     {{--
-        Three-pane visual editor. The pane skeleton is styled by
+        Visual editor: chat rail, full-bleed canvas, on-demand Site Styles
+        rail; block editing happens on the canvas and in the editBlock
+        slide-over. The pane skeleton is styled by
         resources/css/page-editor.css (hand-written CSS on Filament's own
         custom properties, so it needs no Tailwind rebuild and inherits the
         panel theme); interactive controls reuse core Filament components.
@@ -44,18 +46,28 @@
         x-on:keydown.window="onKeydown($event)"
         x-on:beforeunload.window="onBeforeUnload($event)"
         x-on:livewire:navigate.document="onNavigate($event)"
-        {{-- Tracks which of the two modals is out: the library must disable the
-             canvas keyboard verbs (Delete would hit the block behind it), and
-             the drawer makes the canvas shift over. --}}
+        {{-- Tracks the block library modal (an <x-filament::modal>, not a
+             mounted action): while it is out the canvas keyboard verbs are
+             disabled — Delete would hit the block behind it. The editBlock
+             slide-over is a mounted action, tracked via $wire.mountedActions
+             instead. --}}
         x-on:open-modal.window="onModalOpened($event)"
         x-on:modal-closed.window="onModalClosed($event)"
         x-on:resize.window="fitLayout()"
     >
-        <div class="pe-layout" x-ref="layout" x-bind:data-chat="chatOpen ? 'open' : 'closed'">
+        {{-- data-chat is Alpine-bound (client toggle, persisted in
+             localStorage); data-styles is server-emitted because the rail is
+             server state — see HostsStyleRail. --}}
+        <div
+            class="pe-layout"
+            x-ref="layout"
+            x-bind:data-chat="chatOpen ? 'open' : 'closed'"
+            data-styles="{{ $this->showingSiteStyles ? 'open' : 'closed' }}"
+        >
             @include('filament.tenant.pages.partials.page-editor-chat')
 
             @include('filament.tenant.pages.partials.page-editor-canvas-pane')
-            @include('filament.tenant.pages.partials.page-editor-inspector')
+            @include('filament.tenant.pages.partials.page-editor-style-rail')
         </div>
         {{-- /.pe-layout --}}
 

@@ -11,8 +11,9 @@ export const NAMESPACE = 'ezsite-editor';
 
 /**
  * Mirrors App\Enums\ChromeSlot::EDITOR_KEY_PREFIX. A block key carrying this
- * prefix is a site-wide header/footer, which is editable in the right pane
- * but has no structural verbs (move / duplicate / remove / reorder).
+ * prefix is a site-wide header/footer, which is editable (inline, and through
+ * the settings drawer) but has no structural verbs (move / duplicate /
+ * remove / reorder).
  */
 export const CHROME_KEY_PREFIX = 'chrome:';
 
@@ -108,8 +109,72 @@ export function isFieldName(value: string): boolean {
     return /^[a-z0-9_]+(\.[A-Za-z0-9_-]+)*$/.test(value);
 }
 
-/** The structural verbs on the canvas's floating block toolbar. */
-export type BlockAction = 'move-up' | 'move-down' | 'duplicate' | 'remove';
+/**
+ * The verbs on the canvas's floating block toolbar: the structural ones, plus
+ * `edit`, which mutates nothing — it opens the block's settings drawer (the
+ * editBlock slide-over). Chrome pseudo-blocks offer `edit` alone.
+ */
+export type BlockAction =
+    | 'edit'
+    | 'move-up'
+    | 'move-down'
+    | 'duplicate'
+    | 'remove';
+
+/** What the editor should do with a matched shortcut, given what is open. */
+export type ShortcutDecision = 'run' | 'close-drawer' | 'ignore';
+
+/**
+ * Gate a shortcut against the surfaces that may be covering the canvas.
+ *
+ * A pure decision (colocated test in protocol.test.ts) because it is the
+ * subtle part of three keydown paths: the parent window's own handler and the
+ * canvas-forwarded `shortcut` message both funnel through it, and the two
+ * differ only for Escape while the editBlock drawer is up.
+ *
+ * - A BLOCKING overlay (the block library, or any mounted action other than
+ *   the editBlock drawer — e.g. the remove confirmation) swallows everything:
+ *   Delete must not hit the block behind it.
+ * - The editBlock drawer is click-through, so editing continues around it:
+ *   save/undo/redo/deselect stay live, but the destructive and structural
+ *   verbs are ignored — a held Delete while adjusting a form must not remove
+ *   the very block being edited.
+ * - Escape with the drawer up CLOSES the drawer rather than deselecting — but
+ *   only for a keydown inside the canvas iframe, which Filament's own
+ *   `keydown.window.escape` handler (parent window) never sees. For a parent
+ *   keydown, Filament already closes the drawer; acting here too would pop a
+ *   second action off the stack.
+ */
+export function resolveShortcut(
+    name: ShortcutName,
+    context: {
+        blocked: boolean;
+        drawerOpen: boolean;
+        source: 'editor' | 'canvas';
+    },
+): ShortcutDecision {
+    if (context.blocked) {
+        return 'ignore';
+    }
+
+    if (!context.drawerOpen) {
+        return 'run';
+    }
+
+    if (name === 'deselect') {
+        return context.source === 'canvas' ? 'close-drawer' : 'ignore';
+    }
+
+    if (
+        name === 'remove-selected' ||
+        name === 'move-selected-up' ||
+        name === 'move-selected-down'
+    ) {
+        return 'ignore';
+    }
+
+    return 'run';
+}
 
 /** Canvas → editor. */
 export type CanvasMessage =
@@ -133,6 +198,14 @@ export type CanvasMessage =
      * because it is not a structural verb — it changes no state, it aims one.
      */
     | { type: 'ask-ai'; key: string }
+    /**
+     * A link inside the site chrome (header/footer nav) was clicked. The
+     * canvas never navigates itself — every click is preventDefault()ed — so
+     * this hands the href to the EDITOR, which switches to editing the page
+     * it points at (Squarespace behavior) or explains why it cannot.
+     * Content-block links stay inert: they are the content being edited.
+     */
+    | { type: 'navigate'; href: string }
     | { type: 'shortcut'; name: ShortcutName };
 
 /** Editor → canvas. */
@@ -141,12 +214,6 @@ export type EditorMessage =
     | { type: 'patch'; key: string; html: string }
     | { type: 'insert-armed'; position: number | null }
     | { type: 'inline-edit-grant'; field: string }
-    /**
-     * The request could not be matched to an editable field. The canvas shows
-     * a "use the panel" hint — a double-click that silently does nothing reads
-     * as a broken feature, not a limitation.
-     */
-    | { type: 'inline-edit-deny' }
     /**
      * Point at what the assistant just changed. Transient and purely visual —
      * it marks blocks, it does not select them, so the inspector keeps whatever

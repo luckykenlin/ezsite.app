@@ -9,8 +9,8 @@ use App\Filament\Tenant\Concerns\EditsSiteStyles;
 use App\Models\Business;
 
 /**
- * The editor's half of the Site Styles panel: the inspector column's second
- * face, and the canvas preview behind it.
+ * The editor's half of the Site Styles panel: the right rail's only face,
+ * openable and closable like Squarespace's, and the canvas preview behind it.
  *
  * The panel itself — groups, specimens, staging rules, the single write path —
  * is {@see EditsSiteStyles}, shared with {@see \App\Filament\Tenant\Pages\Design}.
@@ -35,23 +35,27 @@ trait HostsStyleRail
     use EditsSiteStyles;
 
     /**
-     * Whether the inspector column is showing Site Styles instead of the page
-     * and block panels.
+     * Whether the Site Styles rail is open. A fresh mount opens it
+     * ({@see \App\Filament\Tenant\Resources\PageResource\Pages\PageEditor::mount()}
+     * calls {@see showSiteStyles()}, so the no-Business gate applies);
+     * deliberately not persisted beyond that — server state (the rail is
+     * server-rendered Livewire), toggled by the canvas toolbar's paintbrush
+     * and its own X.
      */
     public bool $showingSiteStyles = false;
 
     /**
      * Design tokens live on the Business row, so without one there is nothing to
-     * show and {@see EditsSiteStyles::styleSelection()} would throw. The tab is
-     * hidden in that case; this guard is the server-side half, for a click that
-     * arrives anyway.
+     * show and {@see EditsSiteStyles::styleSelection()} would throw. The toggle
+     * is hidden in that case; this guard is the server-side half, for a click
+     * that arrives anyway.
      */
     public function showSiteStyles(): void
     {
         $this->showingSiteStyles = $this->hasBusinessProfile();
     }
 
-    public function showPageInspector(): void
+    public function closeSiteStyles(): void
     {
         $this->showingSiteStyles = false;
         $this->styleGroup = null;

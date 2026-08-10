@@ -7,7 +7,7 @@
 @use('Illuminate\Support\Str')
 
 {{-- Site Styles. Rendered by BOTH surfaces that offer it — the page editor's
-     inspector column and the Design settings page — over the shared
+     style rail and the Design settings page — over the shared
      App\Filament\Tenant\Concerns\EditsSiteStyles. Keep it that way: the two
      drifted into a Radio-of-names and a modal-of-dropdowns before this, and only
      one of them could edit brand colours.

@@ -16,7 +16,7 @@
  */
 
 import type { ChatAttachmentKind, ChatAttachmentLimits } from './chat';
-import type { EditorMessage, ShortcutName } from './protocol';
+import type { EditorMessage, ShortcutDecision, ShortcutName } from './protocol';
 
 export interface PageEditorConfig {
     /** Modal ids, interpolated from the PageEditor constants by the blade. */
@@ -53,12 +53,14 @@ export interface EditorWire {
     pendingInsertPosition: number | null;
     isDirty: boolean;
     chatInput: string;
+    chatMode: string;
     /** Null whenever no chat turn is in flight — see sendChat(). */
     chatTurnToken: string | null;
     /** Unix seconds the in-flight turn was dispatched; null when idle. */
     chatTurnStartedAt: number | null;
     data?: { block?: Record<string, unknown> };
-    mountedActions?: unknown[];
+    /** Filament's mounted-action stack: `{name, arguments, context}` each. */
+    mountedActions?: { name?: unknown }[];
     save(): void;
     undo(): void;
     redo(): void;
@@ -66,6 +68,8 @@ export interface EditorWire {
     deselectBlock(): void;
     removeBlock(key: string): void;
     mountAction(name: string, args?: Record<string, unknown>): Promise<unknown>;
+    unmountAction(): Promise<unknown>;
+    openLinkedPage(href: string): Promise<unknown>;
     moveBlock(key: string, offset: number): void;
     duplicateBlock(key: string): void;
     reorderBlocks(keys: string[]): void;
@@ -114,13 +118,16 @@ export interface AlpineInjected {
  */
 export interface PageEditorComponent extends AlpineInjected {
     device: string;
-    /** Breakpoint preview width. Zoom is a separate axis — see `zoom`. */
+    /** Breakpoint preview width; always rendered at 100% scale. */
     deviceWidths: Record<string, string>;
-    /** Canvas scale, independent of the breakpoint being previewed. */
-    zoom: number;
     chatOpen: boolean;
     toggleChat(): void;
+    /** The composer's Edit/Ask toggle; the Alpine copy leads, see setChatMode. */
+    chatMode: string;
+    setChatMode(mode: 'edit' | 'ask'): void;
     reloading: boolean;
+    /** One-shot leave-guard bypass for a server-initiated page switch. */
+    navigatingAway: boolean;
     chatSending: boolean;
     /** The operator's message, echoed locally until the server render lands. */
     chatPending: string;
@@ -162,7 +169,11 @@ export interface PageEditorComponent extends AlpineInjected {
     scrollChatToEnd(): void;
     reload(url: string): void;
     postToCanvas(payload: EditorMessage): void;
-    runShortcut(name: ShortcutName): void;
+    shortcutDecision(
+        name: ShortcutName,
+        source: 'editor' | 'canvas',
+    ): ShortcutDecision;
+    runShortcut(name: ShortcutName, decision: ShortcutDecision): void;
     selectedPageBlockKey(): string | null;
     removeSelected(): void;
     moveSelected(offset: number): void;
@@ -176,7 +187,10 @@ export interface PageEditorComponent extends AlpineInjected {
      * reopen.
      */
     libraryLoaded: boolean;
-    modalOpen(): boolean;
+    /** A blocking overlay (library, remove confirm) — not the drawer. */
+    blockingModalOpen(): boolean;
+    /** The click-through editBlock drawer is mounted. */
+    drawerOpen(): boolean;
     grantInlineEdit(text: string, preferred?: string): void;
     onModalOpened(event: CustomEvent): void;
     onModalClosed(event: CustomEvent): void;

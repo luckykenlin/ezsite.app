@@ -6,6 +6,7 @@ namespace App\Actions\Pages;
 
 use App\Jobs\PopulateDraftImagesJob;
 use App\Models\Page;
+use App\Models\Tenant;
 use App\Site\Blocks\BlockShape;
 use App\Templates\PagePreset;
 
@@ -50,7 +51,15 @@ final readonly class CreatePresetPage
         $page = $this->create->handle($title ?? $built['title'], $built['blocks'], $built['metaDescription']);
 
         if ($this->wantsPhotos($built['blocks'])) {
-            dispatch(new PopulateDraftImagesJob((string) tenant('id')));
+            $tenant = tenant();
+
+            // Narrowing for the type system only — tenant() is typed nullable.
+            // The Page insert above already went through RequiresTenantContext,
+            // which throws outside tenancy, so this branch cannot miss; a loud
+            // else here would be an unreachable line the coverage gate rejects.
+            if ($tenant instanceof Tenant) {
+                dispatch(new PopulateDraftImagesJob($tenant->id));
+            }
         }
 
         return $page;
@@ -65,12 +74,6 @@ final readonly class CreatePresetPage
             return false;
         }
 
-        foreach ($blocks as $block) {
-            if (array_key_exists(BlockShape::IMAGE_QUERY_KEY, $block['data'])) {
-                return true;
-            }
-        }
-
-        return false;
+        return array_any($blocks, fn (array $block): bool => array_key_exists(BlockShape::IMAGE_QUERY_KEY, $block['data']));
     }
 }
