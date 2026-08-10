@@ -55,6 +55,30 @@ it('remembers where a card was dragged across a reload', function (): void {
     $page->refresh()->assertScript(CARD_POSITION, $after);
 });
 
+it('offers the preset cards in the new page modal and creates from one', function (): void {
+    // The picker's markup lives behind Filament's client-side modal, which no
+    // Livewire test renders — this is the one place the card grid, the
+    // radio-label wiring and the wire:model binding are exercised for real.
+    $page = visit(canvasUrl());
+
+    $page->click('New page')
+        ->assertSee('Add a page')
+        ->assertSee('Blank')
+        ->assertSee('Portfolio')
+        // Nine cards: eight designed layouts plus Blank, radios grouped under
+        // one name so arrow keys walk them.
+        ->assertScript('document.querySelectorAll(".pc-preset-card").length', 9)
+        ->assertScript('document.querySelectorAll(".pc-preset-radio:checked").length', 1);
+
+    $page->click('.pc-preset-card:has([value=about])')
+        ->click('Create page')
+        // The card lands on the canvas without a reload — Livewire re-renders
+        // and the Alpine canvas picks the new page up from the markup.
+        ->assertSee('About')
+        ->assertScript('document.querySelectorAll(".pc-card").length', 4)
+        ->assertNoJavaScriptErrors();
+});
+
 it('keeps card positions when Livewire re-renders the canvas', function (): void {
     // The regression this pins: Alpine compiles `cardStyle($el)` once and reuses
     // it across Livewire morphs, so anything baked into the expression at render

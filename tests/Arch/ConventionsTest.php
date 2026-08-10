@@ -16,6 +16,7 @@ use App\Models\Location;
 use App\Models\Page;
 use App\Models\Post;
 use App\Models\SiteSetting;
+use App\Templates\PagePreset;
 use App\Templates\SiteTemplate;
 
 /**
@@ -66,7 +67,8 @@ arch('templates are final readonly artifacts, never Eloquent-backed')
     // being something a diff can tell you. Readonly is what keeps that true.
     ->expect('App\Templates')
     ->toBeFinal()
-    ->ignoring(SiteTemplate::class);
+    // The two enum indexes — implicitly final, which the checker cannot see.
+    ->ignoring([SiteTemplate::class, PagePreset::class]);
 
 arch('template definitions expose exactly one entry point')
     ->expect('App\Templates\Definitions')

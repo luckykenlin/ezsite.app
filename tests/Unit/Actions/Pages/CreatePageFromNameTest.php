@@ -46,6 +46,16 @@ it('creates a draft from nothing but a name', function (): void {
         ->and($page->tenant_id)->toBe($tenant->id);
 });
 
+it('stores a starting seo description when given one', function (): void {
+    $tenant = Tenant::factory()->create();
+
+    $id = $this->runInTenant($tenant, fn (): int => (int) resolve(CreatePageFromName::class)
+        ->handle('About', [], 'The story behind us.')
+        ->getKey());
+
+    expect(Page::query()->findOrFail($id)->seo_description)->toBe('The story behind us.');
+});
+
 it('suffixes the slug when the name is already taken', function (): void {
     $tenant = Tenant::factory()->create();
 

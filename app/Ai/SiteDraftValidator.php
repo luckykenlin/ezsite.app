@@ -154,54 +154,20 @@ final readonly class SiteDraftValidator
     }
 
     /**
-     * @param  array<array-key, mixed>  $page
-     */
-    private function title(array $page, string $fallback): string
-    {
-        return is_string($page['title'] ?? null) && mb_trim($page['title']) !== ''
-            ? strip_tags(mb_trim($page['title']))
-            : $fallback;
-    }
-
-    /**
-     * The search-result summary. Optional on the way in: a provider that
-     * drops it (prompt-enforced structured output does) still yields a usable
-     * draft — the page then falls back to the business tagline at render time.
+     * One page's block list, sanitized from INPUT shape to stored shape.
      *
-     * @param  array<array-key, mixed>  $page
-     */
-    private function metaDescription(array $page): ?string
-    {
-        if (! is_string($page['meta_description'] ?? null)) {
-            return null;
-        }
-
-        $description = mb_trim(strip_tags($page['meta_description']));
-
-        return $description === '' ? null : mb_substr($description, 0, self::MAX_META_DESCRIPTION);
-    }
-
-    /**
-     * @param  array<array-key, mixed>  $draft
-     */
-    private function preset(array $draft): StylePreset
-    {
-        $preset = is_string($draft['preset'] ?? null) ? StylePreset::tryFrom($draft['preset']) : null;
-
-        if ($preset === null) {
-            Log::warning('site_draft.preset_fallback', ['stored' => $draft['preset'] ?? null]);
-
-            return StylePreset::cases()[0];
-        }
-
-        return $preset;
-    }
-
-    /**
+     * Public because it is the single validating door for a BARE block list,
+     * not just this class's own pages: {@see \App\Actions\Pages\BuildPresetPageBlocks}
+     * runs each page preset through it so a preset cannot drift from what the
+     * draft path is allowed to produce. The page-level rules (closed slug
+     * menu, minimum block count, home-needs-hero) deliberately stay in
+     * {@see handle()} — they are draft rules, not block rules. Do not
+     * re-privatize this without moving that second consumer.
+     *
      * @param  array<array-key, mixed>  $blocks
      * @return list<array{type: string, data: array<string, mixed>}>
      */
-    private function blocks(array $blocks): array
+    public function blocks(array $blocks): array
     {
         $pageTypes = $this->vocabulary->pageTypes();
         $sanitized = [];
@@ -267,6 +233,50 @@ final readonly class SiteDraftValidator
         }
 
         return $sanitized;
+    }
+
+    /**
+     * @param  array<array-key, mixed>  $page
+     */
+    private function title(array $page, string $fallback): string
+    {
+        return is_string($page['title'] ?? null) && mb_trim($page['title']) !== ''
+            ? strip_tags(mb_trim($page['title']))
+            : $fallback;
+    }
+
+    /**
+     * The search-result summary. Optional on the way in: a provider that
+     * drops it (prompt-enforced structured output does) still yields a usable
+     * draft — the page then falls back to the business tagline at render time.
+     *
+     * @param  array<array-key, mixed>  $page
+     */
+    private function metaDescription(array $page): ?string
+    {
+        if (! is_string($page['meta_description'] ?? null)) {
+            return null;
+        }
+
+        $description = mb_trim(strip_tags($page['meta_description']));
+
+        return $description === '' ? null : mb_substr($description, 0, self::MAX_META_DESCRIPTION);
+    }
+
+    /**
+     * @param  array<array-key, mixed>  $draft
+     */
+    private function preset(array $draft): StylePreset
+    {
+        $preset = is_string($draft['preset'] ?? null) ? StylePreset::tryFrom($draft['preset']) : null;
+
+        if ($preset === null) {
+            Log::warning('site_draft.preset_fallback', ['stored' => $draft['preset'] ?? null]);
+
+            return StylePreset::cases()[0];
+        }
+
+        return $preset;
     }
 
     /**

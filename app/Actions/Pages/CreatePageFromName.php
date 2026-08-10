@@ -39,12 +39,15 @@ final readonly class CreatePageFromName
      * @param  list<array{type: string, data: array<string, mixed>}>  $blocks  what the
      *                                                                         page starts with. Empty for the canvas's right-click gesture, which
      *                                                                         wants a blank page; the assistant passes a section skeleton
-     *                                                                         ({@see \App\Ai\Tools\CreatePage}). Taking it here rather than letting
+     *                                                                         ({@see \App\Ai\Tools\CreatePage}) and the page-preset picker a curated
+     *                                                                         one ({@see CreatePresetPage}). Taking it here rather than letting
      *                                                                         the caller create-then-update keeps it to one INSERT and leaves no
      *                                                                         window in which a half-built page exists — the same reason
      *                                                                         {@see DuplicatePage} takes its blocks as an argument.
+     * @param  string|null  $seoDescription  a starting search snippet; null leaves the
+     *                                       column at its default, so existing callers are untouched
      */
-    public function handle(string $title, array $blocks = []): Page
+    public function handle(string $title, array $blocks = [], ?string $seoDescription = null): Page
     {
         $title = mb_trim($title);
 
@@ -59,6 +62,7 @@ final readonly class CreatePageFromName
                     'parent_id' => null,
                     'blocks' => $blocks,
                     'status' => PageStatus::Draft,
+                    ...($seoDescription === null ? [] : ['seo_description' => $seoDescription]),
                 ]);
             } catch (UniqueConstraintViolationException $exception) {
                 throw_if($attempt >= self::MAX_ATTEMPTS, $exception);

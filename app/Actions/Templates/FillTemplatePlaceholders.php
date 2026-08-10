@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Actions\Templates;
 
 use App\Enums\ChromeSlot;
+use App\Templates\PlaceholderSubstitution;
 use App\Templates\TemplateDefinition;
 use App\Templates\TemplateField;
 
@@ -50,10 +51,10 @@ final readonly class FillTemplatePlaceholders
         $values = $this->values($definition, $answers);
 
         /** @var non-empty-list<array<string, mixed>> $pages */
-        $pages = $this->fill($definition->pages, $values);
+        $pages = PlaceholderSubstitution::fill($definition->pages, $values);
 
         /** @var list<array{type: string, data: array<string, mixed>}> $chrome */
-        $chrome = $this->fill($definition->chrome, $values);
+        $chrome = PlaceholderSubstitution::fill($definition->chrome, $values);
 
         return [
             'pages' => $pages,
@@ -76,12 +77,8 @@ final readonly class FillTemplatePlaceholders
 
     /**
      * The substitution map: `{token} => replacement`, already resolved against
-     * the fallbacks, so {@see fill()} is a plain `strtr` with no decisions in
-     * it.
-     *
-     * `strtr` rather than a loop of `str_replace` on purpose: it is
-     * single-pass, so an answer that itself contains braces (someone types
-     * `{city}` into the city field) is never re-substituted.
+     * the fallbacks, so {@see PlaceholderSubstitution::fill()} is a plain
+     * `strtr` with no decisions in it.
      *
      * @param  array<string, string>  $answers
      * @return array<string, string>
@@ -110,23 +107,5 @@ final readonly class FillTemplatePlaceholders
         }
 
         return $values;
-    }
-
-    /**
-     * @param  array<array-key, mixed>  $node
-     * @param  array<string, string>  $values
-     * @return array<array-key, mixed>
-     */
-    private function fill(array $node, array $values): array
-    {
-        foreach ($node as $key => $value) {
-            if (is_string($value)) {
-                $node[$key] = strtr($value, $values);
-            } elseif (is_array($value)) {
-                $node[$key] = $this->fill($value, $values);
-            }
-        }
-
-        return $node;
     }
 }

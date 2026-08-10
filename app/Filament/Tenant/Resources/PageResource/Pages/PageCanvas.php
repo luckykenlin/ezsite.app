@@ -4,18 +4,17 @@ declare(strict_types=1);
 
 namespace App\Filament\Tenant\Resources\PageResource\Pages;
 
-use App\Actions\Pages\CreatePageFromName;
+use App\Actions\Pages\CachePageEditorPreview;
 use App\Actions\Pages\DuplicatePage;
 use App\Actions\Pages\PublishPage;
 use App\Filament\Tenant\Resources\PageResource;
+use App\Filament\Tenant\Resources\PageResource\Actions\NewPageAction;
 use App\Models\Page as PageModel;
 use App\Site\Blocks\BlockVocabulary;
 use Filament\Actions\Action;
-use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Page;
 use Filament\Support\Enums\Width;
-use Filament\Support\Icons\Heroicon;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
@@ -51,9 +50,53 @@ final class PageCanvas extends Page
     /** How many block icons a card shows before it summarises the rest. */
     private const int ICON_STRIP_LIMIT = 6;
 
+    /**
+     * The preview-cache token behind the "New page" picker's thumbnails —
+     * the same mechanism as {@see PageEditor}'s canvas, minted per visit and
+     * resolvable only inside this tenant's cache prefix.
+     */
+    public string $previewToken = '';
+
     protected static string $resource = PageResource::class;
 
     protected string $view = 'filament.tenant.pages.page-canvas';
+
+    public function mount(): void
+    {
+        $this->previewToken = Str::random(40);
+        $this->cachePreviewPayload();
+    }
+
+    /**
+     * Publish the minimal payload the preview route's shape gate requires.
+     * No blocks and no design draft: the preset thumbnails render whole
+     * documents of their own, and a null `design_tokens` means the sample
+     * layout paints the SAVED theme — exactly what a picker should show.
+     *
+     * Public because {@see NewPageAction} re-puts it when its modal mounts,
+     * covering a canvas tab left open past the cache's two-hour TTL.
+     */
+    public function cachePreviewPayload(): void
+    {
+        resolve(CachePageEditorPreview::class)->handle(
+            (new PageModel)->forceFill([
+                'id' => 0,
+                'title' => '',
+                'layout' => FilamentFabricator::getDefaultLayoutName(),
+            ]),
+            [],
+            $this->previewToken,
+        );
+    }
+
+    /**
+     * Drop the memoized card list so the next render re-queries — the hook
+     * every page-mutating action calls after it writes.
+     */
+    public function forgetCards(): void
+    {
+        unset($this->cards);
+    }
 
     public function getTitle(): string
     {
@@ -115,33 +158,14 @@ final class PageCanvas extends Page
     }
 
     /**
-     * Right-click on empty canvas. Asks for a name and nothing else — the
-     * slug, layout, parent and draft status are all inferred
-     * ({@see CreatePageFromName}). The new page's id goes back to the browser
-     * so the card can be placed where the click landed; the server never sees
-     * a coordinate.
+     * The header button and the right-click-on-empty-canvas verb, extracted to
+     * {@see NewPageAction} when it grew the preset picker. The new page's id
+     * goes back to the browser so the card can be placed where the click
+     * landed; the server never sees a coordinate.
      */
     public function newPageAction(): Action
     {
-        return Action::make('newPage')
-            ->label(__('New page'))
-            ->icon(Heroicon::OutlinedPlus)
-            ->modalWidth(Width::Medium)
-            ->modalSubmitActionLabel(__('Create page'))
-            ->schema([
-                TextInput::make('title')
-                    ->label(__('Page name'))
-                    ->required()
-                    ->autofocus()
-                    ->helperText(__('The web address is generated from the name.')),
-            ])
-            ->action(function (array $data): void {
-                $page = resolve(CreatePageFromName::class)->handle(Arr::string($data, 'title'));
-
-                unset($this->cards);
-
-                $this->dispatch('page-canvas:page-created', id: (int) $page->id);
-            });
+        return NewPageAction::make($this);
     }
 
     /**

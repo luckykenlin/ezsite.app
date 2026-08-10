@@ -2,11 +2,13 @@
 
 declare(strict_types=1);
 
+use App\Actions\Pages\CachePageEditorPreview;
 use App\Enums\PageStatus;
 use App\Filament\Tenant\Resources\PageResource;
 use App\Filament\Tenant\Resources\PageResource\Pages\PageCanvas;
 use App\Models\Page;
 use Filament\Actions\Testing\TestAction;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 
@@ -88,9 +90,9 @@ test('a draft card is marked as one', function (): void {
     expect(Livewire::test(PageCanvas::class)->instance()->cards()[0]['isDraft'])->toBeTrue();
 });
 
-test('creating a page asks for a name and nothing else', function (): void {
+test('creating a blank page asks for a name and nothing else', function (): void {
     Livewire::test(PageCanvas::class)
-        ->callAction(TestAction::make('newPage'), ['title' => 'Our Services'])
+        ->callAction(TestAction::make('newPage'), ['preset' => 'blank', 'title' => 'Our Services'])
         ->assertHasNoFormErrors()
         ->assertDispatched('page-canvas:page-created');
 
@@ -103,12 +105,56 @@ test('creating a page asks for a name and nothing else', function (): void {
         ->and($page->blocks)->toBeEmpty();
 });
 
-test('creating a page requires a name', function (): void {
+test('a blank page with no name lands as an untitled draft', function (): void {
+    // The title went optional when the preset picker arrived: picking a
+    // layout and pressing Create is the one-click path, and Blank keeps the
+    // same contract rather than being the one card that argues.
     Livewire::test(PageCanvas::class)
         ->callAction(TestAction::make('newPage'), ['title' => null])
-        ->assertHasFormErrors(['title' => 'required']);
+        ->assertHasNoFormErrors()
+        ->assertDispatched('page-canvas:page-created');
+
+    expect(Page::query()->firstOrFail()->title)->toBe('Untitled page');
+});
+
+test('creating a page from a preset seeds its designed blocks', function (): void {
+    Livewire::test(PageCanvas::class)
+        ->callAction(TestAction::make('newPage'), ['preset' => 'about', 'title' => null])
+        ->assertHasNoFormErrors()
+        ->assertDispatched('page-canvas:page-created');
+
+    $page = Page::query()->where('slug', 'about')->firstOrFail();
+
+    expect($page->title)->toBe('About')
+        ->and($page->status)->toBe(PageStatus::Draft)
+        ->and(array_column($page->blocks, 'type'))->toContain('hero', 'prose', 'team');
+});
+
+test('an unknown preset is rejected, not silently blanked', function (): void {
+    Livewire::test(PageCanvas::class)
+        ->callAction(TestAction::make('newPage'), ['preset' => 'moodboard', 'title' => null])
+        ->assertHasFormErrors(['preset']);
 
     expect(Page::query()->count())->toBe(0);
+});
+
+test('the canvas mints a preview token and caches a payload for the picker thumbnails', function (): void {
+    $canvas = Livewire::test(PageCanvas::class)->instance();
+
+    expect($canvas->previewToken)->not->toBeEmpty()
+        ->and(Cache::get(CachePageEditorPreview::key($canvas->previewToken)))->toBeArray();
+});
+
+test('the new page modal mounts with Blank pre-selected and a live payload behind it', function (): void {
+    // The modal's markup renders client-side, so the card grid itself is the
+    // browser suite's job (PageCanvasViewTest); this pins the server half:
+    // Blank as the default — pressing Create straight away reproduces the old
+    // blank-page gesture — and a re-put preview payload for the thumbnails.
+    $component = Livewire::test(PageCanvas::class)->mountAction('newPage');
+
+    $component->assertSchemaStateSet(['preset' => 'blank']);
+
+    expect(Cache::get(CachePageEditorPreview::key($component->instance()->previewToken)))->toBeArray();
 });
 
 test('the new card appears on the canvas straight away', function (): void {
