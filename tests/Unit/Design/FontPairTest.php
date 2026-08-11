@@ -96,8 +96,8 @@ it('bundles nothing no pair can select', function (): void {
  *
  * TypeStyle::Serene sets its display at 300 and every other style sits at 500
  * or above, because a browser snaps a missing weight to the nearest bundled one
- * — a forgiving failure for most type, and a total one for a hairline serif at
- * 6rem. So a light-display style may only ship inside a preset whose heading
+ * — a forgiving failure for most type, and a total one for a high-contrast
+ * serif at 6rem. So a light-display style may only ship inside a preset whose heading
  * face is drawn for it AND actually bundles the weight.
  */
 it('only pairs a light display weight with a face drawn and bundled for it', function (StylePreset $preset): void {
@@ -116,6 +116,6 @@ it('draws exactly one face finely enough to whisper', function (): void {
     // so the one face that carries it should be named where a reader can argue
     // with the choice.
     expect(array_values(array_filter(FontPair::cases(), fn (FontPair $pair): bool => $pair->supportsLightDisplay())))
-        ->toBe([FontPair::DelicateSerif])
+        ->toBe([FontPair::WarmEditorial])
         ->and(TypeStyle::Serene->variables()['--type-display-weight'])->toBe('300');
 });

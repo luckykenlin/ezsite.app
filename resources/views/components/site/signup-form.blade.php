@@ -15,7 +15,7 @@
     'page',
     'fields' => null,
     'buttonLabel' => null,
-    'buttonClass' => 'btn btn-primary',
+    'buttonClass' => 'site-btn site-btn-primary',
     'successMessage' => null,
     'finePrint' => null,
 ])

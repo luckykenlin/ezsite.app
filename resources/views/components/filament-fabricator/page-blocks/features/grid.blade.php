@@ -16,7 +16,7 @@
     <div class="{{ $layout->container() }}">
         <x-site.section-header :layout="$layout" :heading="$heading" :intro="$intro" />
 
-        <div class="mt-12 grid gap-8 {{ $layout->grid() }}">
+        <div class="{{ $layout->headerGap() }} grid gap-8 {{ $layout->grid() }}">
             @foreach ($items as $item)
                 @continue(! is_array($item))
                 @php
@@ -39,23 +39,20 @@
                             />
                         </figure>
                     @endif
-                    <div @class(['card-body' => $layout->isCard(), 'mt-4' => ! $layout->isCard() && $image])>
-                        {{-- The glyph is a stand-in for imagery; with a real
-                             photo above it, it is just noise. --}}
-                        @if (($item['icon'] ?? null) && ! $image)
-                            <span
-                                class="rounded-selector bg-primary/10 flex size-12 items-center justify-center text-2xl"
-                                aria-hidden="true"
-                            >{{ $item['icon'] }}</span>
-                        @endif
+                    <div @class(['site-card-body' => $layout->isCard(), 'mt-4' => ! $layout->isCard() && $image])>
+                        {{-- A rule rather than the emoji-in-a-tinted-square
+                             this used to render: it marks the item without
+                             claiming anything the copy does not, and it is
+                             drawn from the tenant's palette. Only when there is
+                             no photograph — above one it is just noise. --}}
+                        @unless ($image)
+                            <span class="site-item-rule" aria-hidden="true"></span>
+                        @endunless
                         {{-- Annotated by POSITION: the editor translates that
                              into whatever the draft keys this item by (Filament
                              uses a uuid), which is what makes a repeater item
                              double-click editable on the canvas. --}}
-                        <h3
-                            data-editor-field="features.{{ $loop->index }}.title"
-                            @class(['card-title' => $layout->isCard(), 'text-lg font-semibold' => ! $layout->isCard()])
-                        >
+                        <h3 data-editor-field="features.{{ $loop->index }}.title" class="site-h5">
                             {{-- One link, labelled by the title, stretched over
                                  the whole card by the ::after overlay. Wrapping
                                  the card in an <a> instead would swallow the
@@ -71,7 +68,7 @@
                             @endif
                         </h3>
                         @if ($item['description'] ?? null)
-                            <p data-editor-field="features.{{ $loop->index }}.description" class="text-base-content/70">
+                            <p data-editor-field="features.{{ $loop->index }}.description" class="site-dim">
                                 {{ $item['description'] }}
                             </p>
                         @endif

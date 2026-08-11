@@ -117,7 +117,7 @@ it('flags a bound block so the model only writes its narrative fields', function
         ['key' => 'k1', 'type' => 'contact', 'data' => ['heading' => 'Visit us']],
     ]));
 
-    expect($prompt)->toContain('fields: heading, intro, show_form, success_message')
+    expect($prompt)->toContain('fields: heading, intro, show_hours, show_form, success_message')
         ->toContain('shows live location details automatically');
 });
 

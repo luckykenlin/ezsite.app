@@ -142,6 +142,11 @@ final readonly class NailSalon
                     'cta_url' => '/services',
                     'image_query' => 'nail salon interior dark',
                 ]],
+                ['type' => 'visit', 'data' => [
+                    'heading' => 'The room today',
+                    'intro' => 'Six chairs, by appointment. Call for a cancellation — they come up more often than you would think.',
+                    'show_hours' => true,
+                ]],
                 ['type' => 'gallery', 'variant' => 'masonry', 'tone' => 'base', 'spacing' => 'tight', 'data' => [
                     'heading' => 'Recent sets',
                     'images' => [

@@ -140,6 +140,11 @@ final readonly class PersonalResume
                     'cta_label' => 'Get in touch',
                     'cta_url' => '/contact',
                 ]],
+                ['type' => 'visit', 'data' => [
+                    'heading' => 'Where I work',
+                    'intro' => 'Based here, available remotely. The quickest way to reach me is the number below.',
+                    'show_hours' => true,
+                ]],
                 ['type' => 'steps', 'variant' => 'timeline', 'data' => [
                     'heading' => 'Where I have worked',
                     'intro' => 'Most recent first. The short version — ask me about any of it.',
@@ -156,13 +161,13 @@ final readonly class PersonalResume
                         ['text' => 'Beyond that: I write things down, I prefer the boring solution, and I would rather ship something small this week than something complete next quarter.'],
                     ],
                 ]],
-                ['type' => 'features', 'variant' => 'icon-rows', 'tone' => 'muted', 'data' => [
+                ['type' => 'features', 'variant' => 'rows', 'tone' => 'muted', 'data' => [
                     'heading' => 'What I am useful for',
                     'intro' => 'Three things I have done enough times to be genuinely quick at.',
                     'features' => [
-                        ['icon' => '01', 'title' => 'Systems that survive being popular', 'description' => 'Taking something that works for one team and making it work for ten, without a rewrite and without a heroics-based on-call rotation.'],
-                        ['icon' => '02', 'title' => 'Untangling what already exists', 'description' => 'Reading an unfamiliar codebase, finding where the real problem lives, and proposing the smallest change that fixes it.'],
-                        ['icon' => '03', 'title' => 'Being the person who writes it down', 'description' => 'Design docs, runbooks and postmortems that people actually read, because they are short and they answer the question that was asked.'],
+                        ['title' => 'Systems that survive being popular', 'description' => 'Taking something that works for one team and making it work for ten, without a rewrite and without a heroics-based on-call rotation.'],
+                        ['title' => 'Untangling what already exists', 'description' => 'Reading an unfamiliar codebase, finding where the real problem lives, and proposing the smallest change that fixes it.'],
+                        ['title' => 'Being the person who writes it down', 'description' => 'Design docs, runbooks and postmortems that people actually read, because they are short and they answer the question that was asked.'],
                     ],
                 ]],
                 ['type' => 'cta', 'variant' => 'banner', 'data' => [

@@ -22,8 +22,8 @@
     <div class="{{ $layout->container() }}">
         <div @class([
             $layout->item(),
-            'card-body items-center gap-4 py-12' => $card && $centered,
-            'card-body gap-4 py-12' => $card && ! $centered,
+            'site-card-body items-center gap-4 py-12' => $card && $centered,
+            'site-card-body gap-4 py-12' => $card && ! $centered,
             'flex flex-col' => ! $card,
             'items-center text-center' => ! $card && $centered,
         ])>
@@ -62,7 +62,7 @@
                          contrast with the band, which is the tone's call. --}}
                     <a
                         href="{{ $cta_url }}"
-                        class="{{ $card ? 'btn btn-primary' : $layout->button() }}"
+                        class="{{ $card ? 'site-btn site-btn-primary' : $layout->button() }}"
                     >{{ $cta_label }}</a>
                 @endif
                 @if ($secondary_label && $secondary_url)

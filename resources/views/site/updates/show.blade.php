@@ -42,7 +42,7 @@
             @endif
 
             @foreach ($paragraphs as $paragraph)
-                <p class="text-base-content/80 mt-6">{{ $paragraph }}</p>
+                <p class="site-dim-strong mt-6">{{ $paragraph }}</p>
             @endforeach
 
             @if ($post->kind->isOffer() && (filled($post->offer_coupon_code) || filled($post->offer_terms)))
@@ -56,14 +56,14 @@
                     @endif
 
                     @if (filled($post->offer_terms))
-                        <p class="text-base-content/60 mt-2 text-sm">{{ $post->offer_terms }}</p>
+                        <p class="site-dim-soft mt-2 text-sm">{{ $post->offer_terms }}</p>
                     @endif
                 </div>
             @endif
 
             <div class="mt-10">
                 @if ($expired)
-                    <p class="text-base-content/60">
+                    <p class="site-dim-soft">
                         {{
                             __('This :kind ended on :date.', [
                                 'kind' => mb_strtolower($post->kind->getLabel()),
@@ -74,12 +74,12 @@
                 @elseif ($post->cta_action !== null)
                     <a
                         href="{{ $post->ctaHref($business) }}"
-                        class="btn btn-primary"
+                        class="site-btn site-btn-primary"
                     >{{ $post->cta_action->getLabel() }}</a>
                 @endif
             </div>
 
-            <p class="mt-12">
+            <p class="mt-14">
                 <a href="{{ route('updates.index') }}" class="site-link-cta">{{ __('All updates') }}</a>
             </p>
         </article>

@@ -20,7 +20,7 @@
         @if ($item)
             {{-- The hung quote mark comes from .site-quote; centred here, it
                  doubles as the variant's only ornament. --}}
-            <figure @class(['mt-12' => (bool) $heading])>
+            <figure @class([$layout->headerGap() => (bool) $heading])>
                 {{-- Always item 0: this layout spotlights the first quote. --}}
                 <blockquote data-editor-field="testimonials.0.quote" class="site-quote site-h3">
                     {{ $item['quote'] ?? '' }}
@@ -44,7 +44,7 @@
                         @if ($item['role'] ?? null)
                             <span
                                 data-editor-field="testimonials.0.role"
-                                class="text-base-content/60 block text-sm"
+                                class="site-dim-soft block text-sm"
                             >{{ $item['role'] }}</span>
                         @endif
                     </div>

@@ -15,12 +15,12 @@
 
         {{-- The snap scroller is this variant's structure — the columns axis
              deliberately does not reach it. --}}
-        <div class="carousel mt-12 w-full gap-6">
+        <div class="carousel {{ $layout->headerGap() }} w-full gap-6">
             @foreach ($items as $item)
                 @continue(! is_array($item))
                 <figure class="carousel-item w-full sm:w-96">
                     <div class="w-full {{ $layout->item() }}">
-                        <div @class(['card-body' => $layout->isCard()])>
+                        <div @class(['site-card-body' => $layout->isCard()])>
                             <blockquote
                                 data-editor-field="testimonials.{{ $loop->index }}.quote"
                                 class="site-quote text-lg leading-relaxed"
@@ -43,7 +43,7 @@
                                     @if ($item['role'] ?? null)
                                         <span
                                             data-editor-field="testimonials.{{ $loop->index }}.role"
-                                            class="text-base-content/60 block text-sm"
+                                            class="site-dim-soft block text-sm"
                                         >{{ $item['role'] }}</span>
                                     @endif
                                 </div>

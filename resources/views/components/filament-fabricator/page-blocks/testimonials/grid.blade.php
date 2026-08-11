@@ -13,11 +13,11 @@
     <div class="{{ $layout->container() }}">
         <x-site.section-header :layout="$layout" :heading="$heading" />
 
-        <div class="mt-12 grid gap-8 {{ $layout->grid() }}">
+        <div class="{{ $layout->headerGap() }} grid gap-8 {{ $layout->grid() }}">
             @foreach ($items as $item)
                 @continue(! is_array($item))
                 <figure class="{{ $layout->item() }}">
-                    <div @class(['card-body' => $layout->isCard()])>
+                    <div @class(['site-card-body' => $layout->isCard()])>
                         <blockquote
                             data-editor-field="testimonials.{{ $loop->index }}.quote"
                             class="site-quote text-lg leading-relaxed"
@@ -40,7 +40,7 @@
                                 @if ($item['role'] ?? null)
                                     <span
                                         data-editor-field="testimonials.{{ $loop->index }}.role"
-                                        class="text-base-content/60 block text-sm"
+                                        class="site-dim-soft block text-sm"
                                     >{{ $item['role'] }}</span>
                                 @endif
                             </div>

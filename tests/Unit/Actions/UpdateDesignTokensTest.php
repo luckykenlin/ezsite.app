@@ -33,7 +33,7 @@ it('merges partial changes and detaches the preset', function (): void {
 
     expect($tokens->palette)->toBe(ColorPalette::Ocean)
         ->and($tokens->radius)->toBe(RadiusScale::None)
-        ->and($tokens->fontPair)->toBe(FontPair::ElegantSerif) // untouched (WarmCraft)
+        ->and($tokens->fontPair)->toBe(FontPair::WarmEditorial) // untouched (WarmCraft)
         ->and($tokens->density)->toBe(SpacingDensity::Spacious) // untouched (WarmCraft)
         ->and($tokens->preset)->toBeNull();
 });

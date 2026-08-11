@@ -24,9 +24,7 @@
         <h1 data-editor-field="heading" class="site-display">{{ $heading }}</h1>
 
         @if ($subheading)
-            <p data-editor-field="subheading" class="site-intro text-base-content/70 mt-6 max-w-2xl">
-                {{ $subheading }}
-            </p>
+            <p data-editor-field="subheading" class="site-intro site-dim mt-6 max-w-2xl">{{ $subheading }}</p>
         @endif
 
         @if ($cta_label && $cta_url)

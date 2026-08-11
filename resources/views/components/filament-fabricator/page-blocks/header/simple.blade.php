@@ -6,30 +6,51 @@
     'business' => null,
 ])
 @php
-    $links = is_array($nav_links) ? $nav_links : [];
+    $links = array_values(array_filter(
+        is_array($nav_links) ? $nav_links : [],
+        static fn (mixed $link): bool => is_array($link) && ($link['label'] ?? null) && ($link['url'] ?? null),
+    ));
 @endphp
-<header class="border-base-300 bg-base-100 text-base-content border-b">
-    <div class="navbar mx-auto max-w-7xl px-6">
-        <div class="navbar-start">
-            <a href="/" class="flex items-center gap-3">
-                @if ($business->logoUrl())
-                    <img src="{{ $business->logoUrl() }}" alt="{{ $business->name }}" class="h-8 w-auto" />
-                @endif
-                <span class="font-heading text-lg font-bold">{{ $business->name }}</span>
-            </a>
-        </div>
-        <nav class="navbar-end flex-wrap gap-1">
+{{-- `relative` is load-bearing: the small-screen panel is absolutely
+     positioned against this element so it spans the header's full width. --}}
+<header class="border-base-300 bg-base-100 text-base-content relative border-b">
+    <div class="site-nav mx-auto max-w-7xl px-6">
+        <a href="/" class="site-wordmark">
+            @if ($business->logoUrl())
+                <img src="{{ $business->logoUrl() }}" alt="{{ $business->name }}" class="h-8 w-auto" />
+            @endif
+            <span>{{ $business->name }}</span>
+        </a>
+
+        <nav class="site-nav-links max-md:hidden" aria-label="{{ __('Main') }}">
             @foreach ($links as $link)
-                @continue(! is_array($link) || ! ($link['label'] ?? null) || ! ($link['url'] ?? null))
-                <a
-                    href="{{ $link['url'] }}"
-                    class="px-3 py-2 text-sm font-medium underline-offset-8 opacity-75 transition hover:underline hover:opacity-100"
-                >{{ $link['label'] }}</a>
+                <a href="{{ $link['url'] }}" class="site-nav-link">{{ $link['label'] }}</a>
             @endforeach
 
             @if ($cta_label && $cta_url)
-                <a href="{{ $cta_url }}" class="btn btn-primary btn-sm ml-2">{{ $cta_label }}</a>
+                <a href="{{ $cta_url }}" class="site-btn site-btn-primary site-btn-sm">{{ $cta_label }}</a>
             @endif
         </nav>
+
+        {{-- The same links again for small screens. Only ever one of the two
+             copies is rendered — the other is `display: none`, so it leaves
+             the accessibility tree with it. --}}
+        @if ($links !== [] || ($cta_label && $cta_url))
+            <details class="site-nav-drawer md:hidden" data-site-nav>
+                <summary class="site-nav-toggle" aria-label="{{ __('Menu') }}">
+                    <span class="site-nav-bars" aria-hidden="true"></span>
+                </summary>
+
+                <nav class="site-nav-panel" aria-label="{{ __('Main') }}">
+                    @foreach ($links as $link)
+                        <a href="{{ $link['url'] }}">{{ $link['label'] }}</a>
+                    @endforeach
+
+                    @if ($cta_label && $cta_url)
+                        <a href="{{ $cta_url }}" class="site-btn site-btn-primary">{{ $cta_label }}</a>
+                    @endif
+                </nav>
+            </details>
+        @endif
     </div>
 </header>

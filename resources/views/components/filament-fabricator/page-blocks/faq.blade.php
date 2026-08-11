@@ -39,7 +39,7 @@
                     @if (is_string($answer) && mb_trim($answer) !== '')
                         <dd
                             data-editor-field="questions.{{ $loop->index }}.answer"
-                            class="text-base-content/70 mt-2 leading-relaxed"
+                            class="site-dim mt-2 leading-relaxed"
                         >
                             {{ $answer }}
                         </dd>

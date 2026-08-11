@@ -16,7 +16,7 @@ it('defaults to the neutral token set with no preset', function (): void {
 
     expect($tokens->preset)->toBeNull()
         ->and($tokens->palette)->toBe(ColorPalette::Default)
-        ->and($tokens->fontPair)->toBe(FontPair::ModernSans)
+        ->and($tokens->fontPair)->toBe(FontPair::NeoGrotesque)
         ->and($tokens->typeStyle)->toBe(TypeStyle::Classic)
         ->and($tokens->radius)->toBe(RadiusScale::Md)
         ->and($tokens->density)->toBe(SpacingDensity::Normal);
@@ -29,7 +29,7 @@ it('round-trips through toArray and fromArray', function (): void {
         ->and($tokens->toArray())->toBe([
             'preset' => 'calm-coastal',
             'palette' => 'ocean',
-            'font_pair' => 'modern-sans',
+            'font_pair' => 'quiet-serif',
             'type_style' => 'refined',
             'radius' => 'lg',
             'density' => 'spacious',
@@ -48,7 +48,7 @@ it('silently falls back to defaults for unknown or missing stored values', funct
 
     expect($tokens->preset)->toBeNull()
         ->and($tokens->palette)->toBe(ColorPalette::Default)
-        ->and($tokens->fontPair)->toBe(FontPair::ModernSans)
+        ->and($tokens->fontPair)->toBe(FontPair::NeoGrotesque)
         ->and($tokens->typeStyle)->toBe(TypeStyle::Classic)
         ->and($tokens->radius)->toBe(RadiusScale::Md)
         ->and($tokens->density)->toBe(SpacingDensity::Normal);
@@ -61,7 +61,7 @@ it('replaces only the given tokens and detaches the preset on manual overrides',
         ->and($tokens->radius)->toBe(RadiusScale::None)
         ->and($tokens->typeStyle)->toBe(TypeStyle::Impact)
         ->and($tokens->palette)->toBe(ColorPalette::WarmSand)
-        ->and($tokens->fontPair)->toBe(FontPair::ElegantSerif)
+        ->and($tokens->fontPair)->toBe(FontPair::WarmEditorial)
         ->and($tokens->density)->toBe(SpacingDensity::Spacious);
 });
 
@@ -71,7 +71,7 @@ it('replaces one token addressed by its key, leaving the rest alone', function (
     expect($tokens->preset)->toBeNull()
         ->and($tokens->radius)->toBe(RadiusScale::None)
         ->and($tokens->palette)->toBe(ColorPalette::WarmSand)
-        ->and($tokens->fontPair)->toBe(FontPair::ElegantSerif);
+        ->and($tokens->fontPair)->toBe(FontPair::WarmEditorial);
 });
 
 it('falls back to the token default when the value does not belong to the key', function (): void {

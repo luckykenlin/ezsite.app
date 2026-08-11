@@ -46,12 +46,15 @@
 @source '../views/components/central/**/*.blade.php';
 
 @theme {
+    /* The NeoGrotesque pair's two families (App\Design\FontPair), which is
+       also DesignTokens' default — so a site that has never been restyled
+       gets the same faces here as it does from the per-tenant tag. */
     --font-sans:
-        'Instrument Sans', ui-sans-serif, system-ui, sans-serif,
+        'Public Sans', ui-sans-serif, system-ui, sans-serif,
         'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
         'Noto Color Emoji';
     --font-heading:
-        'Instrument Sans', ui-sans-serif, system-ui, sans-serif,
+        'Schibsted Grotesk', ui-sans-serif, system-ui, sans-serif,
         'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
         'Noto Color Emoji';
 }
@@ -69,6 +72,21 @@
     h5,
     h6 {
         font-family: var(--font-heading);
+    }
+
+    /*
+     * Body copy gets a step on a laptop and up.
+     *
+     * 16px is a phone size. Read across a 1024px measure on a 1440px screen it
+     * is what made every generated page look like a small document floating in
+     * a large window — the single most common note on the old output. Absolute
+     * `rem`, so Tailwind's own `text-sm`/`text-xs` utilities are unaffected and
+     * only inherited copy moves.
+     */
+    @media (width >= 64rem) {
+        body {
+            font-size: 1.0625rem;
+        }
     }
 }
 
@@ -338,11 +356,26 @@
      */
 
     /*
-     * Card chrome. Applied by SectionItemStyle::Card (the enum, never a
-     * view — arch-tested) on top of the tone-picked surface: a
-     * currentColor hairline reads dark-on-light and light-on-dark without
-     * per-tone variants, and the hover lift is gated to real pointers.
+     * Card chrome. Applied by SectionItemStyle (the enum, never a view —
+     * arch-tested); ::Card composes `.site-card` with the tone-picked
+     * surface, ::Outline uses `.site-card-outline` and paints none.
+     *
+     * The shape used to come from DaisyUI's `.card`, which is no longer
+     * emitted — see the chrome layer below for why — so it lives here now.
+     * Deliberately NO `overflow: hidden`, which `.card` did set: pricing
+     * hangs its "Recommended" tag astride the top edge, and clipping it was
+     * only ever avoided by accident. Item images round themselves instead.
      */
+    .site-card,
+    .site-card-outline {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        border-radius: var(--radius-box, 0.5rem);
+    }
+
+    /* A currentColor hairline reads dark-on-light and light-on-dark without
+       per-tone variants, and the hover lift is gated to real pointers. */
     .site-card {
         border: 1px solid color-mix(in oklch, currentcolor 10%, transparent);
         box-shadow:
@@ -353,6 +386,19 @@
             box-shadow 0.2s ease;
     }
 
+    .site-card-outline {
+        border: 1px solid var(--color-base-300);
+    }
+
+    /* The leading image inherits the card's own corner, which is what
+       `overflow: hidden` on the card used to do for it. */
+    .site-card > figure:first-child,
+    .site-card-outline > figure:first-child {
+        overflow: hidden;
+        border-start-start-radius: inherit;
+        border-start-end-radius: inherit;
+    }
+
     @media (hover: hover) {
         .site-card:hover {
             translate: 0 -3px;
@@ -360,6 +406,674 @@
                 0 2px 4px oklch(0% 0 0 / 0.05),
                 0 16px 32px -16px oklch(0% 0 0 / 0.18);
         }
+    }
+
+    /*
+     * The chrome layer — button, link, tag, nav, footer, card interior.
+     *
+     * These replace the DaisyUI component classes the block views used to
+     * emit (`btn`, `card-body`, `card-title`, `navbar`, `footer`, `link`,
+     * `badge`, `table`). The plugin STAYS: it still owns the `--color-*` and
+     * `--radius-*` variables every ColorPalette and RadiusScale writes into,
+     * and it still styles the native form controls the lead form uses. What
+     * it no longer owns is the SILHOUETTE. The shape of a button and a card
+     * is the most recognisable thing on a page, and while it came out of a
+     * plugin every site this builder produced was legible at a glance as the
+     * same site — which is the one thing a website builder cannot afford.
+     *
+     * Same contract as the type classes above: every value derives from the
+     * tenant's tokens (--color-*, --radius-*, --type-*, --font-heading) or
+     * from currentColor, so one declaration holds across all eleven palettes
+     * and all five section tones.
+     */
+
+    /*
+     * The button, wider than it is tall by about two to one. A deliberate
+     * optical ratio rather than the symmetric padding a form control gets:
+     * on these sites the button is a destination — "Order online", "Book a
+     * table", "Call us" — not a widget. Radius comes from --radius-field, so
+     * RadiusScale::Full is the only thing that makes it a pill.
+     */
+    .site-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5em;
+        padding: 0.875rem 1.75rem;
+        border: 1px solid transparent;
+        border-radius: var(--radius-field, 0.25rem);
+        font-family: inherit;
+        font-size: 0.9375rem;
+        font-weight: 600;
+        line-height: 1;
+        letter-spacing: 0.01em;
+        text-align: center;
+        cursor: pointer;
+        transition:
+            background-color 0.18s ease,
+            border-color 0.18s ease,
+            translate 0.1s ease;
+    }
+
+    .site-btn:active {
+        translate: 0 1px;
+    }
+
+    .site-btn:focus-visible {
+        outline: 2px solid currentcolor;
+        outline-offset: 2px;
+    }
+
+    /* The compact cut, for the header's call to action — the one place a
+       full-size button outweighs the wordmark beside it. */
+    .site-btn-sm {
+        padding: 0.5625rem 1.125rem;
+        font-size: 0.875rem;
+    }
+
+    .site-btn-primary {
+        border-color: var(--color-primary);
+        background-color: var(--color-primary);
+        color: var(--color-primary-content);
+    }
+
+    /*
+     * Hover moves the fill TOWARD the button's own text colour rather than
+     * fading it. An opacity fade lets the band behind show through, which on
+     * the muted and inverted tones reads as the button breaking rather than
+     * as the button responding.
+     */
+    @media (hover: hover) {
+        .site-btn-primary:hover {
+            border-color: color-mix(
+                in oklch,
+                var(--color-primary) 86%,
+                var(--color-primary-content)
+            );
+            background-color: color-mix(
+                in oklch,
+                var(--color-primary) 86%,
+                var(--color-primary-content)
+            );
+        }
+    }
+
+    /*
+     * The secondary cut: a currentColor hairline and no fill, so it needs no
+     * per-tone variant — the same argument as `.site-card`'s border.
+     */
+    .site-btn-quiet {
+        border-color: color-mix(in oklch, currentcolor 28%, transparent);
+        color: inherit;
+    }
+
+    @media (hover: hover) {
+        .site-btn-quiet:hover {
+            border-color: color-mix(in oklch, currentcolor 45%, transparent);
+            background-color: color-mix(in oklch, currentcolor 8%, transparent);
+        }
+    }
+
+    /*
+     * The accent-band cut, and the whole reason SectionTone::buttonClasses()
+     * exists: on a section whose background IS the primary colour, a primary
+     * button is a rectangle of background carrying the copy's own text
+     * colour. Filling with the band's CONTENT colour is the one thing
+     * guaranteed to read against it on every palette — ColorPaletteTest
+     * enforces that gap — where a neutral fill vanishes on the two
+     * monochrome palettes, whose primary and neutral are both near-black.
+     */
+    .site-btn-on-accent {
+        border-color: var(--color-primary-content);
+        background-color: var(--color-primary-content);
+        color: var(--color-primary);
+    }
+
+    @media (hover: hover) {
+        .site-btn-on-accent:hover {
+            border-color: color-mix(
+                in oklch,
+                var(--color-primary-content) 86%,
+                var(--color-primary)
+            );
+            background-color: color-mix(
+                in oklch,
+                var(--color-primary-content) 86%,
+                var(--color-primary)
+            );
+        }
+    }
+
+    /* The dismiss affordance on the offer popup — a hit area, not a button
+       shape, so it carries none of the chrome above. */
+    .site-btn-close {
+        display: inline-flex;
+        width: 2.25rem;
+        height: 2.25rem;
+        align-items: center;
+        justify-content: center;
+        border-radius: var(--radius-selector, 0.25rem);
+        color: inherit;
+        cursor: pointer;
+        transition: background-color 0.18s ease;
+    }
+
+    @media (hover: hover) {
+        .site-btn-close:hover {
+            background-color: color-mix(
+                in oklch,
+                currentcolor 10%,
+                transparent
+            );
+        }
+    }
+
+    /*
+     * The card interior. `flex: auto` and the auto-margined action row are
+     * what keep a row of plan cards' buttons on one line when the copy above
+     * them runs to different lengths — DaisyUI's `card-actions` did not, and
+     * a ragged row of call-to-actions is the tell that nobody looked.
+     */
+    .site-card-body {
+        display: flex;
+        flex: auto;
+        flex-direction: column;
+        gap: 0.625rem;
+        padding: 1.5rem;
+    }
+
+    .site-card-actions {
+        display: flex;
+        margin-top: auto;
+        padding-top: 1.5rem;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+    }
+
+    /*
+     * A price, set as display type. Its own class rather than `.site-display`
+     * because a price never takes the responsive jump a headline does — three
+     * of them sit side by side — and because the menu in `offerings` needs
+     * exactly this treatment at a smaller size.
+     */
+    .site-price {
+        font-size: calc(2.25rem * var(--type-scale, 1));
+        line-height: 1;
+        font-weight: var(--type-display-weight, 700);
+        letter-spacing: var(--type-display-tracking, -0.025em);
+        font-variant-numeric: tabular-nums;
+    }
+
+    /*
+     * A text link that is not a call to action: no underline at rest, one
+     * that arrives on hover in a colour mixed out of currentColor, so it
+     * works on the dark tones without a variant.
+     */
+    .site-link {
+        text-decoration: underline;
+        text-decoration-color: transparent;
+        text-decoration-thickness: 1px;
+        text-underline-offset: 0.25em;
+        transition: text-decoration-color 0.18s ease;
+    }
+
+    @media (hover: hover) {
+        .site-link:hover {
+            text-decoration-color: color-mix(
+                in oklch,
+                currentcolor 55%,
+                transparent
+            );
+        }
+    }
+
+    /*
+     * The item mark, in place of the icon a features item used to carry.
+     *
+     * An emoji in a brand-tinted rounded square is the most recognisable tell
+     * of a generated website, and it renders as three different pictures
+     * across macOS, Windows and Android. A rule says the same amount — "a new
+     * item starts here" — claims nothing about what the item is, and is drawn
+     * from the tenant's own palette instead of from a vendor's glyph table.
+     */
+    .site-item-rule {
+        display: block;
+        width: 2.5rem;
+        height: 2px;
+        margin-bottom: 1rem;
+        background-color: var(--color-primary);
+    }
+
+    /* The leading variant sits beside the copy rather than above it, and holds
+       the width of the photo slot so rows with and without a picture still
+       line up. */
+    .site-item-rule-lead {
+        width: 3rem;
+        flex-shrink: 0;
+        margin-top: 0.75rem;
+        margin-bottom: 0;
+    }
+
+    /* Same clash as `.site-open-dot-on`: on the brand band the primary colour
+       is the background the rule is drawn on. */
+    .site-tone-accent .site-item-rule {
+        background-color: currentcolor;
+    }
+
+    /* A small standing label — "Recommended" on a plan, the kind of an
+       update. Brand-filled, so it is the loudest small thing on its card. */
+    .site-tag {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.3rem 0.6rem;
+        border-radius: var(--radius-selector, 0.25rem);
+        background-color: var(--color-primary);
+        color: var(--color-primary-content);
+        font-size: 0.6875rem;
+        font-weight: 600;
+        line-height: 1;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        white-space: nowrap;
+    }
+
+    /*
+     * The business name in the header and footer. It reads the heading font
+     * and the TypeStyle token's weight and tracking, which the literal
+     * `font-heading text-lg font-bold` it replaces did not — so a site on a
+     * didone or a hairline serif now says its own name in that face.
+     */
+    .site-wordmark {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.75rem;
+        font-family: var(--font-heading);
+        font-size: calc(1.125rem * var(--type-scale, 1));
+        font-weight: var(--type-heading-weight, 700);
+        letter-spacing: var(--type-heading-tracking, -0.025em);
+    }
+
+    /* The centred header gives the name a step more, because there it is the
+       only thing on its line. */
+    .site-wordmark-lg {
+        font-size: calc(1.375rem * var(--type-scale, 1));
+    }
+
+    .site-nav {
+        display: flex;
+        min-height: 4.5rem;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1.5rem;
+    }
+
+    .site-nav-links {
+        display: flex;
+        align-items: center;
+        gap: 1.75rem;
+    }
+
+    .site-nav-link {
+        position: relative;
+        padding-block: 0.5rem;
+        font-size: 0.9375rem;
+        font-weight: 500;
+        white-space: nowrap;
+    }
+
+    /*
+     * The underline grows from the leading edge rather than fading in: a
+     * gesture with a direction reads as drawn, where an opacity change reads
+     * as the default nobody chose. The current page keeps it drawn.
+     */
+    .site-nav-link::after {
+        content: '';
+        position: absolute;
+        inset-inline: 0;
+        bottom: 0.15rem;
+        height: 1px;
+        background-color: currentcolor;
+        scale: 0 1;
+        transform-origin: left;
+        transition: scale 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .site-nav-link[aria-current='page']::after {
+        scale: 1 1;
+    }
+
+    @media (hover: hover) {
+        .site-nav-link:hover::after {
+            scale: 1 1;
+        }
+    }
+
+    /*
+     * The small-screen menu, built on `<details>` so it opens with no
+     * JavaScript at all — resources/js/site/nav.ts only adds the manners
+     * (escape to close, close on outside click, aria-expanded). Every header
+     * variant used to render its links as a wrapping row, which on a phone
+     * piled them up beside the wordmark; that was the first thing most
+     * visitors to one of these sites ever saw.
+     *
+     * The links are in the DOM twice, once per breakpoint, and the hidden
+     * copy is `display: none` — so it leaves the accessibility tree too and
+     * a screen reader is never offered the same nav twice.
+     */
+    .site-nav,
+    .site-nav-stack,
+    .site-nav-drawer,
+    .site-nav-panel {
+        /* The panel paints the header's own surface, whatever tone the
+           variant chose, by inheriting it down this chain. */
+        background-color: inherit;
+    }
+
+    /* The centred variant's frame: wordmark over links rather than beside
+       them. On a phone it keeps the centred wordmark and moves the toggle to
+       the corner, so the variant still reads as itself at every width. */
+    .site-nav-stack {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1rem;
+        padding-block: 1.5rem;
+    }
+
+    .site-nav-toggle-corner {
+        position: absolute;
+        inset-inline-end: 0.75rem;
+        top: 0.75rem;
+    }
+
+    .site-nav-drawer {
+        /* Static, so the absolutely-positioned panel resolves against the
+           `<header>` and spans its full width rather than the toggle's. */
+        position: static;
+    }
+
+    .site-nav-toggle {
+        display: inline-flex;
+        width: 2.75rem;
+        height: 2.75rem;
+        align-items: center;
+        justify-content: center;
+        border-radius: var(--radius-selector, 0.25rem);
+        cursor: pointer;
+        list-style: none;
+    }
+
+    .site-nav-toggle::-webkit-details-marker {
+        display: none;
+    }
+
+    /* Three rules that fold into a cross on open. The middle bar is the
+       element; the other two are its pseudo-elements, offset either side. */
+    .site-nav-bars {
+        position: relative;
+    }
+
+    .site-nav-bars,
+    .site-nav-bars::before,
+    .site-nav-bars::after {
+        display: block;
+        width: 1.25rem;
+        height: 1.5px;
+        background-color: currentcolor;
+        transition:
+            translate 0.2s ease,
+            rotate 0.2s ease,
+            background-color 0.15s ease;
+    }
+
+    .site-nav-bars::before,
+    .site-nav-bars::after {
+        content: '';
+        position: absolute;
+        inset-inline-start: 0;
+    }
+
+    .site-nav-bars::before {
+        translate: 0 -0.375rem;
+    }
+
+    .site-nav-bars::after {
+        translate: 0 0.375rem;
+    }
+
+    [open] .site-nav-bars {
+        background-color: transparent;
+    }
+
+    [open] .site-nav-bars::before {
+        translate: 0;
+        rotate: 45deg;
+    }
+
+    [open] .site-nav-bars::after {
+        translate: 0;
+        rotate: -45deg;
+    }
+
+    .site-nav-panel {
+        position: absolute;
+        z-index: 30;
+        inset-inline: 0;
+        top: 100%;
+        display: flex;
+        flex-direction: column;
+        padding: 0.25rem 1.5rem 1.5rem;
+        border-bottom: 1px solid
+            color-mix(in oklch, currentcolor 12%, transparent);
+        box-shadow: 0 18px 32px -22px oklch(0% 0 0 / 0.35);
+    }
+
+    /* The call to action is an `<a>` too, so both rules exclude it — it keeps
+       the button's own padding and wants no rule above it. */
+    .site-nav-panel a:not(.site-btn) {
+        padding-block: 0.875rem;
+        font-size: 1.0625rem;
+        font-weight: 500;
+    }
+
+    .site-nav-panel a:not(.site-btn) + a:not(.site-btn) {
+        border-top: 1px solid color-mix(in oklch, currentcolor 8%, transparent);
+    }
+
+    .site-nav-panel .site-btn {
+        margin-top: 1rem;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .site-nav-bars,
+        .site-nav-bars::before,
+        .site-nav-bars::after {
+            transition: none;
+        }
+    }
+
+    .site-footer-columns {
+        display: grid;
+        gap: 2.5rem;
+    }
+
+    @media (width >= 40rem) {
+        .site-footer-columns {
+            grid-template-columns: 1.5fr 1fr 1fr;
+            gap: 3rem;
+        }
+    }
+
+    .site-footer-center {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1rem;
+        text-align: center;
+    }
+
+    /* The eyebrow treatment, so a column heading in the footer follows the
+       tenant's TypeStyle like every other small label on the site. */
+    .site-footer-title {
+        margin-bottom: 0.875rem;
+        font-size: var(--type-eyebrow-size, 0.875rem);
+        font-weight: var(--type-eyebrow-weight, 600);
+        letter-spacing: var(--type-eyebrow-tracking, 0.1em);
+        text-transform: var(--type-eyebrow-case, uppercase);
+        opacity: 0.6;
+    }
+
+    .site-footer-links {
+        display: flex;
+        flex-direction: column;
+        gap: 0.625rem;
+    }
+
+    /*
+     * Opening hours. A table is the right element — two columns of related
+     * facts — but DaisyUI's `table` draws it as an admin grid. Hairline row
+     * rules, tabular figures so the times form a column, and the day names
+     * left with the hours right so a visitor scans one edge.
+     */
+    .site-hours {
+        width: 100%;
+        max-width: 22rem;
+        border-collapse: collapse;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .site-hours th {
+        padding-block: 0.45rem;
+        font-weight: 500;
+        text-align: start;
+    }
+
+    .site-hours td {
+        padding-block: 0.45rem;
+        text-align: end;
+    }
+
+    .site-hours tr + tr {
+        border-top: 1px solid color-mix(in oklch, currentcolor 10%, transparent);
+    }
+
+    /* Today, emphasised rather than coloured: one brand-coloured row in seven
+       reads as a link, and the row a visitor wants is the day they are
+       standing in. */
+    .site-hours-today th,
+    .site-hours-today td {
+        font-weight: 600;
+    }
+
+    /*
+     * The open-or-closed line — the one piece of this design system that
+     * answers a question rather than presenting content, and the reason the
+     * `visit` block exists.
+     *
+     * The dot is a status light, not decoration, so it is `aria-hidden` and
+     * the words beside it carry the whole meaning: a visitor who cannot see
+     * the colour still reads "Open now, until 21:00".
+     */
+    .site-open-state {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 0.25rem 0.625rem;
+    }
+
+    .site-open-dot {
+        width: 0.5rem;
+        height: 0.5rem;
+        border-radius: 50%;
+        /* Closed is the section's own ink at low strength rather than a red:
+           being shut at 3am is not an error state. */
+        background-color: color-mix(in oklch, currentcolor 30%, transparent);
+        translate: 0 -0.1em;
+    }
+
+    .site-open-dot-on {
+        background-color: var(--color-primary);
+        box-shadow: 0 0 0 0.25rem
+            color-mix(in oklch, var(--color-primary) 18%, transparent);
+    }
+
+    /* On the brand band the primary colour IS the background, so the lit dot
+       would be a hole in it — the same clash SectionTone::buttonClasses()
+       documents, one element smaller. The band's own ink is the one thing
+       guaranteed to read against it. */
+    .site-tone-accent .site-open-dot-on {
+        background-color: currentcolor;
+        box-shadow: 0 0 0 0.25rem
+            color-mix(in oklch, currentcolor 20%, transparent);
+    }
+
+    /*
+     * The enquiry form's fields.
+     *
+     * These were the last thing still wearing DaisyUI, and it showed the
+     * moment a form landed on a coloured band: `input input-bordered` paints
+     * `base-100`, which on a dark palette is near-black — so the signup block
+     * on its own accent tone (gold, NoirGold) rendered its one input as a
+     * black slab with an invisible border. The same currentColor argument as
+     * `.site-card` fixes it for every band at once: a wash of the surface's
+     * own ink reads as a recessed field on gold, on cream and on near-black,
+     * and needs no per-tone variant.
+     */
+    .site-field {
+        display: block;
+        width: 100%;
+        padding: 0.75rem 1rem;
+        border: 1px solid color-mix(in oklch, currentcolor 25%, transparent);
+        border-radius: var(--radius-field, 0.25rem);
+        background-color: color-mix(in oklch, currentcolor 6%, transparent);
+        color: inherit;
+        font: inherit;
+        transition:
+            border-color 0.18s ease,
+            background-color 0.18s ease;
+    }
+
+    .site-field::placeholder {
+        color: color-mix(in oklch, currentcolor 45%, transparent);
+    }
+
+    .site-field:focus {
+        border-color: color-mix(in oklch, currentcolor 65%, transparent);
+        background-color: color-mix(in oklch, currentcolor 3%, transparent);
+        outline: 2px solid color-mix(in oklch, currentcolor 35%, transparent);
+        outline-offset: 1px;
+    }
+
+    .site-field-invalid,
+    .site-field-invalid:focus {
+        border-color: var(--color-error, currentcolor);
+    }
+
+    /*
+     * A visible label above the field, replacing DaisyUI's floating label.
+     * A label that vanishes into the box the moment someone types is a known
+     * usability tax, and on a two-field enquiry form it buys nothing: there
+     * is room to say what each box is for and leave it said.
+     */
+    .site-field-label {
+        display: block;
+        margin-bottom: 0.375rem;
+        font-size: 0.875rem;
+        font-weight: 500;
+    }
+
+    /* The enquiry form's success notice: brand-tinted rather than a stock
+       green, for the reason `.site-notice-bar` is not a stock amber. */
+    .site-alert {
+        padding: 1rem 1.25rem;
+        border: 1px solid
+            color-mix(in oklch, var(--color-primary) 30%, transparent);
+        border-radius: var(--radius-box, 0.5rem);
+        background-color: color-mix(
+            in oklch,
+            var(--color-primary) 10%,
+            transparent
+        );
     }
 
     /*
@@ -472,6 +1186,82 @@
      */
     .site-dim {
         color: color-mix(in oklch, currentcolor 70%, transparent);
+    }
+
+    /*
+     * Two more steps of the same idea, because the literals this replaced came
+     * in three strengths and each was doing a different job: `/80` was
+     * long-form body copy, `/70` a secondary line, `/60` and `/50` captions and
+     * bylines. One class for all three would have made every caption as loud as
+     * the paragraph above it.
+     */
+    .site-dim-strong {
+        color: color-mix(in oklch, currentcolor 82%, transparent);
+    }
+
+    .site-dim-soft {
+        color: color-mix(in oklch, currentcolor 55%, transparent);
+    }
+
+    /*
+     * The menu.
+     *
+     * `offerings` is the flagship block for the businesses this builder is
+     * for — a pizza shop, a bubble tea counter, a nail bar all sell a list of
+     * named things at prices — and it used to render as either a card grid
+     * (three dishes in three boxes, which no menu on earth looks like) or a
+     * single ribbon of divided rows down the middle of a wide page. This is
+     * the printed-menu treatment instead: a ruled course label, the name and
+     * price joined on one baseline by a dotted leader, the description
+     * underneath in a narrower measure. Two-up on a wide section, because
+     * that is how a menu is set.
+     */
+    .site-menu-group {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    /* The rule runs from the label to the end of the column, which is what
+       makes it read as a course heading rather than as a caption. */
+    .site-menu-group::after {
+        content: '';
+        flex: 1;
+        height: 1px;
+        background-color: color-mix(in oklch, currentcolor 18%, transparent);
+    }
+
+    .site-menu-row {
+        padding-block: 0.875rem;
+        border-top: 1px solid color-mix(in oklch, currentcolor 12%, transparent);
+    }
+
+    .site-menu-head {
+        display: flex;
+        align-items: baseline;
+        gap: 0.5rem;
+    }
+
+    .site-menu-name {
+        font-family: var(--font-heading);
+        font-size: calc(1.0625rem * var(--type-scale, 1));
+        font-weight: var(--type-subheading-weight, 600);
+        letter-spacing: var(--type-heading-tracking, -0.025em);
+    }
+
+    .site-menu-price {
+        flex-shrink: 0;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+    }
+
+    /* A shorter measure than the row: a dish description that runs the full
+       width of a menu column stops looking like a menu. */
+    .site-menu-note {
+        max-width: 46ch;
+        margin-top: 0.25rem;
+        font-size: 0.9375rem;
+        line-height: 1.5;
     }
 
     /*
@@ -595,11 +1385,16 @@
     @media (prefers-reduced-motion: reduce) {
         .site-card,
         .site-card:hover,
-        .site-link-cta::after {
+        .site-link-cta::after,
+        .site-btn,
+        .site-btn-close,
+        .site-link,
+        .site-nav-link::after {
             transition: none;
         }
 
-        .site-card:hover {
+        .site-card:hover,
+        .site-btn:active {
             translate: none;
         }
     }
@@ -648,6 +1443,55 @@
         .site-h6 {
             font-size: calc(1.125rem * var(--type-scale, 1));
             line-height: calc(1.75 / 1.125);
+        }
+    }
+
+    /*
+     * A third tier, for the desktop the old scale never accounted for.
+     *
+     * The scale used to stop at 48rem, so a 1440px window got exactly the type
+     * an 800px one did — a 36px section heading over a 1024px measure, which is
+     * what made a long page read as one flat grey texture no matter which style
+     * preset was on it. Everything here is roughly a 1.25 step on the md tier,
+     * so the RATIOS between display, heading and body are unchanged and only
+     * the whole system grows.
+     */
+    @media (width >= 80rem) {
+        .site-display-lg {
+            font-size: calc(
+                5.75rem * var(--type-scale, 1) * var(--type-display-scale, 1)
+            );
+        }
+
+        .site-display {
+            font-size: calc(
+                4.75rem * var(--type-scale, 1) * var(--type-display-scale, 1)
+            );
+        }
+
+        .site-h1 {
+            font-size: calc(
+                3.75rem * var(--type-scale, 1) * var(--type-display-scale, 1)
+            );
+        }
+
+        .site-h2 {
+            font-size: calc(2.875rem * var(--type-scale, 1));
+            line-height: calc(3.25 / 2.875);
+        }
+
+        .site-h3 {
+            font-size: calc(2.25rem * var(--type-scale, 1));
+            line-height: calc(2.75 / 2.25);
+        }
+
+        .site-h4 {
+            font-size: calc(1.75rem * var(--type-scale, 1));
+            line-height: calc(2.25 / 1.75);
+        }
+
+        .site-price {
+            font-size: calc(2.75rem * var(--type-scale, 1));
         }
     }
 }

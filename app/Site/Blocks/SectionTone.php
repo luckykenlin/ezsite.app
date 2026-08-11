@@ -99,7 +99,7 @@ enum SectionTone: string
      * tone — the button equivalent of {@see itemSurface()}, and the same latent
      * bug one step further in.
      *
-     * `btn btn-primary` is right everywhere except one band, where it fails in
+     * The brand fill is right everywhere except one band, where it fails in
      * the most expensive way available: on `accent` the surface IS the primary
      * colour, so the button becomes a rectangle of background carrying the same
      * text colour as the copy around it. Every signup block in the library
@@ -115,7 +115,7 @@ enum SectionTone: string
      * the one thing guaranteed to read against it — ColorPaletteTest enforces
      * that gap for every palette — so that is what the button is filled with.
      *
-     * `inverted` deliberately stays on `btn btn-primary`, and the asymmetry is
+     * `inverted` deliberately stays on the brand fill, and the asymmetry is
      * the considered part. There the clash is a palette COINCIDENCE rather than a
      * construction: gold on near-black (::NoirGold) is the signature of a whole
      * preset and the most legible button in the library, and the pairs that do
@@ -124,14 +124,16 @@ enum SectionTone: string
      * for a hypothetical one and restyle five shipped templates' first viewport
      * to do it.
      *
-     * Utility literals rather than a component class, like every other case in
-     * this file; site.css `@source`s these enums so they compile.
+     * The `.site-*` classes are ours, not DaisyUI's: the button silhouette is
+     * the most recognisable object on a generated page, and while it came from
+     * a plugin every site the builder produced wore the same one. site.css
+     * `@source`s these enums so the strings compile.
      */
     public function buttonClasses(): string
     {
         return match ($this) {
-            self::Base, self::Muted, self::Plain, self::Inverted => 'btn btn-primary',
-            self::Accent => 'btn border-primary-content bg-primary-content text-primary hover:bg-primary-content/85',
+            self::Base, self::Muted, self::Plain, self::Inverted => 'site-btn site-btn-primary',
+            self::Accent => 'site-btn site-btn-on-accent',
         };
     }
 

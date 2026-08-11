@@ -132,6 +132,21 @@ final class LibraryPhoto extends Model
      * close" query, not a filter — "sunlit cafe terrace" must not return
      * nothing just because no photo is all three.
      *
+     * …but OR alone decides only WHETHER a photo is a candidate, never how good
+     * a one it is, and the caller's least-used-first rule
+     * ({@see \App\Actions\Library\FindLibraryPhotos}) then actively prefers the
+     * worst of them: a spa photo whose keywords happen to contain "interior"
+     * matches "wood fired pizza shop interior" on that single weak word, and
+     * because it is newly imported with `usage_count` 0 it sorts ahead of every
+     * photo that matched three terms. That is not hypothetical — it put massage
+     * tables in a pizzeria's gallery on the demo sites, and it would do the same
+     * to a tenant the day the library holds anything from a neighbouring trade.
+     *
+     * So the scope ranks as well as filters: how many terms a photo hits comes
+     * first, and the caller's ordering becomes the tiebreak among equally
+     * relevant photos — which is where spreading demand across the catalogue was
+     * always the point.
+     *
      * @param  Builder<$this>  $query
      */
     #[Scope]
@@ -151,6 +166,11 @@ final class LibraryPhoto extends Model
                 $query->orWhere('keywords', 'ilike', '%'.$word.'%');
             }
         });
+
+        $query->orderByRaw(
+            implode(' + ', array_fill(0, count($words), '(case when keywords ilike ? then 1 else 0 end)')).' desc',
+            array_map(fn (string $word): string => '%'.$word.'%', $words),
+        );
     }
 
     /**

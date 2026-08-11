@@ -75,7 +75,7 @@
             {{-- Outlined rather than filled: a solid button is the loudest
                  thing on a page this quiet, and the palette's near-black
                  hairline is enough to read as the one action. --}}
-            <a href="{{ $cta_url }}" class="btn btn-outline mt-10">{{ $cta_label }}</a>
+            <a href="{{ $cta_url }}" class="site-btn site-btn-quiet mt-10">{{ $cta_label }}</a>
         @endif
 
         @if ($image_url)

@@ -18,9 +18,9 @@ it('wraps every page in default chrome as soon as the tenant has a business and 
     $this->get(sprintf('http://acme.%s/', $this->centralDomain()))
         ->assertOk()
         ->assertSee('Welcome')
-        ->assertSee('navbar-end', false) // default header (simple variant)
-        ->assertSee('sm:footer-horizontal', false) // default footer (columns variant)
-        ->assertSeeInOrder(['navbar', 'Welcome', 'footer'], false);
+        ->assertSee('class="site-nav ', false) // default header (simple variant)
+        ->assertSee('site-footer-columns', false) // default footer (columns variant)
+        ->assertSeeInOrder(['site-nav', 'Welcome', 'site-footer-columns'], false);
 });
 
 it('renders the saved chrome configuration instead of the defaults', function (): void {
@@ -37,9 +37,9 @@ it('renders the saved chrome configuration instead of the defaults', function ()
     $this->get(sprintf('http://acme.%s/', $this->centralDomain()))
         ->assertOk()
         ->assertSee('Saved nav link') // saved header (centered variant)
-        ->assertDontSee('navbar-end')
+        ->assertDontSee('class="site-nav ', false)
         ->assertSee('Saved footer note') // saved footer (minimal variant)
-        ->assertDontSee('sm:footer-horizontal');
+        ->assertDontSee('site-footer-columns');
 });
 
 it('renders the inverted header and soft footer chrome variants', function (): void {
@@ -114,8 +114,8 @@ it('renders no chrome and logs nothing for a tenant without a business', functio
     $this->get(sprintf('http://acme.%s/', $this->centralDomain()))
         ->assertOk()
         ->assertSee('Welcome')
-        ->assertDontSee('navbar')
-        ->assertDontSee('footer-title');
+        ->assertDontSee('site-nav')
+        ->assertDontSee('site-footer-title');
 
     Log::shouldNotHaveReceived('warning');
 });

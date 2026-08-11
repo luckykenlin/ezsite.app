@@ -62,7 +62,7 @@ test('changing one token after a preset applies a custom combination, preset det
     expect($tokens->preset)->toBeNull()
         ->and($tokens->palette)->toBe(ColorPalette::Ocean)
         // The font the preset carried survives the change, pinned as itself.
-        ->and($tokens->fontPair)->toBe(FontPair::Editorial);
+        ->and($tokens->fontPair)->toBe(FontPair::Signage);
 });
 
 test('applying individual tokens leaves the untouched ones alone', function (): void {
@@ -70,13 +70,13 @@ test('applying individual tokens leaves the untouched ones alone', function (): 
 
     Livewire::test(Design::class)
         ->call('stageToken', 'palette', 'ocean')
-        ->call('stageToken', 'font_pair', 'geometric')
+        ->call('stageToken', 'font_pair', 'contemporary')
         ->call('applySiteStyles');
 
     $tokens = Business::query()->sole()->design_tokens;
 
     expect($tokens->palette)->toBe(ColorPalette::Ocean)
-        ->and($tokens->fontPair)->toBe(FontPair::Geometric)
+        ->and($tokens->fontPair)->toBe(FontPair::Contemporary)
         ->and($tokens->radius)->toBe(RadiusScale::Lg) // untouched from WarmCraft
         ->and($tokens->preset)->toBeNull();
 });

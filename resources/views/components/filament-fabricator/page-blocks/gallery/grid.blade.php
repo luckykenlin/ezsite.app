@@ -10,20 +10,24 @@
     $items = is_array($images) ? $images : [];
 @endphp
 <x-site.section :appearance="$appearance" :tone="$layout->toneDefault()" :spacing="$layout->spacingDefault()">
-    <div class="{{ $layout->container() }}">
-        {{-- Gallery declares no align axis — photos ARE the section, and the
-             heading is always a centred caption over them. --}}
-        @if ($heading)
+    {{-- Gallery declares no align axis — photos ARE the section, and the
+         heading is always a centred caption over them. It sits in its own
+         container so that on an edge-to-edge width the photographs bleed and
+         the words keep the page's margin. --}}
+    @if ($heading)
+        <div class="{{ $layout->headerContainer() }}">
             <h2 class="site-h2 text-center">{{ $heading }}</h2>
-        @endif
+        </div>
+    @endif
 
-        <div class="mt-12 grid gap-4 {{ $layout->grid() }}">
+    <div class="{{ $layout->container() }}">
+        <div @class(['grid gap-4', $layout->grid(), $layout->headerGap() => (bool) $heading])>
             @foreach ($items as $item)
                 @continue(! is_array($item) || ! ($item['url'] ?? null))
                 <figure class="group">
                     {{-- The clip wrapper keeps the hover zoom inside the frame
                          without clipping the caption below it. --}}
-                    <div class="rounded-box overflow-hidden">
+                    <div class="{{ $layout->mediaFrame() }}">
                         <img
                             src="{{ $item['url'] }}"
                             alt="{{ $item['alt'] ?? '' }}"
@@ -32,7 +36,7 @@
                         />
                     </div>
                     @if ($item['caption'] ?? null)
-                        <figcaption class="text-base-content/60 px-1 pt-3 text-sm">{{ $item['caption'] }}</figcaption>
+                        <figcaption class="site-dim-soft px-1 pt-3 text-sm">{{ $item['caption'] }}</figcaption>
                     @endif
                 </figure>
             @endforeach

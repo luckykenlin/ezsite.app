@@ -29,7 +29,7 @@
     'source' => LeadSource::ContactForm,
     'fields' => LeadFieldSet::Full,
     'buttonLabel' => null,
-    'buttonClass' => 'btn btn-primary',
+    'buttonClass' => 'site-btn site-btn-primary',
     'finePrint' => null,
 ])
 @php
@@ -50,7 +50,7 @@
 --}}
 <div id="{{ LeadFormIds::anchor($formId) }}" {{ $attributes->class(['w-full']) }}>
     <div data-lead-success role="status" @if (! $submitted) hidden @endif>
-        <div class="alert alert-success">
+        <div class="site-alert">
             <span data-lead-success-message>{{ $thanks }}</span>
         </div>
     </div>
@@ -81,13 +81,21 @@
         </div>
 
         @if ($fields->showsName())
-            <x-lead-form-field :bag="$bag" field="name" :label="__('Your name')" maxlength="120" autocomplete="name" />
+            <x-lead-form-field
+                :bag="$bag"
+                :form-id="$formId"
+                field="name"
+                :label="__('Your name')"
+                maxlength="120"
+                autocomplete="name"
+            />
         @endif
 
         <div @class(['grid gap-4', 'sm:grid-cols-2' => $side])>
             @if ($fields->showsPhone())
                 <x-lead-form-field
                     :bag="$bag"
+                    :form-id="$formId"
                     field="phone"
                     :label="__('Phone')"
                     type="tel"
@@ -99,6 +107,7 @@
             @if ($fields->showsEmail())
                 <x-lead-form-field
                     :bag="$bag"
+                    :form-id="$formId"
                     field="email"
                     :label="__('Email')"
                     type="email"
@@ -111,6 +120,7 @@
         @if ($fields->showsMessage())
             <x-lead-form-field
                 :bag="$bag"
+                :form-id="$formId"
                 field="message"
                 :label="__('How can we help?')"
                 :textarea="true"

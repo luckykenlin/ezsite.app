@@ -19,7 +19,7 @@
             <h2 class="{{ $layout->heading() }}">{{ $heading }}</h2>
         @endif
 
-        <div @class(['space-y-5 text-lg leading-relaxed text-base-content/80', 'mt-8' => (bool) $heading])>
+        <div @class(['space-y-5 text-lg leading-relaxed site-dim-strong', 'mt-8' => (bool) $heading])>
             @foreach ($items as $item)
                 @continue(! is_array($item))
                 @php($text = $item['text'] ?? null)

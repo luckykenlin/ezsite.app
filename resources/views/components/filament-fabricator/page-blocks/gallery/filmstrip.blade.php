@@ -19,7 +19,7 @@
              while the padding keeps the first and last frames aligned with
              the heading above. The snap scroller is this variant's structure —
              the columns axis deliberately does not reach it. --}}
-        <div class="-mx-6 mt-12 flex snap-x snap-mandatory gap-4 overflow-x-auto px-6 pb-4">
+        <div class="-mx-6 flex snap-x snap-mandatory gap-4 overflow-x-auto px-6 pb-4 {{ $layout->headerGap() }}">
             @foreach ($items as $item)
                 @continue(! is_array($item) || ! ($item['url'] ?? null))
                 <figure class="group w-72 shrink-0 snap-center md:w-96">
@@ -34,7 +34,7 @@
                         />
                     </div>
                     @if ($item['caption'] ?? null)
-                        <figcaption class="text-base-content/60 px-1 pt-3 text-sm">{{ $item['caption'] }}</figcaption>
+                        <figcaption class="site-dim-soft px-1 pt-3 text-sm">{{ $item['caption'] }}</figcaption>
                     @endif
                 </figure>
             @endforeach

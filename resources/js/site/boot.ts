@@ -6,6 +6,7 @@
  */
 
 import { initLeadForms } from './lead-form';
+import { initNav } from './nav';
 import { initPopup } from './popup';
 import { initReveal } from './reveal';
 
@@ -27,6 +28,10 @@ export function initSite(root: ParentNode = document): void {
         return;
     }
 
+    // First, because it is the only one a visitor can be mid-gesture with:
+    // the menu is a `<details>` and already works without this — all it adds
+    // is Escape, outside-click and close-on-follow.
+    initNav(root);
     initLeadForms(root);
     initPopup(root);
     // Last of the three, and the only one that changes how the page LOOKS: the

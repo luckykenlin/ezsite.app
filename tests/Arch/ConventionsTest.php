@@ -288,15 +288,29 @@ test('the page-block views type through the shared site-* classes, never utility
         'sm:grid-cols-2',
         'sm:grid-cols-3',
         'lg:grid-cols-3',
-        'card bg-base-200',
-        'card bg-base-100',
+        'site-card bg-base-200',
+        'site-card bg-base-100',
         'aspect-video',
         'aspect-square',
         'aspect-[4/5]',
-        // Card chrome comes from SectionItemStyle::Card; pasting the class
-        // into a view puts hover-lift cards on a block the item_style axis
-        // thinks is plain.
+        // The header-to-content gap is SectionSpacing's (headerGap()); pasted
+        // back into a view it pins an `airy` section to the same internal
+        // rhythm as a `tight` one, which is how a roomy preset ended up as a
+        // tight block with air only around its outside.
+        'mt-12',
+        // Card chrome comes from SectionItemStyle; pasting either class into a
+        // view puts card chrome on a block the item_style axis thinks is
+        // plain. (`site-card-body` and `site-card-actions` are deliberately
+        // NOT banned — where the body wrapper goes is the view's own
+        // composition, which is why single tokens match on their boundaries.)
         'site-card',
+        'site-card-outline',
+        // The button silhouette a section stands on is SectionTone's call, for
+        // the accent-band reason spelled out on buttonClasses(). A view may
+        // still reach for `site-btn site-btn-primary` where the button sits on
+        // a CARD rather than on the band (pricing, cta) — what it must not do
+        // is decide the on-band case for itself.
+        'site-btn-on-accent',
         // Photo scrims go through .site-scrim (the graded overlay); the old
         // flat overlay reads as a grey wash over the whole image.
         'bg-neutral/60',
@@ -325,7 +339,16 @@ test('the page-block views type through the shared site-* classes, never utility
             $contents = stripBladeComments((string) file_get_contents($view->getPathname()));
 
             foreach ($literals as $literal) {
-                if (str_contains($contents, $literal)) {
+                // A multi-word literal is a phrase and matches as one. A single
+                // class token matches on its own boundaries, so banning
+                // `site-card` does not also ban `site-card-body`: the card
+                // CHROME belongs to SectionItemStyle, but where the body
+                // wrapper goes is the view's own composition.
+                $found = str_contains($literal, ' ')
+                    ? str_contains($contents, $literal)
+                    : preg_match('/(?<![\w-])'.preg_quote($literal, '/').'(?![\w-])/', $contents) === 1;
+
+                if ($found) {
                     $offenders[] = basename((string) $view->getPathname()).' hand-rolls "'.$literal.'"';
                 }
             }

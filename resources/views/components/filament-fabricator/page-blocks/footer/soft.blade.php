@@ -6,22 +6,28 @@
     'location' => null,
 ])
 @php
-    $links = is_array($nav_links) ? $nav_links : [];
+    $links = array_values(array_filter(
+        is_array($nav_links) ? $nav_links : [],
+        static fn (mixed $link): bool => is_array($link) && ($link['label'] ?? null) && ($link['url'] ?? null),
+    ));
 @endphp
-<footer class="footer footer-center border-base-300 bg-base-200 text-base-content gap-4 border-t px-6 py-10">
-    @if ($links !== [])
-        <nav class="flex flex-wrap justify-center gap-4">
-            @foreach ($links as $link)
-                @continue(! is_array($link) || ! ($link['label'] ?? null) || ! ($link['url'] ?? null))
-                <a href="{{ $link['url'] }}" class="link-hover link">{{ $link['label'] }}</a>
-            @endforeach
-        </nav>
-    @endif
+<footer class="border-base-300 bg-base-200 text-base-content border-t px-6 py-14">
+    <div class="site-footer-center mx-auto max-w-7xl">
+        <a href="/" class="site-wordmark">{{ $business->name }}</a>
 
-    <aside>
-        <p class="text-base-content/70">&copy; {{ now()->year }} {{ $business->name }}</p>
-        @if ($note)
-            <p class="text-base-content/60 text-sm">{{ $note }}</p>
+        @if ($links !== [])
+            <nav class="flex flex-wrap justify-center gap-x-6 gap-y-2">
+                @foreach ($links as $link)
+                    <a href="{{ $link['url'] }}" class="site-link">{{ $link['label'] }}</a>
+                @endforeach
+            </nav>
         @endif
-    </aside>
+
+        <p class="site-dim text-sm">
+            &copy; {{ now()->year }} {{ $business->name }}
+            @if ($note)
+                <span class="mt-1 block">{{ $note }}</span>
+            @endif
+        </p>
+    </div>
 </footer>

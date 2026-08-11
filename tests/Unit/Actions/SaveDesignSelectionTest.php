@@ -128,6 +128,6 @@ it('leaves a token untouched when the form omits its field', function (): void {
     $tokens = Business::query()->findOrFail($business->getKey())->design_tokens;
 
     expect($tokens->palette)->toBe(ColorPalette::Ocean)
-        ->and($tokens->fontPair)->toBe(FontPair::ElegantSerif) // untouched (WarmCraft)
+        ->and($tokens->fontPair)->toBe(FontPair::WarmEditorial) // untouched (WarmCraft)
         ->and($tokens->density)->toBe(SpacingDensity::Spacious); // untouched (WarmCraft)
 });

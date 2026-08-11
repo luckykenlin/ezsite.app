@@ -55,7 +55,7 @@ it('auto-injects a location picker ahead of the content fields on Location-bound
         // Appearance goes after the content, not before it: an operator opens a
         // block to write words, and empty selects should not stand between
         // them and the headline.
-        ->toBe(['heading', 'intro', 'show_form', 'success_message', 'appearance.tone', 'appearance.spacing', 'appearance.width', 'appearance.align', 'appearance.columns']);
+        ->toBe(['heading', 'intro', 'show_hours', 'show_form', 'success_message', 'appearance.tone', 'appearance.spacing', 'appearance.width', 'appearance.align', 'appearance.columns']);
 
     // The auto-injected select is explicitly live WITHOUT a debounce, so
     // switching location refreshes the canvas immediately.
@@ -174,5 +174,6 @@ it('injects one select per contract axis, options straight off the axis enum', f
         'narrow' => 'Narrow',
         'normal' => 'Normal',
         'wide' => 'Wide',
+        'full' => 'Edge to edge',
     ]);
 });

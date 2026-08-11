@@ -25,7 +25,7 @@
         @endif
 
         <div @class([
-            'space-y-5 text-lg leading-relaxed text-base-content/80',
+            'space-y-5 text-lg leading-relaxed site-dim-strong',
             // Spans both remaining columns when there is a heading beside it,
             // and all three when there is not — so an untitled prose block
             // still fills the width instead of hugging the left third.

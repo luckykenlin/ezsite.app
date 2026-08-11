@@ -30,9 +30,7 @@
              JavaScript at all once the dialog is open — a visitor must always
              be able to get out. --}}
         <form method="dialog">
-            <button class="btn btn-circle btn-ghost btn-sm absolute end-3 top-3" aria-label="{{ __('Close') }}">
-                ✕
-            </button>
+            <button class="site-btn-close absolute end-3 top-3" aria-label="{{ __('Close') }}">✕</button>
         </form>
 
         <h2 id="site-popup-heading" class="site-h3">{{ $capture->popupHeading() }}</h2>

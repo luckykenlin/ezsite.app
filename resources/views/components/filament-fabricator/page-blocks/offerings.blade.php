@@ -23,27 +23,35 @@
         $groups[is_string($group) ? mb_trim($group) : ''][$index] = $entry;
     }
 
-    // Plain single-column offerings read as a priced list (the old "list"
-    // variant): divided rows, name and price on one baseline.
-    $priceList = ! $layout->isCard() && $layout->grid() === 'grid-cols-1';
+    // Plain offerings read as a MENU: ruled group labels, name and price on
+    // one baseline joined by a dotted leader, description underneath. It used
+    // to require a single column too, which is why every restaurant template
+    // rendered its menu as one long ribbon down the middle of a wide page —
+    // real printed menus are two-up, and the columns axis says which.
+    $priceList = ! $layout->isCard();
 @endphp
 <x-site.section :appearance="$appearance" :tone="$layout->toneDefault()" :spacing="$layout->spacingDefault()">
     <div class="{{ $layout->container() }}">
         <x-site.section-header :layout="$layout" :heading="$heading" :intro="$intro" />
 
         @foreach ($groups as $group => $groupItems)
-            <div class="mt-12">
+            <div class="{{ $layout->headerGap() }}">
                 @if ($group !== '')
-                    <h3 @class(['site-eyebrow text-base-content/60', 'text-center' => str_contains($layout->heading(), 'text-center')])>
-                        {{ $group }}
+                    {{-- A course heading, ruled to the edge of the column: the
+                         device a printed menu uses to separate starters from
+                         mains, and the reason it does not need a card around
+                         each dish to look organised. --}}
+                    <h3 class="site-menu-group site-eyebrow site-dim-soft">
+                        <span>{{ $group }}</span>
                     </h3>
                 @endif
 
                 <div @class([
                     'mt-6' => $group !== '',
-                    'divide-y divide-base-300' => $priceList,
-                    'grid gap-8' => ! $priceList,
-                    $layout->grid() => ! $priceList,
+                    'grid',
+                    'gap-x-12' => $priceList,
+                    'gap-8' => ! $priceList,
+                    $layout->grid(),
                 ])>
                     @foreach ($groupItems as $index => $item)
                         @php
@@ -53,29 +61,29 @@
                             $image = $item['image_url'] ?? null;
                         @endphp
                         @if ($priceList)
-                            <div class="flex items-baseline justify-between gap-4 py-4">
-                                <div>
-                                    <h4 data-editor-field="items.{{ $index }}.name" class="font-semibold">
+                            <div class="site-menu-row">
+                                <div class="site-menu-head">
+                                    <h4 data-editor-field="items.{{ $index }}.name" class="site-menu-name">
                                         {{ $item['name'] ?? '' }}
                                     </h4>
-                                    @if ($item['description'] ?? null)
-                                        <p
-                                            data-editor-field="items.{{ $index }}.description"
-                                            class="text-base-content/70"
-                                        >
-                                            {{ $item['description'] }}
-                                        </p>
+                                    @if ($item['price'] ?? null)
+                                        {{-- The menu leader: an empty span the
+                                             dots fill, so name and price stay
+                                             joined however wide the row is. --}}
+                                        <span class="site-leaders" aria-hidden="true"></span>
+                                        <span
+                                            data-editor-field="items.{{ $index }}.price"
+                                            class="site-menu-price"
+                                        >{{ $item['price'] }}</span>
                                     @endif
                                 </div>
-                                @if ($item['price'] ?? null)
-                                    {{-- The menu leader: an empty span the dots
-                                         fill, so name and price stay connected
-                                         however wide the row is. --}}
-                                    <span class="site-leaders" aria-hidden="true"></span>
-                                    <span
-                                        data-editor-field="items.{{ $index }}.price"
-                                        class="shrink-0 font-semibold tabular-nums"
-                                    >{{ $item['price'] }}</span>
+                                @if ($item['description'] ?? null)
+                                    <p
+                                        data-editor-field="items.{{ $index }}.description"
+                                        class="site-dim site-menu-note"
+                                    >
+                                        {{ $item['description'] }}
+                                    </p>
                                 @endif
                             </div>
                         @else
@@ -93,8 +101,8 @@
                                         />
                                     </figure>
                                 @endif
-                                <div @class(['card-body' => $layout->isCard()])>
-                                    <h4 @class(['justify-between gap-4', 'card-title' => $layout->isCard(), 'flex text-lg font-semibold' => ! $layout->isCard()])>
+                                <div @class(['site-card-body' => $layout->isCard()])>
+                                    <h4 class="site-h5 flex justify-between gap-4">
                                         <span data-editor-field="items.{{ $index }}.name">{{ $item['name'] ?? '' }}</span>
                                         @if ($item['price'] ?? null)
                                             <span
@@ -104,10 +112,7 @@
                                         @endif
                                     </h4>
                                     @if ($item['description'] ?? null)
-                                        <p
-                                            data-editor-field="items.{{ $index }}.description"
-                                            class="text-base-content/70"
-                                        >
+                                        <p data-editor-field="items.{{ $index }}.description" class="site-dim">
                                             {{ $item['description'] }}
                                         </p>
                                     @endif

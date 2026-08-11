@@ -13,6 +13,10 @@ namespace App\Site\Blocks;
  * ({@see SectionTone::itemSurface()}), or a `bg-base-200` card on a muted
  * `bg-base-200` section simply vanishes — which is exactly the latent bug the
  * hard-coded views had.
+ *
+ * The card's SHAPE comes from `.site-card` / `.site-card-outline` in
+ * resources/css/site.css rather than from DaisyUI's `.card`, which this app no
+ * longer emits — see the chrome-layer note in that file.
  */
 enum SectionItemStyle: string
 {
@@ -53,8 +57,8 @@ enum SectionItemStyle: string
     {
         return match ($this) {
             self::Plain => '',
-            self::Card => mb_trim('card '.$tone->itemSurface().' site-card'),
-            self::Outline => 'card border border-base-300',
+            self::Card => mb_trim('site-card '.$tone->itemSurface()),
+            self::Outline => 'site-card-outline',
         };
     }
 

@@ -14,7 +14,7 @@
 <x-site.section :appearance="$appearance" :tone="$layout->toneDefault()" :spacing="$layout->spacingDefault()">
     <div class="{{ $layout->container() }}">
         @if ($heading)
-            <h2 class="site-eyebrow text-base-content/60 text-center">{{ $heading }}</h2>
+            <h2 class="site-eyebrow site-dim-soft text-center">{{ $heading }}</h2>
         @endif
 
         {{-- A trust row auto-flows and centres itself — logos deliberately

@@ -34,19 +34,21 @@ enum StylePreset: string
     public function tokens(): DesignTokens
     {
         return match ($this) {
-            self::WarmCraft => new DesignTokens($this, ColorPalette::WarmSand, FontPair::ElegantSerif, RadiusScale::Lg, SpacingDensity::Spacious, typeStyle: TypeStyle::Refined, divider: SectionDivider::Curve, accent: AccentStyle::Flat),
-            self::ProfessionalMinimal => new DesignTokens($this, ColorPalette::Charcoal, FontPair::ModernSans, RadiusScale::Sm, SpacingDensity::Normal, typeStyle: TypeStyle::Quiet, divider: SectionDivider::None, accent: AccentStyle::Flat),
-            self::FreshModern => new DesignTokens($this, ColorPalette::Forest, FontPair::Geometric, RadiusScale::Md, SpacingDensity::Normal, typeStyle: TypeStyle::Classic, divider: SectionDivider::None, accent: AccentStyle::Gradient),
-            self::BoldEditorial => new DesignTokens($this, ColorPalette::Plum, FontPair::Editorial, RadiusScale::None, SpacingDensity::Compact, typeStyle: TypeStyle::Impact, divider: SectionDivider::Slant, accent: AccentStyle::Flat),
-            self::CalmCoastal => new DesignTokens($this, ColorPalette::Ocean, FontPair::ModernSans, RadiusScale::Lg, SpacingDensity::Spacious, typeStyle: TypeStyle::Refined, divider: SectionDivider::Curve, accent: AccentStyle::Sheen),
-            self::PlayfulFriendly => new DesignTokens($this, ColorPalette::Sunset, FontPair::FriendlyRounded, RadiusScale::Full, SpacingDensity::Normal, typeStyle: TypeStyle::Friendly, divider: SectionDivider::Peak, accent: AccentStyle::Gradient),
-            self::NightLounge => new DesignTokens($this, ColorPalette::NoirGold, FontPair::Editorial, RadiusScale::Sm, SpacingDensity::Normal, typeStyle: TypeStyle::Impact, divider: SectionDivider::Slant, accent: AccentStyle::Sheen),
+            self::WarmCraft => new DesignTokens($this, ColorPalette::WarmSand, FontPair::WarmEditorial, RadiusScale::Lg, SpacingDensity::Spacious, typeStyle: TypeStyle::Refined, divider: SectionDivider::Curve, accent: AccentStyle::Flat),
+            self::ProfessionalMinimal => new DesignTokens($this, ColorPalette::Charcoal, FontPair::NeoGrotesque, RadiusScale::Sm, SpacingDensity::Normal, typeStyle: TypeStyle::Quiet, divider: SectionDivider::None, accent: AccentStyle::Flat),
+            self::FreshModern => new DesignTokens($this, ColorPalette::Forest, FontPair::Contemporary, RadiusScale::Md, SpacingDensity::Normal, typeStyle: TypeStyle::Classic, divider: SectionDivider::None, accent: AccentStyle::Gradient),
+            self::BoldEditorial => new DesignTokens($this, ColorPalette::Plum, FontPair::Signage, RadiusScale::None, SpacingDensity::Compact, typeStyle: TypeStyle::Impact, divider: SectionDivider::Slant, accent: AccentStyle::Flat),
+            self::CalmCoastal => new DesignTokens($this, ColorPalette::Ocean, FontPair::QuietSerif, RadiusScale::Lg, SpacingDensity::Spacious, typeStyle: TypeStyle::Refined, divider: SectionDivider::Curve, accent: AccentStyle::Sheen),
+            self::PlayfulFriendly => new DesignTokens($this, ColorPalette::Sunset, FontPair::Soft, RadiusScale::Full, SpacingDensity::Normal, typeStyle: TypeStyle::Friendly, divider: SectionDivider::Peak, accent: AccentStyle::Gradient),
+            self::NightLounge => new DesignTokens($this, ColorPalette::NoirGold, FontPair::HighContrast, RadiusScale::Sm, SpacingDensity::Normal, typeStyle: TypeStyle::Impact, divider: SectionDivider::Slant, accent: AccentStyle::Sheen),
             // The only preset that asks for motion, and the only one with a
-            // sub-500 display weight — the two go together. A hairline garamond
-            // at this size wants to arrive rather than to be already there, and
-            // the pairing with DelicateSerif is enforced (FontPairTest), because
-            // any other face snaps that 300 back up and loses the whole look.
-            self::QuietLuxe => new DesignTokens($this, ColorPalette::Stone, FontPair::DelicateSerif, RadiusScale::None, SpacingDensity::Spacious, typeStyle: TypeStyle::Serene, divider: SectionDivider::None, accent: AccentStyle::Flat, motion: MotionStyle::Reveal),
+            // sub-500 display weight — the two go together. A high-contrast
+            // serif at this size wants to arrive rather than to be already
+            // there, and the pairing with WarmEditorial is enforced
+            // (FontPairTest), because Newsreader is the only heading face here
+            // that ships a real 300; any other snaps it back up to 400 or 500
+            // and loses the whole look.
+            self::QuietLuxe => new DesignTokens($this, ColorPalette::Stone, FontPair::WarmEditorial, RadiusScale::None, SpacingDensity::Spacious, typeStyle: TypeStyle::Serene, divider: SectionDivider::None, accent: AccentStyle::Flat, motion: MotionStyle::Reveal),
         };
     }
 
@@ -61,7 +63,7 @@ enum StylePreset: string
     {
         return match ($this) {
             self::WarmCraft => ['hero' => 'left-text-right-image', 'features' => 'alternating', 'testimonials' => 'grid', 'gallery' => 'masonry', 'cta' => 'banner', 'header' => 'centered', 'footer' => 'columns', 'prose' => 'side-heading', 'steps' => 'list', 'signup' => 'banner', 'updates' => 'cards'],
-            self::ProfessionalMinimal => ['hero' => 'centered-minimal', 'features' => 'icon-rows', 'testimonials' => 'grid', 'gallery' => 'grid', 'cta' => 'banner', 'header' => 'simple', 'footer' => 'minimal', 'prose' => 'stacked', 'steps' => 'list', 'signup' => 'stacked', 'updates' => 'list'],
+            self::ProfessionalMinimal => ['hero' => 'centered-minimal', 'features' => 'rows', 'testimonials' => 'grid', 'gallery' => 'grid', 'cta' => 'banner', 'header' => 'simple', 'footer' => 'minimal', 'prose' => 'stacked', 'steps' => 'list', 'signup' => 'stacked', 'updates' => 'list'],
             self::FreshModern => ['hero' => 'left-text-right-image', 'features' => 'grid', 'testimonials' => 'carousel', 'gallery' => 'grid', 'cta' => 'banner', 'header' => 'simple', 'footer' => 'columns', 'prose' => 'stacked', 'steps' => 'timeline', 'signup' => 'banner', 'updates' => 'cards'],
             self::BoldEditorial => ['hero' => 'full-bleed-overlay', 'features' => 'grid', 'testimonials' => 'spotlight', 'gallery' => 'masonry', 'cta' => 'banner', 'header' => 'centered', 'footer' => 'minimal', 'prose' => 'side-heading', 'steps' => 'list', 'signup' => 'stacked', 'updates' => 'cards'],
             self::CalmCoastal => ['hero' => 'centered-minimal', 'features' => 'grid', 'testimonials' => 'carousel', 'gallery' => 'grid', 'cta' => 'banner', 'header' => 'simple', 'footer' => 'columns', 'prose' => 'stacked', 'steps' => 'timeline', 'signup' => 'stacked', 'updates' => 'list'],
@@ -70,7 +72,7 @@ enum StylePreset: string
             // The one preset that opens with the type-only hero: everything else
             // here is the quietest layout its type offers, and a photograph in
             // the first viewport would be the loudest thing on the site.
-            self::QuietLuxe => ['hero' => 'full-viewport-quiet', 'features' => 'icon-rows', 'testimonials' => 'spotlight', 'gallery' => 'grid', 'cta' => 'banner', 'header' => 'simple', 'footer' => 'minimal', 'prose' => 'stacked', 'steps' => 'list', 'signup' => 'stacked', 'updates' => 'list'],
+            self::QuietLuxe => ['hero' => 'full-viewport-quiet', 'features' => 'rows', 'testimonials' => 'spotlight', 'gallery' => 'grid', 'cta' => 'banner', 'header' => 'simple', 'footer' => 'minimal', 'prose' => 'stacked', 'steps' => 'list', 'signup' => 'stacked', 'updates' => 'list'],
         };
     }
 
@@ -125,8 +127,9 @@ enum StylePreset: string
             // spacing token wants generous sections to match.
             self::WarmCraft => [
                 'features' => ['tone' => 'muted', 'spacing' => 'airy'],
-                'offerings' => ['tone' => 'base', 'spacing' => 'airy', 'width' => 'narrow', 'align' => 'start', 'columns' => 'one', 'item_style' => 'plain'],
-                'gallery' => ['tone' => 'base', 'spacing' => 'airy'],
+                'offerings' => ['tone' => 'base', 'spacing' => 'airy', 'width' => 'normal', 'align' => 'start', 'columns' => 'two', 'item_style' => 'plain'],
+                'gallery' => ['tone' => 'base', 'spacing' => 'airy', 'width' => 'full'],
+                'visit' => ['tone' => 'muted'],
                 'testimonials' => ['tone' => 'muted'],
                 'prose' => ['spacing' => 'airy'],
                 'faq' => ['tone' => 'muted'],
@@ -142,6 +145,7 @@ enum StylePreset: string
                 'features' => ['tone' => 'base'],
                 'offerings' => ['tone' => 'base', 'width' => 'narrow', 'align' => 'start', 'columns' => 'one', 'item_style' => 'plain'],
                 'gallery' => ['tone' => 'base'],
+                'visit' => ['tone' => 'base'],
                 'testimonials' => ['tone' => 'base'],
                 'faq' => ['tone' => 'base'],
                 'contact' => ['tone' => 'base'],
@@ -156,6 +160,7 @@ enum StylePreset: string
                 'features' => ['tone' => 'muted'],
                 'offerings' => ['tone' => 'base'],
                 'gallery' => ['tone' => 'muted'],
+                'visit' => ['tone' => 'base'],
                 'testimonials' => ['tone' => 'base'],
                 'faq' => ['tone' => 'muted', 'width' => 'wide', 'align' => 'center', 'columns' => 'two'],
                 'team' => ['item_style' => 'card', 'image_shape' => 'portrait'],
@@ -166,7 +171,8 @@ enum StylePreset: string
             // photographs and quotes go on black, and the compact spacing token
             // is echoed section by section. Magazine, not brochure.
             self::BoldEditorial => [
-                'gallery' => ['tone' => 'inverted', 'spacing' => 'tight'],
+                'gallery' => ['tone' => 'inverted', 'spacing' => 'tight', 'width' => 'full'],
+                'visit' => ['tone' => 'base', 'spacing' => 'tight'],
                 'testimonials' => ['tone' => 'inverted'],
                 'features' => ['tone' => 'base', 'spacing' => 'tight', 'width' => 'narrow', 'align' => 'start', 'columns' => 'one', 'item_style' => 'plain'],
                 'offerings' => ['tone' => 'muted', 'spacing' => 'tight'],
@@ -182,6 +188,7 @@ enum StylePreset: string
             self::CalmCoastal => [
                 'features' => ['tone' => 'base', 'spacing' => 'airy'],
                 'offerings' => ['tone' => 'muted', 'spacing' => 'airy', 'width' => 'narrow', 'align' => 'start', 'columns' => 'one', 'item_style' => 'plain'],
+                'visit' => ['tone' => 'base', 'spacing' => 'airy'],
                 'cta' => ['item_style' => 'card'],
                 'gallery' => ['tone' => 'base', 'spacing' => 'airy'],
                 'testimonials' => ['tone' => 'muted', 'spacing' => 'airy'],
@@ -195,8 +202,9 @@ enum StylePreset: string
             // call to action, and shaded bands keep the page lively.
             self::PlayfulFriendly => [
                 'features' => ['tone' => 'muted'],
-                'offerings' => ['tone' => 'base'],
-                'gallery' => ['tone' => 'muted'],
+                'offerings' => ['tone' => 'base', 'align' => 'start', 'columns' => 'two'],
+                'gallery' => ['tone' => 'muted', 'width' => 'full'],
+                'visit' => ['tone' => 'muted'],
                 'testimonials' => ['tone' => 'muted'],
                 'faq' => ['tone' => 'base', 'width' => 'wide', 'align' => 'center', 'columns' => 'two'],
                 'stats' => ['tone' => 'inverted'],
@@ -212,8 +220,9 @@ enum StylePreset: string
             // than the base on a dark ramp) and one gold accent moment.
             self::NightLounge => [
                 'features' => ['tone' => 'base', 'spacing' => 'tight'],
-                'offerings' => ['tone' => 'muted'],
-                'gallery' => ['tone' => 'base', 'spacing' => 'tight'],
+                'offerings' => ['tone' => 'muted', 'align' => 'start', 'columns' => 'two'],
+                'gallery' => ['tone' => 'base', 'spacing' => 'tight', 'width' => 'full'],
+                'visit' => ['tone' => 'muted', 'spacing' => 'tight'],
                 'testimonials' => ['tone' => 'muted', 'spacing' => 'airy'],
                 'faq' => ['tone' => 'muted'],
                 'stats' => ['tone' => 'inverted'],
@@ -233,6 +242,7 @@ enum StylePreset: string
             self::QuietLuxe => [
                 'features' => ['tone' => 'base', 'spacing' => 'airy', 'width' => 'narrow', 'align' => 'center', 'columns' => 'two', 'item_style' => 'plain'],
                 'offerings' => ['tone' => 'muted', 'spacing' => 'airy', 'align' => 'center', 'columns' => 'two', 'item_style' => 'plain'],
+                'visit' => ['tone' => 'base', 'spacing' => 'airy', 'align' => 'center'],
                 'prose' => ['tone' => 'muted', 'spacing' => 'airy', 'align' => 'center'],
                 'gallery' => ['tone' => 'base', 'spacing' => 'airy', 'columns' => 'two', 'image_shape' => 'portrait'],
                 'testimonials' => ['tone' => 'base', 'spacing' => 'airy', 'width' => 'narrow', 'align' => 'center', 'columns' => 'one', 'item_style' => 'plain'],

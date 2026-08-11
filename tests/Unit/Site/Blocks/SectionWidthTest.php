@@ -23,5 +23,6 @@ it('offers the labelled options in scale order', function (): void {
         'narrow' => 'Narrow',
         'normal' => 'Normal',
         'wide' => 'Wide',
+        'full' => 'Edge to edge',
     ]);
 });

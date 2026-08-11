@@ -34,7 +34,7 @@ final readonly class DesignTokens
         return new self(
             preset: null,
             palette: ColorPalette::Default,
-            fontPair: FontPair::ModernSans,
+            fontPair: FontPair::NeoGrotesque,
             radius: RadiusScale::Md,
             density: SpacingDensity::Normal,
             typeStyle: TypeStyle::Classic,
@@ -52,7 +52,7 @@ final readonly class DesignTokens
         return new self(
             preset: is_string($data['preset'] ?? null) ? StylePreset::tryFrom($data['preset']) : null,
             palette: (is_string($data['palette'] ?? null) ? ColorPalette::tryFrom($data['palette']) : null) ?? ColorPalette::Default,
-            fontPair: (is_string($data['font_pair'] ?? null) ? FontPair::tryFrom($data['font_pair']) : null) ?? FontPair::ModernSans,
+            fontPair: (is_string($data['font_pair'] ?? null) ? FontPair::tryFrom($data['font_pair']) : null) ?? FontPair::NeoGrotesque,
             radius: (is_string($data['radius'] ?? null) ? RadiusScale::tryFrom($data['radius']) : null) ?? RadiusScale::Md,
             density: (is_string($data['density'] ?? null) ? SpacingDensity::tryFrom($data['density']) : null) ?? SpacingDensity::Normal,
             typeStyle: (is_string($data['type_style'] ?? null) ? TypeStyle::tryFrom($data['type_style']) : null) ?? TypeStyle::Classic,

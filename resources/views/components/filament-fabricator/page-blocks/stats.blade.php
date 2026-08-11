@@ -20,7 +20,7 @@
              Muted text uses the opacity idiom rather than a content-colour
              alpha, so the same markup stays legible when the tone axis puts
              this on the dark band (the old "band" variant). --}}
-        <dl @class(['grid gap-8 text-center', $layout->grid(), 'mt-12' => (bool) $heading])>
+        <dl @class(['grid gap-8 text-center', $layout->grid(), $layout->headerGap() => (bool) $heading])>
             @foreach ($items as $item)
                 @continue(! ($item['value'] ?? null) || ! ($item['label'] ?? null))
                 <div class="site-stat-item px-4">

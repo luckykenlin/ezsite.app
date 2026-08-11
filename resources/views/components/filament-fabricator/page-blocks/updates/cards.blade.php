@@ -25,7 +25,7 @@
         <div class="{{ $layout->container() }}">
             <x-site.section-header :layout="$layout" :heading="$heading" :intro="$intro" />
 
-            <div class="mt-12 grid gap-8 {{ $layout->gridFor($posts->count()) }}">
+            <div class="{{ $layout->headerGap() }} grid gap-8 {{ $layout->gridFor($posts->count()) }}">
                 @foreach ($posts as $post)
                     <x-site.update-card :post="$post" :layout="$layout" />
                 @endforeach

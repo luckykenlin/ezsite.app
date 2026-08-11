@@ -18,7 +18,7 @@
 
         {{-- The row itself is the structure this variant exists for — the
              columns axis deliberately does not reach it. --}}
-        <div class="mt-12 space-y-16 md:space-y-20">
+        <div class="{{ $layout->headerGap() }} space-y-16 md:space-y-20">
             @foreach ($items as $item)
                 @php
                     // Both already resolved and scheme-checked per repeater item
@@ -26,11 +26,15 @@
                     $image = $item['image_url'] ?? null;
                     $link = $item['link_url'] ?? null;
                 @endphp
-                <div class="gap-8 md:grid md:grid-cols-2 md:items-center md:gap-12">
-                    {{-- The alternation comes from the position, never from
-                         stored content: even rows put the image second. --}}
-                    <div @class(['md:order-2' => $loop->even, 'site-frame isolate' => $image && $loop->odd])>
-                        @if ($image)
+                {{-- Two columns only when there is a photograph to put in one.
+                     This used to fall back to a giant glyph on a grey panel,
+                     which was worse than the empty half it was filling; an
+                     item with no image now simply reads across the row. --}}
+                <div @class(['gap-8', 'md:grid md:grid-cols-2 md:items-center md:gap-12' => (bool) $image])>
+                    @if ($image)
+                        {{-- The alternation comes from the position, never from
+                             stored content: even rows put the image second. --}}
+                        <div @class(['md:order-2' => $loop->even, 'site-frame isolate' => $loop->odd])>
                             {{-- Decorative: the title beside it is the accessible
                                  name, so an alt here would be read out twice. --}}
                             <img
@@ -39,13 +43,9 @@
                                 loading="lazy"
                                 class="{{ $layout->image() }} w-full rounded-box object-cover"
                             />
-                        @else
-                            <div class="flex {{ $layout->image() }} items-center justify-center rounded-box bg-base-200">
-                                <span class="text-6xl" aria-hidden="true">{{ $item['icon'] ?? '✦' }}</span>
-                            </div>
-                        @endif
-                    </div>
-                    <div class="relative mt-6 md:mt-0">
+                        </div>
+                    @endif
+                    <div @class(['relative', 'mt-6 md:mt-0' => (bool) $image])>
                         <h3 data-editor-field="features.{{ $loop->index }}.title" class="site-h3">
                             {{-- Same stretched-link pattern as the grid view. --}}
                             @if ($link)
@@ -58,10 +58,7 @@
                             @endif
                         </h3>
                         @if ($item['description'] ?? null)
-                            <p
-                                data-editor-field="features.{{ $loop->index }}.description"
-                                class="text-base-content/70 mt-3"
-                            >
+                            <p data-editor-field="features.{{ $loop->index }}.description" class="site-dim mt-3">
                                 {{ $item['description'] }}
                             </p>
                         @endif

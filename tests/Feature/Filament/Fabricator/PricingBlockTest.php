@@ -61,16 +61,16 @@ it('highlights only the first plan marked as recommended', function (): void {
 
     $response->assertSee('Starter')->assertSee('Standard')->assertSee('Premium');
 
-    expect(mb_substr_count($response->getContent(), 'badge badge-primary'))->toBe(1)
+    expect(mb_substr_count($response->getContent(), 'site-tag'))->toBe(1)
         ->and(mb_substr_count($response->getContent(), 'ring-1 ring-primary'))->toBe(1);
 });
 
 it('renders no highlight at all when no plan claims one', function (): void {
     $response = renderPricing(['plans' => [['name' => 'Starter'], ['name' => 'Standard']]]);
 
-    expect(mb_substr_count($response->getContent(), 'badge badge-primary'))->toBe(0)
+    expect(mb_substr_count($response->getContent(), 'site-tag'))->toBe(0)
         // Every button is the outline treatment when nothing is recommended.
-        ->and(mb_substr_count($response->getContent(), 'btn-outline'))->toBe(0);
+        ->and(mb_substr_count($response->getContent(), 'site-btn-quiet'))->toBe(0);
 });
 
 /*
@@ -89,12 +89,12 @@ it('fills the recommended plan against the surface actually behind it', function
 })->with([
     // A filled card on the brand band is light (SectionTone::itemSurface()), so
     // the brand-coloured button is right inside it.
-    'card on a brand band' => [['tone' => 'accent', 'item_style' => 'card'], 'btn btn-primary', 'bg-primary-content'],
+    'card on a brand band' => [['tone' => 'accent', 'item_style' => 'card'], 'site-btn-primary', 'site-btn-on-accent'],
     // Take the fill away and the same button is standing on the brand band.
-    'outlined on a brand band' => [['tone' => 'accent', 'item_style' => 'outline'], 'bg-primary-content', 'btn btn-primary'],
-    'plain on a brand band' => [['tone' => 'accent', 'item_style' => 'plain'], 'bg-primary-content', 'btn btn-primary'],
+    'outlined on a brand band' => [['tone' => 'accent', 'item_style' => 'outline'], 'site-btn-on-accent', 'site-btn-primary'],
+    'plain on a brand band' => [['tone' => 'accent', 'item_style' => 'plain'], 'site-btn-on-accent', 'site-btn-primary'],
     // Nothing coloured to clash with: unchanged.
-    'outlined on the page background' => [['tone' => 'base', 'item_style' => 'outline'], 'btn btn-primary', 'bg-primary-content'],
+    'outlined on the page background' => [['tone' => 'base', 'item_style' => 'outline'], 'site-btn-primary', 'site-btn-on-accent'],
 ]);
 
 it('caps the column count so a fourth plan does not become a sliver', function (): void {
@@ -116,5 +116,5 @@ it('drops an unnamed plan before counting columns, so the real one keeps full wi
         ->assertDontSeeHtml('sm:grid-cols-2')
         ->assertDontSeeHtml('lg:grid-cols-3');
 
-    expect(mb_substr_count($response->getContent(), 'class="card-body"'))->toBe(1);
+    expect(mb_substr_count($response->getContent(), 'class="site-card-body"'))->toBe(1);
 });

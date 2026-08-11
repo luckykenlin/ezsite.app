@@ -101,7 +101,7 @@ it('renders a chosen image in every layout that offers the field', function (): 
     $this->createTenantPage($tenant, [
         ['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome', 'image_id' => $media->id]],
         ['type' => 'cta', 'data' => ['variant' => 'banner', 'heading' => 'Book now', 'cta_label' => 'Book', 'cta_url' => '/contact', 'image_id' => $media->id]],
-        ['type' => 'features', 'data' => ['variant' => 'icon-rows', 'features' => [
+        ['type' => 'features', 'data' => ['variant' => 'rows', 'features' => [
             ['title' => 'Deep clean', 'icon' => '✦', 'image_id' => $media->id],
         ]]],
     ]);

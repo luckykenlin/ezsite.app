@@ -20,7 +20,7 @@
              block from features, and a screen reader should hear "list, 3 items"
              rather than three unrelated headings. Multi-column steps keep their
              reading order down each column. --}}
-        <ol @class(['mt-12', 'space-y-8' => $layout->grid() === 'grid-cols-1', 'grid gap-8' => $layout->grid() !== 'grid-cols-1', $layout->grid() => $layout->grid() !== 'grid-cols-1'])>
+        <ol @class([$layout->headerGap(), 'space-y-8' => $layout->grid() === 'grid-cols-1', 'grid gap-8' => $layout->grid() !== 'grid-cols-1', $layout->grid() => $layout->grid() !== 'grid-cols-1'])>
             @foreach ($items as $item)
                 @continue(! ($item['title'] ?? null))
                 <li class="flex gap-5">
@@ -39,10 +39,7 @@
                             {{ $item['title'] }}
                         </h3>
                         @if ($item['description'] ?? null)
-                            <p
-                                data-editor-field="steps.{{ $loop->index }}.description"
-                                class="text-base-content/70 mt-1"
-                            >
+                            <p data-editor-field="steps.{{ $loop->index }}.description" class="site-dim mt-1">
                                 {{ $item['description'] }}
                             </p>
                         @endif

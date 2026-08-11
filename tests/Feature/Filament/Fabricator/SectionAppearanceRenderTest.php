@@ -77,8 +77,8 @@ it('keeps every block view on the background and spacing it declared before the 
         ['type' => 'features', 'data' => ['variant' => 'grid', 'heading' => 'Why us']],
         'bg-base-100 text-base-content', 'py-20 md:py-28', 0,
     ],
-    'features icon-rows' => [
-        ['type' => 'features', 'data' => ['variant' => 'icon-rows', 'heading' => 'Why us']],
+    'features rows' => [
+        ['type' => 'features', 'data' => ['variant' => 'rows', 'heading' => 'Why us']],
         'bg-base-100 text-base-content', 'py-20 md:py-28', 0,
     ],
     'offerings' => [
@@ -146,7 +146,7 @@ it('renders stored layout axes and falls back to the contract defaults', functio
         ->assertSeeHtml('max-w-3xl')
         // align=start drops the centring; plain items drop the card chrome.
         ->assertDontSeeHtml('site-h2 text-center')
-        ->assertDontSeeHtml('card bg-base-200');
+        ->assertDontSeeHtml('site-card bg-base-200');
 });
 
 it('renders the contract axis defaults when nothing is stored', function (): void {
@@ -157,7 +157,7 @@ it('renders the contract axis defaults when nothing is stored', function (): voi
         ->assertSeeHtml('grid-cols-1 sm:grid-cols-2 lg:grid-cols-3')
         ->assertSeeHtml('max-w-7xl')
         ->assertSeeHtml('site-h2 text-center')
-        ->assertSeeHtml('card bg-base-200');
+        ->assertSeeHtml('site-card bg-base-200');
 });
 
 it('lifts cards onto a lighter surface when the tone axis darkens the band', function (): void {
@@ -172,12 +172,12 @@ it('lifts cards onto a lighter surface when the tone axis darkens the band', fun
             'features' => [['title' => 'Fresh']],
         ],
     ])
-        ->assertSeeHtml('card bg-base-100')
-        ->assertDontSeeHtml('card bg-base-200');
+        ->assertSeeHtml('site-card bg-base-100')
+        ->assertDontSeeHtml('site-card bg-base-200');
 });
 
 it('re-expresses the retired list variants as axis combinations', function (): void {
-    // The old offerings/list look: one column, no cards, divided price rows.
+    // The old offerings/list look: one column, no cards, ruled menu rows.
     renderBlock([
         'type' => 'offerings',
         'data' => [
@@ -186,7 +186,7 @@ it('re-expresses the retired list variants as axis combinations', function (): v
             'items' => [['name' => 'Espresso', 'price' => '$4']],
         ],
     ])
-        ->assertSeeHtml('divide-y divide-base-300')
+        ->assertSeeHtml('site-menu-row')
         ->assertSeeHtml('max-w-3xl')
         ->assertSee('Espresso');
 });

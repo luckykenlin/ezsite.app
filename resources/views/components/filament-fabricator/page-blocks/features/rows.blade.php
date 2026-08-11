@@ -6,7 +6,7 @@
     'features' => [],
 ])
 @php
-    $layout = \App\Site\Blocks\SectionLayout::for('features', 'icon-rows')->resolve($appearance);
+    $layout = \App\Site\Blocks\SectionLayout::for('features', 'rows')->resolve($appearance);
 
     // Repeater state may be a uuid-keyed map (Filament) or a plain list (AI
     // output) — iterate whatever array arrives, defensively.
@@ -16,7 +16,7 @@
     <div class="{{ $layout->container() }}">
         <x-site.section-header :layout="$layout" :heading="$heading" :intro="$intro" />
 
-        <div class="mt-12 grid gap-x-10 gap-y-8 {{ $layout->grid() }}">
+        <div class="{{ $layout->headerGap() }} grid gap-x-10 gap-y-8 {{ $layout->grid() }}">
             @foreach ($items as $item)
                 @php
                     $link = $item['link_url'] ?? null;
@@ -34,10 +34,10 @@
                             class="rounded-selector size-12 shrink-0 object-cover"
                         />
                     @else
-                        <span
-                            class="rounded-selector border-primary/20 bg-primary/10 flex size-12 shrink-0 items-center justify-center border text-2xl"
-                            aria-hidden="true"
-                        >{{ $item['icon'] ?? '✦' }}</span>
+                        {{-- The leading slot keeps its width so the rows stay
+                             aligned whether or not an item has a photo; a rule
+                             fills it where the emoji chip used to. --}}
+                        <span class="site-item-rule site-item-rule-lead" aria-hidden="true"></span>
                     @endif
                     <div>
                         <h3 data-editor-field="features.{{ $loop->index }}.title" class="font-semibold">
@@ -52,10 +52,7 @@
                             @endif
                         </h3>
                         @if ($item['description'] ?? null)
-                            <p
-                                data-editor-field="features.{{ $loop->index }}.description"
-                                class="text-base-content/70 mt-1"
-                            >
+                            <p data-editor-field="features.{{ $loop->index }}.description" class="site-dim mt-1">
                                 {{ $item['description'] }}
                             </p>
                         @endif

@@ -5,21 +5,12 @@
     'intro' => null,
     'business' => null,
     'location' => null,
+    'show_hours' => true,
     'show_form' => true,
     'success_message' => null,
 ])
 @php
     $layout = \App\Site\Blocks\SectionLayout::for('contact')->resolve($appearance);
-
-    $addressLines = array_filter([
-        $location->address_line1,
-        $location->address_line2,
-        mb_trim(implode(', ', array_filter([$location->city, $location->state]))." {$location->postal_code}"),
-    ]);
-    $phone = $location->phone ?? $business->contact_phone;
-    $email = $location->email ?? $business->contact_email;
-    $hours = $location->opening_hours?->forWeek() ?? [];
-    $hasCoordinates = $location->latitude !== null && $location->longitude !== null;
 
     // Two columns puts the form beside the details (the old "split" look);
     // one column stacks everything down a centre-or-left spine (the old
@@ -54,46 +45,10 @@
         </div>
 
         <div @class(['space-y-8' => $split, 'mt-8 w-full space-y-8' => ! $split, 'flex flex-col items-center' => ! $split && $centered])>
-            @if ($addressLines !== [])
-                <address class="leading-relaxed not-italic">
-                    @foreach ($addressLines as $line)
-                        <span class="block">{{ $line }}</span>
-                    @endforeach
-                </address>
-            @endif
-
-            <div class="space-y-1">
-                @if ($phone)
-                    <p><a href="tel:{{ $phone }}" class="link-hover link">{{ $phone }}</a></p>
-                @endif
-                @if ($email)
-                    <p><a href="mailto:{{ $email }}" class="link-hover link">{{ $email }}</a></p>
-                @endif
-            </div>
-
-            @if ($hours !== [])
-                <table class="table-sm table max-w-sm">
-                    <tbody>
-                        @foreach ($hours as $day => $ranges)
-                            <tr>
-                                <th class="font-medium capitalize">{{ $day }}</th>
-                                <td>
-                                    {{ $ranges->isEmpty() ? __('Closed') : implode(', ', $ranges->map(fn ($range): string => (string) $range)) }}
-                                </td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            @endif
-
-            @if ($hasCoordinates)
-                <a
-                    href="{{ sprintf('https://www.google.com/maps/search/?api=1&query=%s,%s', $location->latitude, $location->longitude) }}"
-                    class="btn btn-outline btn-sm"
-                    target="_blank"
-                    rel="noopener"
-                >{{ __('Get directions') }}</a>
-            @endif
+            {{-- The same facts the `visit` block leads with, rendered by the
+                 same component so the fallback chain (location's phone over
+                 the business's) cannot drift between the two. --}}
+            <x-site.location-facts :business="$business" :location="$location" :show-hours="$show_hours" />
         </div>
     </div>
 </x-site.section>

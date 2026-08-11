@@ -108,7 +108,7 @@ it('overwrites an appearance the preset does have an opinion about', function ()
     // Wholesale, not merged: the preset's entry is the complete intent for that
     // section, so a leftover `flush` from the previous look must not survive
     // into a rhythm that was designed with `tight`.
-    expect($stamped['appearance'])->toBe(['tone' => 'inverted', 'spacing' => 'tight']);
+    expect($stamped['appearance'])->toBe(['tone' => 'inverted', 'spacing' => 'tight', 'width' => 'full']);
 });
 
 it('stamps both halves of a preset over a whole list', function (): void {
@@ -173,7 +173,7 @@ it('fill: demotes a dark band that would sit directly under another dark band', 
         ['type' => 'testimonials', 'data' => []],
     ], StylePreset::BoldEditorial);
 
-    expect($blocks[0]['data']['appearance'])->toBe(['tone' => 'inverted', 'spacing' => 'tight'])
+    expect($blocks[0]['data']['appearance'])->toBe(['tone' => 'inverted', 'spacing' => 'tight', 'width' => 'full'])
         ->and($blocks[1]['data']['appearance'])->toBe(['tone' => 'muted']);
 });
 

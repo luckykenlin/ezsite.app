@@ -10,7 +10,7 @@ it('resolves a section to its contract defaults when nothing is stored', functio
     expect($layout->container())->toBe('mx-auto px-6 max-w-7xl')
         ->and($layout->heading())->toBe('site-h2 text-center')
         ->and($layout->grid())->toBe('grid-cols-1 sm:grid-cols-2 lg:grid-cols-3')
-        ->and($layout->item())->toBe('card bg-base-200 site-card')
+        ->and($layout->item())->toBe('site-card bg-base-200')
         ->and($layout->isCard())->toBeTrue()
         ->and($layout->image())->toBe('aspect-video')
         ->and($layout->toneDefault())->toBe('base')
@@ -51,8 +51,8 @@ it('chooses card surfaces against the resolved tone, not in a vacuum', function 
     $onMuted = SectionLayout::for('features', 'grid')->resolve(['tone' => 'muted']);
     $onDark = SectionLayout::for('features', 'grid')->resolve(['tone' => 'inverted']);
 
-    expect($onMuted->item())->toBe('card bg-base-100 site-card')
-        ->and($onDark->item())->toBe('card bg-base-100 text-base-content site-card');
+    expect($onMuted->item())->toBe('site-card bg-base-100')
+        ->and($onDark->item())->toBe('site-card bg-base-100 text-base-content');
 });
 
 it('chooses a call-to-action against the resolved tone too', function (): void {
@@ -63,10 +63,10 @@ it('chooses a call-to-action against the resolved tone too', function (): void {
     $offAccent = SectionLayout::for('signup', 'stacked')->resolve(['tone' => 'muted']);
 
     expect($onSignup->toneDefault())->toBe('accent')
-        ->and($onSignup->button())->toContain('bg-primary-content')
+        ->and($onSignup->button())->toContain('site-btn-on-accent')
         ->and($onSignup->button())->not->toContain('btn-primary')
         // …and the same block moved onto a pale band gets the loud one back.
-        ->and($offAccent->button())->toBe('btn btn-primary');
+        ->and($offAccent->button())->toBe('site-btn site-btn-primary');
 });
 
 it('throws on a type or variant a view could only name by typo', function (): void {
@@ -114,7 +114,7 @@ it('can express every knob the hard-coded views had', function (string $observed
     'full content width' => ['max-w-7xl', 'width=wide'],
     'centred header' => ['site-h2 text-center', 'align=center'],
     'left header' => ['site-h2', 'align=start'],
-    'filled cards' => ['card bg-base-200', 'item_style=card'],
+    'filled cards' => ['site-card bg-base-200', 'item_style=card'],
     'plain items' => ['no wrapper', 'item_style=plain'],
     'video thumbnails' => ['aspect-video', 'image_shape=wide'],
     'portrait circles' => ['size-28 rounded-full', 'image_shape=circle'],

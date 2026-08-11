@@ -13,7 +13,14 @@ use Filament\Forms\Components\TextInput;
 use Filament\Support\Icons\Heroicon;
 
 /**
- * A trust row: brands served, partners, accreditations, press.
+ * A trust row: where else to find this business, and who vouches for it.
+ *
+ * Written for the businesses this builder is actually for. The block used to
+ * describe itself in B2B terms — "clients served", "brands worked with" — which
+ * is the wrong sentence for a takeaway or a nail bar and meant the draft agent
+ * either skipped it or invented an agency client list. What a local business
+ * legitimately has on this row is the delivery apps it is on, the booking
+ * platform it uses, its licences, and the local press that wrote about it.
  *
  * Distinct from {@see Gallery} even though both are "a repeater of images", and
  * the difference is what the images ARE. A gallery shows the work, for its own
@@ -33,7 +40,7 @@ final class Logos extends Block
 {
     protected static string $name = 'logos';
 
-    protected static string $description = 'Logos the business can legitimately show — clients served, partners, accreditations, press it appeared in. Never add one the operator did not name: claiming an association that does not exist is a legal problem, not a copy problem.';
+    protected static string $description = 'Where else to find the business and who vouches for it — the delivery or booking apps it is on (Uber Eats, DoorDash, Fresha), its licences and accreditations, local press that covered it. Never add one the operator did not name: claiming an association that does not exist is a legal problem, not a copy problem.';
 
     protected static ?Heroicon $icon = Heroicon::OutlinedShieldCheck;
 
@@ -52,7 +59,7 @@ final class Logos extends Block
      * @var array<string, mixed>
      */
     protected static array $sample = [
-        'heading' => 'Trusted by',
+        'heading' => 'Also find us on',
         'logos' => [
             ['url' => '/images/placeholder.svg', 'name' => 'Replace with a real logo'],
         ],
@@ -75,7 +82,7 @@ final class Logos extends Block
                     TextInput::make('name')
                         ->required()
                         ->maxLength(120)
-                        ->helperText('The brand name — read out in place of the image.'),
+                        ->helperText('The app, licence or publication — read out in place of the image.'),
                     LinkInput::make('link_url')
                         ->label('Links to')
                         ->helperText('Optional.'),

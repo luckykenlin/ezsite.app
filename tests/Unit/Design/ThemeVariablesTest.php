@@ -33,15 +33,15 @@ it('compiles stored tokens into the variable set, defaulting without them, and r
     expect($variables['--color-primary'])->toBe('oklch(55% 0.12 40)') // WarmSand
         ->and($variables['--radius-box'])->toBe('1rem') // Lg
         ->and($variables['--spacing'])->toBe('0.28125rem') // Spacious
-        ->and($variables['--font-heading'])->toContain('Playfair Display') // ElegantSerif
-        ->and($variables['--font-sans'])->toContain('Source Sans 3');
+        ->and($variables['--font-heading'])->toContain('Newsreader') // WarmEditorial
+        ->and($variables['--font-sans'])->toContain('Figtree');
 
     $defaults = ThemeVariables::variablesFor($bare->design_tokens, $bare);
 
     expect($defaults['--color-primary'])->toBe('oklch(45% 0.24 277.023)')
         ->and($defaults['--radius-box'])->toBe('0.5rem')
         ->and($defaults['--spacing'])->toBe('0.25rem')
-        ->and($defaults['--font-heading'])->toContain('Instrument Sans')
+        ->and($defaults['--font-heading'])->toContain('Schibsted Grotesk')
         // The TypeStyle contract rides in the same set (Classic here).
         ->and($defaults['--type-scale'])->toBe('1')
         ->and($defaults['--type-heading-weight'])->toBe('700')

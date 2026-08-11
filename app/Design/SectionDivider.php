@@ -30,11 +30,22 @@ enum SectionDivider: string
      */
     public function variables(): array
     {
+        // All three are drawn SHALLOW, and that is the whole revision. Cutting
+        // the full 3rem of the seam gave a hero a dome across its foot, a
+        // section a chevron pointing down at the next one, and a page a wedge
+        // — the three shapes every template site of about 2015 used, which is
+        // exactly what a visitor reads them as now. Topping out at roughly
+        // half the seam's height turns each one from an ornament into a fold:
+        // still legible as a deliberate edge where two tones meet, no longer
+        // the loudest thing between two sections.
         [$display, $clip] = match ($this) {
             self::None => ['none', 'none'],
-            self::Slant => ['block', 'polygon(0% 100%, 100% 0%, 100% 100%)'],
-            self::Curve => ['block', 'ellipse(75% 100% at 50% 100%)'],
-            self::Peak => ['block', 'polygon(0% 100%, 50% 0%, 100% 100%)'],
+            self::Slant => ['block', 'polygon(0% 100%, 100% 40%, 100% 100%)'],
+            // A wide ellipse rather than a tall one: the radius runs past both
+            // edges, so the visitor sees the flat middle of a big arc instead
+            // of the top of a small one.
+            self::Curve => ['block', 'ellipse(120% 55% at 50% 100%)'],
+            self::Peak => ['block', 'polygon(0% 100%, 50% 35%, 100% 100%)'],
         };
 
         return [

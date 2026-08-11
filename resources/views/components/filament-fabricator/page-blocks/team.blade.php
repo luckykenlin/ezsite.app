@@ -21,7 +21,7 @@
     <div class="{{ $layout->container() }}">
         <x-site.section-header :layout="$layout" :heading="$heading" :intro="$intro" />
 
-        <div class="mt-12 grid gap-8 {{ $layout->grid() }}">
+        <div class="{{ $layout->headerGap() }} grid gap-8 {{ $layout->grid() }}">
             @foreach ($items as $item)
                 @continue(! ($item['name'] ?? null))
                 @php
@@ -49,10 +49,10 @@
                             aria-hidden="true"
                         >{{ $initials }}</span>
                     @endif
-                    <div @class(['card-body' => $layout->isCard()])>
+                    <div @class(['site-card-body' => $layout->isCard()])>
                         <h3
                             data-editor-field="members.{{ $loop->index }}.name"
-                            @class(['card-title' => $layout->isCard(), 'mt-4 text-lg font-semibold' => ! $layout->isCard()])
+                            @class(['site-h5', 'mt-4' => ! $layout->isCard()])
                         >
                             {{ $item['name'] }}
                         </h3>
@@ -67,7 +67,7 @@
                         @if ($item['bio'] ?? null)
                             <p
                                 data-editor-field="members.{{ $loop->index }}.bio"
-                                @class(['text-base-content/70', 'mt-2' => ! $layout->isCard()])
+                                @class(['site-dim', 'mt-2' => ! $layout->isCard()])
                             >
                                 {{ $item['bio'] }}
                             </p>

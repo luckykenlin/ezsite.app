@@ -21,6 +21,34 @@ it('offers the least-used matching photo first', function (): void {
         ->toBe([$fresh->id, $used->id, $popular->id]);
 });
 
+/*
+ * The bug the relevance ranking exists for, and the reason least-used-first is
+ * only the TIEBREAK: a photo that shares one weak word with the query used to
+ * outrank one that shared three, purely by being newer. On the demo sites that
+ * put massage tables in a pizzeria's gallery.
+ */
+it('ranks by how much of the query a photo actually matches, not by novelty', function (): void {
+    $onTopic = LibraryPhoto::factory()->describing('wood fired pizza oven interior')->create(['usage_count' => 9]);
+    $oneWeakWord = LibraryPhoto::factory()->describing('massage room interior')->create(['usage_count' => 0]);
+
+    $found = new FindLibraryPhotos()->handle('wood fired pizza interior', count: 2);
+
+    expect(array_map(fn (LibraryPhoto $photo): int => $photo->id, $found))
+        ->toBe([$onTopic->id, $oneWeakWord->id]);
+});
+
+it('still spreads demand between photos that match the query equally well', function (): void {
+    // Relevance decides first, but among equals the least-used still wins —
+    // otherwise a shared library makes every site look the same.
+    $popular = LibraryPhoto::factory()->describing('bakery counter morning')->create(['usage_count' => 20]);
+    $fresh = LibraryPhoto::factory()->describing('bakery counter morning')->create(['usage_count' => 0]);
+
+    $found = new FindLibraryPhotos()->handle('bakery counter morning', count: 2);
+
+    expect(array_map(fn (LibraryPhoto $photo): int => $photo->id, $found))
+        ->toBe([$fresh->id, $popular->id]);
+});
+
 it('never offers a photo that was curated out', function (): void {
     $offered = LibraryPhoto::factory()->describing('bakery counter')->create();
     LibraryPhoto::factory()->describing('bakery counter')->unpublished()->create();

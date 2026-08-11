@@ -132,6 +132,11 @@ final readonly class ChineseRestaurant
                     'cta_url' => '/#menu',
                     'image_query' => 'chinese restaurant banquet table',
                 ]],
+                ['type' => 'visit', 'data' => [
+                    'heading' => 'Come and eat',
+                    'intro' => 'Lunch and dinner, seven days most weeks. Call ahead for takeaway and it will be ready when you arrive.',
+                    'show_hours' => true,
+                ]],
                 ['type' => 'offerings', 'tone' => 'base', 'spacing' => 'airy', 'data' => [
                     'heading' => 'What people order',
                     'intro' => 'A short list of what the kitchen is known for. The full menu is longer — ask, and we will tell you what is good today.',
@@ -166,6 +171,7 @@ final readonly class ChineseRestaurant
                     ],
                 ]],
                 ['type' => 'contact', 'tone' => 'base', 'spacing' => 'airy', 'data' => [
+                    'show_hours' => false,
                     'heading' => 'Find us',
                     'intro' => 'Walk in, or call ahead and it will be waiting.',
                     'show_form' => false,

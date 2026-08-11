@@ -22,7 +22,7 @@ it('injects the tenant theme variables into the public site head', function (): 
         ->assertSee('data-site-theme', false)
         ->assertSee('--color-primary: oklch(55% 0.12 40);', false) // WarmSand
         ->assertSee('--radius-box: 1rem;', false)
-        ->assertSee("--font-heading: 'Playfair Display'", false);
+        ->assertSee("--font-heading: 'Newsreader'", false); // WarmEditorial
 });
 
 it('emits the brand hex colors when the palette is brand', function (): void {

@@ -136,6 +136,11 @@ final readonly class BurgerJoint
                     'cta_url' => '/#menu',
                     'image_query' => 'stacked double cheeseburger close up',
                 ]],
+                ['type' => 'visit', 'data' => [
+                    'heading' => 'Open now?',
+                    'intro' => 'The grill runs until late. There is usually a line at seven — that is the cooking, not the queue.',
+                    'show_hours' => true,
+                ]],
                 ['type' => 'offerings', 'tone' => 'base', 'spacing' => 'airy', 'data' => [
                     'heading' => 'The whole menu, more or less',
                     'intro' => 'Three burgers, fries, and a shake if you earned it. A short menu means nothing on it is an afterthought.',
@@ -151,9 +156,9 @@ final readonly class BurgerJoint
                     'heading' => 'Three things we are annoying about',
                     'intro' => 'None of it is complicated. All of it is the difference.',
                     'features' => [
-                        ['icon' => '01', 'title' => 'Beef ground daily', 'description' => 'Chuck and brisket from a butcher eight blocks away, ground that morning and never frozen.'],
-                        ['icon' => '02', 'title' => 'Buns baked local', 'description' => 'Potato buns delivered warm, toasted in the beef fat. A dry bun ruins an otherwise good burger.'],
-                        ['icon' => '03', 'title' => 'Cooked to order', 'description' => "Nothing is pre-smashed at four for the six o'clock rush. If there is a line, that is why."],
+                        ['title' => 'Beef ground daily', 'description' => 'Chuck and brisket from a butcher eight blocks away, ground that morning and never frozen.'],
+                        ['title' => 'Buns baked local', 'description' => 'Potato buns delivered warm, toasted in the beef fat. A dry bun ruins an otherwise good burger.'],
+                        ['title' => 'Cooked to order', 'description' => "Nothing is pre-smashed at four for the six o'clock rush. If there is a line, that is why."],
                     ],
                 ]],
                 ['type' => 'gallery', 'variant' => 'filmstrip', 'tone' => 'base', 'data' => [
@@ -175,6 +180,7 @@ final readonly class BurgerJoint
                     ],
                 ]],
                 ['type' => 'contact', 'tone' => 'base', 'spacing' => 'airy', 'data' => [
+                    'show_hours' => false,
                     'heading' => 'Come get one',
                     'intro' => 'Walk up to the counter, or call ahead and we will have it bagged.',
                     'show_form' => false,

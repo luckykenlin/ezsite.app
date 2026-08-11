@@ -16,6 +16,13 @@ use Filament\Support\Icons\Heroicon;
 /**
  * Feature/benefit list. Content-only: every item is narrative copy, so the
  * block declares no bind target.
+ *
+ * Deliberately carries NO icon field. It used to, and the emoji an operator or
+ * the draft agent put in it was rendered inside a brand-tinted rounded square —
+ * which is the single most recognisable tell of a generated website, and which
+ * renders as three different pictures across macOS, Windows and Android. The
+ * items are marked with a typographic rule instead: it claims nothing the copy
+ * does not, and it is drawn from the tenant's own palette.
  */
 final class Features extends Block
 {
@@ -34,9 +41,9 @@ final class Features extends Block
         'heading' => 'Why choose us',
         'intro' => 'Three reasons customers love working with us — replace them with your own.',
         'features' => [
-            ['icon' => '⭐', 'title' => 'Reliable service', 'description' => 'Replace this with a benefit your customers care about.'],
-            ['icon' => '⚡', 'title' => 'Fast turnaround', 'description' => 'Replace this with a benefit your customers care about.'],
-            ['icon' => '💬', 'title' => 'Friendly support', 'description' => 'Replace this with a benefit your customers care about.'],
+            ['title' => 'Reliable service', 'description' => 'Replace this with a benefit your customers care about.'],
+            ['title' => 'Fast turnaround', 'description' => 'Replace this with a benefit your customers care about.'],
+            ['title' => 'Friendly support', 'description' => 'Replace this with a benefit your customers care about.'],
         ],
     ];
 
@@ -46,7 +53,7 @@ final class Features extends Block
     protected static array $variants = [
         'grid' => 'Three-column cards',
         'alternating' => 'Alternating rows',
-        'icon-rows' => 'Icon rows',
+        'rows' => 'Text rows',
     ];
 
     /**
@@ -67,7 +74,7 @@ final class Features extends Block
      */
     protected static array $variantAxes = [
         'alternating' => ['item_style' => 'plain', 'image_shape' => 'standard'],
-        'icon-rows' => ['width' => 'normal', 'columns' => 'two', 'item_style' => 'plain'],
+        'rows' => ['width' => 'normal', 'columns' => 'two', 'item_style' => 'plain'],
     ];
 
     /**
@@ -83,9 +90,6 @@ final class Features extends Block
                 ->maxLength(500),
             Repeater::make('features')
                 ->schema([
-                    TextInput::make('icon')
-                        ->maxLength(16)
-                        ->helperText('An emoji or short glyph'),
                     TextInput::make('title')
                         ->required()
                         ->maxLength(120),

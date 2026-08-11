@@ -72,6 +72,27 @@ enum SectionSpacing: string
         };
     }
 
+    /**
+     * The gap between a section's header and its content, read through
+     * {@see SectionLayout::headerGap()}.
+     *
+     * Every view used to hard-code `mt-12` here regardless of how much room the
+     * section had asked for, so the spacing token only ever moved a section's
+     * OUTER edges — an `airy` band was a tight block with more air around it.
+     * Roughly half the outer step, which is what keeps a section reading as one
+     * thing rather than two stacked ones.
+     */
+    public function headerGap(): string
+    {
+        return match ($this) {
+            self::Flush => 'mt-6',
+            self::Tight => 'mt-8',
+            self::Normal => 'mt-12',
+            self::Airy => 'mt-16',
+            self::Tall => 'mt-20',
+        };
+    }
+
     public function label(): string
     {
         return match ($this) {

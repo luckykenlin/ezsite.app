@@ -122,12 +122,67 @@ final readonly class SectionLayout
     }
 
     /**
-     * The section's inner container: centring and padding are the frame every
-     * view shares; only the measure is a choice.
+     * The section's inner container: centring is the frame every view shares,
+     * the measure is a choice, and the side padding follows the measure —
+     * {@see SectionWidth::Full} drops it, which is what makes that case bleed
+     * to the viewport rather than merely being wide.
      */
     public function container(): string
     {
-        return 'mx-auto px-6 '.$this->axis(LayoutAxis::Width)->classes();
+        $width = $this->axis(LayoutAxis::Width);
+        $padding = $width instanceof SectionWidth && ! $width->padded() ? '' : 'px-6 ';
+
+        return 'mx-auto '.$padding.$width->classes();
+    }
+
+    /**
+     * The container for a bleeding section's WORDS.
+     *
+     * {@see SectionWidth::Full} takes the side padding off so photography can
+     * touch both edges of the screen — but a heading pinned to the left edge of
+     * a 1440px window is not a design, it is a missing margin. So the header
+     * keeps a normal padded measure while the media below it bleeds, and every
+     * other width returns the section's ordinary container unchanged.
+     */
+    public function headerContainer(): string
+    {
+        $width = $this->axis(LayoutAxis::Width);
+
+        return $width instanceof SectionWidth && ! $width->padded()
+            ? 'mx-auto px-6 max-w-7xl'
+            : $this->container();
+    }
+
+    /**
+     * The clip wrapper around one photograph.
+     *
+     * Rounded normally, square when the section bleeds: a corner radius only
+     * reads as a radius against a margin, and at the viewport edge it turns
+     * into a sliver of background nobody asked for.
+     */
+    public function mediaFrame(): string
+    {
+        $width = $this->axis(LayoutAxis::Width);
+
+        return $width instanceof SectionWidth && ! $width->padded()
+            ? 'overflow-hidden'
+            : 'rounded-box overflow-hidden';
+    }
+
+    /**
+     * The gap between a section's header and its content, derived from the
+     * spacing axis rather than pasted as `mt-12` into a dozen views.
+     *
+     * Vertical rhythm used to be a section's OUTER padding only, so an `airy`
+     * section got more air around itself and exactly the same amount inside —
+     * which is why the roomy presets still read as tight blocks floating in
+     * space. This is the inside half of the same decision.
+     */
+    public function headerGap(): string
+    {
+        $spacing = $this->axis(LayoutAxis::Spacing);
+
+        return ($spacing instanceof SectionSpacing ? $spacing : SectionSpacing::Normal)->headerGap();
     }
 
     public function heading(): string

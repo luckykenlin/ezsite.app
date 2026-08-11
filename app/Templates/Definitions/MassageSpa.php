@@ -137,6 +137,11 @@ final readonly class MassageSpa
                     'cta_url' => 'tel:{phone}',
                     'image_query' => 'calm spa interior soft light',
                 ]],
+                ['type' => 'visit', 'data' => [
+                    'heading' => 'Visiting us',
+                    'intro' => 'By appointment, with a buffer either side. Arrive ten minutes early and start unhurried.',
+                    'show_hours' => true,
+                ]],
                 ['type' => 'offerings', 'data' => [
                     'heading' => 'The treatment menu',
                     'intro' => 'The three we book most. Prices are per session, and the time listed is time on the table.',
@@ -232,14 +237,14 @@ final readonly class MassageSpa
                         ['group' => 'Add-ons', 'name' => 'Arnica for worked areas', 'price' => '$12', 'description' => 'Applied at the end of a deep session. Worth it if tomorrow involves lifting anything.'],
                     ],
                 ]],
-                ['type' => 'features', 'variant' => 'icon-rows', 'data' => [
+                ['type' => 'features', 'variant' => 'rows', 'data' => [
                     'heading' => 'What every session includes',
                     'intro' => 'The same four things whether you booked the cheapest hour or the longest one.',
                     'features' => [
-                        ['icon' => '01', 'title' => 'A therapist who read the form', 'description' => 'Your intake notes go to the room before you do, so the first five minutes are not spent repeating an injury you already wrote down.'],
-                        ['icon' => '02', 'title' => 'A room with a buffer either side', 'description' => 'We book fewer appointments a day than we could. It is why sessions start on time and end when they are meant to.'],
-                        ['icon' => '03', 'title' => 'Pressure checked, not assumed', 'description' => 'Firm means different things to different backs. You will be asked early, and you can change your mind halfway.'],
-                        ['icon' => '04', 'title' => 'One price, said out loud', 'description' => 'What you see here is what the desk charges. Gratuity is welcome and genuinely optional.'],
+                        ['title' => 'A therapist who read the form', 'description' => 'Your intake notes go to the room before you do, so the first five minutes are not spent repeating an injury you already wrote down.'],
+                        ['title' => 'A room with a buffer either side', 'description' => 'We book fewer appointments a day than we could. It is why sessions start on time and end when they are meant to.'],
+                        ['title' => 'Pressure checked, not assumed', 'description' => 'Firm means different things to different backs. You will be asked early, and you can change your mind halfway.'],
+                        ['title' => 'One price, said out loud', 'description' => 'What you see here is what the desk charges. Gratuity is welcome and genuinely optional.'],
                     ],
                 ]],
                 ['type' => 'faq', 'data' => [

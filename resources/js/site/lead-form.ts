@@ -156,17 +156,16 @@ function showErrors(
             continue;
         }
 
-        input.classList.add(
-            input.tagName === 'TEXTAREA' ? 'textarea-error' : 'input-error',
-        );
+        input.classList.add('site-field-invalid');
         input.setAttribute('aria-invalid', 'true');
 
         const note = document.createElement('p');
         note.className = ERROR_CLASS;
         note.dataset.leadError = '';
         note.textContent = message;
-        // The label wraps the input, so the note belongs after the label.
-        (input.closest('label') ?? input).after(note);
+        // The label now sits BEFORE the field rather than wrapping it, so the
+        // note goes straight after the field itself.
+        input.after(note);
 
         first ??= input;
     }
@@ -178,8 +177,8 @@ function clearErrors(form: HTMLFormElement): void {
     form.querySelectorAll('[data-lead-error]').forEach((note) => {
         note.remove();
     });
-    form.querySelectorAll('.input-error, .textarea-error').forEach((input) => {
-        input.classList.remove('input-error', 'textarea-error');
+    form.querySelectorAll('.site-field-invalid').forEach((input) => {
+        input.classList.remove('site-field-invalid');
         input.removeAttribute('aria-invalid');
     });
 }

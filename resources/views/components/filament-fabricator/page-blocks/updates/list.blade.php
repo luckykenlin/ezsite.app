@@ -27,7 +27,7 @@
                         </h3>
 
                         @if (filled($post->excerpt))
-                            <p class="text-base-content/70 mt-1">{{ $post->excerpt }}</p>
+                            <p class="site-dim mt-1">{{ $post->excerpt }}</p>
                         @endif
                     </li>
                 @endforeach

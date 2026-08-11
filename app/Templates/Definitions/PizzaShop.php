@@ -23,7 +23,7 @@ use App\Templates\TemplateField;
  * shipping as a second restaurant is that it runs on the SAME preset with two
  * tokens swapped.
  *
- * WarmCraft, with `palette: Sunset` and `fontPair: FriendlyRounded`. Everything
+ * WarmCraft, with `palette: Sunset` and `fontPair: Signage`. Everything
  * that gives WarmCraft its manner is untouched — large radii, spacious rhythm,
  * curved section dividers, flat accents — so the two sites share a posture and
  * a sense of room. The swap only changes temperature: warm sand and an elegant
@@ -48,7 +48,7 @@ final readonly class PizzaShop
             demoProfile: self::demoProfile(),
             extraFields: self::extraFields(),
             palette: ColorPalette::Sunset,
-            fontPair: FontPair::FriendlyRounded,
+            fontPair: FontPair::Signage,
         );
     }
 
@@ -142,6 +142,11 @@ final readonly class PizzaShop
                     'cta_url' => '/#menu',
                     'image_query' => 'wood fired pizza oven flames',
                 ]],
+                ['type' => 'visit', 'data' => [
+                    'heading' => 'Open tonight?',
+                    'intro' => 'The oven is on from four. Walk in, or ring ahead and it will be boxed when you get here.',
+                    'show_hours' => true,
+                ]],
                 ['type' => 'offerings', 'tone' => 'base', 'spacing' => 'airy', 'data' => [
                     'heading' => 'What comes out of the oven',
                     'intro' => 'Six pizzas most weeks, three of them always. Ask what the specials board says before you decide.',
@@ -176,6 +181,7 @@ final readonly class PizzaShop
                     ],
                 ]],
                 ['type' => 'contact', 'tone' => 'base', 'spacing' => 'airy', 'data' => [
+                    'show_hours' => false,
                     'heading' => 'Where we are',
                     'intro' => 'Walk in and wait by the oven, or ring ahead and it will be boxed when you get here.',
                     'show_form' => false,

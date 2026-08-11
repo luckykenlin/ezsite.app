@@ -26,6 +26,16 @@ enum SectionWidth: string
     case Wide = 'wide';
 
     /**
+     * Edge to edge — no measure and no side padding, so the section's content
+     * runs to the viewport. The one case that is a COMPOSITION rather than a
+     * width: it exists because every section on a generated page was the same
+     * shape, a centred column inside a full-width band, twenty times down the
+     * page. A photograph that touches both edges is the cheapest way to break
+     * that, and on a restaurant or salon site the photograph is the product.
+     */
+    case Full = 'full';
+
+    /**
      * `value => label` for a Filament Select.
      *
      * @return array<string, string>
@@ -51,7 +61,8 @@ enum SectionWidth: string
 
     /**
      * The max-width class for the section's inner container. Composed by
-     * {@see SectionLayout::container()} with the shared `mx-auto px-6`.
+     * {@see SectionLayout::container()} with the shared `mx-auto`, and with
+     * `px-6` only when {@see padded()} says so.
      */
     public function classes(): string
     {
@@ -59,7 +70,18 @@ enum SectionWidth: string
             self::Narrow => 'max-w-3xl',
             self::Normal => 'max-w-5xl',
             self::Wide => 'max-w-7xl',
+            self::Full => 'max-w-none',
         };
+    }
+
+    /**
+     * Whether the container keeps the shared side padding. Only {@see Full}
+     * drops it — that is what makes it bleed rather than merely be wide, and
+     * it is asked here rather than in a view so no blade has to know.
+     */
+    public function padded(): bool
+    {
+        return $this !== self::Full;
     }
 
     public function label(): string
@@ -68,6 +90,7 @@ enum SectionWidth: string
             self::Narrow => 'Narrow',
             self::Normal => 'Normal',
             self::Wide => 'Wide',
+            self::Full => 'Edge to edge',
         };
     }
 
@@ -80,6 +103,7 @@ enum SectionWidth: string
             self::Narrow => 'a reading column — right for prose, FAQs, and anything meant to be read line by line',
             self::Normal => 'a comfortable middle width for most sections',
             self::Wide => 'the full content width — right for card grids and galleries that need the room',
+            self::Full => 'runs to both edges of the screen with no margin — for photography, and at most once or twice on a page',
         };
     }
 }

@@ -139,6 +139,11 @@ final readonly class BubbleTea
                     'cta_url' => '/#menu',
                     'image_query' => 'pastel bubble tea drink',
                 ]],
+                ['type' => 'visit', 'data' => [
+                    'heading' => 'Find the counter',
+                    'intro' => 'Open from late morning. Order at the counter, or ring ahead if you are picking up for the office.',
+                    'show_hours' => true,
+                ]],
                 ['type' => 'offerings', 'spacing' => 'airy', 'data' => [
                     'heading' => 'On the board',
                     'intro' => 'Sweetness runs 0 to 100 in quarters, and nobody here will look at you strangely for asking for 25. Seasonal drinks change when the fruit does.',
@@ -152,10 +157,10 @@ final readonly class BubbleTea
                     'heading' => 'Four things we are stubborn about',
                     'intro' => 'None of it is complicated. All of it is the difference between a good cup and a sweet one.',
                     'features' => [
-                        ['icon' => '01', 'title' => 'Tea brewed every two hours', 'description' => 'Loose-leaf, timed, and dumped when the timer says so. Tea that has sat all afternoon tastes like it has.'],
-                        ['icon' => '02', 'title' => 'Pearls in twenty-minute rounds', 'description' => 'Cooked, rested, and used inside four hours. Chewy in the middle, never chalky, never gummy.'],
-                        ['icon' => '03', 'title' => 'Sugar in quarters', 'description' => 'Zero, 25, 50, 75, 100 — measured, not eyeballed, so the drink you liked last week tastes the same today.'],
-                        ['icon' => '04', 'title' => 'Milk you can choose', 'description' => 'Whole, oat, or fresh soy at no extra charge. Oat is the one we would pick with the brown sugar.'],
+                        ['title' => 'Tea brewed every two hours', 'description' => 'Loose-leaf, timed, and dumped when the timer says so. Tea that has sat all afternoon tastes like it has.'],
+                        ['title' => 'Pearls in twenty-minute rounds', 'description' => 'Cooked, rested, and used inside four hours. Chewy in the middle, never chalky, never gummy.'],
+                        ['title' => 'Sugar in quarters', 'description' => 'Zero, 25, 50, 75, 100 — measured, not eyeballed, so the drink you liked last week tastes the same today.'],
+                        ['title' => 'Milk you can choose', 'description' => 'Whole, oat, or fresh soy at no extra charge. Oat is the one we would pick with the brown sugar.'],
                     ],
                 ]],
                 ['type' => 'gallery', 'variant' => 'grid', 'data' => [
@@ -177,6 +182,7 @@ final readonly class BubbleTea
                     ],
                 ]],
                 ['type' => 'contact', 'spacing' => 'airy', 'data' => [
+                    'show_hours' => false,
                     'heading' => 'Where we are',
                     'intro' => 'Walk up and order, or call it in and skip the line.',
                     'show_form' => false,

@@ -17,8 +17,7 @@ it('counts every style but plain as a card', function (SectionItemStyle $style):
 it('lifts a card off every band it can sit on', function (SectionTone $tone): void {
     $card = SectionItemStyle::Card->classes($tone);
 
-    expect($card)->toStartWith('card')
-        ->and($card)->toContain('site-card')
+    expect($card)->toStartWith('site-card ')
         ->and($tone->itemSurface())->not->toBeEmpty();
 
     if ($tone->classes() !== '' && $tone !== SectionTone::Accent) {
@@ -39,7 +38,7 @@ it('re-asserts a readable foreground on the dark and accent bands', function ():
 
 it('paints nothing for plain and a thin border for outline', function (): void {
     expect(SectionItemStyle::Plain->classes(SectionTone::Base))->toBeEmpty()
-        ->and(SectionItemStyle::Outline->classes(SectionTone::Base))->toBe('card border border-base-300');
+        ->and(SectionItemStyle::Outline->classes(SectionTone::Base))->toBe('site-card-outline');
 });
 
 /*

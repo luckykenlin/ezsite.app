@@ -47,12 +47,12 @@
 
 <body class="bg-base-100 text-base-content min-h-dvh antialiased">
     <main class="mx-auto flex min-h-dvh max-w-2xl flex-col items-center justify-center gap-6 px-6 py-16 text-center">
-        <p class="font-heading text-base-content/50 text-sm font-semibold tracking-widest uppercase">{{ $siteName }}</p>
+        <p class="font-heading site-dim-soft text-sm font-semibold tracking-widest uppercase">{{ $siteName }}</p>
 
         <h1 class="site-h1 font-heading">{{ $heading }}</h1>
 
         @if (filled($body))
-            <p class="text-base-content/70 max-w-prose text-lg">{{ $body }}</p>
+            <p class="site-dim max-w-prose text-lg">{{ $body }}</p>
         @endif
 
         {{ $slot }}

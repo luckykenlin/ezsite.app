@@ -76,7 +76,7 @@ it('renders each block variant with its own layout', function (array $block, arr
             'secondary_label' => 'Call us',
             'secondary_url' => 'tel:+15551234567',
         ]],
-        ['Ready to book?', 'Book now', 'Call us'], 'card-body', 'none',
+        ['Ready to book?', 'Book now', 'Call us'], 'site-card-body', 'none',
     ],
     'features grid' => [
         ['type' => 'features', 'data' => [
@@ -128,13 +128,13 @@ it('renders each block variant with its own layout', function (array $block, arr
         ]],
         ['Why choose us', 'Fast turnaround', 'Award winning'], 'md:order-2', 'none',
     ],
-    'features icon-rows' => [
+    'features rows' => [
         ['type' => 'features', 'data' => [
-            'variant' => 'icon-rows',
+            'variant' => 'rows',
             'heading' => 'Why choose us',
-            'features' => [['icon' => '⭐', 'title' => 'Fast turnaround', 'description' => 'Same-day service']],
+            'features' => [['title' => 'Fast turnaround', 'description' => 'Same-day service']],
         ]],
-        ['Why choose us', 'Fast turnaround'], 'bg-primary/10', 'none',
+        ['Why choose us', 'Fast turnaround'], 'site-item-rule-lead', 'none',
     ],
     // No image on purpose: the backdrop is guarded, so the centered column must
     // stand on its own over the plain inverted section.
@@ -294,7 +294,7 @@ it('renders each block variant with its own layout', function (array $block, arr
                 ['group' => 'Mains', 'name' => 'Margherita', 'price' => '$18'],
             ],
         ]],
-        ['Our menu', 'Starters', 'Bruschetta', '$9', 'Mains', 'Margherita'], 'tabular-nums', 'none',
+        ['Our menu', 'Starters', 'Bruschetta', '$9', 'Mains', 'Margherita'], 'site-menu-price', 'none',
     ],
     'offerings cards' => [
         ['type' => 'offerings', 'data' => [
@@ -395,7 +395,7 @@ it('renders each block variant with its own layout', function (array $block, arr
             'cta_label' => 'Book a table',
             'cta_url' => '/contact',
         ]],
-        ['Corner Cafe', 'About', 'Menu', 'Book a table'], 'navbar-end', 'business',
+        ['Corner Cafe', 'About', 'Menu', 'Book a table'], 'site-nav-links', 'business',
     ],
     'header centered' => [
         ['type' => 'header', 'data' => [
@@ -404,7 +404,7 @@ it('renders each block variant with its own layout', function (array $block, arr
             'cta_label' => 'Book a table',
             'cta_url' => '/contact',
         ]],
-        ['Corner Cafe', 'About', 'Book a table'], 'flex-col items-center', 'business',
+        ['Corner Cafe', 'About', 'Book a table'], 'site-nav-stack', 'business',
     ],
     'footer columns' => [
         ['type' => 'footer', 'data' => [
@@ -412,7 +412,7 @@ it('renders each block variant with its own layout', function (array $block, arr
             'nav_links' => [['label' => 'Privacy', 'url' => '/privacy']],
             'note' => 'Licensed and insured.',
         ]],
-        ['Corner Cafe', 'Privacy', 'Licensed and insured.'], 'sm:footer-horizontal', 'business with location',
+        ['Corner Cafe', 'Privacy', 'Licensed and insured.'], 'site-footer-columns', 'business with location',
     ],
     'footer minimal' => [
         ['type' => 'footer', 'data' => [
@@ -642,7 +642,7 @@ it('skips a bound block with a warning when its bind cannot resolve, while sibli
         ->times($warnings);
 })->with([
     'header without a business' => [
-        ['type' => 'header', 'data' => ['variant' => 'simple']], 'navbar-end', false, 1,
+        ['type' => 'header', 'data' => ['variant' => 'simple']], 'site-nav-links', false, 1,
     ],
     'contact without a business' => [
         ['type' => 'contact', 'data' => ['heading' => 'Ghost contact']], 'Ghost contact', false, 1,

@@ -17,6 +17,12 @@ use Filament\Support\Icons\Heroicon;
  * directions link come from the bound {@see \App\Models\Location} (and
  * {@see \App\Models\Business} fallbacks) at render time — never copied into
  * block data. Only the narrative lead-in is authored here.
+ *
+ * `show_hours` exists because {@see Visit} now leads with the same week table:
+ * a page carrying both printed the seven rows twice, once near the top and
+ * again at the bottom, which reads as a mistake rather than as a reminder. The
+ * toggle is on the block that comes SECOND on a typical page, so a contact
+ * block standing alone still shows everything without anyone configuring it.
  */
 final class Contact extends Block
 {
@@ -34,6 +40,7 @@ final class Contact extends Block
     protected static array $sample = [
         'heading' => 'Get in touch',
         'intro' => "Questions? We'd love to hear from you.",
+        'show_hours' => true,
         'show_form' => true,
     ];
 
@@ -61,6 +68,10 @@ final class Contact extends Block
             Textarea::make('intro')
                 ->rows(3)
                 ->maxLength(500),
+            Toggle::make('show_hours')
+                ->label('Show opening hours')
+                ->helperText('Turn this off when a Visit block above already shows them.')
+                ->default(true),
             Toggle::make('show_form')
                 ->label('Show enquiry form')
                 ->helperText('Visitors leave their name and phone; enquiries appear under Leads.')

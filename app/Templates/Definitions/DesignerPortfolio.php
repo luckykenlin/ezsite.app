@@ -132,6 +132,11 @@ final readonly class DesignerPortfolio
                     'cta_url' => 'mailto:{email}',
                     'image_query' => 'minimal design studio workspace',
                 ]],
+                ['type' => 'visit', 'data' => [
+                    'heading' => 'The studio',
+                    'intro' => 'By appointment. Email is usually faster than the phone, but both reach me.',
+                    'show_hours' => true,
+                ]],
                 ['type' => 'gallery', 'variant' => 'masonry', 'tone' => 'inverted', 'spacing' => 'tight', 'data' => [
                     'heading' => 'Selected work',
                     'images' => [
@@ -148,9 +153,9 @@ final readonly class DesignerPortfolio
                     'heading' => 'Three recent projects',
                     'intro' => 'The short version. The long version is a conversation.',
                     'features' => [
-                        ['icon' => '01', 'title' => '{project_one}', 'description' => 'A full identity system, built to survive being used by people who are not designers.'],
-                        ['icon' => '02', 'title' => '{project_two}', 'description' => 'Product design end to end — research, interface, and the unglamorous states nobody screenshots.'],
-                        ['icon' => '03', 'title' => '{project_three}', 'description' => 'An editorial system that stays recognisable across four issues a year and three contributors.'],
+                        ['title' => '{project_one}', 'description' => 'A full identity system, built to survive being used by people who are not designers.'],
+                        ['title' => '{project_two}', 'description' => 'Product design end to end — research, interface, and the unglamorous states nobody screenshots.'],
+                        ['title' => '{project_three}', 'description' => 'An editorial system that stays recognisable across four issues a year and three contributors.'],
                     ],
                 ]],
                 ['type' => 'testimonials', 'variant' => 'spotlight', 'tone' => 'inverted', 'data' => [

@@ -12,7 +12,7 @@
     // to contrast with whatever is actually behind it: the CARD when items paint
     // one, the section's own band when they do not (an outlined plan lets it
     // through, and a brand-coloured band would swallow a brand-coloured button).
-    $featuredButton = $layout->itemPaintsSurface() ? 'btn btn-primary' : $layout->button();
+    $featuredButton = $layout->itemPaintsSurface() ? 'site-btn site-btn-primary' : $layout->button();
 
     // Repeater state may be a uuid-keyed map (Filament) or a plain list (AI
     // output) — iterate whatever array arrives, defensively.
@@ -46,7 +46,7 @@
         <x-site.section-header :layout="$layout" :heading="$heading" :intro="$intro" />
 
         {{-- Capped at the plan count: one plan across the full width, never a third of a grid. --}}
-        <div class="mt-12 grid items-start gap-8 {{ $layout->gridFor(count($items)) }}">
+        <div class="{{ $layout->headerGap() }} grid items-start gap-8 {{ $layout->gridFor(count($items)) }}">
             @foreach ($items as $index => $item)
                 @php
                     $isFeatured = $index === $featured;
@@ -66,37 +66,30 @@
                     {{-- The badge sits astride the card's top edge — a quieter
                          highlight than doubling the ring weight. --}}
                     @if ($isFeatured && $layout->isCard())
-                        <span class="badge badge-primary absolute -top-3 left-1/2 -translate-x-1/2">Recommended</span>
+                        <span class="site-tag absolute -top-3 left-1/2 -translate-x-1/2">Recommended</span>
                     @endif
-                    <div @class(['card-body' => $layout->isCard()])>
+                    <div @class(['site-card-body' => $layout->isCard()])>
                         @if ($isFeatured && ! $layout->isCard())
-                            <span class="badge badge-primary self-start">Recommended</span>
+                            <span class="site-tag self-start">Recommended</span>
                         @endif
 
-                        <h3
-                            data-editor-field="plans.{{ $index }}.name"
-                            @class(['card-title' => $layout->isCard(), 'text-lg font-semibold' => ! $layout->isCard()])
-                        >
-                            {{ $item['name'] }}
-                        </h3>
+                        <h3 data-editor-field="plans.{{ $index }}.name" class="site-h5">{{ $item['name'] }}</h3>
 
                         @if ($item['price'] ?? null)
-                            <p class="mt-2">
-                                <span
-                                    data-editor-field="plans.{{ $index }}.price"
-                                    class="text-4xl font-bold tabular-nums"
-                                >{{ $item['price'] }}</span>
+                            <p class="mt-2 flex items-baseline gap-2">
+                                <span data-editor-field="plans.{{ $index }}.price" class="site-price">
+                                    {{ $item['price'] }}
+                                </span>
                                 @if ($item['period'] ?? null)
-                                    <span
-                                        data-editor-field="plans.{{ $index }}.period"
-                                        class="text-base-content/60"
-                                    >{{ $item['period'] }}</span>
+                                    <span data-editor-field="plans.{{ $index }}.period" class="site-dim text-sm">
+                                        {{ $item['period'] }}
+                                    </span>
                                 @endif
                             </p>
                         @endif
 
                         @if ($item['description'] ?? null)
-                            <p data-editor-field="plans.{{ $index }}.description" class="text-base-content/70">
+                            <p data-editor-field="plans.{{ $index }}.description" class="site-dim">
                                 {{ $item['description'] }}
                             </p>
                         @endif
@@ -113,13 +106,17 @@
                         @endif
 
                         @if (($item['cta_label'] ?? null) && ($item['cta_url'] ?? null))
-                            <div @class(['card-actions mt-6' => $layout->isCard(), 'mt-6' => ! $layout->isCard()])>
-                                {{-- Every other plan is an outline button, which
+                            {{-- `site-card-actions` margins the row to the
+                                 bottom of the card, so three plans whose copy
+                                 runs to different lengths still line their
+                                 buttons up. --}}
+                            <div @class(['site-card-actions' => $layout->isCard(), 'mt-6' => ! $layout->isCard()])>
+                                {{-- Every other plan is a quiet button, which
                                      draws in currentColor and so needs no
                                      question asked of the surface at all. --}}
                                 <a
                                     href="{{ $item['cta_url'] }}"
-                                    @class(['w-full', $featuredButton => $isFeatured, 'btn btn-outline' => ! $isFeatured])
+                                    @class(['w-full', $featuredButton => $isFeatured, 'site-btn site-btn-quiet' => ! $isFeatured])
                                 >{{ $item['cta_label'] }}</a>
                             </div>
                         @endif

@@ -38,7 +38,7 @@
                     <input
                         type="text"
                         wire:model.live.debounce.500ms="businessName"
-                        class="input input-bordered w-full"
+                        class="site-field"
                         autocomplete="organization"
                         required
                     />
@@ -53,7 +53,7 @@
                         <input
                             type="text"
                             wire:model.live.debounce.500ms="subdomain"
-                            class="input input-bordered flex-1"
+                            class="site-field flex-1"
                             required
                         />
                         <span class="opacity-60">.{{ parse_url(config('app.url'), PHP_URL_HOST) }}</span>
@@ -84,7 +84,7 @@
                     <input
                         type="text"
                         wire:model="tagline"
-                        class="input input-bordered w-full"
+                        class="site-field"
                         placeholder="{{ $definition->demoProfile->tagline }}"
                     />
                     @error('tagline')
@@ -99,7 +99,7 @@
                     <input
                         type="text"
                         wire:model="city"
-                        class="input input-bordered w-full"
+                        class="site-field"
                         autocomplete="address-level2"
                         placeholder="{{ $definition->demoProfile->city }}"
                     />
@@ -112,7 +112,7 @@
                     <span class="font-semibold"
                         >{{ __('marketing.wizard.phone') }}
                         <span class="font-normal opacity-60">{{ __('marketing.wizard.optional') }}</span></span>
-                    <input type="tel" wire:model="phone" class="input input-bordered w-full" autocomplete="tel" />
+                    <input type="tel" wire:model="phone" class="site-field" autocomplete="tel" />
                     @error('phone')
                         <span class="text-error text-sm">{{ $message }}</span>
                     @enderror
@@ -134,14 +134,14 @@
                             <textarea
                                 wire:model="answers.{{ $field->key }}"
                                 rows="3"
-                                class="textarea textarea-bordered w-full"
+                                class="site-field"
                                 placeholder="{{ $field->example }}"
                             ></textarea>
                         @else
                             <input
                                 type="text"
                                 wire:model="answers.{{ $field->key }}"
-                                class="input input-bordered w-full"
+                                class="site-field"
                                 placeholder="{{ $field->example }}"
                             />
                         @endif
@@ -167,13 +167,7 @@
 
                 <label class="flex flex-col gap-2">
                     <span class="font-semibold">{{ __('marketing.wizard.email') }}</span>
-                    <input
-                        type="email"
-                        wire:model="email"
-                        class="input input-bordered w-full"
-                        autocomplete="email"
-                        required
-                    />
+                    <input type="email" wire:model="email" class="site-field" autocomplete="email" required />
                     @error('email')
                         <span class="text-error text-sm">{{ $message }}</span>
                     @enderror
@@ -184,7 +178,7 @@
                     <input
                         type="password"
                         wire:model="password"
-                        class="input input-bordered w-full"
+                        class="site-field"
                         autocomplete="new-password"
                         minlength="8"
                         required

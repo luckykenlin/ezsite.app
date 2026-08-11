@@ -1,13 +1,16 @@
 {{--
-    One input of the public enquiry form: floating label, error styling keyed
+    One input of the public enquiry form: a visible label, error styling keyed
     off the form's own bag, and the per-field message underneath. The
     error-class rule lives here once — the form used to spell it four times.
 
-    The label doubles as the placeholder: the floating-label pattern shows one
-    or the other, never both.
+    The label sits ABOVE the field rather than floating into it. A label that
+    disappears the moment someone types costs them the one thing they need
+    while checking their own phone number back, and on a form this short there
+    is room to simply say what each box is for.
 --}}
 @props([
     'bag',
+    'formId',
     'field',
     'label',
     'type' => 'text',
@@ -16,28 +19,33 @@
     'textarea' => false,
     'rows' => 4,
 ])
+@php
+    // Scoped by the form's own id, not a random one: a page may carry several
+    // enquiry forms (a contact block and the offer popup), the label's `for`
+    // has to reach the right box in each, and a value that changes per render
+    // would make the markup non-deterministic for no gain.
+    $id = 'lead-'.$formId.'-'.$field;
+@endphp
 <div>
-    <label class="floating-label">
-        <span>{{ $label }}</span>
-        @if ($textarea)
-            <textarea
-                name="{{ $field }}"
-                rows="{{ $rows }}"
-                @if ($maxlength) maxlength="{{ $maxlength }}" @endif
-                placeholder="{{ $label }}"
-                class="textarea textarea-bordered w-full @if ($bag->has($field)) textarea-error @endif"
-            >{{ old($field) }}</textarea>
-        @else
-            <input
-                type="{{ $type }}"
-                name="{{ $field }}"
-                value="{{ old($field) }}"
-                @if ($maxlength) maxlength="{{ $maxlength }}" @endif
-                @if ($autocomplete) autocomplete="{{ $autocomplete }}" @endif
-                placeholder="{{ $label }}"
-                class="input input-bordered w-full @if ($bag->has($field)) input-error @endif"
-            />
-        @endif
-    </label>
+    <label class="site-field-label" for="{{ $id }}">{{ $label }}</label>
+    @if ($textarea)
+        <textarea
+            id="{{ $id }}"
+            name="{{ $field }}"
+            rows="{{ $rows }}"
+            @if ($maxlength) maxlength="{{ $maxlength }}" @endif
+            @class(['site-field', 'site-field-invalid' => $bag->has($field)])
+        >{{ old($field) }}</textarea>
+    @else
+        <input
+            id="{{ $id }}"
+            type="{{ $type }}"
+            name="{{ $field }}"
+            value="{{ old($field) }}"
+            @if ($maxlength) maxlength="{{ $maxlength }}" @endif
+            @if ($autocomplete) autocomplete="{{ $autocomplete }}" @endif
+            @class(['site-field', 'site-field-invalid' => $bag->has($field)])
+        />
+    @endif
     <x-lead-form-error :bag="$bag" :field="$field" />
 </div>

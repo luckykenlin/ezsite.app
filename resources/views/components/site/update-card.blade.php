@@ -22,15 +22,15 @@
         </figure>
     @endif
 
-    <div @class(['card-body' => $layout->isCard(), 'mt-4' => ! $layout->isCard() && $coverUrl])>
+    <div @class(['site-card-body' => $layout->isCard(), 'mt-4' => ! $layout->isCard() && $coverUrl])>
         <x-site.update-meta :post="$post" />
 
-        <h3 @class(['card-title' => $layout->isCard(), 'site-h5' => ! $layout->isCard()])>
+        <h3 class="site-h5">
             <a href="{{ $post->getUrl() }}" class="after:absolute after:inset-0">{{ $post->title }}</a>
         </h3>
 
         @if (filled($post->excerpt))
-            <p class="text-base-content/70">{{ $post->excerpt }}</p>
+            <p class="site-dim">{{ $post->excerpt }}</p>
         @endif
     </div>
 </article>

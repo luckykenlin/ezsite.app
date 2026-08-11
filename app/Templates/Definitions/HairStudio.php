@@ -159,6 +159,11 @@ final readonly class HairStudio
                     'cta_label' => 'Book a chair',
                     'cta_url' => 'tel:{phone}',
                 ]],
+                ['type' => 'visit', 'data' => [
+                    'heading' => 'Visiting the studio',
+                    'intro' => 'By appointment, with a consultation before the wash. Call and we will find you a chair.',
+                    'show_hours' => true,
+                ]],
                 ['type' => 'prose', 'variant' => 'stacked', 'data' => [
                     'heading' => 'Why the haircut takes an hour and a quarter',
                     'paragraphs' => [
@@ -255,14 +260,14 @@ final readonly class HairStudio
                         ['group' => 'Finishing', 'name' => 'Blow Dry & Style', 'price' => '40 minutes · $55', 'description' => 'On its own, or before something. No set, no lacquer unless you ask.'],
                     ],
                 ]],
-                ['type' => 'features', 'variant' => 'icon-rows', 'data' => [
+                ['type' => 'features', 'variant' => 'rows', 'data' => [
                     'heading' => 'What every appointment includes',
                     'intro' => 'The same four things whether you booked the shortest slot or the longest one.',
                     'features' => [
-                        ['icon' => '01', 'title' => 'A consultation, not a checkbox', 'description' => 'Dry hair, good light, and a conversation about what it does on the days you are not here. It happens before the wash, because after the wash it is too late to change the plan.'],
-                        ['icon' => '02', 'title' => 'One stylist, start to finish', 'description' => 'Nobody hands you off halfway. The person who agreed the shape with you is the person who cuts it and the person who dries it.'],
-                        ['icon' => '03', 'title' => 'The price you were quoted', 'description' => 'Colour is quoted before it is mixed. If your hair needs more than the quote allowed for, you hear it at the mirror, not at the till.'],
-                        ['icon' => '04', 'title' => 'Nothing sold at the door', 'description' => 'We will tell you what we used if you ask. We will not put three bottles on the counter while you are getting your coat.'],
+                        ['title' => 'A consultation, not a checkbox', 'description' => 'Dry hair, good light, and a conversation about what it does on the days you are not here. It happens before the wash, because after the wash it is too late to change the plan.'],
+                        ['title' => 'One stylist, start to finish', 'description' => 'Nobody hands you off halfway. The person who agreed the shape with you is the person who cuts it and the person who dries it.'],
+                        ['title' => 'The price you were quoted', 'description' => 'Colour is quoted before it is mixed. If your hair needs more than the quote allowed for, you hear it at the mirror, not at the till.'],
+                        ['title' => 'Nothing sold at the door', 'description' => 'We will tell you what we used if you ask. We will not put three bottles on the counter while you are getting your coat.'],
                     ],
                 ]],
                 ['type' => 'faq', 'data' => [

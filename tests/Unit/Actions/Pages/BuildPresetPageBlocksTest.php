@@ -34,7 +34,9 @@ it('personalizes the copy from the business and its primary location', function 
         ->and($built['metaDescription'])->toBe('The Lacquer Room — Hand-painted nails, one chair at a time. Based in Savannah.')
         ->and($built['blocks'][0]['data']['eyebrow'])->toBe('Savannah')
         ->and($built['blocks'][0]['data']['heading'])->toBe('Hand-painted nails, one chair at a time')
-        ->and($built['blocks'][1]['data']['heading'])->toBe('Why The Lacquer Room');
+        // The practical strip sits second, directly under the hero.
+        ->and($built['blocks'][1]['type'])->toBe('visit')
+        ->and($built['blocks'][2]['data']['heading'])->toBe('Why The Lacquer Room');
 
     // The closing CTA dials the location's phone, not a placeholder.
     $cta = end($built['blocks']);

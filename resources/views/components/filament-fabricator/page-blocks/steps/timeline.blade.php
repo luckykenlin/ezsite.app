@@ -20,7 +20,7 @@
              block from features, and a screen reader should hear "list, 3 items"
              rather than three unrelated headings. The rail is this variant's
              structure — the columns axis deliberately does not reach it. --}}
-        <ol class="border-base-300 relative mt-12 space-y-10 border-l-2 pl-8">
+        <ol class="border-base-300 relative space-y-10 border-l-2 pl-8 {{ $layout->headerGap() }}">
             @foreach ($items as $item)
                 @continue(! ($item['title'] ?? null))
                 <li class="relative">
@@ -38,7 +38,7 @@
                         {{ $item['title'] }}
                     </h3>
                     @if ($item['description'] ?? null)
-                        <p data-editor-field="steps.{{ $loop->index }}.description" class="text-base-content/70 mt-1">
+                        <p data-editor-field="steps.{{ $loop->index }}.description" class="site-dim mt-1">
                             {{ $item['description'] }}
                         </p>
                     @endif
