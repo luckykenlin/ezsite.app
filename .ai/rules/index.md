@@ -11,6 +11,7 @@ Before planning or editing, find the row whose globs match the file's path and r
 | app/Models/** | .ai/rules/boost/models.md |
 | tests/** | .ai/rules/boost/tests.md |
 | app/Http/Controllers/** | .ai/rules/controllers.md |
+| app/Design/StylePreset.php | .ai/rules/design.md |
 | resources/views/components/filament-fabricator/page-blocks/** | .ai/rules/filament-fabricator-page-blocks.md |
 | app/Filament/** | .ai/rules/filament.md |
 | app/Http/** | .ai/rules/http.md |
