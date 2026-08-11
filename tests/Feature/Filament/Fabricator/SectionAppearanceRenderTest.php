@@ -191,6 +191,47 @@ it('re-expresses the retired list variants as axis combinations', function (): v
         ->assertSee('Espresso');
 });
 
+/*
+ * The edge-to-edge width, which is three coordinated decisions rather than one
+ * class: the photographs lose the measure AND the side padding, the heading
+ * keeps both (a title pinned to the left edge of a 1440px window is a missing
+ * margin, not a design), and the frames lose their radius, because a corner
+ * only reads as a corner against a margin.
+ */
+it('bleeds the photographs and keeps the words inside the page margin', function (): void {
+    $bled = renderBlock([
+        'type' => 'gallery',
+        'data' => [
+            'variant' => 'grid',
+            'appearance' => ['width' => 'full'],
+            'heading' => 'The corner shop',
+            'images' => [['url' => '/images/placeholder.svg', 'alt' => 'A photo']],
+        ],
+    ]);
+
+    $bled->assertSeeHtml('max-w-none')
+        // The heading's own container still carries the measure and padding.
+        ->assertSeeHtml('mx-auto px-6 max-w-7xl')
+        ->assertSeeHtml('<div class="overflow-hidden">')
+        ->assertDontSeeHtml('rounded-box overflow-hidden');
+});
+
+it('keeps the radius and the padding on every contained width', function (): void {
+    // The other half of the pair: without it the assertion above passes for a
+    // view that simply stopped rounding its photographs.
+    renderBlock([
+        'type' => 'gallery',
+        'data' => [
+            'variant' => 'grid',
+            'appearance' => ['width' => 'wide'],
+            'heading' => 'The corner shop',
+            'images' => [['url' => '/images/placeholder.svg', 'alt' => 'A photo']],
+        ],
+    ])
+        ->assertSeeHtml('rounded-box overflow-hidden')
+        ->assertDontSeeHtml('max-w-none');
+});
+
 it('lets a stored appearance override the view defaults', function (): void {
     renderBlock([
         'type' => 'features',

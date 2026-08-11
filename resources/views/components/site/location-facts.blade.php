@@ -32,7 +32,7 @@
     $hasCoordinates = $location->latitude !== null && $location->longitude !== null;
     // The location's own clock decides which row is "today" — the same
     // argument OpeningState makes for not reading the server's.
-    $today = \Carbon\CarbonImmutable::now($location->timezone ?? config('app.timezone'))->englishDayOfWeek;
+    $today = \Carbon\CarbonImmutable::now($location->timezone ?? config()->string('app.timezone'))->englishDayOfWeek;
 @endphp
 @if ($showAddress && $addressLines !== [])
     <address class="leading-relaxed not-italic">

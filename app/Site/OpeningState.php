@@ -56,7 +56,7 @@ final readonly class OpeningState
         // The tenant's own clock, not the server's. A California salon
         // rendered from a UTC container is shut for the last eight hours of
         // every working day otherwise.
-        $now = CarbonImmutable::now($location->timezone ?? config('app.timezone'));
+        $now = CarbonImmutable::now($location->timezone ?? config()->string('app.timezone'));
 
         try {
             $open = $hours->isOpenAt($now);

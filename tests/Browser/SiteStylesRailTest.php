@@ -34,10 +34,10 @@ function stylesRailUrl(): string
 
 /*
  * The one claim about this rail that no PHP test can make. Every server-side
- * test can prove the markup names Cormorant Garamond; only a browser can say
- * whether the face was actually fetched and is available to paint with. If it
- * is not, every Fonts specimen renders in the admin theme's own sans — six
- * identical rows — which is precisely the dropdown this rail replaced.
+ * test can prove the markup names Bodoni Moda; only a browser can say whether
+ * the face was actually fetched and is available to paint with. If it is not,
+ * every Fonts specimen renders in the admin theme's own sans — seven identical
+ * rows — which is precisely the dropdown this rail replaced.
  *
  * It is also the check on the delivery mechanism: FontStylesheet links one
  * cacheable stylesheet instead of inlining ~111KB per Livewire round trip, and
@@ -56,7 +56,9 @@ it('loads the real font faces the specimens are drawn in', function (): void {
 
     // Every family a pair can resolve to, registered from one linked sheet. An
     // empty set is what a 404 or a wrong build path looks like.
-    expect($families)->toContain('Cormorant Garamond', 'Fraunces', 'Instrument Sans');
+    // One display serif, one poster grotesque and one text sans: three
+    // different files from three different FontPair cases.
+    expect($families)->toContain('Bodoni Moda', 'Archivo Black', 'Public Sans');
 
     $browser->assertNoJavaScriptErrors();
 });

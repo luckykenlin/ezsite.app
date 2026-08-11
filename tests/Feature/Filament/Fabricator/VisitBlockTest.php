@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Models\Location;
 use App\Models\Tenant;
 use Carbon\CarbonImmutable;
+use Illuminate\Testing\TestResponse;
 use Spatie\OpeningHours\OpeningHours;
 
 /**
@@ -13,7 +14,7 @@ use Spatie\OpeningHours\OpeningHours;
  * open-or-closed derivation itself is covered by OpeningStateTest; this asserts
  * that the block puts it on the page beside the live location facts.
  */
-function renderVisit(array $data = [], array $locationAttributes = []): Illuminate\Testing\TestResponse
+function renderVisit(array $data = [], array $locationAttributes = []): TestResponse
 {
     $tenant = Tenant::factory()->withDomain('acme')->create();
     $business = test()->createTenantBusiness($tenant, [
