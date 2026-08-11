@@ -154,6 +154,24 @@ final readonly class SectionLayout
     }
 
     /**
+     * Whether this section's container keeps the shared side padding.
+     *
+     * Asked by the one view that reaches OUTSIDE its container on purpose:
+     * the filmstrip gallery negative-margins itself by the padding so the
+     * scroller touches the viewport while its first frame still lines up under
+     * the heading. On {@see SectionWidth::Full} there is no padding to cancel,
+     * so the negative margin becomes 24px of horizontal page overflow — which
+     * is what it did on the burger-joint template the day that preset asked for
+     * a bleeding gallery.
+     */
+    public function isPadded(): bool
+    {
+        $width = $this->axis(LayoutAxis::Width);
+
+        return ! ($width instanceof SectionWidth) || $width->padded();
+    }
+
+    /**
      * The clip wrapper around one photograph.
      *
      * Rounded normally, square when the section bleeds: a corner radius only

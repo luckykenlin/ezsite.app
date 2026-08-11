@@ -285,6 +285,17 @@ it('renders each block variant with its own layout', function (array $block, arr
     ],
     // One block for menus, service lists and packages alike — what differs
     // between those is the content, not the layout.
+    // The practical strip. Its open-or-closed line is derived, not authored,
+    // so the marker is the lit dot rather than a phrase from the block data —
+    // OpeningStateTest pins the wording against a frozen clock.
+    'visit' => [
+        ['type' => 'visit', 'data' => [
+            'heading' => 'Come and find us',
+            'intro' => 'Walk in, or call ahead.',
+            'note' => 'Street parking after seven.',
+        ]],
+        ['Come and find us', 'Street parking after seven.'], 'site-open-state', 'business with location',
+    ],
     'offerings as a priced list (the old list variant)' => [
         ['type' => 'offerings', 'data' => [
             'appearance' => ['columns' => 'one', 'item_style' => 'plain', 'width' => 'narrow', 'align' => 'start'],
@@ -420,7 +431,7 @@ it('renders each block variant with its own layout', function (array $block, arr
             'nav_links' => [['label' => 'Privacy', 'url' => '/privacy']],
             'note' => 'Licensed and insured.',
         ]],
-        ['Corner Cafe', 'Privacy', 'Licensed and insured.'], 'footer-center', 'business with location',
+        ['Corner Cafe', 'Privacy', 'Licensed and insured.'], 'site-footer-center', 'business with location',
     ],
 ]);
 
@@ -652,10 +663,13 @@ it('skips a bound block with a warning when its bind cannot resolve, while sibli
     'contact without locations' => [
         ['type' => 'contact', 'data' => ['heading' => 'Ghost contact']], 'Ghost contact', true, 1,
     ],
+    'visit without locations' => [
+        ['type' => 'visit', 'data' => ['heading' => 'Ghost visit']], 'Ghost visit', true, 1,
+    ],
     // Here the failing type IS footer: the page's block and the default
     // footer chrome each warn.
     'footer without locations' => [
-        ['type' => 'footer', 'data' => ['variant' => 'minimal']], 'footer-center', true, 2,
+        ['type' => 'footer', 'data' => ['variant' => 'minimal']], 'site-footer-center', true, 2,
     ],
 ]);
 

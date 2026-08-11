@@ -285,6 +285,11 @@ test('the page-block views type through the shared site-* classes, never utility
         'max-w-7xl',
         'max-w-5xl',
         'max-w-3xl',
+        // Edge-to-edge is SectionWidth::Full, reached through container() /
+        // headerContainer() / mediaFrame(). A view that drops the measure and
+        // the padding itself bleeds a section the width axis still believes is
+        // contained — and takes the heading out to the viewport edge with it.
+        'max-w-none',
         'sm:grid-cols-2',
         'sm:grid-cols-3',
         'lg:grid-cols-3',

@@ -17,9 +17,16 @@
 
         {{-- The negative margin lets the strip bleed to the container edge
              while the padding keeps the first and last frames aligned with
-             the heading above. The snap scroller is this variant's structure —
-             the columns axis deliberately does not reach it. --}}
-        <div class="-mx-6 flex snap-x snap-mandatory gap-4 overflow-x-auto px-6 pb-4 {{ $layout->headerGap() }}">
+             the heading above. It is dropped on an edge-to-edge width, where
+             there is no padding to cancel and the pair becomes 24px of
+             horizontal page overflow instead. The snap scroller is this
+             variant's structure — the columns axis deliberately does not
+             reach it. --}}
+        <div @class([
+            'flex snap-x snap-mandatory gap-4 overflow-x-auto pb-4',
+            '-mx-6 px-6' => $layout->isPadded(),
+            $layout->headerGap(),
+        ])>
             @foreach ($items as $item)
                 @continue(! is_array($item) || ! ($item['url'] ?? null))
                 <figure class="group w-72 shrink-0 snap-center md:w-96">

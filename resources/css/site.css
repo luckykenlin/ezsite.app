@@ -1044,6 +1044,39 @@
         outline-offset: 1px;
     }
 
+    /*
+     * On the brand band the field needs a real surface, not a wash.
+     *
+     * A 6% tint of the section's ink is enough to read as recessed on a page
+     * background or a shaded one — but the accent tone is a saturated colour at
+     * full strength, and 6% of the copy's ink over it is barely a shadow. The
+     * signup block's own tone default IS accent, so this is the band the one
+     * field on the page most often lands on. `primary-content` is the slot
+     * ColorPaletteTest guarantees reads against the band, which makes it the
+     * right surface here for the same reason it is the right button fill.
+     */
+    .site-tone-accent .site-field {
+        border-color: color-mix(
+            in oklch,
+            var(--color-primary-content) 45%,
+            transparent
+        );
+        background-color: color-mix(
+            in oklch,
+            var(--color-primary-content) 18%,
+            transparent
+        );
+    }
+
+    .site-tone-accent .site-field:focus {
+        border-color: var(--color-primary-content);
+        background-color: color-mix(
+            in oklch,
+            var(--color-primary-content) 26%,
+            transparent
+        );
+    }
+
     .site-field-invalid,
     .site-field-invalid:focus {
         border-color: var(--color-error, currentcolor);

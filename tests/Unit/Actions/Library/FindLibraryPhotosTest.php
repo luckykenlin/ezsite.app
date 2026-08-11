@@ -37,6 +37,19 @@ it('ranks by how much of the query a photo actually matches, not by novelty', fu
         ->toBe([$onTopic->id, $oneWeakWord->id]);
 });
 
+it('counts a whole word for more than a word it merely sits inside', function (): void {
+    // `%dry%` also matches "hairdryer", and an accidental hit like that used to
+    // be worth exactly as much as a real one — which is how a blow-dry photo
+    // ended up against a pedicure.
+    $realWord = LibraryPhoto::factory()->describing('dry pedicure treatment')->create(['usage_count' => 6]);
+    $substring = LibraryPhoto::factory()->describing('hairdryer on a pedicure stool')->create(['usage_count' => 0]);
+
+    $found = new FindLibraryPhotos()->handle('dry pedicure', count: 2);
+
+    expect(array_map(fn (LibraryPhoto $photo): int => $photo->id, $found))
+        ->toBe([$realWord->id, $substring->id]);
+});
+
 it('still spreads demand between photos that match the query equally well', function (): void {
     // Relevance decides first, but among equals the least-used still wins —
     // otherwise a shared library makes every site look the same.

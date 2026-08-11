@@ -167,10 +167,21 @@ final class LibraryPhoto extends Model
             }
         });
 
-        $query->orderByRaw(
-            implode(' + ', array_fill(0, count($words), '(case when keywords ilike ? then 1 else 0 end)')).' desc',
-            array_map(fn (string $word): string => '%'.$word.'%', $words),
-        );
+        // A whole-word hit outscores a substring one, because `%dry%` also
+        // matches "hairdryer" and `%art%` matches "started" — and on a query
+        // like "dry pedicure nail salon" that accidental hit is worth exactly
+        // as much as the real ones. Terms are already `[\p{L}\p{N}]+` (the
+        // split above drops everything else), so they need no regex escaping.
+        $score = [];
+        $bindings = [];
+
+        foreach ($words as $word) {
+            $score[] = '(case when keywords ~* ? then 2 when keywords ilike ? then 1 else 0 end)';
+            $bindings[] = '\m'.$word.'\M';
+            $bindings[] = '%'.$word.'%';
+        }
+
+        $query->orderByRaw(implode(' + ', $score).' desc', $bindings);
     }
 
     /**
