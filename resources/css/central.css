@@ -1,0 +1,258 @@
+/*
+ * The CENTRAL marketing site's stylesheet — deliberately its own bundle.
+ *
+ * The marketing site used to dogfood site.css (the tenant design system) as
+ * its pitch; the redesign trades that for a dedicated near-monochrome
+ * identity: black type on white, huge short headlines, one repeated call to
+ * action, and every drop of colour left to the template screenshots. No
+ * daisyUI and no runtime tokens on purpose — this surface needs three
+ * colours and one button silhouette, not a themable slot system.
+ *
+ * Guarded by "the central stylesheet's Tailwind sources are declared" in
+ * tests/Arch/ConventionsTest.php: Tailwind compiles one closed source set
+ * per entry, so a central surface missing from the list below ships
+ * unstyled HTML that no PHP test can see.
+ */
+@import 'tailwindcss';
+
+@source '../views/central/**/*.blade.php';
+@source '../views/components/central/**/*.blade.php';
+@source '../views/livewire/central/**/*.blade.php';
+@source '../views/errors/404.blade.php';
+
+@theme {
+    /*
+     * Schibsted Grotesk carries the whole site — already bundled for the
+     * tenant FontPairs (vite.config.js), so the marketing site adds no font
+     * download of its own. Chinese headlines fall through to the system CJK
+     * faces, which is also what the tenant sites do.
+     */
+    --font-sans:
+        'Schibsted Grotesk', ui-sans-serif, system-ui, 'PingFang SC',
+        'Hiragino Sans GB', 'Microsoft YaHei', sans-serif, 'Apple Color Emoji',
+        'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+
+    /* The whole palette: ink on paper, one muted band tone. Everything
+       else on the page is a screenshot. */
+    --color-ink: #111111;
+    --color-paper: #ffffff;
+    --color-mist: #f5f5f3;
+}
+
+@layer base {
+    body {
+        background-color: var(--color-paper);
+        color: var(--color-ink);
+        -webkit-font-smoothing: antialiased;
+    }
+
+    ::selection {
+        background-color: var(--color-ink);
+        color: var(--color-paper);
+    }
+
+    :focus-visible {
+        outline: 2px solid currentColor;
+        outline-offset: 3px;
+    }
+
+    /* Same step site.css gives tenant sites: 16px body copy reads as a
+       phone size across a laptop measure. Absolute rem so text-sm/text-xs
+       utilities are unaffected. */
+    @media (width >= 64rem) {
+        body {
+            font-size: 1.0625rem;
+        }
+    }
+}
+
+/*
+ * The repeated treatments, `central-` prefixed (the same convention as the
+ * pe-/pc-/site- layers). Composition — margins, widths, alignment, tone —
+ * stays in the views as utilities; these classes carry only what repeats.
+ */
+@layer components {
+    /* The hero headline: enormous, short, tight. Tracking eases to zero on
+       CJK-dominant lines via the lang attribute — negative tracking that
+       flatters a grotesk crowds hanzi. */
+    .central-display {
+        font-size: clamp(3rem, 9vw, 8rem);
+        font-weight: 800;
+        letter-spacing: -0.035em;
+        line-height: 0.98;
+        text-wrap: balance;
+    }
+
+    /* Section headlines: the same voice one size down. */
+    .central-display-sm {
+        font-size: clamp(2rem, 4.5vw, 3.75rem);
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        line-height: 1.05;
+        text-wrap: balance;
+    }
+
+    :lang(zh-Hans) .central-display,
+    :lang(zh-Hans) .central-display-sm {
+        letter-spacing: 0;
+        line-height: 1.12;
+    }
+
+    .central-h3 {
+        font-size: 1.25rem;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+        line-height: 1.3;
+    }
+
+    .central-eyebrow {
+        font-size: 0.8125rem;
+        font-weight: 600;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        opacity: 0.55;
+    }
+
+    .central-intro {
+        font-size: 1.125rem;
+        line-height: 1.65;
+        opacity: 0.72;
+        text-wrap: pretty;
+    }
+
+    /* The one call to action, as a black pill — and its inversion for the
+       dark bands. Hover nudges rather than recolours: the page has no
+       second colour to recolour to. */
+    .central-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        border-radius: 9999px;
+        background-color: var(--color-ink);
+        color: var(--color-paper);
+        padding: 0.875rem 1.75rem;
+        font-size: 1rem;
+        font-weight: 600;
+        line-height: 1.2;
+        transition:
+            transform 150ms ease,
+            opacity 150ms ease;
+    }
+
+    .central-btn:hover {
+        opacity: 0.88;
+        transform: translateY(-1px);
+    }
+
+    .central-btn-sm {
+        padding: 0.5rem 1.125rem;
+        font-size: 0.875rem;
+    }
+
+    .central-btn-inverse {
+        background-color: var(--color-paper);
+        color: var(--color-ink);
+    }
+
+    /* The quiet second action: underlined text. */
+    .central-link {
+        font-weight: 600;
+        text-decoration: underline;
+        text-decoration-thickness: 1.5px;
+        text-underline-offset: 5px;
+        transition: opacity 150ms ease;
+    }
+
+    .central-link:hover {
+        opacity: 0.65;
+    }
+
+    /* The full-bleed screenshot marquee under the hero: two identical
+       halves slid by keyframes, no JS. The halves carry their own trailing
+       gap (no gap on the track itself) so translateX(-50%) lands exactly
+       one half in, seamlessly. Pauses for prefers-reduced-motion. */
+    .central-marquee {
+        overflow: hidden;
+    }
+
+    .central-marquee-track {
+        display: flex;
+        width: max-content;
+        animation: central-marquee 80s linear infinite;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .central-marquee-track {
+            animation: none;
+        }
+    }
+
+    /* The horizontal template rail: scroll-snap does the work, this class
+       only hides the scrollbar (there is no utility for that). */
+    .central-rail {
+        scrollbar-width: none;
+    }
+
+    .central-rail::-webkit-scrollbar {
+        display: none;
+    }
+
+    /* Stat-band numerals. */
+    .central-stat {
+        font-size: clamp(2.75rem, 6vw, 5rem);
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        line-height: 1;
+        font-variant-numeric: tabular-nums;
+    }
+
+    /* FAQ items: native <details>, marker replaced by a +/− that needs no
+       script. */
+    .central-faq summary {
+        cursor: pointer;
+        list-style: none;
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 1rem;
+    }
+
+    .central-faq summary::-webkit-details-marker {
+        display: none;
+    }
+
+    .central-faq summary::after {
+        content: '+';
+        font-size: 1.25rem;
+        font-weight: 600;
+        line-height: 1;
+        opacity: 0.5;
+        flex-shrink: 0;
+    }
+
+    .central-faq[open] summary::after {
+        content: '−';
+    }
+
+    /* Form controls for the apply wizard — the one interactive surface. */
+    .central-field {
+        width: 100%;
+        border-radius: 0.625rem;
+        border: 1px solid color-mix(in oklab, var(--color-ink) 18%, transparent);
+        background-color: var(--color-paper);
+        padding: 0.75rem 1rem;
+        line-height: 1.5;
+        transition: border-color 150ms ease;
+    }
+
+    .central-field:focus {
+        outline: none;
+        border-color: var(--color-ink);
+    }
+}
+
+@keyframes central-marquee {
+    to {
+        transform: translateX(-50%);
+    }
+}

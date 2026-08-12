@@ -8,73 +8,71 @@
     screenshot and not.
 --}}
 <x-central.layout :seo="$seo">
-    <x-site.section tone="base" spacing="airy">
+    <x-central.section>
         <div class="mx-auto grid max-w-7xl items-start gap-12 px-6 lg:grid-cols-[1fr_1.2fr]">
             <div class="flex flex-col items-start gap-6">
                 <a href="{{ route('central.templates.index') }}" class="text-sm opacity-70 hover:opacity-100"
                     >&larr; {{ __('marketing.detail.back') }}</a>
 
                 <div class="flex flex-col gap-4">
-                    <p class="site-eyebrow text-primary">
-                        {{ __('marketing.presets.'.$definition->preset->value.'.label') }}
-                    </p>
-                    <h1 class="site-display font-heading">{{ $template->label() }}</h1>
-                    <p class="site-intro opacity-80">{{ $template->description() }}</p>
+                    <p class="central-eyebrow">{{ __('marketing.presets.'.$definition->preset->value.'.label') }}</p>
+                    <h1 class="central-display-sm">{{ $template->label() }}</h1>
+                    <p class="central-intro">{{ $template->description() }}</p>
                 </div>
 
                 <ul class="flex flex-col gap-3">
                     @foreach ($template->highlights() as $highlight)
                         <li class="flex items-start gap-3">
-                            <span aria-hidden="true" class="text-primary mt-1">&check;</span>
+                            <span aria-hidden="true" class="mt-1 font-semibold">&check;</span>
                             <span class="opacity-80">{{ $highlight }}</span>
                         </li>
                     @endforeach
                 </ul>
 
-                <div class="flex flex-wrap items-center gap-4">
+                <div class="flex flex-wrap items-center gap-5">
                     <a
                         href="{{ route('central.templates.start', $template) }}"
-                        class="btn btn-primary btn-lg"
+                        class="central-btn"
                     >{{ __('marketing.actions.use_template') }}</a>
                     <a
                         href="{{ $demoUrl }}"
                         target="_blank"
                         rel="noopener"
-                        class="site-link-cta"
+                        class="central-link text-sm"
                     >{{ __('marketing.detail.demo.view') }}</a>
                 </div>
             </div>
 
-            <div class="site-frame isolate">
+            <x-central.demo-frame :url="parse_url($demoUrl, PHP_URL_HOST)">
                 @if ($desktop)
                     <img
                         src="{{ $desktop }}"
                         alt="{{ __('marketing.card.alt', ['template' => $template->label()]) }}"
-                        class="rounded-box w-full object-cover object-top"
+                        class="w-full object-cover object-top"
                     />
                 @else
                     <x-central.template-placeholder
                         :definition="$definition"
                         :label="$definition->demoProfile->name"
-                        label-class="site-h2"
-                        class="rounded-box aspect-[16/10] p-8"
+                        label-class="central-display-sm"
+                        class="aspect-[16/10] p-8"
                     />
                 @endif
-            </div>
+            </x-central.demo-frame>
         </div>
-    </x-site.section>
+    </x-central.section>
 
-    <x-site.section tone="muted" spacing="airy">
+    <x-central.section tone="muted">
         <div class="mx-auto max-w-7xl px-6">
             <div class="grid gap-10 lg:grid-cols-3">
                 <div class="flex flex-col gap-3">
-                    <h2 class="site-h3 font-heading">{{ __('marketing.detail.look.title') }}</h2>
+                    <h2 class="central-h3">{{ __('marketing.detail.look.title') }}</h2>
                     <p class="opacity-80">{{ __('marketing.presets.'.$definition->preset->value.'.description') }}</p>
-                    <p class="text-sm opacity-70">{{ __('marketing.detail.look.note') }}</p>
+                    <p class="text-sm opacity-60">{{ __('marketing.detail.look.note') }}</p>
                 </div>
 
                 <div class="flex flex-col gap-3">
-                    <h2 class="site-h3 font-heading">{{ __('marketing.detail.pages.title') }}</h2>
+                    <h2 class="central-h3">{{ __('marketing.detail.pages.title') }}</h2>
                     <ul class="flex flex-col gap-2 opacity-80">
                         {{-- The page titles come from the template definition and
                              are still English: they are seeded as tenant page
@@ -89,67 +87,67 @@
                 </div>
 
                 <div class="flex flex-col gap-3">
-                    <h2 class="site-h3 font-heading">{{ __('marketing.detail.questions.title') }}</h2>
+                    <h2 class="central-h3">{{ __('marketing.detail.questions.title') }}</h2>
                     <ul class="flex flex-col gap-2 opacity-80">
                         @foreach ($definition->extraFields as $field)
                             <li>{{ $template->fieldLabel($field) }}</li>
                         @endforeach
                     </ul>
-                    <p class="text-sm opacity-70">{{ __('marketing.detail.questions.note') }}</p>
+                    <p class="text-sm opacity-60">{{ __('marketing.detail.questions.note') }}</p>
                 </div>
             </div>
         </div>
-    </x-site.section>
+    </x-central.section>
 
     @if ($mobile)
-        <x-site.section tone="muted" spacing="airy">
+        <x-central.section tone="muted" spacing="tight">
             <div class="mx-auto flex max-w-7xl flex-col items-center gap-8 px-6">
-                <h2 class="site-h2 font-heading text-center">{{ __('marketing.detail.mobile.title') }}</h2>
+                <h2 class="central-display-sm text-center">{{ __('marketing.detail.mobile.title') }}</h2>
                 <img
                     src="{{ $mobile }}"
                     alt="{{ __('marketing.detail.phone_alt', ['template' => $template->label()]) }}"
                     loading="lazy"
-                    class="site-card rounded-box w-full max-w-[390px]"
+                    class="border-ink/10 shadow-ink/10 w-full max-w-[390px] rounded-2xl border shadow-xl"
                 />
             </div>
-        </x-site.section>
+        </x-central.section>
     @endif
 
-    <x-site.section tone="base" spacing="airy">
+    <x-central.section>
         <div class="mx-auto flex max-w-7xl flex-col gap-6 px-6">
             <div class="flex flex-col gap-2">
-                <h2 class="site-h2 font-heading">{{ __('marketing.detail.demo.title') }}</h2>
-                <p class="opacity-80">
+                <h2 class="central-display-sm">{{ __('marketing.detail.demo.title') }}</h2>
+                <p class="opacity-70">
                     {{ __('marketing.detail.demo.served_from', ['host' => parse_url($demoUrl, PHP_URL_HOST)]) }}
                 </p>
             </div>
 
-            <div class="rounded-box border-base-content/10 hidden overflow-hidden border lg:block">
+            <x-central.demo-frame :url="parse_url($demoUrl, PHP_URL_HOST)" class="hidden lg:block">
                 <iframe
                     src="{{ $demoUrl }}"
                     title="{{ __('marketing.detail.iframe_title', ['template' => $template->label()]) }}"
                     loading="lazy"
                     class="h-[720px] w-full"
                 ></iframe>
-            </div>
+            </x-central.demo-frame>
 
             <a
                 href="{{ $demoUrl }}"
                 target="_blank"
                 rel="noopener"
-                class="site-link-cta lg:hidden"
+                class="central-link self-start text-sm lg:hidden"
             >{{ __('marketing.detail.demo.open') }}</a>
         </div>
-    </x-site.section>
+    </x-central.section>
 
-    <x-site.section tone="accent" spacing="airy">
+    <x-central.section tone="dark">
         <div class="mx-auto flex max-w-3xl flex-col items-center gap-6 px-6 text-center">
-            <h2 class="site-h2 font-heading">{{ __('marketing.detail.cta.title') }}</h2>
-            <p class="site-intro opacity-90">{{ __('marketing.detail.cta.intro') }}</p>
+            <h2 class="central-display-sm">{{ __('marketing.detail.cta.title') }}</h2>
+            <p class="central-intro">{{ __('marketing.detail.cta.intro') }}</p>
             <a
                 href="{{ route('central.templates.start', $template) }}"
-                class="btn btn-lg"
+                class="central-btn central-btn-inverse"
             >{{ __('marketing.actions.use_template') }}</a>
         </div>
-    </x-site.section>
+    </x-central.section>
 </x-central.layout>

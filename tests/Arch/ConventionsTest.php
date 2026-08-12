@@ -373,16 +373,26 @@ test("the section shell's Tailwind sources are declared", function (): void {
     expect(file_get_contents(dirname(__DIR__, 2).'/resources/css/site.css'))
         ->toContain("@source '../views/components/site/**/*.blade.php';")
         ->toContain("@source '../../app/Site/Blocks/Section*.php';")
-        // The central marketing site shares this stylesheet instead of having
-        // one of its own, and it lives outside the original @source list — so
-        // the landing page compiles to unstyled HTML without these two.
-        ->toContain("@source '../views/central/**/*.blade.php';")
-        ->toContain("@source '../views/components/central/**/*.blade.php';")
         // The standalone public pages (/updates and its permalinks, the
         // coming-soon notice) are not Fabricator pages, so no glob above reaches
         // them. Without this line they ship unstyled — and no request test can
         // see it, because those assert on class names, which are still emitted.
         ->toContain("@source '../views/site/**/*.blade.php';");
+});
+
+test("the central stylesheet's Tailwind sources are declared", function (): void {
+    // The central marketing site carries its own stylesheet (central.css) with
+    // its own closed @source list — Tailwind compiles one source set per
+    // entry, so a central surface missing from this list ships unstyled HTML
+    // and no PHP test can see it (they assert on class names, which are still
+    // emitted). The livewire and errors lines matter most: neither directory
+    // was reached by ANY glob before, so their utilities compiled only by
+    // coincidence with classes used elsewhere.
+    expect(file_get_contents(dirname(__DIR__, 2).'/resources/css/central.css'))
+        ->toContain("@source '../views/central/**/*.blade.php';")
+        ->toContain("@source '../views/components/central/**/*.blade.php';")
+        ->toContain("@source '../views/livewire/central/**/*.blade.php';")
+        ->toContain("@source '../views/errors/404.blade.php';");
 });
 
 test('the central controllers never reach for a tenant-scoped model', function (): void {

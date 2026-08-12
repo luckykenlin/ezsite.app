@@ -5,10 +5,10 @@
     from the template definitions (nothing user-authored reaches the
     attribute) and the compiled stylesheet cannot carry arbitrary values.
 --}}
-@props(['definition', 'label', 'labelClass' => 'site-h3'])
+@props(['definition', 'label', 'labelClass' => 'central-h3'])
 <div
     {{ $attributes->class(['flex w-full items-end']) }}
     style="background-image: linear-gradient(135deg, {{ $definition->brandPrimary }}, {{ $definition->brandAccent }});"
 >
-    <span class="{{ $labelClass }} font-heading text-white drop-shadow">{{ $label }}</span>
+    <span class="{{ $labelClass }} text-white drop-shadow">{{ $label }}</span>
 </div>

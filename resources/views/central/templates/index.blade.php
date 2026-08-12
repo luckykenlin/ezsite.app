@@ -1,13 +1,13 @@
 {{-- The full gallery: every template, one card each. --}}
 <x-central.layout :seo="$seo">
-    <x-site.section tone="base" spacing="airy">
+    <x-central.section>
         <div class="mx-auto max-w-7xl px-6">
             <div class="flex max-w-3xl flex-col gap-4">
-                <p class="site-eyebrow text-primary">{{ __('marketing.gallery.eyebrow') }}</p>
-                <h1 class="site-display font-heading">
+                <p class="central-eyebrow">{{ __('marketing.gallery.eyebrow') }}</p>
+                <h1 class="central-display-sm">
                     {{ __('marketing.gallery.title', ['count' => \App\Templates\SiteTemplate::libraryCount()]) }}
                 </h1>
-                <p class="site-intro opacity-80">{{ __('marketing.gallery.intro') }}</p>
+                <p class="central-intro">{{ __('marketing.gallery.intro') }}</p>
             </div>
 
             <div class="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -16,5 +16,7 @@
                 @endforeach
             </div>
         </div>
-    </x-site.section>
+    </x-central.section>
+
+    <x-central.closing-cta />
 </x-central.layout>

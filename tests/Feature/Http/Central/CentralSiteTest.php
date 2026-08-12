@@ -22,7 +22,7 @@ it('lands on a page that says what the product is and offers every template', fu
     $response = $this->get(localeUrl(Locale::English));
 
     $response->assertOk()
-        ->assertSee('A beautiful website for your business in minutes')
+        ->assertSee('A real website. A real business.')
         ->assertSee('How it works');
 
     foreach (SiteTemplate::cases() as $template) {
@@ -35,6 +35,49 @@ it('lands on a page that says what the product is and offers every template', fu
     // English because two AI prompts reason over it.
     foreach (StylePreset::cases() as $preset) {
         $response->assertSee(__('marketing.presets.'.$preset->value.'.label'));
+    }
+});
+
+it('presents AI and templates as two equal ways in', function (): void {
+    // The dual entry is the page's core argument — the AI draft is real (it
+    // lives in the apply wizard), so the landing page gets to say so.
+    $this->get(localeUrl(Locale::English))
+        ->assertOk()
+        ->assertSee('Let AI draft it')
+        ->assertSee('Start from a template');
+});
+
+it('answers the price question and the doubts on the page itself', function (): void {
+    // Pricing and FAQ live on the homepage as anchors, not routes; the header
+    // and footer link them, so a broken anchor is a dead click site-wide.
+    $this->get(localeUrl(Locale::English))
+        ->assertOk()
+        ->assertSee('id="pricing"', false)
+        ->assertSee('id="faq"', false)
+        ->assertSee(localeRoute('central.home', Locale::English).'#pricing', false)
+        // The FAQ claim most likely to rot: the no-card promise.
+        ->assertSee('Do I pay before I see it?');
+});
+
+it('points the made-with wall at the real running demos', function (): void {
+    // The social proof is that the demos are live sites, so the wall must
+    // link the actual demo addresses, not screenshots of them.
+    $gallery = resolve(TemplateGallery::class);
+    $response = $this->get(localeUrl(Locale::English))->assertOk();
+
+    foreach ([SiteTemplate::ChineseRestaurant, SiteTemplate::NailSalon, SiteTemplate::DesignerPortfolio] as $template) {
+        $response->assertSee($gallery->demoUrl($template));
+    }
+});
+
+it('reaches every template from the footer of any page', function (): void {
+    // The detail page's own body links only its one template, so every other
+    // link this asserts can come only from the footer columns — which is what
+    // keeps them from drifting when a template ships.
+    $response = $this->get(localeUrl(Locale::English, '/templates/pizza-shop'))->assertOk();
+
+    foreach (SiteTemplate::cases() as $template) {
+        $response->assertSee(localeRoute('central.templates.show', Locale::English, ['template' => $template]));
     }
 });
 
@@ -106,12 +149,12 @@ it('keeps the landing page off tenant domains', function (): void {
     $tenant = Tenant::factory()->withDomain('acme')->create();
     $this->createTenantHomePage($tenant);
 
-    $this->get(localeUrl(Locale::English))->assertOk()->assertSee('A beautiful website for your business in minutes');
+    $this->get(localeUrl(Locale::English))->assertOk()->assertSee('A real website. A real business.');
 
     $this->get('http://acme.'.$this->centralDomain().'/')
         ->assertOk()
         ->assertSee($tenant->id)
-        ->assertDontSee('A beautiful website for your business in minutes');
+        ->assertDontSee('A real website. A real business.');
 });
 
 it('serves a central robots.txt that advertises the central sitemap', function (): void {

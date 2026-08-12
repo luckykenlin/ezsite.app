@@ -144,7 +144,7 @@ it('renders the Chinese pages in Chinese', function (): void {
         ->assertSee(trans('marketing.templates.pizza-shop.label', locale: 'zh'))
         ->assertSee(trans('marketing.presets.quiet-luxe.label', locale: 'zh'))
         // The English copy must be gone, not merely joined.
-        ->assertDontSee('A beautiful website for your business in minutes');
+        ->assertDontSee('A real website. A real business.');
 });
 
 it('translates the wizard and the questions it will ask', function (): void {

@@ -5,20 +5,20 @@
     a step is that the person is looking at one question at a time, and a
     hidden fieldset is still a form someone can tab into.
 --}}
-<x-site.section tone="base" spacing="airy">
+<x-central.section>
     <div class="mx-auto flex max-w-2xl flex-col gap-8 px-6">
         @if ($step < 4)
             <div class="flex flex-col gap-3">
                 <a href="{{ route('central.templates.show', $template) }}" class="text-sm opacity-70 hover:opacity-100">
                     &larr; {{ $template->label() }}
                 </a>
-                <h1 class="site-h2 font-heading">{{ __('marketing.wizard.title') }}</h1>
+                <h1 class="central-display-sm">{{ __('marketing.wizard.title') }}</h1>
 
                 <ol class="flex items-center gap-2 text-sm" aria-label="{{ __('marketing.wizard.progress') }}">
                     @foreach ([__('marketing.wizard.steps.business'), __('marketing.wizard.steps.content'), __('marketing.wizard.steps.account')] as $index => $label)
                         <li @class([
                             'flex items-center gap-2',
-                            'font-semibold text-primary' => $step === $index + 1,
+                            'font-semibold' => $step === $index + 1,
                             'opacity-50' => $step !== $index + 1,
                         ])>
                             <span>{{ $index + 1 }}. {{ $label }}</span>
@@ -38,12 +38,12 @@
                     <input
                         type="text"
                         wire:model.live.debounce.500ms="businessName"
-                        class="site-field"
+                        class="central-field"
                         autocomplete="organization"
                         required
                     />
                     @error('businessName')
-                        <span class="text-error text-sm">{{ $message }}</span>
+                        <span class="text-sm text-red-600">{{ $message }}</span>
                     @enderror
                 </label>
 
@@ -53,26 +53,26 @@
                         <input
                             type="text"
                             wire:model.live.debounce.500ms="subdomain"
-                            class="site-field flex-1"
+                            class="central-field flex-1"
                             required
                         />
                         <span class="opacity-60">.{{ parse_url(config('app.url'), PHP_URL_HOST) }}</span>
                     </div>
 
                     @error('subdomain')
-                        <span class="text-error text-sm">{{ $message }}</span>
+                        <span class="text-sm text-red-600">{{ $message }}</span>
                         @if ($subdomainSuggestion)
                             <button
                                 type="button"
                                 wire:click="useSuggestedSubdomain"
-                                class="site-link-cta text-primary self-start text-sm"
+                                class="central-link self-start text-sm"
                             >
                                 {{ __('marketing.wizard.use_suggestion', ['subdomain' => $subdomainSuggestion]) }}
                             </button>
                         @endif
                     @else
                         @if ($subdomain !== '')
-                            <span class="text-success text-sm">{{ __('marketing.wizard.available', ['domain' => $subdomain.'.'.parse_url(config('app.url'), PHP_URL_HOST)]) }}</span>
+                            <span class="text-sm text-green-700">{{ __('marketing.wizard.available', ['domain' => $subdomain.'.'.parse_url(config('app.url'), PHP_URL_HOST)]) }}</span>
                         @endif
                     @enderror
                 </div>
@@ -84,11 +84,11 @@
                     <input
                         type="text"
                         wire:model="tagline"
-                        class="site-field"
+                        class="central-field"
                         placeholder="{{ $definition->demoProfile->tagline }}"
                     />
                     @error('tagline')
-                        <span class="text-error text-sm">{{ $message }}</span>
+                        <span class="text-sm text-red-600">{{ $message }}</span>
                     @enderror
                 </label>
 
@@ -99,12 +99,12 @@
                     <input
                         type="text"
                         wire:model="city"
-                        class="site-field"
+                        class="central-field"
                         autocomplete="address-level2"
                         placeholder="{{ $definition->demoProfile->city }}"
                     />
                     @error('city')
-                        <span class="text-error text-sm">{{ $message }}</span>
+                        <span class="text-sm text-red-600">{{ $message }}</span>
                     @enderror
                 </label>
 
@@ -112,15 +112,13 @@
                     <span class="font-semibold"
                         >{{ __('marketing.wizard.phone') }}
                         <span class="font-normal opacity-60">{{ __('marketing.wizard.optional') }}</span></span>
-                    <input type="tel" wire:model="phone" class="site-field" autocomplete="tel" />
+                    <input type="tel" wire:model="phone" class="central-field" autocomplete="tel" />
                     @error('phone')
-                        <span class="text-error text-sm">{{ $message }}</span>
+                        <span class="text-sm text-red-600">{{ $message }}</span>
                     @enderror
                 </label>
 
-                <button type="submit" class="btn btn-primary btn-lg self-start">
-                    {{ __('marketing.actions.continue') }}
-                </button>
+                <button type="submit" class="central-btn self-start">{{ __('marketing.actions.continue') }}</button>
             </form>
         @elseif ($step === 2)
             <form wire:submit="next" class="flex flex-col gap-6">
@@ -134,14 +132,14 @@
                             <textarea
                                 wire:model="answers.{{ $field->key }}"
                                 rows="3"
-                                class="site-field"
+                                class="central-field"
                                 placeholder="{{ $field->example }}"
                             ></textarea>
                         @else
                             <input
                                 type="text"
                                 wire:model="answers.{{ $field->key }}"
-                                class="site-field"
+                                class="central-field"
                                 placeholder="{{ $field->example }}"
                             />
                         @endif
@@ -152,8 +150,8 @@
                 @endforeach
 
                 <div class="flex flex-wrap items-center gap-4">
-                    <button type="submit" class="btn btn-primary btn-lg">{{ __('marketing.actions.continue') }}</button>
-                    <button type="button" wire:click="skipDetails" class="site-link-cta text-primary">
+                    <button type="submit" class="central-btn">{{ __('marketing.actions.continue') }}</button>
+                    <button type="button" wire:click="skipDetails" class="central-link text-sm">
                         {{ __('marketing.wizard.skip') }}
                     </button>
                     <button type="button" wire:click="back" class="text-sm opacity-70 hover:opacity-100">
@@ -167,9 +165,9 @@
 
                 <label class="flex flex-col gap-2">
                     <span class="font-semibold">{{ __('marketing.wizard.email') }}</span>
-                    <input type="email" wire:model="email" class="site-field" autocomplete="email" required />
+                    <input type="email" wire:model="email" class="central-field" autocomplete="email" required />
                     @error('email')
-                        <span class="text-error text-sm">{{ $message }}</span>
+                        <span class="text-sm text-red-600">{{ $message }}</span>
                     @enderror
                 </label>
 
@@ -178,13 +176,13 @@
                     <input
                         type="password"
                         wire:model="password"
-                        class="site-field"
+                        class="central-field"
                         autocomplete="new-password"
                         minlength="8"
                         required
                     />
                     @error('password')
-                        <span class="text-error text-sm">{{ $message }}</span>
+                        <span class="text-sm text-red-600">{{ $message }}</span>
                     @enderror
                 </label>
 
@@ -201,7 +199,7 @@
                 </div>
 
                 <div class="flex flex-wrap items-center gap-4">
-                    <button type="submit" class="btn btn-primary btn-lg" wire:loading.attr="disabled">
+                    <button type="submit" class="central-btn" wire:loading.attr="disabled">
                         <span wire:loading.remove wire:target="submit">{{ __('marketing.wizard.submit') }}</span>
                         <span wire:loading wire:target="submit">{{ __('marketing.wizard.submitting') }}</span>
                     </button>
@@ -212,8 +210,8 @@
             </form>
         @else
             <div class="flex flex-col items-start gap-6">
-                <p class="site-eyebrow text-primary">{{ __('marketing.wizard.done.eyebrow') }}</p>
-                <h1 class="site-display font-heading">
+                <p class="central-eyebrow">{{ __('marketing.wizard.done.eyebrow') }}</p>
+                <h1 class="central-display-sm">
                     {{ __('marketing.wizard.done.title', ['business' => $businessName]) }}
                 </h1>
                 {{-- The emphasis markup is passed INTO the string rather than
@@ -221,23 +219,20 @@
                      the address cannot be punctuated per language, and Chinese
                      ends it with 。not a full stop. $siteUrl is escaped before
                      it goes in. --}}
-                <p class="site-intro opacity-80">
+                <p class="central-intro">
                     {!! __('marketing.wizard.done.published', ['url' => '<span class="font-semibold">'.e($siteUrl).'</span>']) !!} {{ __('marketing.wizard.done.drafts') }}
                 </p>
 
                 <div class="flex flex-wrap items-center gap-4">
-                    <a
-                        href="{{ $claimUrl }}"
-                        class="btn btn-primary btn-lg"
-                    >{{ __('marketing.wizard.done.open_editor') }}</a>
+                    <a href="{{ $claimUrl }}" class="central-btn">{{ __('marketing.wizard.done.open_editor') }}</a>
                     <a
                         href="{{ $siteUrl }}"
                         target="_blank"
                         rel="noopener"
-                        class="site-link-cta"
+                        class="central-link text-sm"
                     >{{ __('marketing.wizard.done.view_site') }}</a>
                 </div>
             </div>
         @endif
     </div>
-</x-site.section>
+</x-central.section>

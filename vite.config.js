@@ -51,6 +51,7 @@ export default defineConfig({
         laravel({
             input: [
                 'resources/css/site.css',
+                'resources/css/central.css',
                 'resources/css/page-editor-canvas.css',
                 'resources/css/page-editor.css',
                 'resources/css/page-canvas.css',

@@ -7,27 +7,27 @@
     Before this, both got the framework's grey default page, which on a
     customer's own domain reads as "this business's website is broken".
 
-    Kept free of utility classes: the two components it delegates to are inside
-    site.css's declared @source paths and this directory is not.
+    The central branch's utilities compile from central.css (this file is in
+    its @source list); the tenant branch's from site.css via x-site.notice.
 --}}
 @use('App\Site\BindResolver')
 
 @if (tenant() === null)
     <x-central.layout>
-        <x-site.section>
-            <div class="mx-auto max-w-2xl text-center">
+        <x-central.section>
+            <div class="mx-auto max-w-2xl px-6 text-center">
                 {{-- Rendered in the app's default language, not the visitor's:
                      no central route matched, so SetLocale never ran. The
                      wrong-language 404 is the accepted cost of not adding a
                      catch-all route inside the locale group. --}}
-                <h1 class="site-h1 font-heading">{{ __('marketing.not_found.title') }}</h1>
-                <p class="text-base-content/70 mt-4 text-lg">{{ __('marketing.not_found.body') }}</p>
+                <h1 class="central-display-sm">{{ __('marketing.not_found.title') }}</h1>
+                <p class="mt-4 text-lg opacity-70">{{ __('marketing.not_found.body') }}</p>
                 <a
                     href="{{ route('central.templates.index') }}"
-                    class="btn btn-primary mt-8"
+                    class="central-btn mt-8"
                 >{{ __('marketing.not_found.cta') }}</a>
             </div>
-        </x-site.section>
+        </x-central.section>
     </x-central.layout>
 @else
     <x-site.notice

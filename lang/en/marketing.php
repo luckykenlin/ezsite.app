@@ -36,24 +36,110 @@ return [
         'use_template' => 'Use this template',
         'continue' => 'Continue',
         'back' => 'Back',
+        // The site-wide primary action — the header, the hero, the pricing
+        // card and the footer all repeat this one label on purpose.
+        'start' => 'Get started',
     ],
 
     'nav' => [
         'templates' => 'Templates',
-        'build' => 'Build my site',
+        'pricing' => 'Pricing',
         'language' => 'Language',
     ],
 
+    /*
+     * The footer's column headings and the one line under the wordmark. The
+     * template links inside the columns reuse `templates.<slug>.label`, so the
+     * columns never drift from the library.
+     */
+    'footer' => [
+        'tagline' => 'Good websites for small businesses.',
+        'product' => 'Product',
+        'food' => 'Food & drink',
+        'services' => 'Services & portfolios',
+        'looks' => 'Looks',
+        'faq' => 'FAQ',
+    ],
+
     'home' => [
-        'meta_description' => 'Pick a template built for your trade, answer a few questions, and your site is live on its own address. No page builder, no blank canvas.',
+        'meta_description' => 'Pick a template or let AI draft one inside our design system. Answer a few questions, and your site is live on its own address in minutes.',
 
         'hero' => [
-            'eyebrow' => 'For small businesses',
             // Doubles as the page's <title>: the headline and the search
             // result should make the same promise.
-            'title' => 'A beautiful website for your business in minutes',
-            'intro' => 'Pick a template built for your trade. Answer a few questions about your business. Your site is live on its own address, with real photographs and copy already written — and an editor waiting whenever you want to change a word.',
+            'title' => 'A real website. A real business.',
+            'intro' => 'Pick a template or let AI draft one. Answer a few questions about your business, and your site is live on its own address — photographs real, copy written, editor open.',
             'example' => 'See a finished example',
+        ],
+
+        /*
+         * The stat band. Every number on it is checkable: the first two are
+         * computed in the view (SiteTemplate::libraryCount(), the preset
+         * count), and the other two restate promises made elsewhere on the
+         * page — no invented user counts on a product this young.
+         */
+        'stats' => [
+            'templates' => ['label' => 'finished templates'],
+            'looks' => ['label' => 'looks in one design system'],
+            'minutes' => ['value' => '≈4 min', 'label' => 'from picking to live'],
+            'drag' => ['value' => '0', 'label' => 'boxes dragged'],
+        ],
+
+        /*
+         * What the site DOES, one verb per card — scoped strictly to shipped
+         * features (pages, posts, leads, locations, SEO, domains). Nothing
+         * here may promise selling, payments or bookings.
+         */
+        'jobs' => [
+            'title' => 'Put your site to work',
+            'intro' => 'Not a brochure — a site that does the jobs a small business actually needs done.',
+            'items' => [
+                'menu' => [
+                    'title' => 'Show your menu',
+                    'body' => 'A priced menu section, filled in during signup.',
+                ],
+                'leads' => [
+                    'title' => 'Catch every enquiry',
+                    'body' => 'Form messages land in your dashboard, none lost.',
+                ],
+                'find' => [
+                    'title' => 'Help people find you',
+                    'body' => 'Address, hours and phone, bound to your real location.',
+                ],
+                'posts' => [
+                    'title' => 'Post news and specials',
+                    'body' => 'New dishes, events, holiday hours — posted in a minute.',
+                ],
+                'seo' => [
+                    'title' => 'Get found on search',
+                    'body' => 'Titles, descriptions and a sitemap, already wired.',
+                ],
+                'domain' => [
+                    'title' => 'Bring your own domain',
+                    'body' => 'Go live on a free address, switch to yours anytime.',
+                ],
+            ],
+        ],
+
+        /*
+         * The two entry points, presented as equals. The AI card is framed as
+         * "AI inside our design system", never as raw technology — and both
+         * cards honestly lead to the gallery, because both paths really do run
+         * through picking a template and the wizard.
+         */
+        'paths' => [
+            'eyebrow' => 'No experience required',
+            'title' => 'Two ways in. One finished site.',
+            'ai' => [
+                'title' => 'Let AI draft it',
+                'body' => 'Answer a few questions and AI drafts the whole site inside our design system — layout, copy, sections. Every word stays editable.',
+                'cta' => 'Start with AI',
+            ],
+            'template' => [
+                'title' => 'Start from a template',
+                'body' => ':count finished sites, each one fluent in your trade. Open the live demo, make it yours in minutes.',
+                'cta' => 'Pick a template',
+            ],
         ],
 
         'how' => [
@@ -89,6 +175,106 @@ return [
             // visitor can check by counting the cards under it.
             'title' => ':count looks, and no way to make an ugly one',
             'intro' => 'You never pick a font size or a hex code. You pick a look, and every section on every page follows it — headings, spacing, corners, the lot.',
+        ],
+
+        /*
+         * The made-with wall: our social proof is that the demo sites are
+         * real, published and live right now — not screenshots of an idea.
+         */
+        'made' => [
+            'eyebrow' => 'Real sites, live now',
+            'title' => 'Every one of these is live right now',
+            'intro' => 'Not mockups. Each one is a published site on its own address.',
+            'all' => 'See all :count live demos',
+        ],
+
+        /*
+         * PLACEHOLDER testimonials — replace all three with real customer
+         * quotes before launch. No stock faces, same reason the templates
+         * carry "no stock photograph pretending to be you".
+         */
+        'quotes' => [
+            'title' => 'From people who run the till',
+            'items' => [
+                'one' => [
+                    'quote' => 'Friday-night booking calls doubled.',
+                    'name' => 'Ms. Chen',
+                    'trade' => 'Sichuan restaurant',
+                ],
+                'two' => [
+                    'quote' => 'People read the menu before they walk in now.',
+                    'name' => 'Wang',
+                    'trade' => 'Pizza shop',
+                ],
+                'three' => [
+                    'quote' => 'I can’t design. No customer can tell.',
+                    'name' => 'Amy',
+                    'trade' => 'Nail salon',
+                ],
+            ],
+        ],
+
+        /*
+         * The pricing teaser. The `price` value is a PLACEHOLDER — set the
+         * real number before launch. One plan, no tiers: a young product
+         * comparing three of its own columns reads as theatre.
+         */
+        'pricing' => [
+            'eyebrow' => 'Pricing',
+            'title' => 'One price. Everything in.',
+            'intro' => 'Build first, decide when you see it — no card required.',
+            'price' => '¥99',
+            'period' => 'per month',
+            'note' => 'Every feature, every template, every look. Nothing to compare.',
+            'includes' => [
+                'address' => 'Your own web address',
+                'templates' => 'Every template and every look',
+                'editor' => 'The visual editor',
+                'seo' => 'SEO wired in',
+                'forms' => 'Enquiry forms into your dashboard',
+            ],
+        ],
+
+        /*
+         * Objection handling, in the order people actually raise them. `:host`
+         * and `:count` are substituted in the view, same as `how.steps`.
+         */
+        'faq' => [
+            'title' => 'Questions, answered',
+            'items' => [
+                'speed' => [
+                    'q' => 'How long until my site is live?',
+                    'a' => 'Minutes. Pick a template, answer a few questions, and it is running on yourname.:host.',
+                ],
+                'design' => [
+                    'q' => 'I’m not a designer — will it look bad?',
+                    'a' => 'No. You pick a look; sizes, spacing and colour are already decided. :count looks, switchable anytime.',
+                ],
+                'domain' => [
+                    'q' => 'Can I use my own domain?',
+                    'a' => 'Yes. Go live on the free address first, connect your own domain whenever you’re ready.',
+                ],
+                'ai' => [
+                    'q' => 'Will the AI copy sound fake?',
+                    'a' => 'AI drafts inside your trade’s template and our design system, and every word stays editable. Skip a question and the written example stays.',
+                ],
+                'edit' => [
+                    'q' => 'Can I change things after it’s live?',
+                    'a' => 'Always. The editor is always open — a word, a photo, or the whole look.',
+                ],
+                'seo' => [
+                    'q' => 'Will search engines find me?',
+                    'a' => 'Yes. Every site ships with SEO wired in — titles, descriptions and a sitemap.',
+                ],
+                'pay' => [
+                    'q' => 'Do I pay before I see it?',
+                    'a' => 'No. No card — your site goes live first, decide when you’ve seen it.',
+                ],
+                'leads' => [
+                    'q' => 'Can customers reach me through the site?',
+                    'a' => 'Yes. Every form message lands in your dashboard.',
+                ],
+            ],
         ],
 
         'cta' => [
