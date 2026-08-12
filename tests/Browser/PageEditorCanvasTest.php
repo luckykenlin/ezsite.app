@@ -327,6 +327,55 @@ it('commits an inline text edit made on the canvas', function (): void {
         ->assertValue('[id="blockForm.block.content"]', 'Edited heading');
 });
 
+it('collapses template indentation instead of committing it with the inline edit', function (): void {
+    // A Blade view is free to render a field's value on its own indented line
+    // (the offerings price list does). Normal white-space collapsing hides
+    // that — but contenteditable renders pre-wrap, so without the glue's
+    // collapse the indentation reappears as blank lines around the text, and
+    // committing writes "\n    Har Gow\n" into the draft. Only a real browser
+    // applies the UA stylesheet that makes any of this happen.
+    $tenant = Tenant::factory()->withDomain('acme')->create();
+
+    test()->actingAs(User::factory()->memberOf($tenant)->create());
+
+    $page = test()->createTenantPage($tenant, [
+        ['type' => 'offerings', 'data' => [
+            'appearance' => ['item_style' => 'plain'],
+            'heading' => 'Dim sum',
+            'items' => [
+                ['name' => 'Har Gow', 'description' => 'Prawn dumplings in a translucent, springy skin.'],
+            ],
+        ]],
+    ]);
+
+    tenancy()->initialize($tenant);
+
+    $browser = visit(test()->tenantUrl(
+        $tenant,
+        PageResource::getUrl('edit', ['record' => $page], isAbsolute: false, panel: 'tenant'),
+    ));
+
+    $browser->withinFrame(CANVAS, function ($canvas): void {
+        $canvas->page()->locator('[data-editor-field="items.0.name"]')->dblclick();
+
+        // The editable text is exactly what was rendered — the template's
+        // newlines and indentation are gone before the caret arrives.
+        $canvas->assertPresent('[contenteditable]')
+            ->assertScript("document.querySelector('[contenteditable]').textContent === 'Har Gow'");
+
+        $canvas->keys('[contenteditable]', 'Enter');
+    });
+
+    // On the PARENT: the committed value carries none of the template's
+    // whitespace, so the drawer shows the name untouched.
+    $browser->withinFrame(CANVAS, fn ($canvas) => $canvas->click('[data-editor-toolbar] [data-editor-action="edit"]'))
+        ->assertValue(
+            '[id^="blockForm.block.items."][id$=".name"]',
+            'Har Gow',
+        )
+        ->assertNoJavaScriptErrors();
+});
+
 it('commits an inline edit of a repeater item on the canvas', function (): void {
     // The item case, which the top-level one above cannot stand in for: the
     // view annotates by POSITION and the draft keys its items by uuid, so the

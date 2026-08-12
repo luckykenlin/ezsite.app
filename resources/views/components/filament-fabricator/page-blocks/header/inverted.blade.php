@@ -11,9 +11,7 @@
         static fn (mixed $link): bool => is_array($link) && ($link['label'] ?? null) && ($link['url'] ?? null),
     ));
 @endphp
-{{-- `relative` is load-bearing: the small-screen panel is absolutely
-     positioned against this element so it spans the header's full width. --}}
-<header class="bg-neutral text-neutral-content relative">
+<header class="bg-neutral text-neutral-content">
     <div class="site-nav mx-auto max-w-7xl px-6">
         <a href="/" class="site-wordmark">
             @if ($business->logoUrl())

@@ -657,14 +657,21 @@ const beginInlineEdit = (field: string): void => {
         return;
     }
 
-    editing = {
-        ...pendingEdit,
-        field,
-        original: pendingEdit.el.textContent ?? '',
-    };
-    pendingEdit = null;
+    const target = pendingEdit.el;
 
-    const target = editing.el;
+    // An editable element renders `white-space: pre-wrap` (Chrome's UA rule
+    // for plaintext-only), so the Blade template's own indentation around the
+    // value — invisible under normal collapsing — would reappear as blank
+    // lines, and finishEditing() would commit it into the draft. Collapse to
+    // the text as rendered before handing it a caret.
+    const original = (target.textContent ?? '').replace(/\s+/g, ' ').trim();
+
+    if (target.textContent !== original) {
+        target.textContent = original;
+    }
+
+    editing = { ...pendingEdit, field, original };
+    pendingEdit = null;
 
     target.setAttribute('contenteditable', 'plaintext-only');
 

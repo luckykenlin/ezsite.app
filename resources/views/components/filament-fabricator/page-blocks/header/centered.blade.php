@@ -11,8 +11,9 @@
         static fn (mixed $link): bool => is_array($link) && ($link['label'] ?? null) && ($link['url'] ?? null),
     ));
 @endphp
-{{-- `relative` is load-bearing twice over here: the small-screen panel and
-     the corner toggle are both positioned against this element. --}}
+{{-- `relative` is load-bearing here: the corner toggle is positioned
+     against this element. (The small-screen panel no longer is — it is a
+     fixed full-viewport sheet.) --}}
 <header class="border-base-300 bg-base-100 text-base-content relative border-b">
     <div class="site-nav-stack mx-auto max-w-7xl px-6">
         <a href="/" class="site-wordmark site-wordmark-lg">

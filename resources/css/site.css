@@ -741,10 +741,10 @@
     /*
      * The small-screen menu, built on `<details>` so it opens with no
      * JavaScript at all — resources/js/site/nav.ts only adds the manners
-     * (escape to close, close on outside click, aria-expanded). Every header
-     * variant used to render its links as a wrapping row, which on a phone
-     * piled them up beside the wordmark; that was the first thing most
-     * visitors to one of these sites ever saw.
+     * (escape to close, close on outside click, close on following a link).
+     * Open, it is a full-viewport sheet: links centred in the middle of the
+     * screen, with the wordmark and the toggle riding above it so the sheet
+     * still says who the site is and how to close it.
      *
      * The links are in the DOM twice, once per breakpoint, and the hidden
      * copy is `display: none` — so it leaves the accessibility tree too and
@@ -759,6 +759,18 @@
         background-color: inherit;
     }
 
+    /*
+     * Chrome renders a `::details-content` box between the drawer and the
+     * panel, and the panel's `inherit` reads THAT box — initial, so
+     * transparent — rather than the drawer; without this hop the sheet
+     * renders see-through. Its own rule on purpose: a browser without the
+     * pseudo-element drops the selector and inherits straight from the
+     * drawer anyway.
+     */
+    .site-nav-drawer::details-content {
+        background-color: inherit;
+    }
+
     /* The centred variant's frame: wordmark over links rather than beside
        them. On a phone it keeps the centred wordmark and moves the toggle to
        the corner, so the variant still reads as itself at every width. */
@@ -770,19 +782,32 @@
         padding-block: 1.5rem;
     }
 
-    .site-nav-toggle-corner {
-        position: absolute;
-        inset-inline-end: 0.75rem;
-        top: 0.75rem;
-    }
-
     .site-nav-drawer {
-        /* Static, so the absolutely-positioned panel resolves against the
-           `<header>` and spans its full width rather than the toggle's. */
+        /* Static, so the centred variant's corner toggle positions against
+           the `<header>` rather than against the drawer. */
         position: static;
     }
 
+    /* While the sheet is open the page behind it holds still. Scoped to the
+       drawer's own breakpoint: past it the drawer is `display: none` but can
+       still be carrying [open] from before the resize. */
+    @media (width < 48rem) {
+        :root:has(.site-nav-drawer[open]) {
+            overflow: hidden;
+        }
+    }
+
+    /* The wordmark and the toggle sit one step above the open sheet (z 30),
+       so it keeps the site's name on screen and the X reachable. */
+    .site-nav .site-wordmark,
+    .site-nav-stack .site-wordmark {
+        position: relative;
+        z-index: 31;
+    }
+
     .site-nav-toggle {
+        position: relative;
+        z-index: 31;
         display: inline-flex;
         width: 2.75rem;
         height: 2.75rem;
@@ -791,6 +816,13 @@
         border-radius: var(--radius-selector, 0.25rem);
         cursor: pointer;
         list-style: none;
+    }
+
+    /* After `.site-nav-toggle`, whose `relative` this overrides. */
+    .site-nav-toggle-corner {
+        position: absolute;
+        inset-inline-end: 0.75rem;
+        top: 0.75rem;
     }
 
     .site-nav-toggle::-webkit-details-marker {
@@ -845,33 +877,42 @@
         rotate: -45deg;
     }
 
+    /* Top-aligned under the header band (the top padding is what clears it),
+       centred across; a long menu simply scrolls. */
     .site-nav-panel {
-        position: absolute;
+        position: fixed;
         z-index: 30;
-        inset-inline: 0;
-        top: 100%;
+        inset: 0;
         display: flex;
         flex-direction: column;
-        padding: 0.25rem 1.5rem 1.5rem;
-        border-bottom: 1px solid
-            color-mix(in oklch, currentcolor 12%, transparent);
-        box-shadow: 0 18px 32px -22px oklch(0% 0 0 / 0.35);
+        align-items: center;
+        gap: 0.25rem;
+        padding: 5.5rem 2rem 3rem;
+        overflow-y: auto;
+        text-align: center;
     }
 
-    /* The call to action is an `<a>` too, so both rules exclude it — it keeps
-       the button's own padding and wants no rule above it. */
+    /* The sheet enters on the tenant's motion token, like everything else —
+       a `still` site opens it instantly. Keyed to [open] so it replays on
+       every open, not once per page. */
+    [open] > .site-nav-panel {
+        animation: site-enter var(--reveal-duration, 0ms)
+            cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    /* The call to action is an `<a>` too, so the rule excludes it — it keeps
+       the button's own type and padding. The links speak in the heading
+       voice: at this size they are display type, not a list of rows. */
     .site-nav-panel a:not(.site-btn) {
-        padding-block: 0.875rem;
-        font-size: 1.0625rem;
-        font-weight: 500;
-    }
-
-    .site-nav-panel a:not(.site-btn) + a:not(.site-btn) {
-        border-top: 1px solid color-mix(in oklch, currentcolor 8%, transparent);
+        padding-block: 0.75rem;
+        font-family: var(--font-heading);
+        font-size: calc(1.75rem * var(--type-scale, 1));
+        font-weight: var(--type-heading-weight, 700);
+        letter-spacing: var(--type-heading-tracking, -0.025em);
     }
 
     .site-nav-panel .site-btn {
-        margin-top: 1rem;
+        margin-top: 1.75rem;
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -879,6 +920,10 @@
         .site-nav-bars::before,
         .site-nav-bars::after {
             transition: none;
+        }
+
+        [open] > .site-nav-panel {
+            animation: none;
         }
     }
 
