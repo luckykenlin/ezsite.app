@@ -381,6 +381,27 @@ return [
             ],
         ],
 
+        'dim-sum-house' => [
+            'label' => '点心茶楼',
+            'description' => '金边菜单卡、分类页签、聚光灯下的烤鸭。为菜单本身就是招牌的茶楼而做。',
+            'highlights' => [
+                '带饰框、可筛选的菜单卡，辣、素、无麸质一目了然',
+                '「主厨推荐」聚光位，留给你最拿得出手的那道菜',
+                '内建订座表单，人数、日期一次填好',
+            ],
+            'fields' => [
+                'dish_one' => ['label' => '你的招牌点心'],
+                'dish_one_price' => ['label' => '价格'],
+                'dish_two' => ['label' => '第二道常点的'],
+                'dish_two_price' => ['label' => '价格'],
+                'dish_three' => [
+                    'label' => '值得主推的那道菜',
+                    'help' => '它会带着照片出现在菜单最顶上的聚光位。',
+                ],
+                'dish_three_price' => ['label' => '价格'],
+            ],
+        ],
+
         'pizza-shop' => [
             'label' => '披萨店',
             'description' => '热闹、喧腾、勾人食欲。街坊一周点两次的那家披萨店。',

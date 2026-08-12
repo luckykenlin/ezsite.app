@@ -1372,6 +1372,279 @@
     }
 
     /*
+     * The framed menu card (offerings' `menu-card` variant): the whole menu
+     * as one sheet of accent-tinted paper with a drawn double frame — the
+     * treatment a restaurant that laminates nothing gives its dinner menu.
+     * Paper and frame both mix from the tenant's tokens (paper leans the
+     * page background toward the accent, the frame IS the accent), so a
+     * gold-on-cream palette prints a gilded card and a cool one stays cool.
+     */
+    .site-menu-card {
+        position: relative;
+        margin-inline: auto;
+        max-width: 64rem;
+        border-radius: var(--radius-box, 0.5rem);
+        background-color: color-mix(
+            in oklch,
+            var(--color-base-100) 94%,
+            var(--color-accent)
+        );
+        box-shadow: 0 25px 50px -12px
+            color-mix(in oklch, var(--color-neutral) 30%, transparent);
+    }
+
+    /* The double inner frame: one solid pass, one dotted, both ornament. */
+    .site-menu-card::before,
+    .site-menu-card::after {
+        content: '';
+        position: absolute;
+        pointer-events: none;
+    }
+
+    .site-menu-card::before {
+        inset: 0.875rem;
+        border: 1px solid
+            color-mix(in oklch, var(--color-accent) 45%, transparent);
+    }
+
+    .site-menu-card::after {
+        inset: 1.25rem;
+        border: 1px dotted
+            color-mix(in oklch, var(--color-accent) 35%, transparent);
+    }
+
+    .site-menu-corner {
+        position: absolute;
+        z-index: 1;
+        width: 2rem;
+        height: 2rem;
+        border: 0 solid var(--color-accent);
+        pointer-events: none;
+    }
+
+    .site-menu-corner--tl {
+        top: 0.875rem;
+        left: 0.875rem;
+        border-top-width: 2px;
+        border-left-width: 2px;
+    }
+
+    .site-menu-corner--tr {
+        top: 0.875rem;
+        right: 0.875rem;
+        border-top-width: 2px;
+        border-right-width: 2px;
+    }
+
+    .site-menu-corner--bl {
+        bottom: 0.875rem;
+        left: 0.875rem;
+        border-bottom-width: 2px;
+        border-left-width: 2px;
+    }
+
+    .site-menu-corner--br {
+        bottom: 0.875rem;
+        right: 0.875rem;
+        border-bottom-width: 2px;
+        border-right-width: 2px;
+    }
+
+    .site-menu-card-body {
+        position: relative;
+        padding: 3rem 1.75rem;
+    }
+
+    @media (width >= 48rem) {
+        .site-menu-card-body {
+            padding: 4rem;
+        }
+    }
+
+    /*
+     * Course filter tabs above the card. Server-rendered `hidden` and shown
+     * by resources/js/site/menu-filter.ts — without JS the full menu below
+     * is the degradation, so dead tabs must not render.
+     */
+    .site-menu-tabs {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 0.5rem;
+        margin-block-end: 2.5rem;
+    }
+
+    .site-menu-tab {
+        padding: 0.5rem 1.25rem;
+        border: 1px solid color-mix(in oklch, currentcolor 22%, transparent);
+        border-radius: 9999px;
+        font-size: var(--type-eyebrow-size, 0.875rem);
+        font-weight: var(--type-eyebrow-weight, 600);
+        text-transform: var(--type-eyebrow-case, uppercase);
+        letter-spacing: var(--type-eyebrow-tracking, 0.1em);
+        color: color-mix(in oklch, currentcolor 70%, transparent);
+        cursor: pointer;
+        transition:
+            color 0.15s ease,
+            background-color 0.15s ease,
+            border-color 0.15s ease;
+    }
+
+    @media (hover: hover) {
+        .site-menu-tab:hover {
+            border-color: color-mix(in oklch, currentcolor 45%, transparent);
+            color: currentcolor;
+        }
+    }
+
+    .site-menu-tab[aria-pressed='true'] {
+        border-color: var(--color-primary);
+        background-color: var(--color-primary);
+        color: var(--color-primary-content);
+    }
+
+    .site-menu-tab:focus-visible {
+        outline: 2px solid var(--color-primary);
+        outline-offset: 2px;
+    }
+
+    /* Courses stack with menu-scale breathing room; the filter toggles the
+       native `hidden` attribute, so no visibility CSS is needed here. */
+    .site-menu-course + .site-menu-course {
+        margin-block-start: 3.5rem;
+    }
+
+    /* Centred with a rule either side — the printed-menu course divider,
+       where `.site-menu-group` (the simple variant) rules to the right. */
+    .site-menu-course-head {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 1rem;
+        font-family: var(--font-heading);
+        font-size: calc(1.375rem * var(--type-scale, 1));
+        font-weight: var(--type-subheading-weight, 600);
+        letter-spacing: var(--type-heading-tracking, -0.025em);
+    }
+
+    .site-menu-course-head::before,
+    .site-menu-course-head::after {
+        content: '';
+        width: 3rem;
+        height: 1px;
+        background-color: color-mix(
+            in oklch,
+            var(--color-accent) 60%,
+            transparent
+        );
+    }
+
+    /*
+     * The chef's-recommendation spotlight at the head of the card: photo
+     * beside copy, seamed off from the courses below.
+     */
+    .site-menu-feature {
+        display: grid;
+        gap: 2rem;
+        align-items: center;
+        margin-block-end: 3rem;
+        padding-block-end: 3rem;
+        border-bottom: 1px solid
+            color-mix(in oklch, var(--color-accent) 30%, transparent);
+    }
+
+    @media (width >= 48rem) {
+        .site-menu-feature {
+            grid-template-columns: 5fr 7fr;
+        }
+
+        /* Copy-only spotlight (no photo): keep it a single centred column. */
+        .site-menu-feature:not(:has(.site-menu-feature-media)) {
+            grid-template-columns: 1fr;
+            text-align: center;
+        }
+    }
+
+    .site-menu-feature-name {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.5rem;
+        margin-block: 0.75rem;
+        font-family: var(--font-heading);
+        font-size: calc(1.75rem * var(--type-scale, 1));
+        font-weight: var(--type-subheading-weight, 600);
+        letter-spacing: var(--type-heading-tracking, -0.025em);
+    }
+
+    @media (width >= 48rem) {
+        .site-menu-feature:not(:has(.site-menu-feature-media))
+            .site-menu-feature-name {
+            justify-content: center;
+        }
+
+        .site-menu-feature:not(:has(.site-menu-feature-media)) .site-menu-note {
+            margin-inline: auto;
+        }
+    }
+
+    .site-menu-feature .site-menu-price {
+        display: block;
+        margin-block-start: 0.75rem;
+        font-size: calc(1.25rem * var(--type-scale, 1));
+    }
+
+    /*
+     * Dietary flags: chilli, leaf, struck wheat. Fixed semantic hues rather
+     * than palette tokens — a leaf that turns brand-blue stops meaning
+     * "vegetarian" — muted to oklch chroma the paper can carry.
+     */
+    .site-menu-flags {
+        display: inline-flex;
+        flex-shrink: 0;
+        gap: 0.25rem;
+        vertical-align: -0.125em;
+    }
+
+    .site-menu-flag {
+        width: 1em;
+        height: 1em;
+    }
+
+    .site-menu-flag--spicy {
+        color: oklch(55% 0.19 30);
+    }
+
+    .site-menu-flag--vegetarian {
+        color: oklch(55% 0.14 150);
+    }
+
+    .site-menu-flag--gluten-free {
+        color: oklch(63% 0.12 80);
+    }
+
+    .site-menu-legend {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 1.5rem 2rem;
+        margin-block-start: 3rem;
+        padding-block-start: 1.75rem;
+        border-top: 1px solid
+            color-mix(in oklch, var(--color-accent) 30%, transparent);
+        font-size: var(--type-eyebrow-size, 0.875rem);
+        font-weight: var(--type-eyebrow-weight, 600);
+        text-transform: var(--type-eyebrow-case, uppercase);
+        letter-spacing: var(--type-eyebrow-tracking, 0.1em);
+    }
+
+    .site-menu-legend-item {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    /*
      * Testimonial quote mark, hung above the quote in the heading face.
      * A fixed em height crops the glyph's descender space so the quote text
      * tucks up under it regardless of the tenant's font pair.

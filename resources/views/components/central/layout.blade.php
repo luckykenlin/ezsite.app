@@ -28,7 +28,7 @@
     // The footer's two template columns, grouped by trade — a purely visual
     // grouping (no category routes exist), labels straight from
     // marketing.templates.*.label via SiteTemplate::label().
-    $footerFood = [SiteTemplate::ChineseRestaurant, SiteTemplate::PizzaShop, SiteTemplate::BurgerJoint, SiteTemplate::BubbleTea, SiteTemplate::FineDining, SiteTemplate::SushiBar, SiteTemplate::CafeBrunch, SiteTemplate::FamilyBistro];
+    $footerFood = [SiteTemplate::ChineseRestaurant, SiteTemplate::DimSumHouse, SiteTemplate::PizzaShop, SiteTemplate::BurgerJoint, SiteTemplate::BubbleTea, SiteTemplate::FineDining, SiteTemplate::SushiBar, SiteTemplate::CafeBrunch, SiteTemplate::FamilyBistro];
     $footerServices = [SiteTemplate::NailSalon, SiteTemplate::HairStudio, SiteTemplate::MassageSpa, SiteTemplate::PersonalResume, SiteTemplate::DesignerPortfolio];
 @endphp
 <!DOCTYPE html>

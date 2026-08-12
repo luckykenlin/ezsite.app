@@ -9,6 +9,7 @@ use App\Templates\Definitions\BurgerJoint;
 use App\Templates\Definitions\CafeBrunch;
 use App\Templates\Definitions\ChineseRestaurant;
 use App\Templates\Definitions\DesignerPortfolio;
+use App\Templates\Definitions\DimSumHouse;
 use App\Templates\Definitions\FamilyBistro;
 use App\Templates\Definitions\FineDining;
 use App\Templates\Definitions\HairStudio;
@@ -37,6 +38,7 @@ use Illuminate\Support\Facades\Lang;
 enum SiteTemplate: string
 {
     case ChineseRestaurant = 'chinese-restaurant';
+    case DimSumHouse = 'dim-sum-house';
     case PizzaShop = 'pizza-shop';
     case BurgerJoint = 'burger-joint';
     case BubbleTea = 'bubble-tea';
@@ -89,6 +91,7 @@ enum SiteTemplate: string
     {
         return match ($this) {
             self::ChineseRestaurant => ChineseRestaurant::definition(),
+            self::DimSumHouse => DimSumHouse::definition(),
             self::PizzaShop => PizzaShop::definition(),
             self::BurgerJoint => BurgerJoint::definition(),
             self::BubbleTea => BubbleTea::definition(),

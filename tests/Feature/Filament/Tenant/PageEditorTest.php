@@ -27,6 +27,7 @@ use App\Models\PageChatMessage;
 use App\Models\PageRevision;
 use App\Models\SiteSetting;
 use App\Models\Tenant;
+use App\Models\User;
 use App\Site\Blocks\BlockVocabulary;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\UploadedFile;
@@ -2174,6 +2175,93 @@ describe('retrying a failed turn', function (): void {
         Livewire::test(PageEditor::class, ['record' => $page->id])->call('retryChatTurn');
 
         Queue::assertNothingPushed();
+    });
+});
+
+/*
+ * The tenant's shared turn quota. Disabled in this suite by default
+ * (`chat.rate_limit.enabled` follows APP_ENV), so every other describe here
+ * runs unmetered; these tests flip the config switch to exercise the limiter.
+ */
+describe("the AI chat: the tenant's turn quota", function (): void {
+    it('declines a turn once the quota is spent, keeping the message in the box', function (): void {
+        config()->set('chat.rate_limit.enabled', true);
+        config()->set('chat.rate_limit.max_turns', 1);
+
+        PageEditorAgent::fake(['Done.']);
+
+        $page = editorPage([['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']]]);
+
+        // The first turn spends the whole quota. Sync queue: polling settles it.
+        $component = Livewire::test(PageEditor::class, ['record' => $page->id])
+            ->call('sendChatMessage', 'Shorten the headline')
+            ->call('pollChatTurn');
+
+        expect($component->get('chatTurnToken'))->toBeNull();
+
+        Queue::fake();
+
+        $component->set('chatInput', 'Now the tagline')
+            ->call('sendChatMessage')
+            ->assertNotified('AI edit limit reached');
+
+        // No token means the composer unwinds (chat-rail.ts's decline protocol),
+        // and the message survives for a later retry by hand.
+        expect($component->get('chatInput'))->toBe('Now the tagline')
+            ->and($component->get('chatTurnToken'))->toBeNull()
+            // The declined question never reached the transcript.
+            ->and(PageChatMessage::query()->where('role', ChatRole::User)->count())->toBe(1);
+
+        Queue::assertNothingPushed();
+    });
+
+    it('meters the quota per tenant, not per member', function (): void {
+        config()->set('chat.rate_limit.enabled', true);
+        config()->set('chat.rate_limit.max_turns', 1);
+
+        PageEditorAgent::fake(['Done.']);
+
+        $page = editorPage([['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']]]);
+
+        Livewire::test(PageEditor::class, ['record' => $page->id])
+            ->call('sendChatMessage', 'Shorten the headline')
+            ->call('pollChatTurn');
+
+        // A different member of the SAME site meets the same counter — the
+        // tenant pays for its turns as one account, whoever sends them.
+        $this->actingAs(User::factory()->memberOf(Tenant::query()->findOrFail(tenant('id')))->create());
+
+        Queue::fake();
+
+        $component = Livewire::test(PageEditor::class, ['record' => $page->id])
+            ->call('sendChatMessage', 'Now the tagline')
+            ->assertNotified('AI edit limit reached');
+
+        expect($component->get('chatTurnToken'))->toBeNull();
+
+        Queue::assertNothingPushed();
+    });
+
+    it('runs unmetered while the limit is disabled — the dev and test default', function (): void {
+        // enabled stays false (APP_ENV=testing); a max of 1 would decline the
+        // second turn if the switch were being ignored.
+        config()->set('chat.rate_limit.max_turns', 1);
+
+        PageEditorAgent::fake(['Done.']);
+
+        $page = editorPage([['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']]]);
+
+        $component = Livewire::test(PageEditor::class, ['record' => $page->id])
+            ->call('sendChatMessage', 'Shorten the headline')
+            ->call('pollChatTurn');
+
+        Queue::fake();
+
+        $component->call('sendChatMessage', 'Now the tagline');
+
+        expect($component->get('chatTurnToken'))->not->toBeNull();
+
+        Queue::assertPushed(ChatEditPageJob::class, 1);
     });
 });
 

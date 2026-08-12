@@ -21,6 +21,7 @@ use App\Models\User;
 use Closure;
 use Filament\Notifications\Notification;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\File;
 use Illuminate\Validation\ValidationException;
@@ -245,6 +246,16 @@ trait InteractsWithPageChat
             return;
         }
 
+        // Checked before the block commit and the attachment import: an import
+        // writes media rows the moment it runs (发送即入库), and a declined turn
+        // must not leave those behind. Like the aborts below, the message stays
+        // in the box.
+        if ($this->chatTurnRateLimited()) {
+            $this->chatInput = $message;
+
+            return;
+        }
+
         // Commit first: the operator may have typed into the inspector and then
         // asked the assistant to work on that same block. An invalid draft
         // aborts the turn with the field errors visible, and the message is
@@ -334,6 +345,10 @@ trait InteractsWithPageChat
             // staged last turn must still exist when this turn adds another.
             $this->chrome,
         ));
+
+        // Counted only once the turn is actually dispatched, so an abort above
+        // (invalid draft, failed import, the limit itself) never eats quota.
+        RateLimiter::hit($this->chatRateLimiterKey(), config()->integer('chat.rate_limit.decay_minutes') * 60);
 
         // Persist the pointer to this turn. Not via pushPreview() — sending a
         // message changes no blocks, so nothing else on this path would write it,
@@ -614,6 +629,53 @@ trait InteractsWithPageChat
                 },
             ],
         ];
+    }
+
+    /**
+     * Whether this tenant has used up its shared chat quota — every turn costs
+     * a bounded but real provider spend, and the quota bounds that spend.
+     *
+     * Shared by the tenant rather than per user: the site pays for its AI
+     * edits as one account, and a per-user key would just make the cap scale
+     * with seats. Off outside production (config-driven, not an environment
+     * check, so both branches stay testable): locally the limiter would only
+     * get in the way of iterating on the editor.
+     *
+     * Declines with a Notification and `true` rather than throwing
+     * ValidationException — chat-rail.ts treats "promise resolved but no
+     * chatTurnToken appeared" as the server declining the turn and unwinds the
+     * composer; a rejected promise would leave it stuck in its sending state.
+     */
+    private function chatTurnRateLimited(): bool
+    {
+        if (! config()->boolean('chat.rate_limit.enabled')) {
+            return false;
+        }
+
+        if (! RateLimiter::tooManyAttempts($this->chatRateLimiterKey(), config()->integer('chat.rate_limit.max_turns'))) {
+            return false;
+        }
+
+        Notification::make()
+            ->title(__('AI edit limit reached'))
+            ->body(__('This site has used its AI edits for now — your message was kept, try sending it again in about :minutes minutes.', [
+                'minutes' => (int) ceil(RateLimiter::availableIn($this->chatRateLimiterKey()) / 60),
+            ]))
+            ->warning()
+            ->send();
+
+        return true;
+    }
+
+    /**
+     * One counter per tenant, deliberately without the user id (see
+     * {@see chatTurnRateLimited()}). The tenant_id makes the key readable in
+     * the cache; the isolation itself comes from CacheTenancyBootstrapper
+     * prefixing every cache key — RateLimiter's included — per tenant.
+     */
+    private function chatRateLimiterKey(): string
+    {
+        return 'page-chat:'.$this->pageRecord()->tenant_id;
     }
 
     /**

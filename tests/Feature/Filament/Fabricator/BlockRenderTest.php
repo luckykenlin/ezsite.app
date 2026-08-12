@@ -316,6 +316,19 @@ it('renders each block variant with its own layout', function (array $block, arr
         ]],
         ['Packages', 'Half day', 'from $400', 'https://example.com/shoot.jpg'], 'lg:grid-cols-3', 'none',
     ],
+    // The framed menu card: same stored shape as the other two looks, its own
+    // anatomy. OfferingsBlockTest owns the spotlight/legend/tabs specifics.
+    'offerings menu card' => [
+        ['type' => 'offerings', 'data' => [
+            'variant' => 'menu-card',
+            'heading' => 'Our menu',
+            'items' => [
+                ['group' => 'Dim sum', 'name' => 'Har Gow', 'price' => '$8', 'gluten_free' => true],
+                ['group' => 'Soups', 'name' => 'Wonton Soup', 'price' => '$10'],
+            ],
+        ]],
+        ['Our menu', 'Dim sum', 'Har Gow', '$8', 'Soups', 'Wonton Soup'], 'site-menu-card', 'none',
+    ],
     // Answers stay visible rather than collapsing: the editor canvas swallows
     // clicks, so an accordion would hide the copy the assistant just wrote.
     'faq' => [

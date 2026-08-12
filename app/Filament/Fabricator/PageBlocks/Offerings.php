@@ -10,6 +10,7 @@ use Filament\Forms\Components\Field;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Support\Icons\Heroicon;
 
 /**
@@ -40,17 +41,24 @@ use Filament\Support\Icons\Heroicon;
  * and a numeric column would force this block to own money formatting for every
  * locale. The operator types what their customers should read.
  *
- * Two layouts, which is a deliberate exception to "a new block starts with one":
- * a priced list and an image-led grid are not speculation about what someone
- * might want later, they are the two shapes this block was asked for. A menu
- * wants name-to-price with no photographs; a product or package wants the photo
- * to lead.
+ * Two layouts inside the default variant, which is a deliberate exception to "a
+ * new block starts with one": a priced list and an image-led grid are not
+ * speculation about what someone might want later, they are the two shapes this
+ * block was asked for. A menu wants name-to-price with no photographs; a
+ * product or package wants the photo to lead.
+ *
+ * The `menu-card` variant is the third shape, and it earns a variant rather
+ * than another item_style because it changes the anatomy, not the styling: the
+ * whole menu becomes one framed card, groups become filterable courses, and a
+ * featured item gets a photographic spotlight. Dietary flags (`spicy`,
+ * `vegetarian`, `gluten_free`) live on the item because they are facts about
+ * the dish, not about the layout — every variant renders them.
  */
 final class Offerings extends Block
 {
     protected static string $name = 'offerings';
 
-    protected static string $description = 'Things the business sells, with prices — menu dishes, salon or clinic services, packages, products. Use this whenever an item has a price; for reasons to choose the business, with no price, use features instead. Optionally group items (e.g. "Starters", "Colour") and they render under those headings.';
+    protected static string $description = 'Things the business sells, with prices — menu dishes, salon or clinic services, packages, products. Use this whenever an item has a price; for reasons to choose the business, with no price, use features instead. Optionally group items (e.g. "Starters", "Colour") and they render under those headings. Items may carry dietary flags (spicy, vegetarian, gluten_free — booleans) and is_featured, which the menu-card variant renders as a photographic spotlight; the menu-card variant draws the whole menu as one framed card with course tabs, made for restaurants.';
 
     protected static ?Heroicon $icon = Heroicon::OutlinedTag;
 
@@ -68,6 +76,19 @@ final class Offerings extends Block
     ];
 
     /**
+     * `simple` first: every offerings block stored before variants existed has
+     * no variant key, and the default (first declared) is what keeps them — and
+     * every template definition that says only `'type' => 'offerings'` —
+     * rendering exactly as they did.
+     *
+     * @var array<string, string>
+     */
+    protected static array $variants = [
+        'simple' => 'Simple — plain priced list or cards',
+        'menu-card' => 'Menu card — the whole menu as one framed card, with course tabs',
+    ];
+
+    /**
      * @var array<string, string>
      */
     protected static array $axes = [
@@ -78,6 +99,23 @@ final class Offerings extends Block
         'columns' => 'three',
         'item_style' => 'card',
         'image_shape' => 'wide',
+    ];
+
+    /**
+     * The menu card is always a two-up printed menu inside its frame: rows, not
+     * cards (the frame is the card), wide because the card supplies its own
+     * measure, centred because that is how a menu is set.
+     *
+     * @var array<string, array<string, string>>
+     */
+    protected static array $variantAxes = [
+        'menu-card' => [
+            'spacing' => 'airy',
+            'width' => 'wide',
+            'align' => 'center',
+            'columns' => 'two',
+            'item_style' => 'plain',
+        ],
     ];
 
     /**
@@ -107,6 +145,12 @@ final class Offerings extends Block
                         ->maxLength(80)
                         ->helperText('Optional — items sharing a group render under one heading, e.g. "Starters".'),
                     ImageInput::make('image_id'),
+                    Toggle::make('spicy'),
+                    Toggle::make('vegetarian'),
+                    Toggle::make('gluten_free'),
+                    Toggle::make('is_featured')
+                        ->label('Feature this item')
+                        ->helperText('The menu card spotlights one featured item with its photo — only the first one carries.'),
                 ])
                 ->addActionLabel('Add item'),
         ];

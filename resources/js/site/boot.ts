@@ -6,6 +6,7 @@
  */
 
 import { initLeadForms } from './lead-form';
+import { initMenuFilter } from './menu-filter';
 import { initNav } from './nav';
 import { initPopup } from './popup';
 import { initReveal } from './reveal';
@@ -34,6 +35,7 @@ export function initSite(root: ParentNode = document): void {
     initNav(root);
     initLeadForms(root);
     initPopup(root);
+    initMenuFilter(root);
     // Last of the three, and the only one that changes how the page LOOKS: the
     // canvas bail-out above is also what keeps the editor's preview from
     // fading its own sections in under the operator every time they save.

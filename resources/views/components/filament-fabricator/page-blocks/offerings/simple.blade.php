@@ -6,7 +6,7 @@
     'items' => [],
 ])
 @php
-    $layout = \App\Site\Blocks\SectionLayout::for('offerings')->resolve($appearance);
+    $layout = \App\Site\Blocks\SectionLayout::for('offerings', 'simple')->resolve($appearance);
 
     // The shape is a flat `group` string rather than a nested tree: a menu's
     // sections are labels, and a tree would make every write a two-step edit.
@@ -66,6 +66,7 @@
                                     <h4 data-editor-field="items.{{ $index }}.name" class="site-menu-name">
                                         {{ $item['name'] ?? '' }}
                                     </h4>
+                                    <x-site.menu-flags :item="$item" />
                                     @if ($item['price'] ?? null)
                                         {{-- The menu leader: an empty span the
                                              dots fill, so name and price stay
@@ -103,7 +104,9 @@
                                 @endif
                                 <div @class(['site-card-body' => $layout->isCard()])>
                                     <h4 class="site-h5 flex justify-between gap-4">
-                                        <span data-editor-field="items.{{ $index }}.name">{{ $item['name'] ?? '' }}</span>
+                                        {{-- Flags sit OUTSIDE the editable span: the canvas's
+                                             inline editor owns that node's contents. --}}
+                                        <span><span data-editor-field="items.{{ $index }}.name">{{ $item['name'] ?? '' }}</span> <x-site.menu-flags :item="$item" /></span>
                                         @if ($item['price'] ?? null)
                                             <span
                                                 data-editor-field="items.{{ $index }}.price"

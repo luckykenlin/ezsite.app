@@ -434,6 +434,27 @@ return [
             ],
         ],
 
+        'dim-sum-house' => [
+            'label' => 'Dim sum house',
+            'description' => 'A gilt-edged menu card with course tabs and a duck in the spotlight. Built for a tea house whose menu is the whole point.',
+            'highlights' => [
+                'A framed, filterable menu card with spicy, vegetarian and gluten-free marks',
+                'A chef\'s-recommendation spotlight for the dish you are known for',
+                'Table bookings with party size, built in',
+            ],
+            'fields' => [
+                'dish_one' => ['label' => 'Your signature dim sum'],
+                'dish_one_price' => ['label' => 'Its price'],
+                'dish_two' => ['label' => 'A second favourite'],
+                'dish_two_price' => ['label' => 'Its price'],
+                'dish_three' => [
+                    'label' => 'The dish worth featuring',
+                    'help' => 'This one gets the spotlight at the top of the menu, photo and all.',
+                ],
+                'dish_three_price' => ['label' => 'Its price'],
+            ],
+        ],
+
         'pizza-shop' => [
             'label' => 'Pizza shop',
             'description' => 'Warm, loud and hungry. The neighbourhood pizzeria that people order from twice a week.',

@@ -49,4 +49,26 @@ return [
         'max_chars' => 12000,
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Chat Rate Limit
+    |--------------------------------------------------------------------------
+    |
+    | Every chat message dispatches an agent turn that can run the provider
+    | for up to 90 seconds, so the quota exists to bound spend, not traffic.
+    | It is shared by the whole tenant — the site pays for its turns as one
+    | account, whoever on the team sends them.
+    |
+    | Enabled only in production by default: locally and in CI the limiter
+    | would only get in the way of iterating on the editor. Set
+    | CHAT_RATE_LIMIT_ENABLED=true to reproduce the limit elsewhere.
+    |
+    */
+
+    'rate_limit' => [
+        'enabled' => (bool) env('CHAT_RATE_LIMIT_ENABLED', env('APP_ENV', 'production') === 'production'),
+        'max_turns' => (int) env('CHAT_RATE_LIMIT_MAX_TURNS', 30),
+        'decay_minutes' => (int) env('CHAT_RATE_LIMIT_DECAY_MINUTES', 60),
+    ],
+
 ];
