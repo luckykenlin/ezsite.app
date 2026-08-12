@@ -55,6 +55,8 @@ final readonly class ChineseRestaurant
             addressLine1: '812 Franklin Street',
             state: 'CA',
             postalCode: '94607',
+            latitude: 37.8003,
+            longitude: -122.2711,
         );
     }
 
@@ -136,6 +138,7 @@ final readonly class ChineseRestaurant
                     'heading' => 'Come and eat',
                     'intro' => 'Lunch and dinner, seven days most weeks. Call ahead for takeaway and it will be ready when you arrive.',
                     'show_hours' => true,
+                    'show_map' => true,
                 ]],
                 ['type' => 'offerings', 'tone' => 'base', 'spacing' => 'airy', 'data' => [
                     'heading' => 'What people order',
@@ -259,10 +262,18 @@ final readonly class ChineseRestaurant
                     'show_form' => true,
                     'success_message' => 'Thank you — we will call you back shortly.',
                 ]],
-                ['type' => 'faq', 'tone' => 'muted', 'data' => [
+                ['type' => 'reservation', 'tone' => 'muted', 'spacing' => 'airy', 'data' => [
+                    'heading' => 'Book the round table',
+                    'intro' => 'Six or more? Tell us when and how many, and we will hold the big table and call you back to confirm.',
+                    'max_party_size' => 12,
+                    'button_label' => 'Request a table',
+                    'success_message' => 'Got it — we will call you back to confirm the table.',
+                    'fine_print' => 'A banquet for more than twelve? Call {phone} and ask about the set menus.',
+                ]],
+                ['type' => 'faq', 'tone' => 'base', 'data' => [
                     'heading' => 'Before you come',
                     'questions' => [
-                        ['question' => 'Do you take bookings?', 'answer' => 'For six or more, yes — call us and we will hold a table. Smaller groups are walk-in.'],
+                        ['question' => 'Do you take bookings?', 'answer' => 'For six or more, yes — use the table request above or call us. Smaller groups are walk-in.'],
                         ['question' => 'Is there anything for vegetarians?', 'answer' => 'A good half of the menu, and the kitchen will adapt most of the rest. Just ask when you order.'],
                         ['question' => 'Can I order to collect?', 'answer' => 'Always. Call {phone} and give us twenty minutes.'],
                     ],

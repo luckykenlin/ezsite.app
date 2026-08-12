@@ -128,6 +128,12 @@
             />
         @endif
 
+        {{-- Extra inputs a wrapping surface wants between the identity fields
+             and the button — the reservation form's date/time/party row. Empty
+             for every caller that passes nothing, so this costs the existing
+             surfaces no markup. --}}
+        {{ $slot }}
+
         {{-- The submit button's colours come from whoever placed the form:
              `btn-primary` is invisible on a section whose background IS the
              primary colour, which is every signup block's own tone default

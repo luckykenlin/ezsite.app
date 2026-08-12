@@ -48,6 +48,20 @@ final class LeadFactory extends Factory
     }
 
     /**
+     * A table-booking request: the three reservation facts plus the
+     * name-and-phone pair the reservation form always collects.
+     */
+    public function reservation(): self
+    {
+        return $this->state(fn (): array => [
+            'source' => LeadSource::Reservation,
+            'reserved_date' => now()->addDays(3)->toDateString(),
+            'reserved_time' => '19:00',
+            'party_size' => 4,
+        ]);
+    }
+
+    /**
      * A lead that arrived carrying first-touch campaign data.
      */
     public function attributed(): self

@@ -94,6 +94,38 @@ it('says nothing about opening when there are no hours to say it from', function
         ->assertDontSee('site-open-state', false);
 });
 
+it('embeds a keyless map for a geocoded location', function (): void {
+    renderVisit()
+        ->assertOk()
+        ->assertSee('site-map', false)
+        ->assertSee('https://www.google.com/maps?q=41.8', false)
+        ->assertSee('output=embed', false)
+        ->assertSee('loading="lazy"', false);
+});
+
+it('prefers the Google place pin over bare coordinates', function (): void {
+    // The place embed carries the business name on the pin; coordinates are
+    // the fallback for a location that was never matched to a place.
+    renderVisit(locationAttributes: ['google_place_id' => 'ChIJtestplace123'])
+        ->assertOk()
+        ->assertSee('maps?q=place_id:ChIJtestplace123', false);
+});
+
+it('drops the map when the operator turns it off', function (): void {
+    renderVisit(['show_map' => false])
+        ->assertOk()
+        ->assertSee('218 Wickenden Street')
+        ->assertDontSee('site-map', false);
+});
+
+it('renders no empty frame for a location that was never geocoded', function (): void {
+    renderVisit(locationAttributes: ['latitude' => null, 'longitude' => null])
+        ->assertOk()
+        ->assertSee('218 Wickenden Street')
+        ->assertDontSee('site-map', false)
+        ->assertDontSee('output=embed', false);
+});
+
 it('marks today in the week table', function (): void {
     CarbonImmutable::setTestNow(new CarbonImmutable('2026-08-10 14:00', 'America/New_York')); // Monday
 

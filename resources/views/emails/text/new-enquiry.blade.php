@@ -3,7 +3,11 @@
     scores better with spam filters than an HTML-only one, and this is the copy
     a watch or a screen reader reads out.
 --}}
-New enquiry from {{ $lead->displayName() }}
+{{ $lead->isReservation() ? 'New reservation request from' : 'New enquiry from' }} {{ $lead->displayName() }}
+@if ($lead->reservationLine())
+
+When: {{ $lead->reservationLine() }}
+@endif
 @if (filled($lead->phone))
 
 Phone: {{ $lead->phone }}

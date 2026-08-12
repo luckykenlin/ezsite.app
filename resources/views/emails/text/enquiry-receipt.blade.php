@@ -2,6 +2,10 @@
 Thanks for getting in touch
 
 Hi {{ $lead->displayName() }}, we have your message and will get back to you as soon as we can.
+@if ($lead->isReservation() && $lead->reservationLine())
+
+You asked for {{ $lead->reservationLine() }} — we will confirm your table as soon as we can.
+@endif
 @if (filled($lead->message))
 
 What you sent us:

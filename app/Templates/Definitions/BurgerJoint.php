@@ -59,6 +59,8 @@ final readonly class BurgerJoint
             addressLine1: '2214 SE Division Street',
             state: 'OR',
             postalCode: '97202',
+            latitude: 45.5048,
+            longitude: -122.6434,
         );
     }
 
@@ -140,6 +142,7 @@ final readonly class BurgerJoint
                     'heading' => 'Open now?',
                     'intro' => 'The grill runs until late. There is usually a line at seven — that is the cooking, not the queue.',
                     'show_hours' => true,
+                    'show_map' => true,
                 ]],
                 ['type' => 'offerings', 'tone' => 'base', 'spacing' => 'airy', 'data' => [
                     'heading' => 'The whole menu, more or less',

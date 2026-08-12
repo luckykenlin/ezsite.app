@@ -94,6 +94,40 @@ test('display name falls back through the channels a low-friction form does coll
         ->toBe(Str::before($stored->email, '@'));
 });
 
+test('a reservation lead carries its three facts as wall-clock values', function (): void {
+    $tenant = Tenant::factory()->create();
+    $lead = $this->runInTenant($tenant, fn (): Lead => Lead::factory()->reservation()->create([
+        'tenant_id' => $tenant->id,
+        'reserved_date' => '2026-08-15',
+        'reserved_time' => '19:00',
+        'party_size' => 4,
+    ]));
+
+    $stored = Lead::query()->findOrFail($lead->getKey());
+
+    expect($stored->isReservation())->toBeTrue()
+        ->and($stored->reserved_date?->toDateString())->toBe('2026-08-15')
+        // Postgres returns the time column with seconds; the formatter trims
+        // them, but the stored value keeps what the column holds.
+        ->and($stored->reserved_time)->toBe('19:00:00')
+        ->and($stored->party_size)->toBe(4)
+        ->and($stored->reservationLine())->toBe('Sat 15 Aug, 19:00 · party of 4');
+});
+
+test('the reservation line degrades with whatever facts are missing', function (): void {
+    $full = new Lead(['reserved_date' => '2026-08-15', 'reserved_time' => '19:00', 'party_size' => 2]);
+    $noTime = new Lead(['reserved_date' => '2026-08-15', 'party_size' => 2]);
+    $dateOnly = new Lead(['reserved_date' => '2026-08-15']);
+    $none = new Lead(['name' => 'Mei']);
+
+    expect($full->reservationLine())->toBe('Sat 15 Aug, 19:00 · party of 2')
+        ->and($noTime->reservationLine())->toBe('Sat 15 Aug · party of 2')
+        ->and($dateOnly->reservationLine())->toBe('Sat 15 Aug')
+        // No date, no line — the callers skip the row entirely.
+        ->and($none->reservationLine())->toBeNull()
+        ->and($none->isReservation())->toBeFalse();
+});
+
 test('status is cast to the LeadStatus enum, defaulting to new', function (): void {
     $tenant = Tenant::factory()->create();
     $lead = $this->runInTenant($tenant, fn (): Lead => Lead::query()->create([
@@ -136,5 +170,8 @@ test('to array', function (): void {
             'ip_address',
             'created_at',
             'updated_at',
+            'reserved_date',
+            'reserved_time',
+            'party_size',
         ]);
 });

@@ -7,6 +7,10 @@
     disappears the moment someone types costs them the one thing they need
     while checking their own phone number back, and on a form this short there
     is room to simply say what each box is for.
+
+    `min`/`max`/`required` are native constraint attributes for the picker
+    inputs (date, time, number) the reservation form adds; the server-side
+    rules in StoreLeadRequest are the real gate, these just save a round trip.
 --}}
 @props([
     'bag',
@@ -16,6 +20,9 @@
     'type' => 'text',
     'maxlength' => null,
     'autocomplete' => null,
+    'min' => null,
+    'max' => null,
+    'required' => false,
     'textarea' => false,
     'rows' => 4,
 ])
@@ -34,6 +41,7 @@
             name="{{ $field }}"
             rows="{{ $rows }}"
             @if ($maxlength) maxlength="{{ $maxlength }}" @endif
+            @if ($required) required @endif
             @class(['site-field', 'site-field-invalid' => $bag->has($field)])
         >{{ old($field) }}</textarea>
     @else
@@ -44,6 +52,9 @@
             value="{{ old($field) }}"
             @if ($maxlength) maxlength="{{ $maxlength }}" @endif
             @if ($autocomplete) autocomplete="{{ $autocomplete }}" @endif
+            @if ($min !== null) min="{{ $min }}" @endif
+            @if ($max !== null) max="{{ $max }}" @endif
+            @if ($required) required @endif
             @class(['site-field', 'site-field-invalid' => $bag->has($field)])
         />
     @endif

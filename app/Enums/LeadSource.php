@@ -24,6 +24,7 @@ enum LeadSource: string implements HasColor, HasLabel
     case ContactForm = 'contact_form';
     case InlineForm = 'inline_form';
     case Popup = 'popup';
+    case Reservation = 'reservation';
 
     public function getLabel(): string
     {
@@ -31,6 +32,7 @@ enum LeadSource: string implements HasColor, HasLabel
             self::ContactForm => __('Contact form'),
             self::InlineForm => __('Inline form'),
             self::Popup => __('Popup'),
+            self::Reservation => __('Reservation'),
         };
     }
 
@@ -40,6 +42,7 @@ enum LeadSource: string implements HasColor, HasLabel
             self::ContactForm => 'primary',
             self::InlineForm => 'info',
             self::Popup => 'warning',
+            self::Reservation => 'success',
         };
     }
 }

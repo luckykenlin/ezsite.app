@@ -1073,6 +1073,19 @@
     }
 
     /*
+     * The reservation form's native date/time pickers. WebKit paints the
+     * calendar/clock glyph near-black regardless of the field's own ink, so on
+     * an inverted or accent band it vanishes; graying it through the same
+     * currentcolor the field borders use keeps it legible on every tone
+     * without a per-tone variant.
+     */
+    .site-field::-webkit-calendar-picker-indicator {
+        opacity: 0.65;
+        filter: grayscale(1);
+        cursor: pointer;
+    }
+
+    /*
      * A visible label above the field, replacing DaisyUI's floating label.
      * A label that vanishes into the box the moment someone types is a known
      * usability tax, and on a two-field enquiry form it buys nothing: there
@@ -1083,6 +1096,19 @@
         margin-bottom: 0.375rem;
         font-size: 0.875rem;
         font-weight: 500;
+    }
+
+    /*
+     * The embedded location map (visit block). The ratio lives here rather
+     * than as a view literal so it stays a design-system decision; the border
+     * matches .site-card's currentcolor wash so the iframe sits on any tone.
+     */
+    .site-map {
+        display: block;
+        width: 100%;
+        aspect-ratio: 16 / 7;
+        border: 1px solid color-mix(in oklch, currentcolor 15%, transparent);
+        border-radius: var(--radius-box, 0.5rem);
     }
 
     /* The enquiry form's success notice: brand-tinted rather than a stock

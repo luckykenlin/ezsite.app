@@ -62,6 +62,8 @@ final readonly class BubbleTea
             state: 'MI',
             postalCode: '48104',
             timezone: 'America/Detroit',
+            latitude: 42.2793,
+            longitude: -83.7455,
         );
     }
 
@@ -143,6 +145,7 @@ final readonly class BubbleTea
                     'heading' => 'Find the counter',
                     'intro' => 'Open from late morning. Order at the counter, or ring ahead if you are picking up for the office.',
                     'show_hours' => true,
+                    'show_map' => true,
                 ]],
                 ['type' => 'offerings', 'spacing' => 'airy', 'data' => [
                     'heading' => 'On the board',

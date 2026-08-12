@@ -43,6 +43,13 @@ final class LeadsTable
                     ->limit(60)
                     ->tooltip(fn (Lead $record): ?string => $record->message)
                     ->searchable(),
+                // The requested table, for reservation leads only — the row's
+                // actionable fact, so it sits beside the message rather than
+                // hiding in the detail view.
+                TextColumn::make('reservation')
+                    ->label('Reservation')
+                    ->state(fn (Lead $record): ?string => $record->reservationLine())
+                    ->placeholder('—'),
                 // Which surface earned it — the column that answers "is the
                 // popup worth the interruption?".
                 TextColumn::make('source')

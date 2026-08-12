@@ -444,6 +444,90 @@ return [
             ],
         ],
 
+        'fine-dining' => [
+            'label' => '高级餐厅',
+            'description' => '深色、安静、以订座为先。为那种要提前一周订位的餐厅而做。',
+            'highlights' => [
+                '订座表单，日期、时间、人数一次填好',
+                '三幕式菜单，分组标题配价格',
+                '每个到店板块都带嵌入地图和实时营业状态',
+            ],
+            'fields' => [
+                'starter_dish' => [
+                    'label' => '你最出名的前菜',
+                    'help' => '它排在菜单最前面——选那道常客不许你下架的。',
+                ],
+                'starter_dish_price' => ['label' => '价格'],
+                'main_dish' => ['label' => '压轴主菜'],
+                'main_dish_price' => ['label' => '价格'],
+                'dessert_dish' => ['label' => '收尾的甜品'],
+                'dessert_dish_price' => ['label' => '价格'],
+            ],
+        ],
+
+        'sushi-bar' => [
+            'label' => '寿司店',
+            'description' => '克制、精确、留白充分。为一张十二个座位的板前吧台而做。',
+            'highlights' => [
+                '订位表单，按板前吧台的规模设计',
+                '菜单按 Omakase、握寿司、卷物分组',
+                '安静的渐显动效，和店里的节奏一致',
+            ],
+            'fields' => [
+                'omakase_name' => [
+                    'label' => '你的 Omakase，按菜单上的叫法',
+                    'help' => '吧台的招牌套餐——它排在菜单最前面。',
+                ],
+                'omakase_price' => ['label' => '每位价格'],
+                'nigiri_one' => ['label' => '一贯你自豪的握寿司'],
+                'nigiri_one_price' => ['label' => '价格'],
+                'roll_one' => ['label' => '一道客人会回头点的卷物'],
+                'roll_one_price' => ['label' => '价格'],
+            ],
+        ],
+
+        'cafe-brunch' => [
+            'label' => '咖啡·早午餐',
+            'description' => '明亮、温暖、属于早晨。工作日随到随坐，周末早午餐订满。',
+            'highlights' => [
+                '周末早午餐订位表单，日期、时间、人数齐全',
+                '菜单按早午餐、烘焙、咖啡分组',
+                '页中的会员注册板块，放你的常客优惠',
+            ],
+            'fields' => [
+                'brunch_one' => [
+                    'label' => '你最出名的早午餐',
+                    'help' => '它排在菜单最前面——客人先拍照再动叉的那盘。',
+                ],
+                'brunch_one_price' => ['label' => '价格'],
+                'brunch_two' => ['label' => '第二道常点的'],
+                'brunch_two_price' => ['label' => '价格'],
+                'signature_coffee' => ['label' => '必点的那杯咖啡'],
+                'signature_coffee_price' => ['label' => '价格'],
+            ],
+        ],
+
+        'family-bistro' => [
+            'label' => '家庭餐馆',
+            'description' => '温暖、大方、不端着——过生日和周日午餐都订这张邻里餐桌。',
+            'highlights' => [
+                '订座表单，按一大家子的规模设计',
+                '菜单自带儿童餐分组',
+                '文案为生日、常客和周日午餐写好了',
+            ],
+            'fields' => [
+                'main_one' => [
+                    'label' => '大家都点的那道主菜',
+                    'help' => '它排在菜单最前面——一桌人边吃边聊的那盘。',
+                ],
+                'main_one_price' => ['label' => '价格'],
+                'main_two' => ['label' => '第二道常点的'],
+                'main_two_price' => ['label' => '价格'],
+                'kids_meal' => ['label' => '小朋友吃什么'],
+                'kids_meal_price' => ['label' => '价格'],
+            ],
+        ],
+
         'nail-salon' => [
             'label' => '美甲店',
             'description' => '暗色房间、金色点缀，往下滑一屏就是你的作品集。',

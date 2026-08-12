@@ -6,13 +6,17 @@ namespace App\Templates;
 
 use App\Templates\Definitions\BubbleTea;
 use App\Templates\Definitions\BurgerJoint;
+use App\Templates\Definitions\CafeBrunch;
 use App\Templates\Definitions\ChineseRestaurant;
 use App\Templates\Definitions\DesignerPortfolio;
+use App\Templates\Definitions\FamilyBistro;
+use App\Templates\Definitions\FineDining;
 use App\Templates\Definitions\HairStudio;
 use App\Templates\Definitions\MassageSpa;
 use App\Templates\Definitions\NailSalon;
 use App\Templates\Definitions\PersonalResume;
 use App\Templates\Definitions\PizzaShop;
+use App\Templates\Definitions\SushiBar;
 use Illuminate\Support\Facades\Lang;
 
 /**
@@ -36,6 +40,10 @@ enum SiteTemplate: string
     case PizzaShop = 'pizza-shop';
     case BurgerJoint = 'burger-joint';
     case BubbleTea = 'bubble-tea';
+    case FineDining = 'fine-dining';
+    case SushiBar = 'sushi-bar';
+    case CafeBrunch = 'cafe-brunch';
+    case FamilyBistro = 'family-bistro';
     case NailSalon = 'nail-salon';
     case HairStudio = 'hair-studio';
     case MassageSpa = 'massage-spa';
@@ -84,6 +92,10 @@ enum SiteTemplate: string
             self::PizzaShop => PizzaShop::definition(),
             self::BurgerJoint => BurgerJoint::definition(),
             self::BubbleTea => BubbleTea::definition(),
+            self::FineDining => FineDining::definition(),
+            self::SushiBar => SushiBar::definition(),
+            self::CafeBrunch => CafeBrunch::definition(),
+            self::FamilyBistro => FamilyBistro::definition(),
             self::NailSalon => NailSalon::definition(),
             self::HairStudio => HairStudio::definition(),
             self::MassageSpa => MassageSpa::definition(),

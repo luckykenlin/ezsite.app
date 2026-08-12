@@ -65,6 +65,8 @@ final readonly class PizzaShop
             state: 'RI',
             postalCode: '02903',
             timezone: 'America/New_York',
+            latitude: 41.8172,
+            longitude: -71.3931,
         );
     }
 
@@ -146,6 +148,7 @@ final readonly class PizzaShop
                     'heading' => 'Open tonight?',
                     'intro' => 'The oven is on from four. Walk in, or ring ahead and it will be boxed when you get here.',
                     'show_hours' => true,
+                    'show_map' => true,
                 ]],
                 ['type' => 'offerings', 'tone' => 'base', 'spacing' => 'airy', 'data' => [
                     'heading' => 'What comes out of the oven',
@@ -279,10 +282,18 @@ final readonly class PizzaShop
                     'show_form' => true,
                     'success_message' => 'Got it — we will get back to you between services.',
                 ]],
-                ['type' => 'faq', 'tone' => 'muted', 'data' => [
+                ['type' => 'reservation', 'tone' => 'muted', 'spacing' => 'airy', 'data' => [
+                    'heading' => 'Bringing the whole crowd?',
+                    'intro' => 'The six tables are walk-in most nights. For eight or more we will push them together — ask here and we will call you back.',
+                    'max_party_size' => 14,
+                    'button_label' => 'Ask for the big table',
+                    'success_message' => 'Got it — we will call you back between services.',
+                    'fine_print' => 'Just the two of you? Walk in — the queue moves faster than it looks.',
+                ]],
+                ['type' => 'faq', 'tone' => 'base', 'data' => [
                     'heading' => 'Worth knowing first',
                     'questions' => [
-                        ['question' => 'Do you take bookings?', 'answer' => 'Not for the tables — they are first come, first served. For parties of eight or more, call {phone} and we will work something out.'],
+                        ['question' => 'Do you take bookings?', 'answer' => 'Not for the small tables — they are first come, first served. For parties of eight or more, use the form above or call {phone} and we will work something out.'],
                         ['question' => 'Do you deliver?', 'answer' => 'No. A pizza this thin does not survive a car journey, and we would rather you had it hot at the counter.'],
                         ['question' => 'Is there anything for vegetarians?', 'answer' => 'Half the board, always, and the specials lean that way in summer. Vegan cheese is there if you ask.'],
                         ['question' => 'Can I order gluten free?', 'answer' => 'We make a gluten-free base, but it shares an oven with everything else, so it is not safe for coeliacs.'],

@@ -50,6 +50,7 @@ final class Visit extends Block
         'heading' => 'Come and find us',
         'intro' => 'Walk in, or call ahead and we will have it ready.',
         'show_hours' => true,
+        'show_map' => true,
     ];
 
     /**
@@ -82,6 +83,10 @@ final class Visit extends Block
             Toggle::make('show_hours')
                 ->label('Show the full week')
                 ->helperText('The open-or-closed line always shows. Turn this off to hide the seven-day table under it.')
+                ->default(true),
+            Toggle::make('show_map')
+                ->label('Show a map')
+                ->helperText('An embedded map under the facts. Appears only once the location has coordinates or a Google place.')
                 ->default(true),
             TextInput::make('note')
                 ->label('Practical note')

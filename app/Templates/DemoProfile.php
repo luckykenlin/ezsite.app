@@ -21,6 +21,11 @@ final readonly class DemoProfile
      * for most of the library, and wrong for none of it in a way a visitor
      * would notice. A template with real hours passes its own.
      *
+     * `$latitude`/`$longitude` are the demo pin for the visit block's embedded
+     * map — nullable because a map only earns its place on templates whose
+     * customers physically show up. Like the demo address they carry over to an
+     * applied site as obviously-replaceable placeholder data.
+     *
      * @param  array{monday?: list<string>, tuesday?: list<string>, wednesday?: list<string>, thursday?: list<string>, friday?: list<string>, saturday?: list<string>, sunday?: list<string>}  $openingHours
      */
     public function __construct(
@@ -35,6 +40,8 @@ final readonly class DemoProfile
         public string $postalCode,
         public string $country = 'US',
         public string $timezone = 'America/Los_Angeles',
+        public ?float $latitude = null,
+        public ?float $longitude = null,
         public array $openingHours = [
             'monday' => ['11:00-21:00'],
             'tuesday' => ['11:00-21:00'],

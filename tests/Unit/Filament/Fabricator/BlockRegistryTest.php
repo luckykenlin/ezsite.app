@@ -16,7 +16,7 @@ it('enumerates every block contract in the vocabulary', function (): void {
     $vocabulary = resolve(BlockVocabulary::class)->all();
 
     expect($vocabulary)->toHaveKeys([
-        'hero', 'heading', 'header', 'features', 'testimonials', 'gallery', 'cta', 'contact', 'visit', 'signup', 'footer',
+        'hero', 'heading', 'header', 'features', 'testimonials', 'gallery', 'cta', 'contact', 'visit', 'signup', 'reservation', 'footer',
     ])
         ->and($vocabulary['signup']->variants)->toBe(['banner', 'stacked'])
         ->and($vocabulary['signup']->bind)->toBeNull()
@@ -45,10 +45,11 @@ it('enumerates every block contract in the vocabulary', function (): void {
         ->and($vocabulary['contact']->bind)->toBe(BindType::Location)
         ->and($vocabulary['header']->bind)->toBe(BindType::Business)
         ->and($vocabulary['footer']->bind)->toBe(BindType::Location)
+        ->and($vocabulary['reservation']->bind)->toBe(BindType::Location)
         // The factual blocks above are the ONLY bound ones; every other block
         // is content-only and must declare no bind.
         ->and(array_keys(array_filter($vocabulary, fn (BlockType $contract): bool => $contract->bind instanceof BindType)))
-        ->toEqualCanonicalizing(['header', 'contact', 'visit', 'footer']);
+        ->toEqualCanonicalizing(['header', 'contact', 'visit', 'reservation', 'footer']);
 });
 
 /*

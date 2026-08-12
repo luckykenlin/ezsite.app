@@ -497,6 +497,90 @@ return [
             ],
         ],
 
+        'fine-dining' => [
+            'label' => 'Fine dining',
+            'description' => 'Dark, quiet and reservation-first. For the dining room people book a week ahead.',
+            'highlights' => [
+                'A table-request form with date, time and party size',
+                'A three-act menu with course headings and prices',
+                'An embedded map and live opening hours on every visit section',
+            ],
+            'fields' => [
+                'starter_dish' => [
+                    'label' => 'A starter you are known for',
+                    'help' => 'It opens the menu section, so pick the plate regulars will not let you retire.',
+                ],
+                'starter_dish_price' => ['label' => 'Its price'],
+                'main_dish' => ['label' => 'The main event'],
+                'main_dish_price' => ['label' => 'Its price'],
+                'dessert_dish' => ['label' => 'The dessert to finish on'],
+                'dessert_dish_price' => ['label' => 'Its price'],
+            ],
+        ],
+
+        'sushi-bar' => [
+            'label' => 'Sushi bar',
+            'description' => 'Restrained and precise, with room to breathe. Built for a counter that seats twelve.',
+            'highlights' => [
+                'A seat-request form sized for an omakase counter',
+                'A grouped menu for omakase, nigiri and rolls',
+                'Quiet reveal animations that match the pace of the room',
+            ],
+            'fields' => [
+                'omakase_name' => [
+                    'label' => 'Your omakase, as the menu names it',
+                    'help' => 'The set the counter is known for — it leads the menu.',
+                ],
+                'omakase_price' => ['label' => 'Its price per person'],
+                'nigiri_one' => ['label' => 'A nigiri you are proud of'],
+                'nigiri_one_price' => ['label' => 'Its price'],
+                'roll_one' => ['label' => 'A roll people come back for'],
+                'roll_one_price' => ['label' => 'Its price'],
+            ],
+        ],
+
+        'cafe-brunch' => [
+            'label' => 'Café & brunch',
+            'description' => 'Bright, warm and morning-shaped. Walk-ins on weekdays, booked-out brunch on weekends.',
+            'highlights' => [
+                'A weekend-brunch booking form with date, time and party size',
+                'A grouped menu for brunch, bakes and coffee',
+                'A mid-page signup block for the loyalty offer',
+            ],
+            'fields' => [
+                'brunch_one' => [
+                    'label' => 'The brunch plate you are known for',
+                    'help' => 'It leads the menu — the dish people photograph before they eat.',
+                ],
+                'brunch_one_price' => ['label' => 'Its price'],
+                'brunch_two' => ['label' => 'A second brunch favourite'],
+                'brunch_two_price' => ['label' => 'Its price'],
+                'signature_coffee' => ['label' => 'The coffee to order'],
+                'signature_coffee_price' => ['label' => 'Its price'],
+            ],
+        ],
+
+        'family-bistro' => [
+            'label' => 'Family bistro',
+            'description' => 'Warm, generous and unfussy — the neighbourhood table booked for birthdays and Sunday lunch.',
+            'highlights' => [
+                'A table-booking form sized for big family groups',
+                'A menu with a kids section built in',
+                'Copy written for birthdays, regulars and Sunday lunch',
+            ],
+            'fields' => [
+                'main_one' => [
+                    'label' => 'The main everyone orders',
+                    'help' => 'It leads the menu — the plate the table shares stories about.',
+                ],
+                'main_one_price' => ['label' => 'Its price'],
+                'main_two' => ['label' => 'A second favourite'],
+                'main_two_price' => ['label' => 'Its price'],
+                'kids_meal' => ['label' => 'What the kids get'],
+                'kids_meal_price' => ['label' => 'Its price'],
+            ],
+        ],
+
         'nail-salon' => [
             'label' => 'Nail salon',
             'description' => 'A dark room, gold accents and a gallery of your work directly under the fold.',

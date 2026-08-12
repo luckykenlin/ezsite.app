@@ -138,7 +138,7 @@ it('gives every template a detail page with a live demo and a way to start', fun
 
 it('404s on a template slug that does not exist', function (): void {
     // Enum-bound in the route, so a bad slug never reaches a controller.
-    $this->get(localeUrl(Locale::English, '/templates/sushi-bar'))->assertNotFound();
+    $this->get(localeUrl(Locale::English, '/templates/tattoo-parlor'))->assertNotFound();
 });
 
 it('keeps the landing page off tenant domains', function (): void {

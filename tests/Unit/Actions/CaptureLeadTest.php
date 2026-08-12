@@ -107,6 +107,36 @@ it('notifies every member of the tenant with a link to the inbox', function (): 
         ->and($body)->toContain('/admin/leads');
 });
 
+it('stores a reservation request and announces it as one', function (): void {
+    $tenant = Tenant::factory()->create();
+    User::factory()->memberOf($tenant)->create();
+
+    $lead = $this->runInTenant($tenant, fn (): Lead => resolve(CaptureLead::class)->handle(
+        [
+            'name' => 'Mei',
+            'phone' => '+1 555 0100',
+            'reserved_date' => '2026-08-15',
+            'reserved_time' => '19:00',
+            'party_size' => 4,
+        ],
+        LeadSource::Reservation,
+    ));
+
+    $stored = Lead::query()->findOrFail($lead->getKey());
+
+    expect($stored->source)->toBe(LeadSource::Reservation)
+        ->and($stored->reserved_date?->toDateString())->toBe('2026-08-15')
+        ->and($stored->reserved_time)->toBe('19:00:00')
+        ->and($stored->party_size)->toBe(4);
+
+    // The bell leads with the requested table, not the phone number — "when,
+    // how many" is the operator's first question about a booking.
+    $body = json_encode(DatabaseNotification::query()->sole()->data, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
+
+    expect($body)->toContain('New reservation request from Mei')
+        ->and($body)->toContain('Sat 15 Aug, 19:00');
+});
+
 it('hands the enquiry to the mail queue', function (): void {
     // The channel that reaches an operator who is not looking at the panel. The
     // link it carries is asserted in tests/Feature/Http/LeadCaptureTest, where a

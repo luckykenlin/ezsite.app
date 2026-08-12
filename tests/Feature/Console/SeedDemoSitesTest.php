@@ -25,8 +25,8 @@ it('builds only the templates named on the command line', function (): void {
 it('names the valid slugs when asked for a template that does not exist', function (): void {
     // A silent no-op would cost more than the argument saves, so an unknown
     // slug fails loudly and lists what it could have been.
-    $this->artisan('demo:seed', ['template' => ['sushi-bar'], '--skip-photos' => true])
-        ->expectsOutputToContain('Unknown template "sushi-bar"')
+    $this->artisan('demo:seed', ['template' => ['tattoo-parlor'], '--skip-photos' => true])
+        ->expectsOutputToContain('Unknown template "tattoo-parlor"')
         ->expectsOutputToContain('chinese-restaurant')
         ->assertFailed();
 

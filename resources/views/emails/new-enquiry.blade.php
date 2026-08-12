@@ -5,11 +5,11 @@
     :preheader="$lead->contactLine() ?? $lead->message"
 >
     <h1 style="margin: 0 0 16px; font-size: 22px; line-height: 30px; font-weight: 700; color: #18181b;">
-        New enquiry from {{ $lead->displayName() }}
+        {{ $lead->isReservation() ? 'New reservation request from' : 'New enquiry from' }} {{ $lead->displayName() }}
     </h1>
 
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 0 0 24px; font-size: 15px; line-height: 22px;">
-        @foreach (['Phone' => $lead->phone, 'Email' => $lead->email] as $label => $value)
+        @foreach (['When' => $lead->reservationLine(), 'Phone' => $lead->phone, 'Email' => $lead->email] as $label => $value)
             @if (filled($value))
                 <tr>
                     <td width="72" valign="top" style="padding: 6px 12px 6px 0; color: #71717a;">{{ $label }}</td>

@@ -34,7 +34,10 @@ final class NewEnquiry extends Mailable
             // The site name is already the sender's display name, so repeating
             // it here would only push the part that identifies the enquiry out
             // of a phone's subject preview.
-            subject: sprintf('New enquiry from %s', $this->lead->displayName()),
+            subject: sprintf(
+                $this->lead->isReservation() ? 'New reservation request from %s' : 'New enquiry from %s',
+                $this->lead->displayName(),
+            ),
         );
     }
 

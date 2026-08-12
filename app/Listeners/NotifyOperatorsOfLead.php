@@ -42,8 +42,14 @@ final readonly class NotifyOperatorsOfLead
         $lead = $event->lead;
 
         Notification::make()
-            ->title(sprintf('New enquiry from %s', $lead->displayName()))
-            ->body($lead->contactLine() ?? $lead->message ?? '')
+            ->title(sprintf(
+                $lead->isReservation() ? 'New reservation request from %s' : 'New enquiry from %s',
+                $lead->displayName(),
+            ))
+            // A reservation's body leads with the requested table — the
+            // operator's first question is "when, how many", not "how do I
+            // reach them".
+            ->body($lead->reservationLine() ?? $lead->contactLine() ?? $lead->message ?? '')
             ->icon(Heroicon::OutlinedInbox)
             ->success()
             ->actions([

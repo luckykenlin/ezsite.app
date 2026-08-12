@@ -5,6 +5,7 @@
     'intro' => null,
     'note' => null,
     'show_hours' => true,
+    'show_map' => true,
     'business' => null,
     'location' => null,
 ])
@@ -81,5 +82,14 @@
                 />
             </div>
         </div>
+
+        {{-- Full-width row under the facts. The component renders nothing for
+             an ungeocoded location, so the toggle only ever adds a map, never
+             an empty frame. --}}
+        @if ($show_map)
+            <div class="mt-10">
+                <x-site.location-map :location="$location" />
+            </div>
+        @endif
     </div>
 </x-site.section>

@@ -26,7 +26,7 @@ use Illuminate\Support\Facades\DB;
 final readonly class CaptureLead
 {
     /**
-     * @param  array{name?: string|null, email?: string|null, phone?: string|null, message?: string|null}  $data
+     * @param  array{name?: string|null, email?: string|null, phone?: string|null, message?: string|null, reserved_date?: string|null, reserved_time?: string|null, party_size?: int|null}  $data
      * @param  array<string, string|null>  $attribution  first-touch UTM/referrer, keyed by lead
      *                                                   column exactly as {@see RememberLeadAttribution::read()}
      *                                                   returns it — the narrowing lives there,
@@ -49,6 +49,9 @@ final readonly class CaptureLead
             'email' => $data['email'] ?? null,
             'phone' => $data['phone'] ?? null,
             'message' => $data['message'] ?? null,
+            'reserved_date' => $data['reserved_date'] ?? null,
+            'reserved_time' => $data['reserved_time'] ?? null,
+            'party_size' => $data['party_size'] ?? null,
             'source' => $source,
             'ip_address' => $ipAddress,
             ...$attribution,

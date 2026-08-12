@@ -73,6 +73,24 @@ it('shows which surface produced each enquiry, and filters by it', function (): 
         ->assertCanNotSeeTableRecords([$form, $inline]);
 });
 
+it('shows the requested table beside a reservation lead', function (): void {
+    $reservation = tenantLead([
+        'source' => LeadSource::Reservation,
+        'reserved_date' => '2026-08-15',
+        'reserved_time' => '19:00',
+        'party_size' => 4,
+    ]);
+    $plain = tenantLead(['name' => 'Plain enquiry']);
+
+    Livewire::test(ListLeads::class)
+        ->call('loadTable')
+        ->assertCanSeeTableRecords([$reservation, $plain])
+        // The source badge and the one-line table request — the row is
+        // actionable without opening it.
+        ->assertSee('Reservation')
+        ->assertSee('Sat 15 Aug, 19:00 · party of 4');
+});
+
 it('names an enquiry that never gave one', function (): void {
     // The low-friction surfaces ask for a reply channel and nothing else, so
     // the inbox must still have something human to show.

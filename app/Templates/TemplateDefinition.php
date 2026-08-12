@@ -138,6 +138,8 @@ final readonly class TemplateDefinition
             'phone' => $this->demoProfile->phone,
             'email' => $this->demoProfile->email,
             'timezone' => $this->demoProfile->timezone,
+            'latitude' => $this->demoProfile->latitude,
+            'longitude' => $this->demoProfile->longitude,
             'opening_hours' => OpeningHours::create($this->demoProfile->openingHours),
         ];
     }

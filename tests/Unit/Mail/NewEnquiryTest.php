@@ -59,6 +59,25 @@ test('an enquiry from a phone-only surface says so instead of inviting a reply',
         ->assertDontSeeInHtml('Reply to this email');
 });
 
+test('a reservation request says so in the subject and leads with the table', function (): void {
+    $lead = Lead::factory()->reservation()->make([
+        'name' => 'Mei Chen',
+        'email' => null,
+        'phone' => '+1 555 0100',
+        'message' => null,
+        'reserved_date' => '2026-08-15',
+        'reserved_time' => '19:00',
+        'party_size' => 4,
+    ]);
+
+    $mailable = new NewEnquiry($lead, new SiteMailIdentity('Golden Dragon'), 'http://acme.ezsite.test/admin/leads');
+
+    $mailable->assertHasSubject('New reservation request from Mei Chen')
+        ->assertSeeInHtml('New reservation request from Mei Chen')
+        ->assertSeeInHtml('Sat 15 Aug, 19:00 · party of 4')
+        ->assertSeeInText('When: Sat 15 Aug, 19:00 · party of 4');
+});
+
 test('the enquiry names the page that earned it', function (): void {
     // "Which page produced this" is the question that tells an operator where
     // their traffic converts, and it is one join away in the inbox but free here.

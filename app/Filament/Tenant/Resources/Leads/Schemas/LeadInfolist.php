@@ -29,6 +29,11 @@ final class LeadInfolist
                         TextEntry::make('email')
                             ->placeholder('—')
                             ->copyable(),
+                        TextEntry::make('reservation')
+                            ->label('Requested table')
+                            ->state(fn (Lead $record): ?string => $record->reservationLine())
+                            ->visible(fn (Lead $record): bool => $record->isReservation())
+                            ->columnSpanFull(),
                         TextEntry::make('message')
                             ->placeholder('No message')
                             ->columnSpanFull(),

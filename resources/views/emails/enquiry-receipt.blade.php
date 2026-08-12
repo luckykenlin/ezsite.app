@@ -12,6 +12,12 @@
         Hi {{ $lead->displayName() }}, we have your message and will get back to you as soon as we can.
     </p>
 
+    @if ($lead->isReservation() && $lead->reservationLine())
+        <p style="margin: 0 0 20px; font-size: 15px; line-height: 24px; color: #3f3f46;">
+            You asked for <strong style="color: #18181b;">{{ $lead->reservationLine() }}</strong> — we will confirm your table as soon as we can.
+        </p>
+    @endif
+
     @if (filled($lead->message))
         <p style="margin: 0 0 8px; font-size: 13px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #71717a;">What you sent us</p>
 

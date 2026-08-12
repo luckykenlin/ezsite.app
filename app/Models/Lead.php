@@ -39,6 +39,9 @@ use Illuminate\Support\Str;
  * @property LeadStatus $status
  * @property Carbon|null $read_at
  * @property string|null $ip_address
+ * @property Carbon|null $reserved_date
+ * @property string|null $reserved_time
+ * @property int|null $party_size
  *
  * @method static LeadFactory factory($count = null, $state = [])
  */
@@ -109,6 +112,39 @@ final class Lead extends Model
         return $this->status === LeadStatus::New;
     }
 
+    public function isReservation(): bool
+    {
+        return $this->source === LeadSource::Reservation;
+    }
+
+    /**
+     * The requested table in one line — "Sat 16 Aug, 19:00 · party of 4".
+     *
+     * The single formatter behind the inbox column, the infolist, the bell
+     * notification and both emails, so the wording cannot drift between them.
+     * Wall-clock values rendered verbatim: the stored date and time already
+     * mean "at the restaurant" (see the leads migration), so no timezone
+     * conversion belongs here.
+     */
+    public function reservationLine(): ?string
+    {
+        if ($this->reserved_date === null) {
+            return null;
+        }
+
+        $line = $this->reserved_date->isoFormat('ddd D MMM');
+
+        if (filled($this->reserved_time)) {
+            $line .= ', '.mb_substr($this->reserved_time, 0, 5);
+        }
+
+        if ($this->party_size !== null) {
+            $line .= ' · '.__('party of :count', ['count' => $this->party_size]);
+        }
+
+        return $line;
+    }
+
     /**
      * @return array<string, string>
      */
@@ -118,6 +154,8 @@ final class Lead extends Model
             'source' => LeadSource::class,
             'status' => LeadStatus::class,
             'read_at' => 'datetime',
+            'reserved_date' => 'date',
+            'party_size' => 'integer',
         ];
     }
 }
