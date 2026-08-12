@@ -61,18 +61,26 @@ enum StylePreset: string
      */
     public function blockVariantDefaults(): array
     {
+        // `offerings` splits on formality, not industry: the framed menu-card
+        // goes to the three presets whose businesses hand you a printed menu —
+        // WarmCraft (the tea house and its kin), NightLounge (the tasting menu,
+        // the cocktail list) and QuietLuxe (the omakase counter, the salon's
+        // service menu, where the hairline frame is the same one spend as its
+        // outline pricing). The other five sell from a list, and a frame around
+        // it would be chrome against their point — restraint, SaaS convention,
+        // editorial flatness, clinical calm, counter-service casualness.
         return match ($this) {
-            self::WarmCraft => ['hero' => 'left-text-right-image', 'features' => 'alternating', 'testimonials' => 'grid', 'gallery' => 'masonry', 'cta' => 'banner', 'header' => 'centered', 'footer' => 'columns', 'prose' => 'side-heading', 'steps' => 'list', 'signup' => 'banner', 'updates' => 'cards'],
-            self::ProfessionalMinimal => ['hero' => 'centered-minimal', 'features' => 'rows', 'testimonials' => 'grid', 'gallery' => 'grid', 'cta' => 'banner', 'header' => 'simple', 'footer' => 'minimal', 'prose' => 'stacked', 'steps' => 'list', 'signup' => 'stacked', 'updates' => 'list'],
-            self::FreshModern => ['hero' => 'left-text-right-image', 'features' => 'grid', 'testimonials' => 'carousel', 'gallery' => 'grid', 'cta' => 'banner', 'header' => 'simple', 'footer' => 'columns', 'prose' => 'stacked', 'steps' => 'timeline', 'signup' => 'banner', 'updates' => 'cards'],
-            self::BoldEditorial => ['hero' => 'full-bleed-overlay', 'features' => 'grid', 'testimonials' => 'spotlight', 'gallery' => 'masonry', 'cta' => 'banner', 'header' => 'centered', 'footer' => 'minimal', 'prose' => 'side-heading', 'steps' => 'list', 'signup' => 'stacked', 'updates' => 'cards'],
-            self::CalmCoastal => ['hero' => 'centered-minimal', 'features' => 'grid', 'testimonials' => 'carousel', 'gallery' => 'grid', 'cta' => 'banner', 'header' => 'simple', 'footer' => 'columns', 'prose' => 'stacked', 'steps' => 'timeline', 'signup' => 'stacked', 'updates' => 'list'],
-            self::PlayfulFriendly => ['hero' => 'full-bleed-overlay', 'features' => 'grid', 'testimonials' => 'carousel', 'gallery' => 'filmstrip', 'cta' => 'banner', 'header' => 'centered', 'footer' => 'columns', 'prose' => 'stacked', 'steps' => 'list', 'signup' => 'banner', 'updates' => 'cards'],
-            self::NightLounge => ['hero' => 'full-bleed-overlay', 'features' => 'alternating', 'testimonials' => 'spotlight', 'gallery' => 'masonry', 'cta' => 'banner', 'header' => 'inverted', 'footer' => 'minimal', 'prose' => 'side-heading', 'steps' => 'list', 'signup' => 'banner', 'updates' => 'cards'],
+            self::WarmCraft => ['hero' => 'left-text-right-image', 'features' => 'alternating', 'offerings' => 'menu-card', 'testimonials' => 'grid', 'gallery' => 'masonry', 'cta' => 'banner', 'header' => 'centered', 'footer' => 'columns', 'prose' => 'side-heading', 'steps' => 'list', 'signup' => 'banner', 'updates' => 'cards'],
+            self::ProfessionalMinimal => ['hero' => 'centered-minimal', 'features' => 'rows', 'offerings' => 'simple', 'testimonials' => 'grid', 'gallery' => 'grid', 'cta' => 'banner', 'header' => 'simple', 'footer' => 'minimal', 'prose' => 'stacked', 'steps' => 'list', 'signup' => 'stacked', 'updates' => 'list'],
+            self::FreshModern => ['hero' => 'left-text-right-image', 'features' => 'grid', 'offerings' => 'simple', 'testimonials' => 'carousel', 'gallery' => 'grid', 'cta' => 'banner', 'header' => 'simple', 'footer' => 'columns', 'prose' => 'stacked', 'steps' => 'timeline', 'signup' => 'banner', 'updates' => 'cards'],
+            self::BoldEditorial => ['hero' => 'full-bleed-overlay', 'features' => 'grid', 'offerings' => 'simple', 'testimonials' => 'spotlight', 'gallery' => 'masonry', 'cta' => 'banner', 'header' => 'centered', 'footer' => 'minimal', 'prose' => 'side-heading', 'steps' => 'list', 'signup' => 'stacked', 'updates' => 'cards'],
+            self::CalmCoastal => ['hero' => 'centered-minimal', 'features' => 'grid', 'offerings' => 'simple', 'testimonials' => 'carousel', 'gallery' => 'grid', 'cta' => 'banner', 'header' => 'simple', 'footer' => 'columns', 'prose' => 'stacked', 'steps' => 'timeline', 'signup' => 'stacked', 'updates' => 'list'],
+            self::PlayfulFriendly => ['hero' => 'full-bleed-overlay', 'features' => 'grid', 'offerings' => 'simple', 'testimonials' => 'carousel', 'gallery' => 'filmstrip', 'cta' => 'banner', 'header' => 'centered', 'footer' => 'columns', 'prose' => 'stacked', 'steps' => 'list', 'signup' => 'banner', 'updates' => 'cards'],
+            self::NightLounge => ['hero' => 'full-bleed-overlay', 'features' => 'alternating', 'offerings' => 'menu-card', 'testimonials' => 'spotlight', 'gallery' => 'masonry', 'cta' => 'banner', 'header' => 'inverted', 'footer' => 'minimal', 'prose' => 'side-heading', 'steps' => 'list', 'signup' => 'banner', 'updates' => 'cards'],
             // The one preset that opens with the type-only hero: everything else
             // here is the quietest layout its type offers, and a photograph in
             // the first viewport would be the loudest thing on the site.
-            self::QuietLuxe => ['hero' => 'full-viewport-quiet', 'features' => 'rows', 'testimonials' => 'spotlight', 'gallery' => 'grid', 'cta' => 'banner', 'header' => 'simple', 'footer' => 'minimal', 'prose' => 'stacked', 'steps' => 'list', 'signup' => 'stacked', 'updates' => 'list'],
+            self::QuietLuxe => ['hero' => 'full-viewport-quiet', 'features' => 'rows', 'offerings' => 'menu-card', 'testimonials' => 'spotlight', 'gallery' => 'grid', 'cta' => 'banner', 'header' => 'simple', 'footer' => 'minimal', 'prose' => 'stacked', 'steps' => 'list', 'signup' => 'stacked', 'updates' => 'list'],
         };
     }
 
@@ -127,7 +135,11 @@ enum StylePreset: string
             // spacing token wants generous sections to match.
             self::WarmCraft => [
                 'features' => ['tone' => 'muted', 'spacing' => 'airy'],
-                'offerings' => ['tone' => 'base', 'spacing' => 'airy', 'width' => 'normal', 'align' => 'start', 'columns' => 'two', 'item_style' => 'plain'],
+                // No width/align opinion: the default variant here is the framed
+                // menu-card, which supplies its own measure and sets centred —
+                // an appearance entry is variant-blind, so pinning `start` for
+                // the priced list would also skew the frame.
+                'offerings' => ['tone' => 'base', 'spacing' => 'airy', 'columns' => 'two', 'item_style' => 'plain'],
                 'gallery' => ['tone' => 'base', 'spacing' => 'airy', 'width' => 'full'],
                 'visit' => ['tone' => 'muted'],
                 'testimonials' => ['tone' => 'muted'],
@@ -220,7 +232,10 @@ enum StylePreset: string
             // than the base on a dark ramp) and one gold accent moment.
             self::NightLounge => [
                 'features' => ['tone' => 'base', 'spacing' => 'tight'],
-                'offerings' => ['tone' => 'muted', 'align' => 'start', 'columns' => 'two'],
+                // No align opinion, same reason as WarmCraft: the menu-card
+                // default sets its own centring, and a raised muted panel is
+                // all this band needs.
+                'offerings' => ['tone' => 'muted', 'columns' => 'two'],
                 'gallery' => ['tone' => 'base', 'spacing' => 'tight', 'width' => 'full'],
                 'visit' => ['tone' => 'muted', 'spacing' => 'tight'],
                 'testimonials' => ['tone' => 'muted', 'spacing' => 'airy'],

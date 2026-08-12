@@ -172,7 +172,7 @@ final readonly class DimSumHouse
                     ],
                 ]],
                 ['type' => 'cta', 'variant' => 'banner', 'tone' => 'accent', 'data' => [
-                    'heading' => 'A taste you\'ll remember',
+                    'heading' => "A taste you'll remember",
                     'body' => 'An intimate dinner for two or a banquet for twenty — there is a table with your name on it, and a teapot already warming.',
                     'cta_label' => 'Book a table',
                     'cta_url' => '/contact',
@@ -236,14 +236,14 @@ final readonly class DimSumHouse
                     'stats' => [
                         ['value' => '30', 'label' => 'Years of morning folds'],
                         ['value' => '19', 'label' => 'Pleats in a proper har gow'],
-                        ['value' => '24', 'label' => 'Hours to earn a duck\'s skin'],
+                        ['value' => '24', 'label' => "Hours to earn a duck's skin"],
                     ],
                 ]],
                 ['type' => 'gallery', 'variant' => 'masonry', 'data' => [
                     'heading' => 'Behind the steam',
                     'images' => [
                         ['alt' => 'Hands pleating har gow'],
-                        ['alt' => 'The tea master\'s station'],
+                        ['alt' => "The tea master's station"],
                         ['alt' => 'Steamers stacked to the pass'],
                         ['alt' => 'The notebook the recipes came in'],
                     ],
@@ -282,7 +282,7 @@ final readonly class DimSumHouse
                 ]],
                 ['type' => 'reservation', 'tone' => 'muted', 'spacing' => 'airy', 'data' => [
                     'heading' => 'Reserve a table',
-                    'intro' => 'Tell us when and how many. Banquet menus and the round tables start at eight guests; the duck appreciates a day\'s notice.',
+                    'intro' => "Tell us when and how many. Banquet menus and the round tables start at eight guests; the duck appreciates a day's notice.",
                     'max_party_size' => 20,
                     'button_label' => 'Request a reservation',
                     'success_message' => 'Got it — we will call you back to confirm the table.',

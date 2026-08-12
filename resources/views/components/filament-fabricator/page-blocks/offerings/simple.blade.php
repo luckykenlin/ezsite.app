@@ -106,7 +106,12 @@
                                     <h4 class="site-h5 flex justify-between gap-4">
                                         {{-- Flags sit OUTSIDE the editable span: the canvas's
                                              inline editor owns that node's contents. --}}
-                                        <span><span data-editor-field="items.{{ $index }}.name">{{ $item['name'] ?? '' }}</span> <x-site.menu-flags :item="$item" /></span>
+                                        <span
+                                            ><span
+                                                data-editor-field="items.{{ $index }}.name"
+                                                >{{ $item['name'] ?? '' }}</span>
+                                            <x-site.menu-flags :item="$item"
+                                        /></span>
                                         @if ($item['price'] ?? null)
                                             <span
                                                 data-editor-field="items.{{ $index }}.price"
