@@ -351,18 +351,6 @@ final readonly class ChatEditPage
     }
 
     /**
-     * The EFFECTIVE header/footer entry per slot — stored settings, or the default
-     * chrome a tenant with a Business gets.
-     *
-     * Read through {@see SiteChrome} rather than from `site_settings` directly, so
-     * the assistant sees exactly what a visitor sees. The editor's own chrome
-     * draft deliberately hydrates only STORED slots (a null slot must stay null so
-     * merely opening the editor never materialises a default); here the opposite is
-     * right, because the model is being asked to change what is on screen.
-     *
-     * @return array<string, array{type: string, data: array<string, mixed>}>
-     */
-    /**
      * The valid brand hexes in an array, keyed by brand key — the shape both
      * {@see SiteStyleDraft} baselines take. Invalid or absent values simply
      * drop out; validity is decided by the same guard the render layer uses.
@@ -387,6 +375,15 @@ final readonly class ChatEditPage
     }
 
     /**
+     * The EFFECTIVE header/footer entry per slot — stored settings, or the default
+     * chrome a tenant with a Business gets.
+     *
+     * Read through {@see SiteChrome} rather than from `site_settings` directly, so
+     * the assistant sees exactly what a visitor sees. The editor's own chrome
+     * draft deliberately hydrates only STORED slots (a null slot must stay null so
+     * merely opening the editor never materialises a default); here the opposite is
+     * right, because the model is being asked to change what is on screen.
+     *
      * @return array<string, array{type: string, data: array<string, mixed>}>
      */
     private function savedChrome(): array

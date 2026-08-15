@@ -31,10 +31,10 @@ use App\Templates\TemplateField;
  * compensating.
  *
  * The one genuinely unusual choice: a TYPE-ONLY hero. `centered-minimal` with
- * no `image_query` at all, so this is the only template in the library where
- * nothing above the fold is a photograph. A stock picture of a stranger's desk
- * under a real person's name is worse than white space, and the name set large
- * on an empty field is the most confident thing this page can say.
+ * no `image_query` at all, so nothing above the fold is a photograph. A stock
+ * picture of a stranger's desk under a real person's name is worse than white
+ * space, and the name set large on an empty field is the most confident thing
+ * this page can say.
  */
 final readonly class PersonalResume
 {

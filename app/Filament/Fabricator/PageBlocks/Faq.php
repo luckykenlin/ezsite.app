@@ -19,18 +19,18 @@ use Filament\Support\Icons\Heroicon;
  * of the few requests a model can complete without inventing a single fact —
  * provided it sticks to what the profile says, which the prompt already demands.
  *
- * Two layouts, and NEITHER is an accordion. That is the decision worth recording,
- * because an accordion is the first thing anyone reaches for here:
+ * NOT an accordion. That is the decision worth recording, because an accordion
+ * is the first thing anyone reaches for here:
  *
  *  - The editor canvas is deliberately inert — `canvas-glue.ts` calls
  *    `preventDefault()` on every click in the capture phase — so `<details>` would
  *    never open there, and the operator could not read the answers the assistant
  *    just wrote for them. A block whose content is invisible in the editor is a
- *    block they cannot review, so this rules the arrangement out for every
- *    variant, not merely for the default.
- *  - What the second variant offers instead is a genuine change of composition:
- *    `grid` sets the questions in two columns for a short FAQ, where a single
- *    divided column looks sparse. Everything stays visible in both.
+ *    block they cannot review, so this rules the arrangement out however the
+ *    block is laid out.
+ *  - What replaces the accordion's compactness is the `columns` axis: `two`
+ *    sets the questions side by side for a short FAQ, where a single divided
+ *    column looks sparse. Everything stays visible either way.
  */
 final class Faq extends Block
 {

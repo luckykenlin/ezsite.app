@@ -12,8 +12,8 @@ use Illuminate\Support\Facades\Config;
  * anyone has captured a screenshot of it yet.
  *
  * Screenshots are PRE-RENDERED and committed
- * (`scripts/capture-template-screenshots.mjs`), not live iframes. Eight
- * iframes on one page is eight full page loads, which is unusable on a phone,
+ * (`scripts/capture-template-screenshots.mjs`), not live iframes. An iframe
+ * per card is a full page load per card, which is unusable on a phone,
  * and the signed preview URLs the editor uses expire in seven days — no good
  * for a permanent gallery. The detail page does embed one iframe, lazily and
  * below the fold, where a visitor has already chosen to look closely.

@@ -43,7 +43,7 @@ $createdTenantKeys = [];
  *
  * The schema is built ONCE per process (per parallel token, since each token
  * owns its own database) and every later test only clears rows. A
- * `migrate:fresh` per test cost ~250ms — 18 migrations plus the full
+ * `migrate:fresh` per test cost ~250ms — every migration plus the full
  * `tenants:rls` policy regeneration its MigrationsEnded listener fires — and
  * that setup, not the tests themselves, was almost the entire runtime of the
  * suite.

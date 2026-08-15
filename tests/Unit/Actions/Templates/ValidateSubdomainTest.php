@@ -50,7 +50,7 @@ it('refuses the hosts the product and its infrastructure need', function (string
 it('refuses the demo namespace, so no signup can shadow a gallery site', function (): void {
     expect(fn (): string => validateSubdomain(SiteTemplate::NailSalon->demoSubdomain()))
         ->toThrow(ValidationException::class, 'reserved')
-        // The whole prefix, not just the eight names in use — a ninth
+        // The whole prefix, not just the names in use — a new
         // template must not have to be added to a list to be safe.
         ->and(fn (): string => validateSubdomain('demo-anything'))
         ->toThrow(ValidationException::class, 'reserved');

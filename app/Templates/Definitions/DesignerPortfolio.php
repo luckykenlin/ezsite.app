@@ -267,7 +267,7 @@ final readonly class DesignerPortfolio
                         ['question' => 'Can you work with our developers?', 'answer' => 'Yes, and we prefer it. Design that never gets built is not design.'],
                     ],
                 ]],
-                // The one template with no contact block anywhere — every
+                // No contact block anywhere on this template — every
                 // other route to the studio is a `mailto:`, which captures
                 // nothing and loses the enquiry to the visitor's mail client.
                 // A signup rather than a contact block on purpose: this

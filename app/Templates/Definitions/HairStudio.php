@@ -15,7 +15,7 @@ use App\Templates\TemplateField;
 /**
  * An independent hair studio — the template where the typography is the design.
  *
- * QuietLuxe, unmodified, and the only template in the library that opens on the
+ * QuietLuxe, unmodified, and the first template in the library to open on the
  * `full-viewport-quiet` hero: a screenful of warm stone, a hairline garamond set
  * enormous, and one outlined button. There is deliberately no photograph in the
  * first viewport. A hair studio's stock imagery is the least distinctive asset
@@ -31,8 +31,8 @@ use App\Templates\TemplateField;
  * ocean blues, and this one is monochrome stone with square corners. Same
  * trade-adjacent market, three different arguments.
  *
- * It is also the only template whose sections MOVE — QuietLuxe is the one preset
- * that asks for {@see \App\Design\MotionStyle::Reveal} — and the restraint
+ * Its sections also MOVE — QuietLuxe is the one preset that asks for
+ * {@see \App\Design\MotionStyle::Reveal} — and the restraint
  * elsewhere is what pays for it. On a page with a coloured accent band and three
  * competing buttons, sections fading in reads as a template; on this one it is
  * the only thing that happens.
@@ -146,7 +146,7 @@ final readonly class HairStudio
             'title' => '{business_name}',
             'meta_description' => '{business_name} — {tagline}. A four-chair hair studio in {city} doing precision cutting and tonal colour by appointment.',
             'blocks' => [
-                // The one full-viewport hero in the library, and the one block on
+                // The full-viewport hero, and the one block on
                 // this page with no photograph anywhere near it.
                 // The heading is authored short rather than filled from
                 // `{tagline}`: a headline set this large is a two-or-three word

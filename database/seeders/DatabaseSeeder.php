@@ -22,7 +22,7 @@ final class DatabaseSeeder extends Seeder
             'password' => 'password',
         ]);
 
-        // The eight showcase sites the /templates gallery links at. Photos are
+        // The showcase sites the /templates gallery links at. Photos are
         // skipped here so a fresh clone with no provider key seeds in seconds;
         // run `demo:seed` on its own to fill them in.
         $this->command->call('demo:seed', ['--skip-photos' => true]);

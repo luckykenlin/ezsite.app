@@ -42,9 +42,9 @@ final readonly class ValidateSubdomain
     private const string PATTERN = '/^[a-z0-9]([a-z0-9-]{1,61}[a-z0-9])?$/';
 
     /**
-     * How many `-2`, `-3`… variants {@see suggest()} will try before giving
-     * up. Past a handful the suggestion stops being a helpful nudge and the
-     * person should pick a different name.
+     * How many candidates {@see suggest()} will try before giving up — the
+     * bare name, then `-2`, `-3`… Past a handful the suggestion stops being a
+     * helpful nudge and the person should pick a different name.
      */
     private const int SUGGESTION_ATTEMPTS = 20;
 
