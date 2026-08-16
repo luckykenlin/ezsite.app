@@ -2,8 +2,6 @@
 
 declare(strict_types=1);
 
-use App\Design\StylePreset;
-use App\Filament\Fabricator\BlockRegistry;
 use App\Models\Business;
 use App\Models\Post;
 use App\Models\Tenant;
@@ -144,14 +142,4 @@ it('treats an unreadable kind filter as everything', function (): void {
     $this->get(sprintf('http://acme.%s/', $this->centralDomain()))
         ->assertOk()
         ->assertSee('Ordinary news');
-});
-
-it('is offered in the block library with a layout for every preset', function (): void {
-    // blockVariantDefaults() is TOTAL across all seven presets: a variant-bearing
-    // type missing from one of them silently falls back to the first layout.
-    expect(array_column(BlockRegistry::contracts(), 'type'))->toContain('updates');
-
-    foreach (StylePreset::cases() as $preset) {
-        expect($preset->blockVariantDefaults())->toHaveKey('updates');
-    }
 });

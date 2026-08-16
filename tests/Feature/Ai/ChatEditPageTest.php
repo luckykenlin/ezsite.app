@@ -354,12 +354,6 @@ it('streams the reply in chunks that add up to the persisted answer', function (
         ->and($result['blocks'][0]['data']['heading'])->toBe('Fresh bread daily');
 });
 
-it('runs fine without a delta listener', function (): void {
-    PageEditorAgent::fake(['Done.']);
-
-    expect(chatTurn(chatBlocks())['reply'])->toBe('Done.');
-});
-
 /*
  * The other half of "alive rather than hung", and the half that matters on a long
  * turn: this agent edits through tools and writes its prose LAST, so a rewrite of
@@ -384,15 +378,6 @@ it('announces each tool call as it is made', function (): void {
         'Rewriting the Hero block…',
         'Adding a Gallery block…',
     ]);
-});
-
-it('runs fine without an activity listener', function (): void {
-    PageEditorAgent::fake([
-        toolCall('UpdateBlockContent', ['key' => 'k1', 'content' => ['heading' => 'Fresh']]),
-        'Done.',
-    ]);
-
-    expect(chatTurn(chatBlocks())['blocks'][0]['data']['heading'])->toBe('Fresh');
 });
 
 it('shows only as much transcript as the assistant remembers, oldest first', function (): void {

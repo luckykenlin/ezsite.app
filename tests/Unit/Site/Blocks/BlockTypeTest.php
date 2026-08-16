@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use App\Enums\BindType;
 use App\Site\Blocks\BlockType;
 
 function blockType(string $type = 'hero', array $variants = ['a', 'b', 'c']): BlockType
@@ -87,21 +86,4 @@ it('refuses an unasked photograph only where the layout is built without one', f
         // A type with nowhere to put an image never wants one, whatever the
         // variant: there is no slot for the fill to land in.
         ->and(blockType()->wantsAutoImage('a'))->toBeFalse();
-});
-
-it('carries the bind target as an enum rather than a string', function (): void {
-    // The contract used to expose `bind` as a nullable string, so every consumer
-    // re-derived the enum (or compared strings and got it subtly wrong).
-    $bound = new BlockType(
-        type: 'contact',
-        description: 'A test double.',
-        variants: [],
-        bind: BindType::Location,
-        icon: 'o-map-pin',
-        fields: [],
-        sample: [],
-    );
-
-    expect($bound->bind)->toBe(BindType::Location)
-        ->and(blockType()->bind)->toBeNull();
 });

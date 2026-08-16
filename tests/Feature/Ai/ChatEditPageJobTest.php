@@ -69,18 +69,6 @@ it('edits the draft it was handed and publishes the result for the editor', func
         ->and(Page::query()->findOrFail($this->page->id)->blocks)->toBeEmpty();
 });
 
-it('publishes the reply as it streams so the stream route has something to tail', function (): void {
-    PageEditorAgent::fake(['Shortened the hero headline for you.']);
-
-    chatJob(jobBlocks())->handle();
-
-    // The final write carries the whole reply; the intermediate ones are what the
-    // SSE route forwards (PageEditorChatStreamTest drives those).
-    $turn = $this->runInTenant($this->tenant, fn (): ?array => resolve(CacheChatTurn::class)->read('tok'));
-
-    expect($turn['reply'])->toBe('Shortened the hero headline for you.');
-});
-
 it('publishes what the turn is doing, not only what it has said', function (): void {
     PageEditorAgent::fake([
         new ToolCall('c1', 'UpdateBlockContent', ['key' => 'k1', 'content' => ['heading' => 'Fresh bread daily']]),

@@ -158,6 +158,9 @@ it('keeps the landing page off tenant domains', function (): void {
 });
 
 it('serves a central robots.txt that advertises the central sitemap', function (): void {
+    // The tenant-side counterpart (each tenant domain advertising its OWN
+    // sitemap, and what a static public/robots.txt would shadow) lives in
+    // Feature/Http/RobotsTest.
     $this->get(centralUrl('/robots.txt'))
         ->assertOk()
         ->assertHeader('Content-Type', 'text/plain; charset=UTF-8')
@@ -167,19 +170,6 @@ it('serves a central robots.txt that advertises the central sitemap', function (
         // lives under a prefix.
         ->assertSee('Disallow: /en/start')
         ->assertSee('Disallow: /zh/start');
-});
-
-it('leaves the tenant robots.txt pointing at its own sitemap', function (): void {
-    // A static public/robots.txt would be served before routing and shadow the
-    // tenant controller on every tenant domain — this is the assertion that
-    // would catch someone "simplifying" it into one.
-    $tenant = Tenant::factory()->withDomain('acme')->create();
-    $this->createTenantHomePage($tenant);
-
-    $this->get('http://acme.'.$this->centralDomain().'/robots.txt')
-        ->assertOk()
-        ->assertSee('http://acme.'.$this->centralDomain().'/sitemap.xml')
-        ->assertSee('Disallow: /admin');
 });
 
 it('lists the landing page, the gallery and every template in the central sitemap', function (): void {

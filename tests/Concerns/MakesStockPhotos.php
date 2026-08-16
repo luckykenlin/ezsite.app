@@ -51,7 +51,7 @@ trait MakesStockPhotos
     {
         return new class($photos) implements StockPhotoProvider
         {
-            /** @var list<array{query: string, count: int}> */
+            /** @var list<array{query: string, orientation: PhotoOrientation, count: int}> */
             public array $searches = [];
 
             public function __construct(private readonly int $photos)
@@ -61,7 +61,7 @@ trait MakesStockPhotos
 
             public function search(string $query, PhotoOrientation $orientation, int $count): array
             {
-                $this->searches[] = ['query' => $query, 'count' => $count];
+                $this->searches[] = ['query' => $query, 'orientation' => $orientation, 'count' => $count];
 
                 $pool = [];
 

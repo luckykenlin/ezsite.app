@@ -153,7 +153,7 @@ it('rejects a key that is not on the page', function (mixed $key): void {
     'missing' => [null],
 ]);
 
-it('publishes both scales plus the reset sentinel, with guidance on when to use each', function (): void {
+it('publishes every axis with the reset sentinel, with guidance on when to use each', function (): void {
     $tool = appearanceTool(appearanceDraft());
 
     $serialized = json_decode(json_encode(array_map(
@@ -161,16 +161,21 @@ it('publishes both scales plus the reset sentinel, with guidance on when to use 
         $tool->schema(new JsonSchemaTypeFactory),
     )), associative: true);
 
-    expect($serialized['tone']['enum'])
+    expect(array_keys($serialized))->toBe(['key', 'tone', 'spacing', 'width', 'align', 'columns', 'item_style', 'image_shape'])
+        ->and($serialized['key']['type'])->toBe('string')
+        ->and($serialized['tone']['enum'])
         ->toBe(['base', 'muted', 'accent', 'inverted', 'plain', 'layout-default'])
         ->and($serialized['spacing']['enum'])
         ->toBe(['flush', 'tight', 'normal', 'airy', 'tall', 'layout-default'])
-        ->and($serialized['key']['type'])->toBe('string')
+        ->and($serialized['columns']['enum'])->toBe(['one', 'two', 'three', 'four', 'layout-default'])
+        ->and($serialized['item_style']['enum'])->toBe(['plain', 'card', 'outline', 'layout-default'])
         // Descriptions carry the enums' own guidance: five colour names alone
         // leave the model choosing by vibe, and over-use is the real failure.
         ->and($serialized['tone']['description'])->toContain('dramatic')
         ->and($serialized['spacing']['description'])->toContain('the default, and right for most sections')
-        ->and($tool->description())->toContain('rhythm');
+        ->and($tool->description())->toContain('rhythm')
+        // The load-bearing clause: only the mentioned axes change.
+        ->and($tool->description())->toContain('Send only the axes you want to change');
 });
 
 it('rejects an invalid value for an axis the type does declare', function (): void {
@@ -213,17 +218,4 @@ it('refuses an axis the block type never declared, naming the ones it has', func
     expect($draft->blocks())->toBe(appearanceDraft()->blocks())
         ->and($result)->toContain('columns is not a layout axis of a hero block')
         ->and($result)->toContain("hero block's axes are: tone, spacing, width, align, image_shape");
-});
-
-it('publishes every axis with the reset sentinel in its schema', function (): void {
-    $serialized = json_decode(json_encode(array_map(
-        fn ($type): array => $type->toArray(),
-        appearanceTool(appearanceDraft())->schema(new JsonSchemaTypeFactory),
-    )), associative: true);
-
-    expect(array_keys($serialized))->toBe(['key', 'tone', 'spacing', 'width', 'align', 'columns', 'item_style', 'image_shape'])
-        ->and($serialized['columns']['enum'])->toBe(['one', 'two', 'three', 'four', 'layout-default'])
-        ->and($serialized['item_style']['enum'])->toBe(['plain', 'card', 'outline', 'layout-default'])
-        // The load-bearing clause: only the mentioned axes change.
-        ->and(appearanceTool(appearanceDraft())->description())->toContain('Send only the axes you want to change');
 });

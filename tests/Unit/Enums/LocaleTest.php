@@ -7,8 +7,11 @@ use App\Enums\Locale;
 it('publishes Chinese by default', function (): void {
     // The product decision, asserted rather than assumed: a visitor whose
     // browser says nothing useful gets Chinese, and the whole negotiation chain
-    // ends here.
-    expect(Locale::default())->toBe(Locale::Chinese);
+    // ends here. The cookie name is pinned with it: renaming the constant is
+    // harmless in code (every consumer references the symbol) but silently
+    // forgets every returning visitor's stored choice.
+    expect(Locale::default())->toBe(Locale::Chinese)
+        ->and(Locale::COOKIE)->toBe('locale');
 });
 
 it('constrains the route parameter to exactly the languages it publishes', function (): void {
@@ -43,8 +46,4 @@ it('tags each language once, for the browser and the crawler alike', function ()
 
     // Simplified is stated, not left to a browser's guess between scripts.
     expect(Locale::Chinese->htmlLang())->toBe('zh-Hans');
-});
-
-it('names one cookie for the whole site', function (): void {
-    expect(Locale::COOKIE)->toBe('locale');
 });

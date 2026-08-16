@@ -100,23 +100,11 @@ it('describes only what is stored, axes as name=value and tone/spacing bare', fu
 });
 
 /*
- * The consolidation receipt: every layout knob the old hard-coded views had
- * must be expressible by some axis value, or merging their variants silently
- * dropped a look someone shipped.
+ * The consolidation receipt, kept as documentation: every layout knob the old
+ * hard-coded views had maps to an axis value (columns=one/two/three for the
+ * grid shapes, width=narrow/wide for the reading/full columns, align for the
+ * header, item_style=card/plain for the wrappers, image_shape for the
+ * wide/circle/portrait media). The mapping itself is exercised above and in
+ * the per-axis Section*Test files; a test asserting this table would pass by
+ * construction, so it lives here as prose instead.
  */
-it('can express every knob the hard-coded views had', function (string $observed, string $axisValue): void {
-    expect($axisValue)->not->toBeEmpty()->and($observed)->not->toBeEmpty();
-})->with([
-    'three-column card grid' => ['sm:grid-cols-2 lg:grid-cols-3', 'columns=three'],
-    'two-column grid' => ['md:grid-cols-2', 'columns=two'],
-    'single divided list' => ['divide-y stack', 'columns=one'],
-    'reading column' => ['max-w-3xl', 'width=narrow'],
-    'full content width' => ['max-w-7xl', 'width=wide'],
-    'centred header' => ['site-h2 text-center', 'align=center'],
-    'left header' => ['site-h2', 'align=start'],
-    'filled cards' => ['site-card bg-base-200', 'item_style=card'],
-    'plain items' => ['no wrapper', 'item_style=plain'],
-    'video thumbnails' => ['aspect-video', 'image_shape=wide'],
-    'portrait circles' => ['size-28 rounded-full', 'image_shape=circle'],
-    'photo tiles' => ['aspect-[4/5]', 'image_shape=portrait'],
-]);

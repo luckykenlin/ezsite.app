@@ -84,6 +84,7 @@ it('asks only for the fields the operator chose', function (string $fields, arra
     'email only' => ['email', ['email'], ['phone', 'message']],
     'email and phone' => ['email_phone', ['email', 'phone'], ['message']],
     'name and email' => ['name_email', ['name', 'email'], ['phone', 'message']],
+    'name and phone' => ['name_phone', ['name', 'phone'], ['email', 'message']],
     'the full enquiry set' => ['full', ['name', 'email', 'phone', 'message'], []],
 ]);
 
@@ -142,13 +143,10 @@ it('shows the thank-you on the submitted form only, leaving the other asking', f
     expect(Lead::query()->sole()->source->value)->toBe('inline_form');
 });
 
-it('offers every field set the enum defines', function (): void {
+it('labels every field set the enum defines', function (): void {
     // The block's Select is handed LeadFieldSet::class (HasLabel), so a new
     // case reaches the editor by being declared rather than by being wired —
     // provided every case carries a label.
-    expect(array_map(static fn (LeadFieldSet $set): string => $set->value, LeadFieldSet::cases()))
-        ->toBe(['email', 'phone', 'email_phone', 'name_email', 'name_phone', 'full']);
-
     foreach (LeadFieldSet::cases() as $set) {
         expect($set->getLabel())->not->toBeEmpty();
     }

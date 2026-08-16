@@ -58,6 +58,7 @@ it('passes the requested orientation through to the provider', function (): void
     );
 
     expect($provider->searches)->toHaveCount(1)
+        ->and($provider->searches[0]['orientation'])->toBe(PhotoOrientation::Portrait)
         ->and($provider->searches[0]['count'])->toBe(1);
 });
 

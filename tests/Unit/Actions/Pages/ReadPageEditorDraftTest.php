@@ -118,7 +118,7 @@ it('refuses a turn pointer that could not address a turn', function (mixed $turn
     'no token' => [['started_at' => 1]],
     'empty token' => [['token' => '', 'started_at' => 1]],
     'no timestamp' => [['token' => 'tok']],
-    'non-integer timestamp' => [[['token' => 'tok', 'started_at' => 'soon']]],
+    'non-integer timestamp' => [['token' => 'tok', 'started_at' => 'soon']],
 ]);
 
 it('yields no blocks when the stored list is not a list at all', function (mixed $blocks): void {

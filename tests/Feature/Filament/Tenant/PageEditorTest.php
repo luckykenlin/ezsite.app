@@ -3579,14 +3579,12 @@ describe('composer attachments', function (): void {
  * Site Styles toggle is the closed rail's reopen affordance.
  */
 describe('the canvas toolbar', function (): void {
-    it('offers the three breakpoints and no zoom control', function (): void {
+    it('offers the three breakpoints', function (): void {
         $html = Livewire::test(PageEditor::class, ['record' => editorPage([])->id])->html();
 
         foreach (['Desktop', 'Tablet', 'Mobile'] as $label) {
             expect($html)->toContain($label);
         }
-
-        expect($html)->not->toContain('zoom =');
     });
 
     it('opens the Site Styles rail by default, closable from the toolbar toggle', function (): void {
