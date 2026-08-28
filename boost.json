@@ -11,17 +11,20 @@
         "aldesrahim/filament-compass",
         "nunomaduro/laravel-sluggable",
         "fruitcake/laravel-debugbar",
-        "laraveldaily/filacheck"
+        "laraveldaily/filacheck",
+        "pestphp/pest-plugin-agent"
     ],
     "sail": false,
     "skills": [
         "infer-conventions",
         "ai-sdk-development",
         "laravel-best-practices",
-        "pest-testing",
+        "testing-best-practices",
         "tailwindcss-development",
         "filament-compass",
         "debug-using-debugbar",
-        "deploying-laravel-cloud"
+        "pest-plugin-agent",
+        "deploying-laravel-cloud",
+        "pest-testing"
     ]
 }

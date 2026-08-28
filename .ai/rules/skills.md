@@ -47,6 +47,12 @@ from the installed packages' guidelines (it exists because
 guidelines silently fall back to being inlined in `CLAUDE.md`). Hand edits to
 either are lost on the next run.
 
+That flag lives only in `.env.example`; `.env` is not committed. On a fresh clone or
+machine whose `.env` lacks it, `boost:install` runs with `scoped_guidelines=false`,
+DELETES `.ai/rules/boost/**`, drops its rows from `index.md`, and inlines the same
+text back into `CLAUDE.md` (happened 2026-08-27). Check `.env` before running any
+`boost:*` command; if it already happened, add the flag and re-run `boost:install`.
+
 Write rules only in the hand-authored `.ai/rules/*.md` files. Note that a glob can
 land in two files — `app/Models/**` and `tests/**` each have both ours and a
 `boost/` one — which is expected: read both, and keep our file to what the
@@ -57,4 +63,8 @@ The stock Pest skill tells you to use `RefreshDatabase`, which is wrong here:
 tenancy writes on a separate connection under the RLS role, so a transaction on
 the superuser connection neither covers nor rolls it back. `tests/Pest.php` owns
 the database lifecycle. When grafting upstream material into one of our skills,
-re-check it against the project before keeping it.
+re-check it against the project before keeping it. The Boost-rendered
+`testing-best-practices` skill (`.claude/skills/testing-best-practices/`) has the same
+problem: `rules/isolation.md` prescribes `LazilyRefreshDatabase` and
+`rules/endpoint-tests.md` prescribes `RefreshDatabase` for browser tests — both wrong
+here for the reason above. Where it disagrees with `pest-testing`, `pest-testing` wins.
