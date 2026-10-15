@@ -448,13 +448,15 @@ final readonly class ChatEditPage
         // THE ROUTING INVARIANT. A turn runs on the vision chain (ai.vision)
         // whenever any message in the agent's conversation window carries an
         // attachment — this one, or an earlier one still inside HISTORY_LIMIT.
-        // Two things depend on it: the default chain's provider throws on
-        // document attachments (so it must never see a window containing one),
-        // and a follow-up like "now add the desserts too" must still be able
-        // to read the menu PDF sent three messages ago. Once the attachment
-        // rows age out of the window, the thread falls back to the default
-        // chain by itself. PageEditorAgent::messages() rehydrates on the
-        // strength of this — change one side only with the other in hand.
+        // Images are why: the window rehydrates them as image parts, and only
+        // the vision chain is guaranteed a model that reads them — so a
+        // follow-up like "use the second photo for the hero" still works three
+        // messages later. Documents are plain text by now (ExtractPdfText) and
+        // would not need it, but routing on "any attachment" keeps this one
+        // cheap query. Once the attachment rows age out of the window, the
+        // thread falls back to the default chain by itself.
+        // PageEditorAgent::messages() rehydrates on the strength of this —
+        // change one side only with the other in hand.
         $vision = $attachments !== [] || $this->threadHasRecentAttachments($page);
 
         // The failover chain (ai.failover): with a fallback provider configured,
@@ -462,7 +464,7 @@ final readonly class ChatEditPage
         // key) silently retries there instead of costing the operator the whole
         // turn. A stream that has already emitted cannot fail over — the SDK
         // rethrows then, and the catch in handle() apologises as before.
-        $response = new PageEditorAgent($draft, $page, $style, $chrome, $mode, $vision)
+        $response = new PageEditorAgent($draft, $page, $style, $chrome, $mode)
             ->stream((string) $prompt, provider: config()->array($vision ? 'ai.vision' : 'ai.failover'));
 
         foreach ($response as $event) {

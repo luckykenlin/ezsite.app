@@ -15,7 +15,7 @@ return [
     |
     */
 
-    'default' => env('AI_PROVIDER', 'openai'),
+    'default' => env('AI_PROVIDER', 'deepseek'),
 
     /*
     |--------------------------------------------------------------------------
@@ -31,7 +31,7 @@ return [
     */
 
     'failover' => array_values(array_filter([
-        env('AI_PROVIDER', 'openai'),
+        env('AI_PROVIDER', 'deepseek'),
         env('AI_FAILOVER_PROVIDER'),
     ])),
 
@@ -40,16 +40,18 @@ return [
     | Vision Chain
     |--------------------------------------------------------------------------
     |
-    | The providers used for chat turns that involve attachments — images or
-    | documents the operator sent, in the current message or anywhere in the
-    | agent's conversation window. The default text provider (DeepSeek) cannot
-    | read documents at all (its gateway throws on Document attachments), so
-    | such turns are routed here instead. See ChatEditPage::ask().
+    | The providers used for chat turns that involve attachments — images the
+    | operator sent, in the current message or anywhere in the agent's
+    | conversation window — so it must name a provider whose chat model reads
+    | images. DeepSeek's does (deepseek-flash, the `cheapest` model the editor
+    | agent runs on). PDFs never reach a provider as files: they are reduced
+    | to text at send time (ExtractPdfText), because DeepSeek reads no
+    | documents. See ChatEditPage::ask().
     |
     */
 
     'vision' => array_filter([
-        env('AI_VISION_PROVIDER', 'gemini'),
+        env('AI_VISION_PROVIDER', 'deepseek'),
     ]),
 
     'default_for_images' => 'gemini',
@@ -124,11 +126,13 @@ return [
             'driver' => 'deepseek',
             'key' => env('DEEPSEEK_API_KEY'),
             // The SDK's built-in defaults (deepseek-chat/-reasoner) were
-            // retired by DeepSeek; only the v4 model names are accepted now.
+            // retired by DeepSeek. `cheapest` is also the vision model: of
+            // the two, only deepseek-flash reads images (v4-pro is text-only),
+            // and it replaced the retired `deepseek-v4-flash` name.
             'models' => [
                 'text' => [
                     'default' => env('DEEPSEEK_MODEL', 'deepseek-v4-pro'),
-                    'cheapest' => 'deepseek-v4-flash',
+                    'cheapest' => 'deepseek-flash',
                     'smartest' => 'deepseek-v4-pro',
                 ],
             ],

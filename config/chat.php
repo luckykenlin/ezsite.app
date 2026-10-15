@@ -12,11 +12,13 @@ return [
     | Limits for files the operator attaches to a page-editor chat message.
     | Images are imported into the tenant's media library the moment the
     | message is sent (so the agent can place them in blocks by media id);
-    | documents land on the private tenant disk, readable only by the agent.
+    | PDFs are reduced to their text at the same moment (ExtractPdfText) and
+    | never stored — the model reads the text, not the file.
     |
-    | The image cap is generous because photos go on the page; the document
-    | cap bounds what one turn ships to the vision provider — a menu or a
-    | brochure, not a book.
+    | The image cap is generous because photos go on the page. The document
+    | caps bound what one PDF costs: the upload size, and the characters of
+    | it that ride in the prompt — and in every later turn's history while
+    | the message stays in the window. A menu or a brochure, not a book.
     |
     */
 
@@ -24,10 +26,8 @@ return [
         'max_count' => 4,
         'max_image_kilobytes' => 8192,
         'max_document_kilobytes' => 15360,
+        'max_document_characters' => 20000,
         'image_mimes' => ['jpg', 'jpeg', 'png', 'webp', 'gif'],
-        // Never the public disk: an attached PDF is working material for the
-        // agent, not something the site serves.
-        'document_disk' => 'local',
     ],
 
     /*

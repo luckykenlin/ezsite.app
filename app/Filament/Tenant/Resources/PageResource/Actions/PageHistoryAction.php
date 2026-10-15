@@ -109,7 +109,7 @@ final readonly class PageHistoryAction
 
         $line = sprintf(
             '%s — %s (%s)',
-            $saved === null ? __('Unknown time') : $saved->format('j M Y, H:i'),
+            $saved?->format('j M Y, H:i') ?? __('Unknown time'),
             trans_choice('{0} empty page|{1} :count block|[2,*] :count blocks', $revision->blockCount(), [
                 'count' => $revision->blockCount(),
             ]),

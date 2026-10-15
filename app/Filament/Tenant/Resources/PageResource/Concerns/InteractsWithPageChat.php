@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Tenant\Resources\PageResource\Concerns;
 
+use App\Actions\ExtractPdfText;
 use App\Actions\ImportChatAttachment;
 use App\Actions\Pages\CacheChatTurn;
 use App\Actions\Pages\ChatEditPage;
@@ -599,8 +600,13 @@ trait InteractsWithPageChat
     /**
      * What the composer accepts: a bounded number of images and PDFs, with
      * the size cap depending on which of the two a file is — a page photo
-     * legitimately outweighs the text of a menu, but a document ships to the
-     * vision provider whole, so it gets its own ceiling.
+     * legitimately outweighs the text of a menu, and a PDF is parsed in this
+     * request, so it gets its own ceiling.
+     *
+     * A PDF must also have text to read: the model only ever sees the text
+     * ({@see ExtractPdfText}), so a scan would arrive as an empty document the
+     * assistant cannot explain. Refused here, while the operator can still
+     * send a photo of it instead — which the model CAN read.
      *
      * @return array<string, list<mixed>>
      */
@@ -624,6 +630,14 @@ trait InteractsWithPageChat
                         $fail(__(':name is too large — the limit is :limit MB.', [
                             'name' => $value->getClientOriginalName(),
                             'limit' => round($limit / 1024, 1),
+                        ]));
+
+                        return;
+                    }
+
+                    if (! $isImage && resolve(ExtractPdfText::class)->handle((string) $value->get()) === '') {
+                        $fail(__('No text could be read from :name — if it is a scan, send a photo or screenshot of it instead.', [
+                            'name' => $value->getClientOriginalName(),
                         ]));
                     }
                 },

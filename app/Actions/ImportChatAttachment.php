@@ -6,11 +6,8 @@ namespace App\Actions;
 
 use App\Ai\ChatAttachment;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use Laravel\Ai\Files\Document;
 use Laravel\Ai\Files\Image;
-use RuntimeException;
 
 /**
  * Land one chat upload where the rest of the turn can reach it, at the moment
@@ -22,17 +19,20 @@ use RuntimeException;
  * and SetBlockImage can place it in the same turn. An image the agent never
  * uses simply stays in the library, where the operator can pick it by hand.
  *
- * Documents are working material, not site assets: they land on the private
- * tenant disk, readable only when the agent's history rehydrates them.
+ * Documents are reduced to their text ({@see ExtractPdfText}) and the PDF
+ * itself is not kept: the chat's provider reads no documents, so the text is
+ * the only part of the file anything downstream uses, and it travels inside
+ * the attachment row. Storing bytes nothing reads would only be a cost.
  *
  * Runs inside the editor's Livewire request, in tenant context — the Media
- * model stamps `tenant_id` itself and both disks are tenant-suffixed.
+ * model stamps `tenant_id` itself and the public disk is tenant-suffixed.
  */
 final readonly class ImportChatAttachment
 {
     public function __construct(
         private OptimizeImage $optimizeImage,
         private StoreMedia $storeMedia,
+        private ExtractPdfText $extractPdfText,
     ) {
         //
     }
@@ -45,7 +45,7 @@ final readonly class ImportChatAttachment
             return $this->importImage($file, $name);
         }
 
-        return $this->storeDocument($file, $name);
+        return $this->readDocument($file, $name);
     }
 
     private function importImage(UploadedFile $file, string $name): ChatAttachment
@@ -74,18 +74,13 @@ final readonly class ImportChatAttachment
         );
     }
 
-    private function storeDocument(UploadedFile $file, string $name): ChatAttachment
+    private function readDocument(UploadedFile $file, string $name): ChatAttachment
     {
-        $disk = config()->string('chat.attachments.document_disk');
-
-        $path = Storage::disk($disk)->putFileAs('chat', $file, 'chat-'.Str::uuid().'.pdf');
-
-        throw_if($path === false, RuntimeException::class, 'The attached document could not be stored.');
-
         return new ChatAttachment(
             kind: ChatAttachment::KIND_DOCUMENT,
             name: $name,
-            file: Document::fromStorage($path, $disk)->as($name)->toArray(),
+            file: [],
+            text: $this->extractPdfText->handle((string) $file->get()),
         );
     }
 }

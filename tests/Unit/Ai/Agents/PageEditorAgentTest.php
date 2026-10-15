@@ -25,7 +25,6 @@ use App\Models\Page;
 use App\Models\PageChatMessage;
 use App\Models\Tenant;
 use Laravel\Ai\Messages\UserMessage;
-use Laravel\Ai\Providers\Tools\WebFetch;
 use Laravel\Ai\Tools\Request;
 
 function editorAgent(PageDraft $draft, int $pageId = 1, ?SiteStyleDraft $style = null): PageEditorAgent
@@ -50,41 +49,14 @@ it('offers the page-editing verbs, without the site style when there is no busin
         // library first, a new provider import only when nothing there fits.
         SearchPhotoLibrary::class,
         ImportStockPhotos::class,
-        // App-side fetching, so a pasted URL works on every provider — the
-        // provider-native WebFetch below only exists on the vision chain.
+        // App-side fetching, so a pasted URL works on every provider — DeepSeek
+        // has no provider-native fetch tool to fall back on.
         FetchWebPage::class,
         // The page-level verbs are unconditional: a page needs no Business
         // profile to exist, and both only ever create a hidden draft.
         CreatePage::class,
         DuplicatePage::class,
     ]);
-});
-
-/*
- * WebFetch is a provider-executed tool that only the vision chain's providers
- * implement — offered on a DeepSeek turn it would be an unknown tool in the
- * request. The vision flag is set by ChatEditPage from the same fact that
- * routes the turn, so the two cannot disagree.
- */
-it('adds the provider-native web fetch only on vision turns', function (): void {
-    $agent = new PageEditorAgent(new PageDraft([]), Page::factory()->make(['id' => 1]), vision: true);
-
-    $classes = array_map(fn (object $tool): string => $tool::class, $agent->tools());
-
-    expect($classes)->toContain(WebFetch::class)
-        ->and(array_map(fn (object $tool): string => $tool::class, editorAgent(new PageDraft([]))->tools()))
-        ->not->toContain(WebFetch::class);
-});
-
-it('withholds every tool in Ask mode even on a vision turn', function (): void {
-    $agent = new PageEditorAgent(
-        new PageDraft([]),
-        Page::factory()->make(['id' => 1]),
-        mode: ChatMode::Ask,
-        vision: true,
-    );
-
-    expect($agent->tools())->toBeEmpty();
 });
 
 /*
@@ -202,10 +174,10 @@ it('appends what a turn actually changed to its remembered reply', function (): 
 
 /*
  * The other half of the routing invariant (see ChatEditPage::ask()): rows with
- * attachments come back as UserMessage carrying the rehydrated files, so a
- * follow-up turn can still read the menu PDF sent three messages ago. Safe to
- * do unconditionally only because any window containing such a row is routed
- * to the vision chain.
+ * images come back as UserMessage carrying the rehydrated files, so a
+ * follow-up turn can still see the photo sent three messages ago. Safe to do
+ * unconditionally only because any window containing such a row is routed to
+ * the vision chain.
  */
 it('rehydrates a remembered message attachments and names the files in its text', function (): void {
     $tenant = Tenant::factory()->create();
@@ -229,6 +201,30 @@ it('rehydrates a remembered message attachments and names the files in its text'
         ->and($question->attachments->first()->name())->toBe('kitchen.jpg')
         // A plain reply stays a plain message.
         ->and($messages->last())->not->toBeInstanceOf(UserMessage::class);
+});
+
+/*
+ * DeepSeek's gateway throws on a document FILE, so a PDF must come back as
+ * the text extracted at send time — in the message itself, never as an
+ * attachment part. Otherwise "now add the desserts too" three messages after
+ * the menu was sent kills the turn.
+ */
+it('remembers a document as its extracted text, never as a file', function (): void {
+    $tenant = Tenant::factory()->create();
+    $page = $this->createTenantPage($tenant, []);
+
+    $this->runInTenant($tenant, fn () => PageChatMessage::factory()->create([
+        'tenant_id' => $tenant->id,
+        'page_id' => $page->id,
+        'content' => 'Here is the menu',
+        'attachments' => [['kind' => 'document', 'name' => 'menu.pdf', 'file' => [], 'text' => 'Margherita 12']],
+    ]));
+
+    $question = collect(editorAgent(new PageDraft([]), (int) $page->id)->messages())->first();
+
+    expect($question)->not->toBeInstanceOf(UserMessage::class)
+        ->and($question->content)->toStartWith("Here is the menu\n<<<document menu.pdf")
+        ->toContain("Margherita 12\n>>>");
 });
 
 it('drops a corrupt stored attachment instead of losing the message', function (): void {

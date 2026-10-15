@@ -72,21 +72,17 @@ it('rehydrates into the SDK image it stored', function (): void {
         ->and($attachment->toFile()->name())->toBe('kitchen.jpg');
 });
 
-it('stores a document on the private disk and never in the media library', function (): void {
+it('reads a document into text and keeps neither the file nor a media row', function (): void {
     $tenant = Tenant::factory()->create();
 
-    [$attachment, $stored] = $this->runInTenant($tenant, function (): array {
-        $attachment = resolve(ImportChatAttachment::class)
-            ->handle(UploadedFile::fake()->create('menu.pdf', 120, 'application/pdf'));
-
-        return [$attachment, Storage::disk('local')->exists($attachment->file['path'])];
-    });
+    $attachment = $this->runInTenant($tenant, fn (): ChatAttachment => resolve(ImportChatAttachment::class)
+        ->handle(pdfUpload('menu.pdf', ['Margherita 12', 'Espresso 4'])));
 
     expect($attachment->kind)->toBe('document')
         ->and($attachment->name)->toBe('menu.pdf')
+        ->and($attachment->text)->toBe("Margherita 12\nEspresso 4")
+        ->and($attachment->file)->toBeEmpty()
         ->and($attachment->mediaId)->toBeNull()
-        ->and($attachment->file['type'])->toBe('stored-document')
-        ->and($attachment->file['disk'])->toBe('local')
         ->and(Media::query()->count())->toBe(0)
-        ->and($stored)->toBeTrue();
+        ->and(Storage::disk('local')->allFiles('chat'))->toBeEmpty();
 });

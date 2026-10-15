@@ -1891,6 +1891,9 @@ describe('the block settings drawer', function (): void {
     });
 
     it('cannot open a page belonging to another tenant', function (): void {
+        // A tenant with nothing published renders every miss as the 200
+        // coming-soon page, which would hide the 404 asserted below.
+        editorPage([]);
         $other = Tenant::factory()->create();
         $foreign = $this->runInTenant($other, fn (): Page => Page::query()->create([
             'tenant_id' => $other->id,
@@ -1900,8 +1903,9 @@ describe('the block settings drawer', function (): void {
             'blocks' => [],
         ]));
 
-        Livewire::test(PageEditor::class, ['record' => $foreign->id]);
-    })->throws(ModelNotFoundException::class);
+        Livewire::test(PageEditor::class, ['record' => $foreign->id])
+            ->assertNotFound();
+    });
 });
 
 /*
@@ -3507,6 +3511,22 @@ describe('composer attachments', function (): void {
             ->set('chatUploads', [UploadedFile::fake()->create('menu.pdf', 128, 'application/pdf')])
             ->assertHasErrors('chatUploads.0');
     });
+
+    it('accepts a PDF only when it has text to read', function (array $lines, bool $accepted): void {
+        $page = editorPage([]);
+
+        $component = Livewire::test(PageEditor::class, ['record' => $page->id])
+            ->set('chatUploads', [pdfUpload('menu.pdf', $lines)]);
+
+        // A scan reaches the model as nothing at all, so it is refused while
+        // the operator can still send a photo of it instead.
+        $accepted
+            ? $component->assertHasNoErrors()
+            : $component->assertHasErrors('chatUploads.0');
+    })->with([
+        'text layer' => [['Margherita 12'], true],
+        'scan' => [[], false],
+    ]);
 
     it('accepts an image the document cap would refuse', function (): void {
         config()->set('chat.attachments.max_document_kilobytes', 64);

@@ -32,9 +32,16 @@ final class ImportLibraryPhotos extends Command
 {
     public function handle(StockPhotoProvider $provider, FindOrImportLibraryPhoto $import): int
     {
-        $query = (string) $this->argument('query');
+        $query = $this->argument('query');
         $count = (int) $this->option('count');
-        $orientation = PhotoOrientation::tryFrom((string) $this->option('orientation'));
+        $orientationOption = $this->option('orientation');
+        $orientation = is_string($orientationOption) ? PhotoOrientation::tryFrom($orientationOption) : null;
+
+        if (! is_string($query) || mb_trim($query) === '') {
+            $this->components->error('The search query must not be blank.');
+
+            return self::FAILURE;
+        }
 
         if ($count < 1) {
             $this->components->error('--count must be at least 1.');

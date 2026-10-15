@@ -51,7 +51,6 @@ use Laravel\Ai\Files\File;
 use Laravel\Ai\Messages\Message;
 use Laravel\Ai\Messages\UserMessage;
 use Laravel\Ai\Promptable;
-use Laravel\Ai\Providers\Tools\WebFetch;
 
 /**
  * The page editor's chat assistant: edits the page the operator has open, by
@@ -212,11 +211,6 @@ final readonly class PageEditorAgent implements Agent, Conversational, HasTools
      *                                        no Business renders no chrome at all
      * @param  ChatMode  $mode  Ask withholds the whole tool roster, so a turn in
      *                          that mode structurally cannot change the page
-     * @param  bool  $vision  whether this turn runs on the vision chain
-     *                        (`ai.vision`) — set by {@see \App\Actions\Pages\ChatEditPage}
-     *                        when the conversation window contains attachments.
-     *                        Gates the provider-native WebFetch tool, which only
-     *                        exists on those providers.
      */
     public function __construct(
         private PageDraft $draft,
@@ -224,7 +218,6 @@ final readonly class PageEditorAgent implements Agent, Conversational, HasTools
         private ?SiteStyleDraft $style = null,
         private ?SiteChromeDraft $chrome = null,
         private ChatMode $mode = ChatMode::Edit,
-        private bool $vision = false,
     ) {
         //
     }
@@ -246,14 +239,14 @@ final readonly class PageEditorAgent implements Agent, Conversational, HasTools
      * recall removing a section is a model that re-adds it. The footer is
      * memory-only — the panel renders the stored content, never this.
      *
-     * User turns with attachments rehydrate them into a {@see UserMessage}, so
-     * the file the operator sent stays readable for as long as its row is in
-     * this window. Rehydrating UNCONDITIONALLY is safe only because of the
-     * routing invariant in {@see \App\Actions\Pages\ChatEditPage::ask()}: any
-     * window containing an attachment row runs on the vision chain, and the
-     * default provider's gateway — which throws on document attachments —
-     * never sees one. Run this agent on a non-vision provider against a thread
-     * with attachments and that throw is yours.
+     * User turns with attachments rehydrate them, so the file the operator
+     * sent stays readable for as long as its row is in this window: an image
+     * as a {@see UserMessage} file, a document as its extracted text in the
+     * message itself (no provider on the chain reads documents — see
+     * {@see ChatAttachment}). Rehydrating images UNCONDITIONALLY is safe only
+     * because of the routing invariant in
+     * {@see \App\Actions\Pages\ChatEditPage::ask()}: any window containing an
+     * attachment row runs on the vision chain, whose model reads images.
      *
      * @return iterable<int, Message>
      */
@@ -280,13 +273,20 @@ final readonly class PageEditorAgent implements Agent, Conversational, HasTools
 
                 foreach ($message->attachments ?? [] as $stored) {
                     $attachment = ChatAttachment::fromArray($stored);
+
+                    if ($attachment?->kind === ChatAttachment::KIND_DOCUMENT) {
+                        $content .= "\n".$attachment->documentText();
+
+                        continue;
+                    }
+
                     $file = $attachment?->toFile();
 
                     if ($file instanceof File) {
                         $files[] = $file;
                         // Named in the text too, so the model can refer to
-                        // "the menu PDF" even when a provider presents the
-                        // bytes without the filename.
+                        // "the kitchen photo" even when a provider presents
+                        // the bytes without the filename.
                         $content .= "\n[Attached: {$attachment->name}]";
                     }
                 }
@@ -306,7 +306,7 @@ final readonly class PageEditorAgent implements Agent, Conversational, HasTools
      * such call would be a dead end the model cannot diagnose. Better to not
      * offer the verb — and to save its schema tokens on every turn.
      *
-     * @return list<AddBlock|CreatePage|DuplicatePage|FetchWebPage|ImportStockPhotos|RemoveBlock|ReorderBlocks|SearchPhotoLibrary|SetBlockAppearance|SetBlockImage|SetBlockVariant|SetSiteStyle|UpdateBlockContent|UpdateChrome|WebFetch>
+     * @return list<AddBlock|CreatePage|DuplicatePage|FetchWebPage|ImportStockPhotos|RemoveBlock|ReorderBlocks|SearchPhotoLibrary|SetBlockAppearance|SetBlockImage|SetBlockVariant|SetSiteStyle|UpdateBlockContent|UpdateChrome>
      */
     public function tools(): iterable
     {
@@ -366,13 +366,6 @@ final readonly class PageEditorAgent implements Agent, Conversational, HasTools
         // edit here would stage a header the operator cannot see anywhere.
         if ($this->chrome instanceof SiteChromeDraft) {
             $tools[] = new UpdateChrome($this->chrome, $vocabulary, $sanitizer);
-        }
-
-        // Provider-native page fetching, only where it exists: the vision
-        // chain's providers implement it themselves. The app-side FetchWebPage
-        // above is the one every provider gets.
-        if ($this->vision) {
-            $tools[] = (new WebFetch)->max(3);
         }
 
         return $tools;

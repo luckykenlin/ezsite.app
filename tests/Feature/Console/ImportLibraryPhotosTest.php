@@ -56,6 +56,12 @@ it('explains an empty result instead of reporting a silent zero', function (): v
         ->assertSuccessful();
 });
 
+it('rejects a blank query rather than asking the provider for nothing', function (): void {
+    $this->artisan('library:import', ['query' => '  '])
+        ->expectsOutputToContain('The search query must not be blank.')
+        ->assertFailed();
+});
+
 it('rejects a count below one', function (): void {
     $this->artisan('library:import', ['query' => 'cafe', '--count' => 0])
         ->expectsOutputToContain('--count must be at least 1.')

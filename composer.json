@@ -26,6 +26,7 @@
         "nunomaduro/essentials": "^1.2",
         "nunomaduro/laravel-sluggable": "^1.0",
         "ralphjsmit/laravel-seo": "^1.8",
+        "smalot/pdfparser": "^2.13",
         "spatie/opening-hours": "^4.2",
         "stancl/tenancy": "dev-master",
         "z3d0x/filament-fabricator": "^4.1"
