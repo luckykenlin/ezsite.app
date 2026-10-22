@@ -1,9 +1,9 @@
 @use('App\Design\ColorPalette')
 @use('App\Design\FontStylesheet')
 @use('App\Design\StyleGroup')
-@use('App\Design\StylePreset')
 @use('App\Design\TokenOptions')
 @use('App\Design\TokenSelection')
+@use('App\Themes\CurrentTheme')
 @use('Illuminate\Support\Str')
 
 {{-- Site Styles. Rendered by BOTH surfaces that offer it — the page editor's
@@ -78,16 +78,16 @@
 
         @if ($group === StyleGroup::Theme)
             <div class="pe-options" data-columns="1">
-                @foreach (StylePreset::cases() as $preset)
+                @foreach (app(CurrentTheme::class)->definition()->schemes as $slug => $scheme)
                     <button
                         type="button"
                         class="pe-option"
-                        wire:key="preset-{{ $preset->value }}"
-                        @if (($selection['preset'] ?? null) === $preset->value) data-active @endif
-                        wire:click="stagePreset('{{ $preset->value }}')"
+                        wire:key="scheme-{{ $slug }}"
+                        @if (($selection['scheme'] ?? null) === $slug) data-active @endif
+                        wire:click="stageScheme('{{ $slug }}')"
                     >
-                        <x-design.specimen :tokens="$preset->tokens()" :business="$business" />
-                        <span class="pe-option-label">{{ $preset->label() }}</span>
+                        <x-design.specimen :tokens="$scheme->tokens" :business="$business" />
+                        <span class="pe-option-label">{{ $scheme->label }}</span>
                     </button>
                 @endforeach
             </div>

@@ -12,6 +12,7 @@ use App\Site\Blocks\BlockIntent;
 use App\Site\Blocks\BlockType;
 use App\Site\Blocks\BlockVocabulary;
 use App\Themes\CurrentTheme;
+use App\Themes\Definitions\DefaultTheme;
 use App\Themes\ThemeBlock;
 use App\Themes\ThemeDefinition;
 
@@ -102,6 +103,7 @@ it('offers only the block types the current theme draws, with the variants it dr
             'heading' => new ThemeBlock,
         ],
         stylesheet: 'resources/themes/default/theme.css',
+        schemes: [DefaultTheme::WARM_CRAFT => defaultScheme(DefaultTheme::WARM_CRAFT)],
     )));
 
     $vocabulary = new BlockVocabulary(BlockRegistry::contracts());

@@ -53,5 +53,5 @@ it('accepts a real value for its key and refuses anything else', function (Token
 it('enumerates exactly the keys a token set serialises', function (): void {
     $serialised = array_keys(DesignTokens::default()->toArray());
 
-    expect(TokenKey::values())->toBe(array_values(array_diff($serialised, ['preset'])));
+    expect(TokenKey::values())->toBe(array_values(array_diff($serialised, ['scheme'])));
 });

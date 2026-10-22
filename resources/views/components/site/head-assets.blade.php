@@ -5,7 +5,7 @@
     x-site.notice); the central marketing site carries its own stylesheet
     (central.css) and does not come through here.
 
-    Business is optional: with null, the preset's own palette stands (no
+    Business is optional: with null, the scheme's own palette stands (no
     brand-colour overrides).
 --}}
 @props(['tokens', 'business' => null])

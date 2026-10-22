@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace App\Templates\Definitions;
 
 use App\Design\FontPair;
-use App\Design\StylePreset;
 use App\Enums\PhotoCategory;
 use App\StockPhotos\PhotoOrientation;
 use App\Templates\DemoProfile;
 use App\Templates\PhotoQuery;
 use App\Templates\TemplateDefinition;
 use App\Templates\TemplateField;
+use App\Themes\Definitions\DefaultTheme;
 
 /**
  * Neighbourhood café & weekend brunch — WarmCraft's morning shift.
@@ -38,7 +38,7 @@ final readonly class CafeBrunch
     public static function definition(): TemplateDefinition
     {
         return new TemplateDefinition(
-            preset: StylePreset::WarmCraft,
+            scheme: DefaultTheme::WARM_CRAFT,
             brandPrimary: '#B4632E',
             brandSecondary: '#33291F',
             brandAccent: '#7C8F5A',

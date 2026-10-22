@@ -12,11 +12,18 @@ use BackedEnum;
  * migrations). Reads are lenient: any unknown/missing stored value falls
  * back to the default silently, so bad data can never break a page render.
  * Writes are strict — see App\Actions\UpdateDesignTokens.
+ *
+ * `$scheme` is the slug of the theme scheme these tokens were taken from, or
+ * null once a manual override detached them. A bare string rather than a
+ * {@see \App\Themes\Scheme}, so this module stays unaware of themes: the
+ * tokens are stored data, and whether the slug still names a scheme in the
+ * tenant's current theme is the reader's question (`ThemeDefinition::scheme()`
+ * answers null), not something to validate on every hydration.
  */
 final readonly class DesignTokens
 {
     public function __construct(
-        public ?StylePreset $preset,
+        public ?string $scheme,
         public ColorPalette $palette,
         public FontPair $fontPair,
         public RadiusScale $radius,
@@ -32,7 +39,7 @@ final readonly class DesignTokens
     public static function default(): self
     {
         return new self(
-            preset: null,
+            scheme: null,
             palette: ColorPalette::Default,
             fontPair: FontPair::NeoGrotesque,
             radius: RadiusScale::Md,
@@ -50,7 +57,7 @@ final readonly class DesignTokens
     public static function fromArray(array $data): self
     {
         return new self(
-            preset: is_string($data['preset'] ?? null) ? StylePreset::tryFrom($data['preset']) : null,
+            scheme: is_string($data['scheme'] ?? null) ? $data['scheme'] : null,
             palette: (is_string($data['palette'] ?? null) ? ColorPalette::tryFrom($data['palette']) : null) ?? ColorPalette::Default,
             fontPair: (is_string($data['font_pair'] ?? null) ? FontPair::tryFrom($data['font_pair']) : null) ?? FontPair::NeoGrotesque,
             radius: (is_string($data['radius'] ?? null) ? RadiusScale::tryFrom($data['radius']) : null) ?? RadiusScale::Md,
@@ -63,12 +70,12 @@ final readonly class DesignTokens
     }
 
     /**
-     * @return array{preset: string|null, palette: string, font_pair: string, type_style: string, radius: string, density: string, divider: string, accent: string, motion: string}
+     * @return array{scheme: string|null, palette: string, font_pair: string, type_style: string, radius: string, density: string, divider: string, accent: string, motion: string}
      */
     public function toArray(): array
     {
         return [
-            'preset' => $this->preset?->value,
+            'scheme' => $this->scheme,
             'palette' => $this->palette->value,
             'font_pair' => $this->fontPair->value,
             'type_style' => $this->typeStyle->value,
@@ -98,9 +105,7 @@ final readonly class DesignTokens
             TokenKey::cases(),
         );
 
-        $preset = $this->preset;
-
-        return ($preset instanceof StylePreset ? $preset->value : 'custom').' — '.implode(', ', $values);
+        return ($this->scheme ?? 'custom').' — '.implode(', ', $values);
     }
 
     /**
@@ -120,12 +125,12 @@ final readonly class DesignTokens
      */
     public function withToken(TokenKey $key, BackedEnum $value): self
     {
-        return self::fromArray([...$this->toArray(), 'preset' => null, $key->value => (string) $value->value]);
+        return self::fromArray([...$this->toArray(), 'scheme' => null, $key->value => (string) $value->value]);
     }
 
     /**
      * A copy with the given tokens replaced. Any manual override detaches
-     * the preset marker — the combination is custom from then on.
+     * the scheme marker — the combination is custom from then on.
      */
     public function with(
         ?ColorPalette $palette = null,
@@ -138,7 +143,7 @@ final readonly class DesignTokens
         ?MotionStyle $motion = null,
     ): self {
         return new self(
-            preset: null,
+            scheme: null,
             palette: $palette ?? $this->palette,
             fontPair: $fontPair ?? $this->fontPair,
             radius: $radius ?? $this->radius,

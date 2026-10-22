@@ -39,7 +39,7 @@ it('names the block a tool call is about', function (string $tool, array $argume
     'relaying one section' => ['SetBlockVariant', ['key' => 'k1', 'variant' => 'full-bleed-overlay'], 'Changing the Hero layout…'],
     // Named without the preset it is switching to: the argument is a slug the
     // operator has never seen, and the canvas is about to show them the answer.
-    'restyling the site' => ['SetSiteStyle', ['preset' => 'warm-craft'], 'Restyling the site…'],
+    'restyling the site' => ['SetSiteStyle', ['scheme' => 'warm-craft'], 'Restyling the site…'],
     'restyling one section' => ['SetBlockAppearance', ['key' => 'k1', 'tone' => 'inverted'], 'Restyling the Hero section…'],
 ]);
 

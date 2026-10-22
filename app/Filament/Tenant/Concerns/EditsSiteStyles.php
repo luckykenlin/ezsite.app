@@ -7,10 +7,11 @@ namespace App\Filament\Tenant\Concerns;
 use App\Actions\SaveDesignSelection;
 use App\Design\DesignTokens;
 use App\Design\StyleGroup;
-use App\Design\StylePreset;
 use App\Design\TokenKey;
 use App\Design\TokenSelection;
 use App\Models\Business;
+use App\Themes\CurrentTheme;
+use App\Themes\Scheme;
 use BackedEnum;
 use Filament\Notifications\Notification;
 
@@ -18,7 +19,7 @@ use Filament\Notifications\Notification;
  * The Site Styles panel's behaviour, shared by the two surfaces that offer it:
  * the page editor's inspector rail and {@see \App\Filament\Tenant\Pages\Design}.
  *
- * They diverged badly before this. One was a `Radio` of preset names with four
+ * They diverged badly before this. One was a `Radio` of scheme names with four
  * colour dots plus eight `Select`s; the other a modal of nine `Select`s. Only
  * one of them could edit brand colours, and neither showed what any option
  * looked like. Both now render `partials/site-styles.blade.php` over this trait,
@@ -32,7 +33,7 @@ use Filament\Notifications\Notification;
  * abstract methods.
  *
  * Staging is never saving on either surface. {@see SaveDesignSelection}
- * is the single write path and decides preset-vs-custom for both, which is what
+ * is the single write path and decides scheme-vs-custom for both, which is what
  * stops the two from disagreeing about what applying a design means.
  */
 trait EditsSiteStyles
@@ -87,26 +88,28 @@ trait EditsSiteStyles
     }
 
     /**
-     * Stage a whole preset: one click sets all eight tokens, which is the only
-     * reason the Themes card can offer a look rather than a list.
+     * Stage a whole scheme: one click sets all eight tokens, which is the only
+     * reason the Themes card can offer a look rather than a list. Resolved
+     * through the current theme, so a slug from the browser that the theme
+     * does not offer stages nothing.
      */
-    public function stagePreset(string $preset): void
+    public function stageScheme(string $slug): void
     {
-        $chosen = StylePreset::tryFrom($preset);
+        $chosen = resolve(CurrentTheme::class)->definition()->scheme($slug);
 
-        if (! $chosen instanceof StylePreset) {
+        if (! $chosen instanceof Scheme) {
             return;
         }
 
-        $this->stageStyles($chosen->tokens()->toArray());
+        $this->stageStyles($chosen->tokens->toArray());
     }
 
     /**
      * Stage one token, leaving the rest of the selection alone.
      *
-     * `preset` deliberately RIDES ALONG unchanged rather than being cleared:
-     * {@see SaveDesignSelection} decides preset-vs-custom by comparing the whole
-     * selection, so changing a token and changing it back is saved as the preset
+     * `scheme` deliberately RIDES ALONG unchanged rather than being cleared:
+     * {@see SaveDesignSelection} decides scheme-vs-custom by comparing the whole
+     * selection, so changing a token and changing it back is saved as the scheme
      * again. Clearing it here would make that a one-way door.
      *
      * Both arguments arrive from the browser, so both are resolved against their
@@ -171,7 +174,7 @@ trait EditsSiteStyles
      * one, the saved tokens otherwise.
      *
      * Carried as {@see DesignTokens::toArray()}, which is already exactly the
-     * `preset` + eight-key shape {@see SaveDesignSelection} reads, so nothing
+     * `scheme` + eight-key shape {@see SaveDesignSelection} reads, so nothing
      * here rebuilds it field by field.
      *
      * @return array<string, string|null>

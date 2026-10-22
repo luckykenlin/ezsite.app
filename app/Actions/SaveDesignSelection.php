@@ -5,18 +5,23 @@ declare(strict_types=1);
 namespace App\Actions;
 
 use App\Design\ColorPalette;
-use App\Design\StylePreset;
 use App\Design\TokenKey;
 use App\Design\TokenSelection;
 use App\Models\Business;
+use App\Themes\CurrentTheme;
+use App\Themes\Scheme;
 
 /**
  * Persists a design form's raw selection, deciding between the two write
- * paths: a preset whose token bundle still matches every fine-tune field is
- * saved AS that preset, anything else is saved as a custom combination
- * (which detaches the preset marker — see UpdateDesignTokens).
+ * paths: a scheme whose token bundle still matches every fine-tune field is
+ * saved AS that scheme, anything else is saved as a custom combination
+ * (which detaches the scheme marker — see UpdateDesignTokens).
  *
- * That "what still counts as a preset" rule is product semantics, and both
+ * The scheme is resolved through the tenant's current theme, so a slug from
+ * another theme (or a retired one) is simply not a scheme here and the
+ * selection saves as custom — the same outcome as a hand-tuned look.
+ *
+ * That "what still counts as a scheme" rule is product semantics, and both
  * design surfaces — the Design settings page and the page editor's Design
  * modal — must answer it identically, so it lives here rather than in either
  * page. Input is deliberately the raw Filament form state: callers hand over
@@ -25,14 +30,15 @@ use App\Models\Business;
 final readonly class SaveDesignSelection
 {
     public function __construct(
-        private ApplyStylePreset $applyStylePreset,
+        private ApplyScheme $applyScheme,
         private UpdateDesignTokens $updateDesignTokens,
+        private CurrentTheme $theme,
     ) {
         //
     }
 
     /**
-     * @param  array<array-key, mixed>  $selection  raw form state: preset + every {@see TokenKey},
+     * @param  array<array-key, mixed>  $selection  raw form state: scheme + every {@see TokenKey},
      *                                              plus any {@see TokenSelection::BRAND_KEYS} hexes
      */
     public function handle(Business $business, array $selection): Business
@@ -57,10 +63,10 @@ final readonly class SaveDesignSelection
             $business->update($hexes);
         }
 
-        $preset = $this->preset($selection);
+        $scheme = $this->scheme($selection);
 
-        if ($preset instanceof StylePreset && $this->matchesPreset($preset, $selection)) {
-            return $this->applyStylePreset->handle($business, $preset);
+        if ($scheme instanceof Scheme && $this->matchesScheme($scheme, $selection)) {
+            return $this->applyScheme->handle($business, $scheme);
         }
 
         return $this->updateDesignTokens->handle($business, TokenSelection::changes($selection));
@@ -69,19 +75,19 @@ final readonly class SaveDesignSelection
     /**
      * @param  array<array-key, mixed>  $selection
      */
-    private function preset(array $selection): ?StylePreset
+    private function scheme(array $selection): ?Scheme
     {
-        $value = $selection['preset'] ?? null;
+        $value = $selection['scheme'] ?? null;
 
-        return is_string($value) ? StylePreset::tryFrom($value) : null;
+        return is_string($value) ? $this->theme->definition()->scheme($value) : null;
     }
 
     /**
      * @param  array<array-key, mixed>  $selection
      */
-    private function matchesPreset(StylePreset $preset, array $selection): bool
+    private function matchesScheme(Scheme $scheme, array $selection): bool
     {
-        $tokens = $preset->tokens();
+        $tokens = $scheme->tokens;
 
         return array_all(
             TokenKey::cases(),

@@ -33,7 +33,7 @@ it('reads back what was written', function (): void {
         'sample_hint_shown' => true,
         'chat_edit_awaiting_save' => true,
         'chat_turn' => ['token' => 'tok', 'started_at' => 1_700_000_000],
-        'design' => ['preset' => 'warm-craft', 'palette' => 'warm-sand', 'font_pair' => 'elegant-serif', 'radius' => 'lg', 'density' => 'spacious'],
+        'design' => ['scheme' => 'warm-craft', 'palette' => 'warm-sand', 'font_pair' => 'elegant-serif', 'radius' => 'lg', 'density' => 'spacious'],
     ]);
 
     $draft = resolve(ReadPageEditorDraft::class)->handle(Page::query()->findOrFail($page->getKey()));
@@ -47,7 +47,7 @@ it('reads back what was written', function (): void {
         ->and($draft['sample_hint_shown'])->toBeTrue()
         ->and($draft['chat_edit_awaiting_save'])->toBeTrue()
         ->and($draft['chat_turn'])->toBe(['token' => 'tok', 'started_at' => 1_700_000_000])
-        ->and($draft['design']['preset'])->toBe('warm-craft')
+        ->and($draft['design']['scheme'])->toBe('warm-craft')
         ->and($draft['design']['density'])->toBe('spacious')
         ->and($draft['saved_at'])->not->toBeNull();
 });

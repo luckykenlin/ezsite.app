@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Templates\Definitions;
 
-use App\Design\StylePreset;
 use App\Enums\PhotoCategory;
 use App\StockPhotos\PhotoOrientation;
 use App\Templates\DemoProfile;
 use App\Templates\PhotoQuery;
 use App\Templates\TemplateDefinition;
 use App\Templates\TemplateField;
+use App\Themes\Definitions\DefaultTheme;
 
 /**
  * Fine dining — the reservation-first restaurant.
@@ -33,7 +33,7 @@ final readonly class FineDining
     public static function definition(): TemplateDefinition
     {
         return new TemplateDefinition(
-            preset: StylePreset::NightLounge,
+            scheme: DefaultTheme::NIGHT_LOUNGE,
             brandPrimary: '#B08D3E',
             brandSecondary: '#16130E',
             brandAccent: '#6E2C2A',

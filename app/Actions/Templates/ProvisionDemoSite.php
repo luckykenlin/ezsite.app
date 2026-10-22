@@ -107,6 +107,7 @@ final readonly class ProvisionDemoSite
             subdomain: $template->demoSubdomain(),
             template: $template,
             isDemo: true,
+            theme: $template->definition()->theme,
         );
     }
 

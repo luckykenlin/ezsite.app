@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Templates\Definitions;
 
-use App\Design\StylePreset;
 use App\Enums\PhotoCategory;
 use App\StockPhotos\PhotoOrientation;
 use App\Templates\DemoProfile;
 use App\Templates\PhotoQuery;
 use App\Templates\TemplateDefinition;
 use App\Templates\TemplateField;
+use App\Themes\Definitions\DefaultTheme;
 
 /**
  * Family Chinese restaurant — the bind-heavy pilot.
@@ -30,7 +30,7 @@ final readonly class ChineseRestaurant
     public static function definition(): TemplateDefinition
     {
         return new TemplateDefinition(
-            preset: StylePreset::WarmCraft,
+            scheme: DefaultTheme::WARM_CRAFT,
             brandPrimary: '#8C2F1F',
             brandSecondary: '#2F2A24',
             brandAccent: '#C8963E',

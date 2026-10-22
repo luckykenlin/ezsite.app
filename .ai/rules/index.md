@@ -13,7 +13,7 @@ Before planning or editing, find the row whose globs match the file's path and r
 | app/Http/Controllers/** | .ai/rules/controllers.md |
 | resources/css/**, resources/themes/*/theme.css | .ai/rules/css.md |
 | app/Templates/Definitions/** | .ai/rules/definitions.md |
-| app/Design/StylePreset.php | .ai/rules/design.md |
+| app/Themes/Definitions/** | .ai/rules/design.md |
 | app/Filament/** | .ai/rules/filament.md |
 | app/Http/** | .ai/rules/http.md |
 | app/Jobs/** | .ai/rules/jobs.md |

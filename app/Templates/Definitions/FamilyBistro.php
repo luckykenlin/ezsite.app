@@ -6,12 +6,12 @@ namespace App\Templates\Definitions;
 
 use App\Design\ColorPalette;
 use App\Design\FontPair;
-use App\Design\StylePreset;
 use App\Enums\PhotoCategory;
 use App\Templates\DemoProfile;
 use App\Templates\PhotoQuery;
 use App\Templates\TemplateDefinition;
 use App\Templates\TemplateField;
+use App\Themes\Definitions\DefaultTheme;
 
 /**
  * Neighbourhood family bistro — CalmCoastal's preset variation.
@@ -39,7 +39,7 @@ final readonly class FamilyBistro
     public static function definition(): TemplateDefinition
     {
         return new TemplateDefinition(
-            preset: StylePreset::CalmCoastal,
+            scheme: DefaultTheme::CALM_COASTAL,
             brandPrimary: '#A65D3F',
             brandSecondary: '#3A2E26',
             brandAccent: '#D9A45B',

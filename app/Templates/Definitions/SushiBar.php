@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Templates\Definitions;
 
-use App\Design\StylePreset;
 use App\Enums\PhotoCategory;
 use App\StockPhotos\PhotoOrientation;
 use App\Templates\DemoProfile;
 use App\Templates\PhotoQuery;
 use App\Templates\TemplateDefinition;
 use App\Templates\TemplateField;
+use App\Themes\Definitions\DefaultTheme;
 
 /**
  * An omakase sushi counter — the quietest restaurant in the library.
@@ -38,7 +38,7 @@ final readonly class SushiBar
     public static function definition(): TemplateDefinition
     {
         return new TemplateDefinition(
-            preset: StylePreset::QuietLuxe,
+            scheme: DefaultTheme::QUIET_LUXE,
             brandPrimary: '#3F3A33',
             brandSecondary: '#191713',
             brandAccent: '#9A4A32',

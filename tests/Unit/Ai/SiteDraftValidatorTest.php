@@ -3,8 +3,8 @@
 declare(strict_types=1);
 
 use App\Ai\SiteDraftValidator;
-use App\Design\StylePreset;
 use App\Exceptions\SiteDraftUnusable;
+use App\Themes\Definitions\DefaultTheme;
 use Illuminate\Support\Facades\Log;
 
 function draftValidator(): SiteDraftValidator
@@ -15,7 +15,7 @@ function draftValidator(): SiteDraftValidator
 function validAiDraft(): array
 {
     return [
-        'preset' => 'warm-craft',
+        'scheme' => 'warm-craft',
         'rationale' => 'Earthy tones match a bakery.',
         'pages' => [[
             'title' => 'Home',
@@ -34,24 +34,24 @@ function validAiDraft(): array
 it('passes a clean draft through unchanged', function (): void {
     $result = draftValidator()->handle(validAiDraft(), 'Fallback');
 
-    expect($result['preset'])->toBe(StylePreset::WarmCraft)
+    expect($result['scheme']->slug)->toBe(DefaultTheme::WARM_CRAFT)
         ->and($result['pages'][0]['title'])->toBe('Home')
         ->and(array_column($result['pages'][0]['blocks'], 'type'))->toBe(['hero', 'features', 'cta'])
         ->and($result['pages'][0]['blocks'][1]['data']['features'][0]['title'])->toBe('Handmade');
 });
 
-it('falls back to the first preset when the stored key is unknown', function (): void {
+it("falls back to the theme's first scheme when the stored key is unknown", function (): void {
     Log::spy();
 
     $draft = validAiDraft();
-    $draft['preset'] = 'no-such-preset';
+    $draft['scheme'] = 'no-such-scheme';
 
-    // Named, not `StylePreset::cases()[0]` — production returns exactly that, so
+    // Named, not `defaultScheme()` — production returns exactly that, so
     // restating it would survive a reordering that silently changes the fallback.
-    expect(draftValidator()->handle($draft, 'Fallback')['preset'])->toBe(StylePreset::WarmCraft);
+    expect(draftValidator()->handle($draft, 'Fallback')['scheme']->slug)->toBe(DefaultTheme::WARM_CRAFT);
 
     Log::shouldHaveReceived('warning')
-        ->withArgs(fn (string $message): bool => $message === 'site_draft.preset_fallback')
+        ->withArgs(fn (string $message): bool => $message === 'site_draft.scheme_fallback')
         ->once();
 });
 
@@ -215,7 +215,7 @@ it('rejects a draft without a hero', function (): void {
 });
 
 it('rejects an entirely missing page', function (): void {
-    expect(fn (): array => draftValidator()->handle(['preset' => 'warm-craft', 'pages' => 'oops'], 'Fallback'))
+    expect(fn (): array => draftValidator()->handle(['scheme' => 'warm-craft', 'pages' => 'oops'], 'Fallback'))
         ->toThrow(SiteDraftUnusable::class);
 });
 
@@ -280,7 +280,7 @@ it('drops extra pages with unknown or duplicate slugs, or too little substance',
 
 it('rejects a draft whose pages carry no home at all', function (): void {
     expect(fn (): array => draftValidator()->handle([
-        'preset' => 'warm-craft',
+        'scheme' => 'warm-craft',
         'pages' => [extraPage('/about')],
     ], 'Fallback'))->toThrow(SiteDraftUnusable::class, 'no home page');
 });

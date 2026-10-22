@@ -3,19 +3,19 @@
 declare(strict_types=1);
 
 use App\Design\ColorPalette;
-use App\Design\StylePreset;
 use App\Design\ThemeVariables;
 use App\Models\Business;
 use App\Models\Tenant;
 use App\Tenancy\RunInTenant;
+use App\Themes\Definitions\DefaultTheme;
 
-function themedBusiness(?StylePreset $preset = null): Business
+function themedBusiness(?string $scheme = null): Business
 {
     $tenant = Tenant::factory()->create();
     $factory = Business::factory();
 
-    if ($preset instanceof StylePreset) {
-        $factory = $factory->themed($preset);
+    if ($scheme !== null) {
+        $factory = $factory->themed($scheme);
     }
 
     return resolve(RunInTenant::class)->handle(
@@ -25,7 +25,7 @@ function themedBusiness(?StylePreset $preset = null): Business
 }
 
 it('compiles stored tokens into the variable set, defaulting without them, and renders one scoped style tag', function (): void {
-    $themed = Business::query()->findOrFail(themedBusiness(StylePreset::WarmCraft)->getKey());
+    $themed = Business::query()->findOrFail(themedBusiness(DefaultTheme::WARM_CRAFT)->getKey());
     $bare = Business::query()->findOrFail(themedBusiness()->getKey());
 
     $variables = ThemeVariables::variablesFor($themed->design_tokens, $themed);
@@ -51,7 +51,7 @@ it('compiles stored tokens into the variable set, defaulting without them, and r
 });
 
 it('renders the same declarations as an attribute body, for one element instead of a document', function (): void {
-    $business = Business::query()->findOrFail(themedBusiness(StylePreset::WarmCraft)->getKey());
+    $business = Business::query()->findOrFail(themedBusiness(DefaultTheme::WARM_CRAFT)->getKey());
     $tokens = $business->design_tokens;
 
     $inline = ThemeVariables::inline($tokens, $business);

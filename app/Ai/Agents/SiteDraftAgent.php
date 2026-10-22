@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Ai\Agents;
 
 use App\Ai\SiteDraftValidator;
-use App\Design\StylePreset;
 use App\Site\Blocks\BlockVocabulary;
 use App\Site\Blocks\SectionAlign;
 use App\Site\Blocks\SectionColumns;
@@ -14,6 +13,7 @@ use App\Site\Blocks\SectionItemStyle;
 use App\Site\Blocks\SectionSpacing;
 use App\Site\Blocks\SectionTone;
 use App\Site\Blocks\SectionWidth;
+use App\Themes\ThemeDefinition;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Ai\Attributes\Temperature;
 use Laravel\Ai\Attributes\Timeout;
@@ -24,11 +24,12 @@ use Laravel\Ai\Promptable;
 
 /**
  * Composes a full site draft from the enumerated block vocabulary: picks a
- * style preset, sequences blocks, chooses each section's layout variant and
- * presentation (tone + spacing), and writes copy. The three layout keys are
- * OPTIONAL flat siblings of `type`/`data` — a provider that omits or flubs
- * them costs nothing, because {@see \App\Actions\Pages\StampPresetDefaults::fill()}
- * back-fills the preset's defaults; bind targets still resolve at render time
+ * scheme from the tenant's theme, sequences blocks, chooses each section's
+ * layout variant and presentation (tone + spacing), and writes copy. The three
+ * layout keys are OPTIONAL flat siblings of `type`/`data` — a provider that
+ * omits or flubs them costs nothing, because
+ * {@see \App\Actions\Pages\StampSchemeDefaults::fill()}
+ * back-fills the scheme's defaults; bind targets still resolve at render time
  * and never appear in the schema. Header/footer are site chrome and are
  * excluded from the block type enum. The server-side gate is
  * {@see SiteDraftValidator}, which validates every layout choice against the
@@ -59,7 +60,7 @@ final readonly class SiteDraftAgent implements Agent, HasStructuredOutput
     use Promptable;
 
     private const string INSTRUCTIONS = 'You are a web designer composing a small-business website from a fixed '
-        .'component vocabulary. You select components, pick a style preset, '
+        .'component vocabulary. You select components, pick a style scheme, '
         ."choose each section's layout from the layouts its type offers, set a "
         ."section's background tone and vertical spacing where the page's "
         .'rhythm calls for it, and write marketing copy. You never output HTML, '
@@ -72,8 +73,10 @@ final readonly class SiteDraftAgent implements Agent, HasStructuredOutput
         .'never invent facts, addresses, prices or reviews that are not in the '
         .'profile. Write ALL user-visible copy in the requested language.';
 
-    public function __construct(private BlockVocabulary $vocabulary)
-    {
+    public function __construct(
+        private BlockVocabulary $vocabulary,
+        private ThemeDefinition $theme,
+    ) {
         //
     }
 
@@ -90,13 +93,13 @@ final readonly class SiteDraftAgent implements Agent, HasStructuredOutput
         $blockTypes = $this->vocabulary->pageTypeNames();
 
         return [
-            'preset' => $schema->string()
-                ->enum(array_column(StylePreset::cases(), 'value'))
-                ->description('The style preset whose vibe tags best match the business.')
+            'scheme' => $schema->string()
+                ->enum(array_keys($this->theme->schemes))
+                ->description('The style scheme whose vibe tags best match the business.')
                 ->required(),
             'rationale' => $schema->string()
                 ->max(300)
-                ->description('One sentence on why this preset, this composition and this section rhythm fit the business.')
+                ->description('One sentence on why this scheme, this composition and this section rhythm fit the business.')
                 ->required(),
             'pages' => $schema->array()
                 ->min(1)
@@ -117,7 +120,7 @@ final readonly class SiteDraftAgent implements Agent, HasStructuredOutput
                             'type' => $schema->string()->enum($blockTypes)->required(),
                             'variant' => $schema->string()
                                 ->enum($this->variants())
-                                ->description('The layout for this section — ONLY one of the layouts the vocabulary lists for THIS block type. Omit to accept the style preset\'s default.'),
+                                ->description('The layout for this section — ONLY one of the layouts the vocabulary lists for THIS block type. Omit to accept the style scheme\'s default.'),
                             'tone' => $schema->string()
                                 ->enum(SectionTone::values())
                                 ->description('The background band this section sits on. Most sections should omit this; give at most ONE section on the page "accent" or "inverted" — see Design guidance.'),

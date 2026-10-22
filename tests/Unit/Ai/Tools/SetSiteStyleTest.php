@@ -2,15 +2,17 @@
 
 declare(strict_types=1);
 
-use App\Actions\Pages\StampPresetDefaults;
+use App\Actions\Pages\StampSchemeDefaults;
 use App\Ai\PageDraft;
 use App\Ai\SiteStyleDraft;
 use App\Ai\Tools\SetSiteStyle;
 use App\Design\ColorPalette;
 use App\Design\DesignTokens;
 use App\Design\RadiusScale;
-use App\Design\StylePreset;
 use App\Design\TokenKey;
+use App\Themes\CurrentTheme;
+use App\Themes\Definitions\DefaultTheme;
+use App\Themes\Theme;
 use Illuminate\JsonSchema\JsonSchemaTypeFactory;
 use Laravel\Ai\Tools\Request;
 
@@ -21,7 +23,7 @@ function styleDraft(): SiteStyleDraft
 
 function styleTool(SiteStyleDraft $style, PageDraft $draft): SetSiteStyle
 {
-    return new SetSiteStyle($style, $draft, resolve(StampPresetDefaults::class));
+    return new SetSiteStyle($style, $draft, resolve(StampSchemeDefaults::class), resolve(CurrentTheme::class));
 }
 
 function styleableDraft(): PageDraft
@@ -32,19 +34,19 @@ function styleableDraft(): PageDraft
     ]);
 }
 
-it('stages a preset chosen by name', function (): void {
+it('stages a scheme chosen by name', function (): void {
     $style = styleDraft();
 
-    $result = styleTool($style, styleableDraft())->handle(new Request(['preset' => 'warm-craft']));
+    $result = styleTool($style, styleableDraft())->handle(new Request(['scheme' => 'warm-craft']));
 
-    expect($style->current()->preset)->toBe(StylePreset::WarmCraft)
-        ->and($style->toArray())->toBe(StylePreset::WarmCraft->tokens()->toArray())
+    expect($style->current()->scheme)->toBe(DefaultTheme::WARM_CRAFT)
+        ->and($style->toArray())->toBe(defaultScheme(DefaultTheme::WARM_CRAFT)->tokens->toArray())
         // The model has to relay both facts, so the tool result states them.
         ->and($result)->toContain('affects every page')
         ->and($result)->toContain('staged on the canvas only');
 });
 
-it('fine-tunes a single token without a preset', function (): void {
+it('fine-tunes a single token without a scheme', function (): void {
     $style = styleDraft();
 
     styleTool($style, styleableDraft())->handle(new Request([TokenKey::Radius->value => RadiusScale::Full->value]));
@@ -59,12 +61,12 @@ it('fine-tunes a single token without a preset', function (): void {
  * events — the difference between a broad restyle finishing and timing out. The
  * expansion is server-side and deterministic, not N model guesses.
  */
-it('re-lays the page to the preset when asked to align layouts', function (): void {
+it('re-lays the page to the scheme when asked to align layouts', function (): void {
     $draft = styleableDraft();
-    $expected = StylePreset::BoldEditorial->blockVariantDefaults();
+    $expected = defaultScheme(DefaultTheme::BOLD_EDITORIAL)->blockVariantDefaults;
 
     $result = styleTool(styleDraft(), $draft)->handle(new Request([
-        'preset' => 'bold-editorial',
+        'scheme' => 'bold-editorial',
         'align_layouts' => true,
     ]));
 
@@ -84,12 +86,12 @@ it('aligns section backgrounds in the same call, and leaves the hero to its vari
     $draft = styleableDraft();
 
     styleTool(styleDraft(), $draft)->handle(new Request([
-        'preset' => 'bold-editorial',
+        'scheme' => 'bold-editorial',
         'align_layouts' => true,
     ]));
 
     expect($draft->blocks()[1]['data']['appearance'])
-        ->toBe(StylePreset::BoldEditorial->blockAppearanceDefaults()['features'])
+        ->toBe(defaultScheme(DefaultTheme::BOLD_EDITORIAL)->blockAppearanceDefaults['features'])
         // No preset says anything about a hero: its variant already decides its
         // weight, and full-bleed-overlay is dark by construction.
         ->and($draft->blocks()[0]['data'])->not->toHaveKey('appearance');
@@ -99,7 +101,7 @@ it('preserves the stored key order when it re-lays a block', function (): void {
     $draft = styleableDraft();
     $before = array_keys($draft->blocks()[0]['data']);
 
-    styleTool(styleDraft(), $draft)->handle(new Request(['preset' => 'bold-editorial', 'align_layouts' => true]));
+    styleTool(styleDraft(), $draft)->handle(new Request(['scheme' => 'bold-editorial', 'align_layouts' => true]));
 
     expect(array_keys($draft->blocks()[0]['data']))->toBe($before);
 });
@@ -107,7 +109,7 @@ it('preserves the stored key order when it re-lays a block', function (): void {
 it('leaves layouts alone unless alignment was asked for', function (): void {
     $draft = styleableDraft();
 
-    styleTool(styleDraft(), $draft)->handle(new Request(['preset' => 'bold-editorial']));
+    styleTool(styleDraft(), $draft)->handle(new Request(['scheme' => 'bold-editorial']));
 
     expect($draft->blocks())->toBe(styleableDraft()->blocks());
 });
@@ -117,10 +119,10 @@ it('leaves layouts alone unless alignment was asked for', function (): void {
  * would leave the model believing it succeeded — so its next call builds on a
  * false premise and its prose reports a change that never happened.
  */
-it('rejects an unknown preset and lists the real ones, changing nothing', function (): void {
+it('rejects an unknown scheme and lists the real ones, changing nothing', function (): void {
     $style = styleDraft();
 
-    $result = styleTool($style, styleableDraft())->handle(new Request(['preset' => 'apple']));
+    $result = styleTool($style, styleableDraft())->handle(new Request(['scheme' => 'apple']));
 
     expect($style->touched())->toBeFalse()
         ->and($result)->toContain("There is no 'apple' style")
@@ -136,14 +138,14 @@ it('applies the valid tokens and reports the one it rejected', function (): void
     $style = styleDraft();
 
     $result = styleTool($style, styleableDraft())->handle(new Request([
-        'preset' => 'warm-craft',
+        'scheme' => 'warm-craft',
         TokenKey::Radius->value => 'enormous',
     ]));
 
     expect($style->touched())->toBeTrue()
-        ->and($style->current()->palette)->toBe(StylePreset::WarmCraft->tokens()->palette)
-        // The preset survives untuned — the bad radius was dropped, not zeroed.
-        ->and($style->current()->preset)->toBe(StylePreset::WarmCraft)
+        ->and($style->current()->palette)->toBe(defaultScheme(DefaultTheme::WARM_CRAFT)->tokens->palette)
+        // The scheme survives untuned — the bad radius was dropped, not zeroed.
+        ->and($style->current()->scheme)->toBe(DefaultTheme::WARM_CRAFT)
         ->and($result)->toContain("'enormous' is not a valid corner radius and was not applied")
         ->and($result)->toContain('full');
 });
@@ -237,7 +239,7 @@ it('allows the brand palette when the business already has a primary', function 
         ->and($style->toArray())->not->toHaveKey('brand_primary');
 });
 
-it('publishes the preset vocabulary and the blast radius in its schema', function (): void {
+it('publishes the scheme vocabulary and the blast radius in its schema', function (): void {
     $tool = styleTool(styleDraft(), styleableDraft());
 
     $serialized = json_decode(json_encode(array_map(
@@ -245,10 +247,10 @@ it('publishes the preset vocabulary and the blast radius in its schema', functio
         $tool->schema(new JsonSchemaTypeFactory),
     )), associative: true);
 
-    expect($serialized['preset']['enum'])->toHaveSameSize(StylePreset::cases())
+    expect($serialized['scheme']['enum'])->toHaveSameSize(Theme::Default->definition()->schemes)
         // The adjectives are the grounding — without them in the schema the
         // model is choosing among six opaque slugs.
-        ->and($serialized['preset']['description'])->toContain('premium')
+        ->and($serialized['scheme']['description'])->toContain('premium')
         ->and($serialized['align_layouts']['type'])->toBe('boolean')
         ->and($serialized)->toHaveKey(TokenKey::Density->value)
         // The palette's own grounding: colour words per slug, so "deep blue"

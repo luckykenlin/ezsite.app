@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Templates\Definitions;
 
-use App\Design\StylePreset;
 use App\Enums\PhotoCategory;
 use App\StockPhotos\PhotoOrientation;
 use App\Templates\DemoProfile;
 use App\Templates\PhotoQuery;
 use App\Templates\TemplateDefinition;
 use App\Templates\TemplateField;
+use App\Themes\Definitions\DefaultTheme;
 
 /**
  * Independent nail studio — the dark-room template.
@@ -39,7 +39,7 @@ final readonly class NailSalon
     public static function definition(): TemplateDefinition
     {
         return new TemplateDefinition(
-            preset: StylePreset::NightLounge,
+            scheme: DefaultTheme::NIGHT_LOUNGE,
             brandPrimary: '#C9A227',
             brandSecondary: '#12100E',
             brandAccent: '#E6D3A3',

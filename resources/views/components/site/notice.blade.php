@@ -16,14 +16,14 @@
     the callers (resources/views/errors, resources/views/site) need no new
     source line and must not introduce utility classes of their own.
 --}}
-@use('App\Design\StylePreset')
 @use('App\Site\Favicon')
+@use('App\Themes\CurrentTheme')
 @props(['business' => null, 'title', 'heading', 'body' => null, 'noindex' => false])
 @php
     // A tenant with no Business profile still gets a themed page: ThemeVariables
-    // takes a null business and the preset's own palette stands, exactly as the
-    // central marketing site does it.
-    $tokens = $business?->design_tokens ?? StylePreset::FreshModern->tokens();
+    // takes a null business and the current theme's default scheme stands,
+    // exactly as the central marketing site does it.
+    $tokens = $business?->design_tokens ?? app(CurrentTheme::class)->definition()->defaultScheme()->tokens;
     $siteName = $business->name ?? config('app.name');
 @endphp
 <!DOCTYPE html>

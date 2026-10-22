@@ -4,13 +4,17 @@ declare(strict_types=1);
 
 use App\Actions\Templates\FillTemplatePlaceholders;
 use App\Ai\SiteDraftValidator;
-use App\Design\StylePreset;
+use App\Design\DesignTokens;
 use App\Site\Blocks\BlockShape;
 use App\Site\Blocks\BlockVocabulary;
 use App\Site\Blocks\LayoutAxis;
 use App\Templates\PhotoQuery;
 use App\Templates\SiteTemplate;
+use App\Templates\TemplateDefinition;
 use App\Templates\TemplateField;
+use App\Themes\Definitions\DefaultTheme;
+use App\Themes\Scheme;
+use App\Themes\Theme;
 
 /**
  * Every template, by name — the dataset every structural assertion below runs
@@ -27,7 +31,7 @@ dataset('templates', fn (): array => array_reduce(
 /**
  * The filled template run through the same door the AI path uses.
  *
- * @return array{preset: StylePreset, pages: non-empty-list<array{slug: string, title: string, metaDescription: string|null, blocks: list<array{type: string, data: array<string, mixed>}>}>}
+ * @return array{scheme: Scheme, pages: non-empty-list<array{slug: string, title: string, metaDescription: string|null, blocks: list<array{type: string, data: array<string, mixed>}>}>}
  */
 function validateTemplate(SiteTemplate $template): array
 {
@@ -37,7 +41,7 @@ function validateTemplate(SiteTemplate $template): array
     $filled = resolve(FillTemplatePlaceholders::class)->handle($definition);
 
     return resolve(SiteDraftValidator::class)->handle(
-        ['preset' => $definition->preset->value, 'pages' => $filled['pages']],
+        ['scheme' => $definition->scheme, 'pages' => $filled['pages']],
         $definition->demoProfile->name,
     );
 }
@@ -46,7 +50,7 @@ it('survives the site draft validator with no page and no block dropped', functi
     $definition = $template->definition();
     $validated = validateTemplate($template);
 
-    expect($validated['preset'])->toBe($definition->preset)
+    expect($validated['scheme']->slug)->toBe($definition->scheme)
         ->and($validated['pages'])->toHaveSameSize($definition->pages);
 
     foreach ($definition->pages as $index => $authored) {
@@ -118,10 +122,10 @@ it('declares three brand hexes and a category the photo searches can use', funct
     expect([$definition->brandPrimary, $definition->brandSecondary, $definition->brandAccent])
         ->each->toMatch('/^#[0-9a-fA-F]{6}$/')
         ->and($definition->category)->not->toBeEmpty()
-        // The tokens the business row is stamped with keep the preset marker,
-        // so the design panel and StampPresetDefaults still know which
-        // preset's per-block opinions apply after an override.
-        ->and($definition->tokens()->preset)->toBe($definition->preset);
+        // The tokens the business row is stamped with keep the scheme marker,
+        // so the design panel and StampSchemeDefaults still know which
+        // scheme's per-block opinions apply after an override.
+        ->and($definition->tokens()->scheme)->toBe($definition->scheme);
 })->with('templates');
 
 it('pre-warms the library with photo searches, and asks a short answerable set of questions', function (SiteTemplate $template): void {
@@ -194,18 +198,48 @@ it('gives every template its own demo subdomain, label and gallery copy', functi
     }
 });
 
-it('leaves only the two presets without a template unshowcased', function (): void {
-    // The gallery is the design system's shop window: a preset no template
-    // reaches for is a preset no visitor ever sees. Two are unshowcased on
+/*
+ * A template names its scheme by slug, and `TemplateDefinition::tokens()`
+ * throws on one its theme does not offer — so a mistyped slug is caught the
+ * first time anything builds the template, which this makes every run.
+ */
+it('names a scheme its theme offers', function (SiteTemplate $template): void {
+    $definition = $template->definition();
+
+    expect($definition->theme->definition()->scheme($definition->scheme))->toBeInstanceOf(Scheme::class)
+        ->and($definition->tokens()->scheme)->toBe($definition->scheme);
+})->with('templates');
+
+it('refuses to build tokens for a scheme its theme does not offer', function (): void {
+    $definition = SiteTemplate::cases()[0]->definition();
+    $broken = new TemplateDefinition(
+        scheme: 'no-such-scheme',
+        brandPrimary: $definition->brandPrimary,
+        brandSecondary: $definition->brandSecondary,
+        brandAccent: $definition->brandAccent,
+        category: $definition->category,
+        chrome: $definition->chrome,
+        pages: $definition->pages,
+        photoQueries: $definition->photoQueries,
+        demoProfile: $definition->demoProfile,
+    );
+
+    expect(fn (): DesignTokens => $broken->tokens())
+        ->toThrow(InvalidArgumentException::class, 'The default theme has no "no-such-scheme" scheme.');
+});
+
+it('leaves only the two schemes of the default theme without a template unshowcased', function (): void {
+    // The gallery is the design system's shop window: a scheme no template
+    // reaches for is a scheme no visitor ever sees. Two are unshowcased on
     // purpose — their only templates (the designer portfolio on BoldEditorial,
     // the personal resume on ProfessionalMinimal) were retired — and listing
     // them here keeps the gap deliberate: a third orphan, or a template that
     // picks one of these up, both show here.
-    $used = array_map(fn (SiteTemplate $t): string => $t->definition()->preset->value, SiteTemplate::cases());
+    $used = array_map(fn (SiteTemplate $t): string => $t->definition()->scheme, SiteTemplate::cases());
     $unused = array_values(array_filter(
-        StylePreset::cases(),
-        fn (StylePreset $preset): bool => ! in_array($preset->value, $used, true),
+        array_keys(Theme::Default->definition()->schemes),
+        fn (string $slug): bool => ! in_array($slug, $used, true),
     ));
 
-    expect($unused)->toBe([StylePreset::ProfessionalMinimal, StylePreset::BoldEditorial]);
+    expect($unused)->toBe([DefaultTheme::PROFESSIONAL_MINIMAL, DefaultTheme::BOLD_EDITORIAL]);
 });

@@ -4,20 +4,21 @@ declare(strict_types=1);
 
 namespace App\Ai;
 
-use App\Design\StylePreset;
 use App\Exceptions\SiteDraftUnusable;
 use App\Site\Blocks\BlockShape;
 use App\Site\Blocks\BlockType;
 use App\Site\Blocks\BlockVocabulary;
 use App\Site\Blocks\LayoutAxis;
 use App\Site\Blocks\SectionLayout;
+use App\Themes\CurrentTheme;
+use App\Themes\Scheme;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 /**
  * The server-side gate between the AI's structured output and persistence.
  * The JSON schema constrains shape loosely; this enforces the page-level
- * rules: a recognized preset, a usable title and meta description, and enough
+ * rules: a recognized scheme, a usable title and meta description, and enough
  * surviving blocks to be worth publishing. Per-block field whitelisting is
  * {@see BlockDataSanitizer}'s job — the same rules the editor chat writes
  * through.
@@ -62,6 +63,7 @@ final readonly class SiteDraftValidator
     public function __construct(
         private BlockDataSanitizer $sanitizer,
         private BlockVocabulary $vocabulary,
+        private CurrentTheme $theme,
     ) {
         //
     }
@@ -74,11 +76,11 @@ final readonly class SiteDraftValidator
      * operator the home page the model already composed.
      *
      * @param  array<array-key, mixed>  $draft  the agent's decoded structured output
-     * @return array{preset: StylePreset, pages: non-empty-list<array{slug: string, title: string, metaDescription: string|null, blocks: list<array{type: string, data: array<string, mixed>}>}>}
+     * @return array{scheme: Scheme, pages: non-empty-list<array{slug: string, title: string, metaDescription: string|null, blocks: list<array{type: string, data: array<string, mixed>}>}>}
      */
     public function handle(array $draft, string $fallbackTitle): array
     {
-        $preset = $this->preset($draft);
+        $scheme = $this->scheme($draft);
         $rawPages = is_array($draft['pages'] ?? null) ? array_values($draft['pages']) : [];
 
         // Home held apart from the extras: it re-assembles as [$home, ...] so
@@ -150,7 +152,7 @@ final readonly class SiteDraftValidator
             'The draft contains no home page.',
         );
 
-        return ['preset' => $preset, 'pages' => [$home, ...$extras]];
+        return ['scheme' => $scheme, 'pages' => [$home, ...$extras]];
     }
 
     /**
@@ -202,7 +204,7 @@ final readonly class SiteDraftValidator
             // with a salvage read from inside `data`, where a drifting
             // provider habitually puts them (the sanitizer just stripped them
             // there). Block level wins. Only validated values are written; an
-            // invalid one falls through to the preset fill, never worse than
+            // invalid one falls through to the scheme fill, never worse than
             // the stamped output this path used to produce.
             $variant = $this->variant($pageTypes[$type], $block[BlockShape::VARIANT_KEY] ?? $raw[BlockShape::VARIANT_KEY] ?? null, $index);
 
@@ -266,22 +268,23 @@ final readonly class SiteDraftValidator
     /**
      * @param  array<array-key, mixed>  $draft
      */
-    private function preset(array $draft): StylePreset
+    private function scheme(array $draft): Scheme
     {
-        $preset = is_string($draft['preset'] ?? null) ? StylePreset::tryFrom($draft['preset']) : null;
+        $definition = $this->theme->definition();
+        $scheme = is_string($draft['scheme'] ?? null) ? $definition->scheme($draft['scheme']) : null;
 
-        if ($preset === null) {
-            Log::warning('site_draft.preset_fallback', ['stored' => $draft['preset'] ?? null]);
+        if ($scheme === null) {
+            Log::warning('site_draft.scheme_fallback', ['stored' => $draft['scheme'] ?? null]);
 
-            return StylePreset::cases()[0];
+            return $definition->defaultScheme();
         }
 
-        return $preset;
+        return $scheme;
     }
 
     /**
      * A validated layout choice, or null. Present-but-invalid logs with the
-     * offered value — silent-drop-to-preset would make "the model chose
+     * offered value — silent-drop-to-scheme would make "the model chose
      * garbage every time" look identical to "the model chose nothing", and
      * that frequency is exactly the DeepSeek-fidelity telemetry to watch.
      */

@@ -4,14 +4,15 @@ declare(strict_types=1);
 
 namespace App\Ai\Tools;
 
-use App\Actions\Pages\StampPresetDefaults;
+use App\Actions\Pages\StampSchemeDefaults;
 use App\Ai\PageDraft;
 use App\Ai\SiteStyleDraft;
 use App\Design\ColorPalette;
-use App\Design\StylePreset;
 use App\Design\TokenKey;
 use App\Design\TokenOptions;
 use App\Design\TokenSelection;
+use App\Themes\CurrentTheme;
+use App\Themes\Scheme;
 use BackedEnum;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Support\Str;
@@ -30,13 +31,14 @@ use Laravel\Ai\Tools\Request;
  * public render, so a tool that persisted would restyle a live website while
  * its owner was still reading the reply.
  *
- * Presets first, tokens second, by design. A preset is a combination that was
- * designed together, and {@see StylePreset}'s docblock names them "the guard
- * rail against jarring free-form variant × token combinations" — so an
- * adjective resolves to a preset, and fine-tuning is for when the operator
- * named the thing itself ("rounder corners"). Fine-tuning detaches the preset
- * marker, exactly as it does through the Design modal, because
- * {@see \App\Design\DesignTokens::with()} says so.
+ * Schemes first, tokens second, by design. A scheme is a combination that was
+ * designed together — the guard rail against jarring free-form variant × token
+ * combinations — so an adjective resolves to a scheme, and fine-tuning is for
+ * when the operator named the thing itself ("rounder corners"). Fine-tuning
+ * detaches the scheme marker, exactly as it does through the Design modal,
+ * because {@see \App\Design\DesignTokens::with()} says so. The menu is the
+ * current theme's ({@see Scheme}), so the model is only ever offered looks the
+ * tenant's theme can draw.
  *
  * `align_layouts` is what keeps a whole-site restyle to ONE call. Without it an
  * eight-block page needs nine, against `#[MaxSteps(12)]` and a 90-second turn
@@ -48,7 +50,8 @@ final readonly class SetSiteStyle implements Tool
     public function __construct(
         private SiteStyleDraft $style,
         private PageDraft $draft,
-        private StampPresetDefaults $stampPresetDefaults,
+        private StampSchemeDefaults $stampSchemeDefaults,
+        private CurrentTheme $theme,
     ) {
         //
     }
@@ -67,10 +70,10 @@ final readonly class SetSiteStyle implements Tool
     public function schema(JsonSchema $schema): array
     {
         $fields = [
-            'preset' => $schema->string()
-                ->description("The overall look, chosen by matching the operator's words against these: ".$this->presetGuide()
+            'scheme' => $schema->string()
+                ->description("The overall look, chosen by matching the operator's words against these: ".$this->schemeGuide()
                     .' Omit to keep the current look and only fine-tune.')
-                ->enum(array_map(static fn (StylePreset $preset): string => $preset->value, StylePreset::cases())),
+                ->enum(array_keys($this->theme->definition()->schemes)),
             'align_layouts' => $schema->boolean()
                 ->description('Re-lay every section on this page to the layouts AND section backgrounds the chosen '
                     .'style was designed with. Prefer this over changing sections one at a time — a style whose '
@@ -106,14 +109,15 @@ final readonly class SetSiteStyle implements Tool
     {
         $arguments = $request->toArray();
 
-        $requestedPreset = $arguments['preset'] ?? null;
-        $preset = is_string($requestedPreset) ? StylePreset::tryFrom($requestedPreset) : null;
+        $definition = $this->theme->definition();
+        $requestedScheme = $arguments['scheme'] ?? null;
+        $scheme = is_string($requestedScheme) ? $definition->scheme($requestedScheme) : null;
 
-        if (is_string($requestedPreset) && ! $preset instanceof StylePreset) {
+        if (is_string($requestedScheme) && ! $scheme instanceof Scheme) {
             return $this->draft->reply(sprintf(
                 "There is no '%s' style, so nothing changed. The styles are: %s.",
-                $requestedPreset,
-                implode(', ', array_map(static fn (StylePreset $case): string => $case->value, StylePreset::cases())),
+                $requestedScheme,
+                implode(', ', array_keys($definition->schemes)),
             ));
         }
 
@@ -160,14 +164,14 @@ final readonly class SetSiteStyle implements Tool
             );
         }
 
-        if (! $preset instanceof StylePreset && $changes === []) {
+        if (! $scheme instanceof Scheme && $changes === []) {
             return $this->draft->reply($rejected === []
                 ? 'No style was given, so nothing changed.'
                 : 'Nothing changed. '.implode(' ', $rejected));
         }
 
-        if ($preset instanceof StylePreset) {
-            $this->style->applyPreset($preset);
+        if ($scheme instanceof Scheme) {
+            $this->style->applyScheme($scheme);
         }
 
         if ($brand !== []) {
@@ -178,10 +182,10 @@ final readonly class SetSiteStyle implements Tool
             $this->style->apply($changes);
         }
 
-        $aligned = $preset instanceof StylePreset && ($arguments['align_layouts'] ?? false) === true;
+        $aligned = $scheme instanceof Scheme && ($arguments['align_layouts'] ?? false) === true;
 
         if ($aligned) {
-            $this->draft->replace($this->alignedBlocks($preset));
+            $this->draft->replace($this->alignedBlocks($scheme));
         }
 
         return $this->draft->reply(sprintf(
@@ -194,25 +198,25 @@ final readonly class SetSiteStyle implements Tool
     }
 
     /**
-     * Every block re-laid to the preset's layouts AND section backgrounds,
+     * Every block re-laid to the scheme's layouts AND section backgrounds,
      * keeping the editor's keys.
      *
-     * The per-block rule lives in {@see StampPresetDefaults::stamp()}; only the
+     * The per-block rule lives in {@see StampSchemeDefaults::stamp()}; only the
      * iteration is here, because PHPStan's array shapes are sealed and the draft's
      * `{key, type, data}` is not a subtype of the `{type, data}` that action's
      * `handle()` takes.
      *
      * @return list<array{key: string, type: string, data: array<string, mixed>}>
      */
-    private function alignedBlocks(StylePreset $preset): array
+    private function alignedBlocks(Scheme $scheme): array
     {
         $blocks = $this->draft->blocks();
 
         foreach ($blocks as $index => $block) {
-            $blocks[$index]['data'] = $this->stampPresetDefaults->stamp(
+            $blocks[$index]['data'] = $this->stampSchemeDefaults->stamp(
                 $block['data'],
                 $block['type'],
-                $preset,
+                $scheme,
             );
         }
 
@@ -266,7 +270,7 @@ final readonly class SetSiteStyle implements Tool
 
     /**
      * The palette menu the model matches a colour word against — the colour
-     * counterpart of {@see presetGuide()}, grounded on the enum for the same
+     * counterpart of {@see schemeGuide()}, grounded on the enum for the same
      * reason.
      */
     private function paletteGuide(): string
@@ -278,15 +282,16 @@ final readonly class SetSiteStyle implements Tool
     }
 
     /**
-     * The preset menu the model matches an adjective against. Built from
-     * {@see StylePreset::synonyms()} so the grounding lives on the enum, next
-     * to the tokens it selects, rather than being restated in prose here.
+     * The scheme menu the model matches an adjective against. Built from the
+     * current theme's {@see Scheme::$synonyms} so the grounding lives on the
+     * scheme, next to the tokens it selects, rather than being restated in
+     * prose here.
      */
-    private function presetGuide(): string
+    private function schemeGuide(): string
     {
         return implode(' ', array_map(
-            static fn (StylePreset $preset): string => $preset->value.': '.implode(', ', $preset->synonyms()).'.',
-            StylePreset::cases(),
+            static fn (Scheme $scheme): string => $scheme->slug.': '.implode(', ', $scheme->synonyms).'.',
+            array_values($this->theme->definition()->schemes),
         ));
     }
 }

@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Templates\Definitions;
 
-use App\Design\StylePreset;
 use App\Enums\PhotoCategory;
 use App\StockPhotos\PhotoOrientation;
 use App\Templates\DemoProfile;
 use App\Templates\PhotoQuery;
 use App\Templates\TemplateDefinition;
 use App\Templates\TemplateField;
+use App\Themes\Definitions\DefaultTheme;
 
 /**
  * Bubble tea shop — the product-shot pilot.
@@ -36,7 +36,7 @@ final readonly class BubbleTea
     public static function definition(): TemplateDefinition
     {
         return new TemplateDefinition(
-            preset: StylePreset::FreshModern,
+            scheme: DefaultTheme::FRESH_MODERN,
             brandPrimary: '#4E9B76',
             brandSecondary: '#26332C',
             brandAccent: '#F4C9DA',

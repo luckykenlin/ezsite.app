@@ -11,9 +11,9 @@ use App\Design\FontPair;
 use App\Design\RadiusScale;
 use App\Design\SectionDivider;
 use App\Design\SpacingDensity;
-use App\Design\StylePreset;
 use App\Design\TokenKey;
 use App\Design\TypeStyle;
+use App\Themes\Scheme;
 
 /**
  * The turn-scoped working copy of the site's design tokens — the design-side
@@ -146,7 +146,7 @@ final class SiteStyleDraft
      *
      * Read by {@see Tools\CreatePage}, and the distinction matters there: a new
      * page is WRITTEN to the database, so its block layouts should match the style
-     * the site actually has. Stamping this turn's staged preset onto it would
+     * the site actually has. Stamping this turn's staged scheme onto it would
      * produce a page laid out for a look the operator may never apply — and
      * nothing would later go back and fix it.
      */
@@ -161,12 +161,12 @@ final class SiteStyleDraft
     }
 
     /**
-     * Replace every token with a preset's bundle, keeping the preset marker —
-     * the staged equivalent of {@see \App\Actions\ApplyStylePreset}.
+     * Replace every token with a scheme's bundle, keeping the scheme marker —
+     * the staged equivalent of {@see \App\Actions\ApplyScheme}.
      */
-    public function applyPreset(StylePreset $preset): void
+    public function applyScheme(Scheme $scheme): void
     {
-        $this->staged = $preset->tokens();
+        $this->staged = $scheme->tokens;
         $this->dirty = true;
     }
 
@@ -175,7 +175,7 @@ final class SiteStyleDraft
      * absent from `$changes` are left alone.
      *
      * Delegates to {@see DesignTokens::with()}, so it inherits the rule that any
-     * manual override detaches the preset marker — a preset-then-tweak turn
+     * manual override detaches the scheme marker — a scheme-then-tweak turn
      * ends up custom, the same as it would through the Design modal.
      *
      * Callers hand over raw enum VALUES, already checked against the tool

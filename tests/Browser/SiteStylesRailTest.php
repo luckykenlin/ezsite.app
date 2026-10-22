@@ -3,11 +3,11 @@
 declare(strict_types=1);
 
 use App\Design\FontPair;
-use App\Design\StylePreset;
 use App\Filament\Tenant\Resources\PageResource;
 use App\Models\Business;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Themes\Definitions\DefaultTheme;
 
 /**
  * A tenant with a business profile (the rail's precondition) and a home page,
@@ -24,7 +24,7 @@ function stylesRailUrl(): string
     ]);
 
     test()->runInTenant($tenant, fn (): Business => Business::factory()
-        ->themed(StylePreset::ProfessionalMinimal)
+        ->themed(DefaultTheme::PROFESSIONAL_MINIMAL)
         ->create(['tenant_id' => $tenant->id]));
 
     tenancy()->initialize($tenant);
@@ -94,9 +94,9 @@ it('draws each font option in its own family, not the current one', function ():
 it('repaints the canvas when a swatch is clicked, without saving', function (): void {
     $browser = visit(stylesRailUrl())
         ->click('Themes')
-        // The enum's own label, not a copy of it: a literal that drifts does
+        // The scheme's own label, not a copy of it: a literal that drifts does
         // not fail here, it hangs — Playwright waits for a match forever.
-        ->click(StylePreset::NightLounge->label())
+        ->click(defaultScheme(DefaultTheme::NIGHT_LOUNGE)->label)
         // The footer appearing proves the click staged; the canvas catching up
         // is a separate, asynchronous step — the iframe reloads on its own.
         ->assertSee('Apply to site')
@@ -110,8 +110,8 @@ it('repaints the canvas when a swatch is clicked, without saving', function (): 
         ).getPropertyValue('--color-base-100').trim()
     JS);
 
-    expect($palette)->toBe(StylePreset::NightLounge->tokens()->palette->colors()['--color-base-100'])
-        ->and(Business::query()->sole()->design_tokens->preset)->toBe(StylePreset::ProfessionalMinimal);
+    expect($palette)->toBe(defaultScheme(DefaultTheme::NIGHT_LOUNGE)->tokens->palette->colors()['--color-base-100'])
+        ->and(Business::query()->sole()->design_tokens->scheme)->toBe(DefaultTheme::PROFESSIONAL_MINIMAL);
 
     $browser->assertNoJavaScriptErrors();
 });

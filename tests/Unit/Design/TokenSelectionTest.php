@@ -2,26 +2,26 @@
 
 declare(strict_types=1);
 
-use App\Design\StylePreset;
 use App\Design\TokenKey;
 use App\Design\TokenSelection;
+use App\Themes\Definitions\DefaultTheme;
 
 /*
  * Both readings are driven off TokenKey::cases() rather than a copy of the four
  * keys, so a fifth token has to satisfy all of this on the day it is added —
  * the same reason the enum exists.
  */
-it('normalises a selection to the preset and every token key', function (): void {
-    $normalised = TokenSelection::normalise(StylePreset::WarmCraft->tokens()->toArray());
+it('normalises a selection to the scheme and every token key', function (): void {
+    $normalised = TokenSelection::normalise(defaultScheme(DefaultTheme::WARM_CRAFT)->tokens->toArray());
 
-    expect(array_keys((array) $normalised))->toBe(['preset', ...TokenKey::values()])
-        ->and($normalised['preset'])->toBe('warm-craft');
+    expect(array_keys((array) $normalised))->toBe(['scheme', ...TokenKey::values()])
+        ->and($normalised['scheme'])->toBe('warm-craft');
 });
 
 it('keeps every known key even when the selection is empty', function (): void {
     $normalised = TokenSelection::normalise([]);
 
-    expect(array_keys((array) $normalised))->toBe(['preset', ...TokenKey::values()])
+    expect(array_keys((array) $normalised))->toBe(['scheme', ...TokenKey::values()])
         ->and(array_filter((array) $normalised))->toBeEmpty();
 });
 
@@ -32,14 +32,14 @@ it('keeps every known key even when the selection is empty', function (): void {
  */
 it('drops unknown keys and non-string values', function (): void {
     $normalised = TokenSelection::normalise([
-        'preset' => 42,
+        'scheme' => 42,
         'palette' => 'ocean',
         'radius' => ['nested'],
         'shadow' => 'heavy',
     ]);
 
     expect($normalised)->not->toHaveKey('shadow')
-        ->and($normalised['preset'])->toBeNull()
+        ->and($normalised['scheme'])->toBeNull()
         ->and($normalised['palette'])->toBe('ocean')
         ->and($normalised['radius'])->toBeNull();
 });
@@ -85,7 +85,7 @@ it('answers null only for input that is not an array', function (mixed $input): 
  */
 it('reads changes as only the token keys actually supplied', function (): void {
     $changes = TokenSelection::changes([
-        'preset' => 'warm-craft',
+        'scheme' => 'warm-craft',
         'palette' => 'ocean',
         'radius' => null,
         'density' => 12,

@@ -11,8 +11,8 @@ namespace App\Design;
  * FAMILY, so before this token every site set every heading in
  * `700 / -0.025em / sentence case` regardless of look.
  *
- * Packages rather than free axes on purpose (the same argument as
- * {@see StylePreset}): weight, tracking and case interact — 800 wants tighter
+ * Packages rather than free axes on purpose (the same argument as a theme
+ * scheme, {@see \App\Themes\Scheme}): weight, tracking and case interact — 800 wants tighter
  * tracking, uppercase wants a smaller size — and letting the operator or the
  * AI dial them independently is how a site starts to look wrong.
  *

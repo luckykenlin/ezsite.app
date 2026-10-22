@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Templates\Definitions;
 
-use App\Design\StylePreset;
 use App\Enums\PhotoCategory;
 use App\StockPhotos\PhotoOrientation;
 use App\Templates\DemoProfile;
 use App\Templates\PhotoQuery;
 use App\Templates\TemplateDefinition;
 use App\Templates\TemplateField;
+use App\Themes\Definitions\DefaultTheme;
 
 /**
  * Massage and day spa — the template that wins by leaving things out.
@@ -35,7 +35,7 @@ final readonly class MassageSpa
     public static function definition(): TemplateDefinition
     {
         return new TemplateDefinition(
-            preset: StylePreset::CalmCoastal,
+            scheme: DefaultTheme::CALM_COASTAL,
             brandPrimary: '#3F7A8C',
             brandSecondary: '#2B3A42',
             brandAccent: '#A8C6C9',

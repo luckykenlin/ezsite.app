@@ -28,6 +28,7 @@ use App\Site\Blocks\BlockVocabulary;
 use App\Site\MediaResolver;
 use App\Site\SiteChrome;
 use App\Site\SiteContext;
+use App\Themes\CurrentTheme;
 use Closure;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -93,6 +94,7 @@ final readonly class ChatEditPage
         // Scoped like the two above: the transcript's attachment thumbs go
         // through the same memoized id→URL map the canvas render uses.
         private MediaResolver $media,
+        private CurrentTheme $theme,
     ) {
         //
     }
@@ -434,6 +436,7 @@ final readonly class ChatEditPage
             $this->vocabulary->all(),
             $this->bindResolver->business(),
             $message,
+            $this->theme->definition(),
             $this->site,
             $style,
             $chrome,

@@ -9,7 +9,6 @@ use App\Ai\PageDraft;
 use App\Ai\SiteChromeDraft;
 use App\Ai\SiteStyleDraft;
 use App\Design\ColorPalette;
-use App\Design\StylePreset;
 use App\Enums\BindType;
 use App\Enums\ChromeSlot;
 use App\Models\Business;
@@ -17,6 +16,8 @@ use App\Models\Page;
 use App\Site\Blocks\BlockType;
 use App\Site\Blocks\LayoutAxis;
 use App\Site\SiteContext;
+use App\Themes\Scheme;
+use App\Themes\ThemeDefinition;
 use Stringable;
 
 /**
@@ -51,6 +52,7 @@ final readonly class PageEditPrompt implements Stringable
         private array $vocabulary,
         private ?Business $business,
         private string $message,
+        private ThemeDefinition $theme,
         private ?SiteContext $site = null,
         private ?SiteStyleDraft $style = null,
         private ?SiteChromeDraft $chrome = null,
@@ -304,9 +306,10 @@ final readonly class PageEditPrompt implements Stringable
      * improvising excuses for a verb it mysteriously lacked, where one line
      * lets it say plainly why a style request cannot be served yet. ~150
      * tokens with the menu, and it is the whole grounding for "make it more
-     * premium": {@see StylePreset::vibes()} holds INDUSTRY nouns, so without
-     * `synonyms()` in the prompt an adjective has nothing to match against and
-     * the model free-associates among six labels. The palette lines do the
+     * premium": {@see Scheme::$vibes} holds INDUSTRY nouns, so without the
+     * scheme synonyms in the prompt an adjective has nothing to match against
+     * and the model free-associates among six labels. The menu is the current
+     * theme's, so the model is only offered looks the tenant's theme draws. The palette lines do the
      * same job for colours — "deep blue" has to land on a slug, and the slugs
      * alone don't say which.
      */
@@ -320,13 +323,13 @@ final readonly class PageEditPrompt implements Stringable
         }
 
         $lines = array_map(
-            static fn (StylePreset $preset): string => sprintf(
+            static fn (Scheme $scheme): string => sprintf(
                 '- %s — %s Words: %s',
-                $preset->value,
-                $preset->description(),
-                implode(', ', $preset->synonyms()),
+                $scheme->slug,
+                $scheme->description,
+                implode(', ', $scheme->synonyms),
             ),
-            StylePreset::cases(),
+            array_values($this->theme->schemes),
         );
 
         $palettes = array_map(

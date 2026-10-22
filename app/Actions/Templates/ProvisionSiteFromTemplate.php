@@ -54,12 +54,13 @@ final readonly class ProvisionSiteFromTemplate
         // transaction rather than a stolen host.
         $subdomain = $this->validateSubdomain->handle($details->subdomain);
 
-        $tenant = DB::transaction(function () use ($template, $details, $subdomain): Tenant {
+        $tenant = DB::transaction(function () use ($template, $definition, $details, $subdomain): Tenant {
             $tenant = $this->createTenant->handle(
                 name: $details->businessName,
                 email: $details->email,
                 subdomain: $subdomain,
                 template: $template,
+                theme: $definition->theme,
             );
 
             // An existing account keeps its password. This wizard IS

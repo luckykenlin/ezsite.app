@@ -100,7 +100,7 @@ final readonly class ApplyTemplateToTenant
             $this->saveSiteChrome->handle($content['header'], $content['footer']);
 
             $draft = $this->validator->handle(
-                ['preset' => $definition->preset->value, 'pages' => $content['pages']],
+                ['scheme' => $definition->scheme, 'pages' => $content['pages']],
                 $details->businessName ?? $definition->demoProfile->name,
             );
 

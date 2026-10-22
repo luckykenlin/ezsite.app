@@ -16,9 +16,10 @@ use Illuminate\Support\Str;
  * the assistant's enum from the same keys — so a UI class owning it would put
  * the AI tool behind a Filament page.
  *
- * A `presets()` counterpart used to sit beside this, for a `Radio` of preset
- * NAMES. The panel draws each preset as a specimen of itself now and reads
- * {@see StylePreset::label()} directly, so the map went with the radio.
+ * A `presets()` counterpart used to sit beside this, for a `Radio` of scheme
+ * NAMES. The panel draws each of the theme's schemes as a specimen of itself
+ * now and reads {@see \App\Themes\Scheme::$label} directly, so the map went
+ * with the radio.
  */
 final class TokenOptions
 {

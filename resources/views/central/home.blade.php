@@ -9,9 +9,9 @@
     figure. Everything else on the page is checkable — the counted numbers
     are computed, the demo links open real published sites.
 --}}
-@use('App\Design\StylePreset')
 @use('App\Templates\SiteTemplate')
 @use('App\Templates\TemplateGallery')
+@use('App\Themes\Theme')
 
 @php
     $host = parse_url(config('app.url'), PHP_URL_HOST);
@@ -77,7 +77,7 @@
         <dl class="mx-auto grid max-w-7xl gap-10 px-6 sm:grid-cols-2 lg:grid-cols-4">
             @foreach ([
                 [(string) SiteTemplate::libraryCount(), __('marketing.home.stats.templates.label')],
-                [(string) count(StylePreset::cases()), __('marketing.home.stats.looks.label')],
+                [(string) count(Theme::Default->definition()->schemes), __('marketing.home.stats.looks.label')],
                 [__('marketing.home.stats.minutes.value'), __('marketing.home.stats.minutes.label')],
                 [__('marketing.home.stats.drag.value'), __('marketing.home.stats.drag.label')],
             ] as [$value, $label])
@@ -173,20 +173,20 @@
     </x-central.section>
 
     {{-- S6 · The design system: the page's second colour moment, carried
-         entirely by the preset palettes. --}}
+         entirely by the default theme's scheme palettes. --}}
     <x-central.section tone="muted" id="looks">
         <div class="mx-auto max-w-7xl px-6">
             <div class="mx-auto flex max-w-3xl flex-col items-center gap-3 text-center">
                 <p class="central-eyebrow">{{ __('marketing.home.design.eyebrow') }}</p>
                 <h2 class="central-display-sm">
-                    {{ __('marketing.home.design.title', ['count' => count(StylePreset::cases())]) }}
+                    {{ __('marketing.home.design.title', ['count' => count(Theme::Default->definition()->schemes)]) }}
                 </h2>
                 <p class="central-intro">{{ __('marketing.home.design.intro') }}</p>
             </div>
 
             <div class="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-                @foreach (StylePreset::cases() as $preset)
-                    @php $tokens = $preset->tokens(); @endphp
+                @foreach (Theme::Default->definition()->schemes as $scheme)
+                    @php $tokens = $scheme->tokens; @endphp
                     <div class="bg-paper border-ink/10 overflow-hidden rounded-2xl border">
                         <div class="flex h-20">
                             @foreach (['primary', 'secondary', 'accent', 'neutral'] as $slot)
@@ -196,14 +196,14 @@
                                 ></div>
                             @endforeach
                         </div>
-                        {{-- The preset's MARKETING copy from marketing.presets.*,
-                             not StylePreset::label()/description() — those stay
-                             English literals because the AI prompts reason over
-                             them. --}}
+                        {{-- The scheme's MARKETING copy from marketing.presets.*
+                             (keyed by slug), not Scheme::$label/$description —
+                             those stay English literals because the AI prompts
+                             reason over them. --}}
                         <div class="flex flex-col gap-1 p-5">
-                            <h3 class="central-h3">{{ __('marketing.presets.'.$preset->value.'.label') }}</h3>
+                            <h3 class="central-h3">{{ __('marketing.presets.'.$scheme->slug.'.label') }}</h3>
                             <p class="text-sm opacity-70">
-                                {{ __('marketing.presets.'.$preset->value.'.description') }}
+                                {{ __('marketing.presets.'.$scheme->slug.'.description') }}
                             </p>
                         </div>
                     </div>
@@ -351,7 +351,7 @@
             <div class="mt-14 grid gap-x-14 md:grid-cols-2">
                 @foreach ([
                     ['q' => __('marketing.home.faq.items.speed.q'), 'a' => __('marketing.home.faq.items.speed.a', ['host' => $host])],
-                    ['q' => __('marketing.home.faq.items.design.q'), 'a' => __('marketing.home.faq.items.design.a', ['count' => count(StylePreset::cases())])],
+                    ['q' => __('marketing.home.faq.items.design.q'), 'a' => __('marketing.home.faq.items.design.a', ['count' => count(Theme::Default->definition()->schemes)])],
                     ['q' => __('marketing.home.faq.items.domain.q'), 'a' => __('marketing.home.faq.items.domain.a')],
                     ['q' => __('marketing.home.faq.items.ai.q'), 'a' => __('marketing.home.faq.items.ai.a')],
                     ['q' => __('marketing.home.faq.items.edit.q'), 'a' => __('marketing.home.faq.items.edit.a')],

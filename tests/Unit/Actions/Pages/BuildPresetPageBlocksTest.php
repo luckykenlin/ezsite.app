@@ -3,11 +3,11 @@
 declare(strict_types=1);
 
 use App\Actions\Pages\BuildPresetPageBlocks;
-use App\Design\StylePreset;
 use App\Models\Location;
 use App\Models\Tenant;
 use App\Site\Blocks\BlockShape;
 use App\Templates\PagePreset;
+use App\Themes\Definitions\DefaultTheme;
 
 /**
  * @return array{title: string, metaDescription: string|null, blocks: list<array{type: string, data: array<string, mixed>}>}
@@ -72,7 +72,7 @@ it('answers every token with neutral replace-me copy when no rows exist', functi
 it('re-lays the blocks to the site style preset without losing authored variants', function (): void {
     $tenant = Tenant::factory()->create();
     $this->createTenantBusiness($tenant, [
-        'design_tokens' => StylePreset::QuietLuxe->tokens(),
+        'design_tokens' => defaultScheme(DefaultTheme::QUIET_LUXE)->tokens,
     ]);
 
     $built = buildPresetFor($tenant, PagePreset::Home);

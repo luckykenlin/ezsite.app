@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 /*
  * Every word on the CENTRAL marketing site: the frame, the four pages, the
- * apply wizard, the template library's prose and the style presets as the
- * marketing site describes them.
+ * apply wizard, the template library's prose and the theme's style schemes as
+ * the marketing site describes them.
  *
  * ONE file, and the group name matters. Split into `central.php`,
  * `templates.php` and `design.php` it broke the tenant page editor:
@@ -667,19 +667,20 @@ return [
     ],
 
     /*
-     * The style presets as the MARKETING site describes them, keyed by
-     * StylePreset::$value.
+     * The default theme's schemes as the MARKETING site describes them, keyed
+     * by Scheme::$slug. The group keeps its `presets` name: these are lang keys,
+     * not code, and renaming them buys nothing.
      *
-     * A deliberate fork from StylePreset::label()/description(), which stay hard
-     * English literals. Those two feed the tenant panel's preset picker AND two AI
+     * A deliberate fork from Scheme::$label/$description, which stay hard
+     * English literals. Those two feed the tenant panel's scheme picker AND two AI
      * system prompts (SiteDraftPrompt, PageEditPrompt), where the description plus
      * its synonyms are the whole grounding for a request like "make it more
      * premium". Translating the strings the model reasons over would quietly change
-     * which preset it picks, so the marketing surface gets its own copy instead and
+     * which scheme it picks, so the marketing surface gets its own copy instead and
      * the prompt keeps the English it was tuned against.
      *
-     * @see \App\Design\StylePreset
-     * @see \App\Ai\Prompts\SiteDraftPrompt::presetsSection()
+     * @see \App\Themes\Definitions\DefaultTheme
+     * @see \App\Ai\Prompts\SiteDraftPrompt::schemesSection()
      */
     'presets' => [
         'warm-craft' => [

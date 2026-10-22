@@ -11,6 +11,7 @@ use App\Models\Location;
 use App\Models\Tenant;
 use App\Site\Blocks\BlockShape;
 use App\Themes\CurrentTheme;
+use App\Themes\Definitions\DefaultTheme;
 use App\Themes\ThemeBlock;
 use App\Themes\ThemeDefinition;
 use Filament\Forms\Components\Builder\Block;
@@ -145,6 +146,7 @@ it("offers the current theme's variants in the selector, and none when the theme
             'features' => new ThemeBlock,
         ],
         stylesheet: 'resources/themes/default/theme.css',
+        schemes: [DefaultTheme::WARM_CRAFT => defaultScheme(DefaultTheme::WARM_CRAFT)],
     )));
 
     /** @var Select $variantSelect */

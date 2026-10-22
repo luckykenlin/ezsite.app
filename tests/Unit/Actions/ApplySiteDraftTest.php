@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 use App\Actions\ApplySiteDraft;
 use App\Actions\SaveSiteChrome;
-use App\Design\StylePreset;
 use App\Enums\PageStatus;
 use App\Models\Business;
 use App\Models\Page;
 use App\Models\SiteSetting;
 use App\Models\Tenant;
+use App\Themes\Definitions\DefaultTheme;
 
 /**
  * @param  list<array{type: string, data: array<string, mixed>}>  $blocks
@@ -35,11 +35,11 @@ function draftHomeBlocks(): array
 /**
  * @param  non-empty-list<array{slug: string, title: string, metaDescription: string|null, blocks: list<array{type: string, data: array<string, mixed>}>}>  $pages
  */
-function applyDraftFor(Tenant $tenant, array $pages, StylePreset $preset = StylePreset::WarmCraft, bool $overwritePublished = false): Page
+function applyDraftFor(Tenant $tenant, array $pages, string $scheme = DefaultTheme::WARM_CRAFT, bool $overwritePublished = false): Page
 {
     return test()->runInTenant($tenant, fn (): Page => resolve(ApplySiteDraft::class)->handle(
         Business::query()->firstOrFail(),
-        ['preset' => $preset, 'pages' => $pages],
+        ['scheme' => defaultScheme($scheme), 'pages' => $pages],
         $overwritePublished,
     ));
 }

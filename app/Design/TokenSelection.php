@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Design;
 
 /**
- * The two readings of a raw design selection — `preset` plus every
+ * The two readings of a raw design selection — `scheme` plus every
  * {@see TokenKey}, arriving from a Filament form, an AI tool call or a cache
  * entry.
  *
@@ -58,7 +58,7 @@ final class TokenSelection
             return null;
         }
 
-        $normalised = ['preset' => self::string($selection, 'preset')];
+        $normalised = ['scheme' => self::string($selection, 'scheme')];
 
         foreach (TokenKey::values() as $key) {
             $normalised[$key] = self::string($selection, $key);
@@ -84,7 +84,7 @@ final class TokenSelection
      *
      * The absences are the point: an omitted key means "leave this token alone",
      * so a hidden form field or an unset tool argument must not be written as
-     * null. `preset` is excluded — it is a marker, not a token, and the two
+     * null. `scheme` is excluded — it is a marker, not a token, and the two
      * write paths handle it separately.
      *
      * @param  array<array-key, mixed>  $selection

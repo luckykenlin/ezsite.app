@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Templates\Definitions;
 
-use App\Design\StylePreset;
 use App\Enums\PhotoCategory;
 use App\StockPhotos\PhotoOrientation;
 use App\Templates\DemoProfile;
 use App\Templates\PhotoQuery;
 use App\Templates\TemplateDefinition;
 use App\Templates\TemplateField;
+use App\Themes\Definitions\DefaultTheme;
 
 /**
  * Counter-service burger joint — the loud one.
@@ -34,7 +34,7 @@ final readonly class BurgerJoint
     public static function definition(): TemplateDefinition
     {
         return new TemplateDefinition(
-            preset: StylePreset::PlayfulFriendly,
+            scheme: DefaultTheme::PLAYFUL_FRIENDLY,
             brandPrimary: '#D9342B',
             brandSecondary: '#2B1A12',
             brandAccent: '#F2A81D',

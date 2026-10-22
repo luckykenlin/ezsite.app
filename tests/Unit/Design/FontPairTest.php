@@ -3,8 +3,9 @@
 declare(strict_types=1);
 
 use App\Design\FontPair;
-use App\Design\StylePreset;
 use App\Design\TypeStyle;
+use App\Themes\Scheme;
+use App\Themes\Theme;
 
 /**
  * The families bundled by the vite fonts plugin, as `family => weights`.
@@ -97,19 +98,19 @@ it('bundles nothing no pair can select', function (): void {
  * TypeStyle::Serene sets its display at 300 and every other style sits at 500
  * or above, because a browser snaps a missing weight to the nearest bundled one
  * — a forgiving failure for most type, and a total one for a high-contrast
- * serif at 6rem. So a light-display style may only ship inside a preset whose heading
+ * serif at 6rem. So a light-display style may only ship inside a scheme whose heading
  * face is drawn for it AND actually bundles the weight.
  */
-it('only pairs a light display weight with a face drawn and bundled for it', function (StylePreset $preset): void {
-    $tokens = $preset->tokens();
+it('only pairs a light display weight with a face drawn and bundled for it', function (Scheme $scheme): void {
+    $tokens = $scheme->tokens;
     $weight = (int) $tokens->typeStyle->variables()['--type-display-weight'];
     $bundled = bundledFonts()[$tokens->fontPair->headingFamily()] ?? [];
 
-    // Stated as an implication rather than an early return, so a preset that
+    // Stated as an implication rather than an early return, so a scheme that
     // sits at 500 or above still asserts something: that it is allowed to.
     expect($weight >= 500 || $tokens->fontPair->supportsLightDisplay())->toBeTrue()
         ->and($weight >= 500 || in_array($weight, $bundled, true))->toBeTrue();
-})->with(StylePreset::cases());
+})->with(Theme::Default->definition()->schemes);
 
 it('draws exactly one face finely enough to whisper', function (): void {
     // Kept explicit: `supportsLightDisplay()` is a judgement about a typeface,

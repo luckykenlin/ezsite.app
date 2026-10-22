@@ -7,13 +7,14 @@ namespace App\Actions;
 use App\Ai\Agents\SiteDraftAgent;
 use App\Ai\Prompts\SiteDraftPrompt;
 use App\Ai\SiteDraftValidator;
-use App\Design\StylePreset;
 use App\Exceptions\SiteDraftRefused;
 use App\Exceptions\SiteDraftUnusable;
 use App\Models\Business;
 use App\Models\Location;
 use App\Models\Page;
 use App\Site\Blocks\BlockVocabulary;
+use App\Themes\CurrentTheme;
+use App\Themes\Scheme;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Laravel\Ai\Responses\StructuredAgentResponse;
@@ -24,9 +25,9 @@ use Laravel\Ai\Responses\StructuredAgentResponse;
  * guards on Page/Business enforce it — dispatch out-of-band callers through
  * GenerateSiteDraftJob/RunInTenant).
  *
- * The AI chooses a preset, a block sequence, per-section layout variants and
+ * The AI chooses a scheme, a block sequence, per-section layout variants and
  * appearances, and copy; the validator lets only enum-checked layout choices
- * through. Persistence — the preset back-fill, the page upserts and the
+ * through. Persistence — the scheme back-fill, the page upserts and the
  * navigation stamp — lives in `ApplySiteDraft`, which the hand-curated
  * templates share, so a generated site and a template site land identically.
  * What stays here is what only the AI path has: the provider call, the one
@@ -36,9 +37,10 @@ final readonly class GenerateSiteDraft
 {
     public function __construct(
         private SiteDraftValidator $validator,
-        private ApplyStylePreset $applyStylePreset,
+        private ApplyScheme $applyScheme,
         private BlockVocabulary $vocabulary,
         private ApplySiteDraft $applySiteDraft,
+        private CurrentTheme $theme,
     ) {
         //
     }
@@ -74,14 +76,14 @@ final readonly class GenerateSiteDraft
         // One transaction around both halves: a site whose tokens changed but
         // whose pages did not land is a visibly broken restyle.
         return DB::transaction(function () use ($business, $draft): Page {
-            $this->applyStylePreset->handle($business, $draft['preset']);
+            $this->applyScheme->handle($business, $draft['scheme']);
 
             return $this->applySiteDraft->handle($business, $draft);
         });
     }
 
     /**
-     * @return array{preset: StylePreset, pages: non-empty-list<array{slug: string, title: string, metaDescription: string|null, blocks: list<array{type: string, data: array<string, mixed>}>}>}
+     * @return array{scheme: Scheme, pages: non-empty-list<array{slug: string, title: string, metaDescription: string|null, blocks: list<array{type: string, data: array<string, mixed>}>}>}
      */
     private function requestDraft(Business $business): array
     {
@@ -90,8 +92,10 @@ final readonly class GenerateSiteDraft
         // Same failover chain as the chat turns (ai.failover): a one-shot
         // generation is the worst place to lose a whole attempt to a provider
         // that refused to answer — the operator waits minutes either way.
-        $response = new SiteDraftAgent($this->vocabulary)->prompt(
-            (string) new SiteDraftPrompt($business, $locations, $this->vocabulary->all()),
+        $definition = $this->theme->definition();
+
+        $response = new SiteDraftAgent($this->vocabulary, $definition)->prompt(
+            (string) new SiteDraftPrompt($business, $locations, $this->vocabulary->all(), $definition),
             provider: config()->array('ai.failover'),
         );
 

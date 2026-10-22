@@ -6,13 +6,13 @@ namespace App\Templates\Definitions;
 
 use App\Design\ColorPalette;
 use App\Design\FontPair;
-use App\Design\StylePreset;
 use App\Enums\PhotoCategory;
 use App\StockPhotos\PhotoOrientation;
 use App\Templates\DemoProfile;
 use App\Templates\PhotoQuery;
 use App\Templates\TemplateDefinition;
 use App\Templates\TemplateField;
+use App\Themes\Definitions\DefaultTheme;
 
 /**
  * Neighbourhood pizzeria — the preset-variation pilot.
@@ -37,7 +37,7 @@ final readonly class PizzaShop
     public static function definition(): TemplateDefinition
     {
         return new TemplateDefinition(
-            preset: StylePreset::WarmCraft,
+            scheme: DefaultTheme::WARM_CRAFT,
             brandPrimary: '#C2410C',
             brandSecondary: '#2B1B14',
             brandAccent: '#F2A65A',

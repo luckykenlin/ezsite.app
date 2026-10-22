@@ -4,20 +4,20 @@ declare(strict_types=1);
 
 use App\Ai\Agents\SiteDraftAgent;
 use App\Ai\SiteDraftValidator;
-use App\Design\StylePreset;
 use App\Site\Blocks\BlockVocabulary;
+use App\Themes\Theme;
 use Illuminate\JsonSchema\JsonSchemaTypeFactory;
 
-it('constrains the structured output to presets and non-chrome vocabulary types', function (): void {
-    $schema = new SiteDraftAgent(resolve(BlockVocabulary::class))->schema(new JsonSchemaTypeFactory);
+it("constrains the structured output to the theme's schemes and non-chrome vocabulary types", function (): void {
+    $schema = new SiteDraftAgent(resolve(BlockVocabulary::class), Theme::Default->definition())->schema(new JsonSchemaTypeFactory);
 
     $serialized = json_decode(json_encode(array_map(
         fn ($type): array => $type->toArray(),
         $schema,
     )), associative: true);
 
-    expect($serialized['preset']['enum'])->toContain('warm-craft', 'professional-minimal')
-        ->and($serialized['preset']['enum'])->toHaveSameSize(StylePreset::cases())
+    expect($serialized['scheme']['enum'])->toContain('warm-craft', 'professional-minimal')
+        ->and($serialized['scheme']['enum'])->toHaveSameSize(Theme::Default->definition()->schemes)
         // The home page plus the fixed extra-slug menu — a closed set, so
         // slugs are collision-free and the navigation can be stamped.
         ->and($serialized['pages']['maxItems'])->toBe(1 + count(SiteDraftValidator::EXTRA_SLUGS))
@@ -45,7 +45,7 @@ it('constrains the structured output to presets and non-chrome vocabulary types'
     // views escape everything (so markup would render as text), and the draft is
     // persisted verbatim (so an invented fact reaches the live site). The third
     // pins the new layout authority.
-    expect(new SiteDraftAgent(resolve(BlockVocabulary::class))->instructions())
+    expect(new SiteDraftAgent(resolve(BlockVocabulary::class), Theme::Default->definition())->instructions())
         ->toContain('never output HTML')
         ->toContain('never invent facts')
         ->toContain('layout');

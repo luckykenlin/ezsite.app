@@ -21,7 +21,7 @@
     // App\Design\DesignTokens — the set this specimen draws.
     'tokens',
     // App\Design\TokenKey|null — the facet to show. Null draws the whole look
-    // (the Themes tile), which is what a StylePreset changes.
+    // (the Themes tile), which is what a theme Scheme changes.
     'axis' => null,
     // BackedEnum|null — the candidate value for $axis, applied over $tokens.
     'value' => null,

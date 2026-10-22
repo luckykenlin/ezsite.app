@@ -161,14 +161,14 @@ it('reads a structurally broken payload as nothing rather than throwing', functi
  */
 it('round-trips a staged style and keeps only the keys the editor knows', function (): void {
     chatTurns()->handle('tok', 'Done.', [], design: [
-        'preset' => 'warm-craft',
+        'scheme' => 'warm-craft',
         'palette' => 'warm-sand',
         'font_pair' => 42,
         'smuggled' => 'value',
     ]);
 
     expect(chatTurns()->read('tok')['design'])->toBe([
-        'preset' => 'warm-craft',
+        'scheme' => 'warm-craft',
         'palette' => 'warm-sand',
         // Non-strings become null rather than being passed along.
         'font_pair' => null,

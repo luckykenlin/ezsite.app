@@ -3,15 +3,15 @@
 declare(strict_types=1);
 
 use App\Actions\UpdateDesignTokens;
-use App\Design\StylePreset;
 use App\Models\Business;
 use App\Models\Tenant;
+use App\Themes\Definitions\DefaultTheme;
 use Illuminate\Support\Facades\Storage;
 
 it('injects the tenant theme variables into the public site head', function (): void {
     $tenant = Tenant::factory()->withDomain('acme')->create();
     $this->runInTenant($tenant, fn (): Business => Business::factory()
-        ->themed(StylePreset::WarmCraft)
+        ->themed(DefaultTheme::WARM_CRAFT)
         ->create(['tenant_id' => $tenant->id]));
     $this->createTenantPage($tenant, [
         ['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']],

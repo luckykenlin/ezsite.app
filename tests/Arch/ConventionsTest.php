@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use App\Design\Contrast;
 use App\Design\DesignTokens;
-use App\Design\StylePreset;
 use App\Design\ThemeVariables;
 use App\Design\TokenOptions;
 use App\Design\TokenSelection;
@@ -18,6 +17,7 @@ use App\Models\Post;
 use App\Models\SiteSetting;
 use App\Templates\PagePreset;
 use App\Templates\SiteTemplate;
+use App\Themes\Theme;
 
 /**
  * A view's markup with its Blade comments removed.
@@ -507,7 +507,7 @@ test('both languages of the marketing site carry exactly the same keys', functio
     }
 });
 
-test('every template, preset and wizard question is translated', function (): void {
+test('every template, scheme and wizard question is translated', function (): void {
     // The copy moved out of PHP into lang files, so "did anyone forget one?" is
     // no longer a question the type system answers. These are the three lists
     // that have to stay in step with the enums and the definitions.
@@ -515,9 +515,11 @@ test('every template, preset and wizard question is translated', function (): vo
     $templates = $marketing['templates'];
     $presets = $marketing['presets'];
 
-    foreach (StylePreset::cases() as $preset) {
-        expect($presets)->toHaveKey($preset->value.'.label')
-            ->and($presets)->toHaveKey($preset->value.'.description');
+    // The marketing site shows the default theme's schemes under the
+    // `marketing.presets` group — the lang keys keep their old name.
+    foreach (Theme::Default->definition()->schemes as $slug => $scheme) {
+        expect($presets)->toHaveKey($slug.'.label')
+            ->and($presets)->toHaveKey($slug.'.description');
     }
 
     foreach (SiteTemplate::cases() as $template) {

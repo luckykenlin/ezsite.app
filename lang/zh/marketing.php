@@ -616,7 +616,7 @@ return [
     /*
      * 版式在营销站上的中文说法，键与 lang/en/marketing.php 的同一段一致。
      *
-     * 这份文案是营销站专用的分叉：StylePreset::label()/description() 仍然是英文字面量，
+     * 这份文案是营销站专用的分叉：Scheme::$label/$description 仍然是英文字面量，
      * 因为它们同时喂给两个 AI 系统提示（SiteDraftPrompt、PageEditPrompt），
      * 模型是靠那段英文判断「再高级一点」该选哪套版式的。详见 lang/en/marketing.php 里这一段的英文注释。
      */

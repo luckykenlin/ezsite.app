@@ -7,8 +7,9 @@ use App\Models\Business;
 use App\Models\Location;
 use App\Models\Tenant;
 use App\Site\Blocks\BlockVocabulary;
+use App\Themes\Theme;
 
-it('assembles the profile, locations, vocabulary, presets and language sections', function (): void {
+it('assembles the profile, locations, vocabulary, schemes and language sections', function (): void {
     $tenant = Tenant::factory()->create();
     $business = $this->createTenantBusiness($tenant, [
         'name' => 'Corner Cafe',
@@ -28,6 +29,7 @@ it('assembles the profile, locations, vocabulary, presets and language sections'
         Business::query()->findOrFail($business->getKey()),
         Location::query()->get(),
         resolve(BlockVocabulary::class)->all(),
+        Theme::Default->definition(),
     );
 
     expect($prompt)->toContain('Name: Corner Cafe')
@@ -59,7 +61,7 @@ it('assembles the profile, locations, vocabulary, presets and language sections'
         // instruction to pad sparse profiles with neutral filler copy.
         ->not->toContain('features, gallery, testimonials, contact, cta')
         ->not->toContain('STILL compose the full page')
-        ->toContain('warm-craft') // preset menu
+        ->toContain('warm-craft') // scheme menu
         ->toContain('vibes:')
         ->toContain('Write all user-visible copy in: zh_TW');
 });
@@ -72,6 +74,7 @@ it('teaches the image-query rule only when the stock-photo pipeline can act on i
         Business::query()->findOrFail($business->getKey()),
         Location::query()->get(),
         resolve(BlockVocabulary::class)->all(),
+        Theme::Default->definition(),
     );
 
     // Disabled (the default): asking for a query that would be silently
@@ -92,6 +95,7 @@ it('degrades gracefully when the business has no locations and no locale', funct
         Business::query()->findOrFail($business->getKey()),
         Location::query()->get(),
         resolve(BlockVocabulary::class)->all(),
+        Theme::Default->definition(),
     );
 
     expect($prompt)->toContain('None recorded yet.')

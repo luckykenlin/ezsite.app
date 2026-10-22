@@ -7,10 +7,10 @@
     marketing chrome stays ink-on-paper so the template screenshots are the
     only colour on the page, which is what actually sells them. The tenant
     design system still gets its showing — in the screenshots, the live
-    demos and the preset swatches, i.e. as the product rather than as the
+    demos and the scheme swatches, i.e. as the product rather than as the
     wrapper.
 
-    No StylePreset tokens, no ThemeVariables, no FontPair machinery: the one
+    No scheme tokens, no ThemeVariables, no FontPair machinery: the one
     font is Schibsted Grotesk, already bundled for the tenant pairs, so this
     page adds no font download of its own.
 

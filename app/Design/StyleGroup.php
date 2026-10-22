@@ -21,8 +21,8 @@ namespace App\Design;
  * beside the tokens keeps both reading one definition — the same reasoning that
  * put {@see TokenOptions} here.
  *
- * `Theme` deliberately owns no keys: it is the {@see StylePreset} picker, which
- * sets all eight at once. The "every key belongs to exactly one group" test
+ * `Theme` deliberately owns no keys: it is the scheme picker
+ * ({@see \App\Themes\Scheme}), which sets all eight at once. The "every key belongs to exactly one group" test
  * reads it as the empty set rather than special-casing it, so a token added to
  * `TokenKey` and forgotten here fails CI instead of silently vanishing from
  * every design surface.

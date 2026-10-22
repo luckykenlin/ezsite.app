@@ -6,7 +6,6 @@ use App\Actions\Pages\ChatEditPage;
 use App\Actions\SaveSiteChrome;
 use App\Ai\Agents\PageEditorAgent;
 use App\Design\DesignTokens;
-use App\Design\StylePreset;
 use App\Enums\ChatRole;
 use App\Enums\PageStatus;
 use App\Models\Business;
@@ -16,6 +15,7 @@ use App\Models\PageChatMessage;
 use App\Models\SiteSetting;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Themes\Definitions\DefaultTheme;
 use Illuminate\Support\Facades\Log;
 use Laravel\Ai\Prompts\AgentPrompt;
 use Laravel\Ai\Responses\Data\ToolCall;
@@ -418,15 +418,15 @@ it('stages a site style without writing it to the business', function (): void {
     $this->createTenantBusiness($this->tenant, ['design_tokens' => DesignTokens::default()], 0);
 
     PageEditorAgent::fake([
-        toolCall('SetSiteStyle', ['preset' => 'warm-craft']),
+        toolCall('SetSiteStyle', ['scheme' => 'warm-craft']),
         'Warmed the whole site up.',
     ])->preventStrayPrompts();
 
     $result = chatTurn(chatBlocks(), 'make it warmer');
 
-    expect($result['design'])->toBe(StylePreset::WarmCraft->tokens()->toArray())
+    expect($result['design'])->toBe(defaultScheme(DefaultTheme::WARM_CRAFT)->tokens->toArray())
         // Untouched on disk — the "Apply to site" click is what writes it.
-        ->and(Business::query()->sole()->design_tokens->preset)->toBeNull();
+        ->and(Business::query()->sole()->design_tokens->scheme)->toBeNull();
 });
 
 /*
@@ -477,11 +477,11 @@ it('refines a still-unapplied style from an earlier turn instead of restarting',
         $this->page,
         chatBlocks(),
         'square corners',
-        designDraft: StylePreset::BoldEditorial->tokens()->toArray(),
+        designDraft: defaultScheme(DefaultTheme::BOLD_EDITORIAL)->tokens->toArray(),
     ));
 
     // The fine-tune landed ON the seeded preview, not on the saved default.
-    expect($result['design']['palette'])->toBe(StylePreset::BoldEditorial->tokens()->palette->value)
+    expect($result['design']['palette'])->toBe(defaultScheme(DefaultTheme::BOLD_EDITORIAL)->tokens->palette->value)
         ->and($result['design']['radius'])->toBe('none');
 
     // And the model was told the style it sees is an unapplied preview.
@@ -505,7 +505,7 @@ it('does not re-stage a seeded style the turn left alone', function (): void {
         $this->page,
         chatBlocks(),
         'rewrite the headline',
-        designDraft: StylePreset::BoldEditorial->tokens()->toArray(),
+        designDraft: defaultScheme(DefaultTheme::BOLD_EDITORIAL)->tokens->toArray(),
     ));
 
     expect($result['design'])->toBeNull();
@@ -541,7 +541,7 @@ it('discards a half-chosen style when the turn fails', function (): void {
     expect($result['failed'])->toBeTrue()
         ->and($result['design'])->toBeNull()
         ->and($result['blocks'])->toBe(chatBlocks())
-        ->and(Business::query()->sole()->design_tokens->preset)->toBeNull();
+        ->and(Business::query()->sole()->design_tokens->scheme)->toBeNull();
 });
 
 /*
@@ -552,15 +552,15 @@ it('re-lays the page in the same call that stages the style', function (): void 
     $this->createTenantBusiness($this->tenant, [], 0);
 
     PageEditorAgent::fake([
-        toolCall('SetSiteStyle', ['preset' => 'bold-editorial', 'align_layouts' => true]),
+        toolCall('SetSiteStyle', ['scheme' => 'bold-editorial', 'align_layouts' => true]),
         'Went bold, and re-laid the sections to match.',
     ])->preventStrayPrompts();
 
     $result = chatTurn(chatBlocks(), 'make it dramatic');
 
     expect($result['blocks'][0]['data']['variant'])
-        ->toBe(StylePreset::BoldEditorial->blockVariantDefaults()['hero'])
-        ->and($result['design']['preset'])->toBe('bold-editorial');
+        ->toBe(defaultScheme(DefaultTheme::BOLD_EDITORIAL)->blockVariantDefaults['hero'])
+        ->and($result['design']['scheme'])->toBe('bold-editorial');
 });
 
 it('switches one section layout without touching the site style', function (): void {

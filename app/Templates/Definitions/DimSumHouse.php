@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace App\Templates\Definitions;
 
 use App\Design\ColorPalette;
-use App\Design\StylePreset;
 use App\Enums\PhotoCategory;
 use App\StockPhotos\PhotoOrientation;
 use App\Templates\DemoProfile;
 use App\Templates\PhotoQuery;
 use App\Templates\TemplateDefinition;
 use App\Templates\TemplateField;
+use App\Themes\Definitions\DefaultTheme;
 
 /**
  * Cantonese tea house — the menu-card showcase.
@@ -35,7 +35,7 @@ final readonly class DimSumHouse
     public static function definition(): TemplateDefinition
     {
         return new TemplateDefinition(
-            preset: StylePreset::WarmCraft,
+            scheme: DefaultTheme::WARM_CRAFT,
             brandPrimary: '#8B1E1E',
             brandSecondary: '#241E17',
             brandAccent: '#C9A24B',

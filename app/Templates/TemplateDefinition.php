@@ -12,8 +12,9 @@ use App\Design\MotionStyle;
 use App\Design\RadiusScale;
 use App\Design\SectionDivider;
 use App\Design\SpacingDensity;
-use App\Design\StylePreset;
 use App\Design\TypeStyle;
+use App\Themes\Theme;
+use InvalidArgumentException;
 use Spatie\OpeningHours\OpeningHours;
 
 /**
@@ -36,15 +37,20 @@ use Spatie\OpeningHours\OpeningHours;
 final readonly class TemplateDefinition
 {
     /**
+     * @param  string  $scheme  the slug of a scheme in `$theme`, the base look
+     *                          the token overrides below are folded onto
      * @param  string  $category  the Business `category`, which also seeds the
      *                            per-item photo searches
      * @param  list<array{type: string, data: array<string, mixed>}>  $chrome  header/footer block entries
      * @param  non-empty-list<array<string, mixed>>  $pages  SiteDraftValidator INPUT shape
      * @param  list<PhotoQuery>  $photoQueries
      * @param  list<TemplateField>  $extraFields
+     * @param  Theme  $theme  the theme the provisioned tenant renders through;
+     *                        every template is on the transitional default
+     *                        until a vertical gets a theme of its own
      */
     public function __construct(
-        public StylePreset $preset,
+        public string $scheme,
         public string $brandPrimary,
         public string $brandSecondary,
         public string $brandAccent,
@@ -62,29 +68,43 @@ final readonly class TemplateDefinition
         public ?SectionDivider $divider = null,
         public ?AccentStyle $accent = null,
         public ?MotionStyle $motion = null,
+        public Theme $theme = Theme::Default,
     ) {
         //
     }
 
     /**
-     * The preset's tokens with this template's overrides folded in — the value
+     * The scheme's tokens with this template's overrides folded in — the value
      * that goes onto `businesses.design_tokens`.
      *
-     * The preset MARKER survives an override, unlike {@see DesignTokens::with()},
+     * The scheme MARKER survives an override, unlike {@see DesignTokens::with()},
      * which detaches it. That asymmetry is deliberate on both sides: an
-     * operator dragging a token in the design panel really has left the preset,
+     * operator dragging a token in the design panel really has left the scheme,
      * but a template is a curated *variation* of one, and the marker is what
-     * {@see \App\Actions\Pages\StampPresetDefaults} and the design panel read to
-     * know which preset's per-block opinions still apply. Two WarmCraft
+     * {@see \App\Actions\Pages\StampSchemeDefaults} and the design panel read to
+     * know which scheme's per-block opinions still apply. Two WarmCraft
      * templates with different palettes are the "one system, two different
      * restaurants" pitch; dropping them both to `custom` would lose it.
+     *
+     * Throws on a slug the template's theme does not offer: a template is
+     * hand-authored PHP, so that is an authoring error to surface at the first
+     * call (`SiteTemplateTest` makes it every template, every run), not a look
+     * to silently substitute.
      */
     public function tokens(): DesignTokens
     {
-        $base = $this->preset->tokens();
+        $scheme = $this->theme->definition()->scheme($this->scheme);
+
+        throw_if(
+            $scheme === null,
+            InvalidArgumentException::class,
+            sprintf('The %s theme has no "%s" scheme.', $this->theme->value, $this->scheme),
+        );
+
+        $base = $scheme->tokens;
 
         return new DesignTokens(
-            preset: $this->preset,
+            scheme: $this->scheme,
             palette: $this->palette ?? $base->palette,
             fontPair: $this->fontPair ?? $base->fontPair,
             radius: $this->radius ?? $base->radius,
