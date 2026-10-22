@@ -29,6 +29,7 @@ test('rls policies exist for every table with a path to the tenants table, and o
         ->and($expectedTables)->toContain('locations')
         ->and($expectedTables)->toContain('businesses')
         ->and($expectedTables)->toContain('site_settings')
+        ->and($expectedTables)->toContain('catalog_categories', 'catalog_items', 'team_members', 'gallery_images', 'business_links')
         ->and($expectedTables)->not->toContain('users')
         ->and($expectedTables)->not->toContain('domains')
         ->and($expectedTables)->not->toContain('tenant_user');

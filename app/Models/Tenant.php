@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\Vertical;
 use App\Templates\SiteTemplate;
 use App\Themes\Theme;
 use Database\Factories\TenantFactory;
@@ -24,6 +25,7 @@ use Stancl\Tenancy\Database\Models\Tenant as BaseTenant;
  * @property string|null $email
  * @property SiteTemplate|null $template
  * @property Theme $theme
+ * @property Vertical|null $vertical
  * @property bool $is_demo
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
@@ -60,6 +62,7 @@ final class Tenant extends BaseTenant implements TenantWithDatabase
             'email',
             'template',
             'theme',
+            'vertical',
             'is_demo',
             'created_at',
             'updated_at',
@@ -114,6 +117,7 @@ final class Tenant extends BaseTenant implements TenantWithDatabase
             'is_demo' => 'boolean',
             'template' => SiteTemplate::class,
             'theme' => Theme::class,
+            'vertical' => Vertical::class,
         ];
     }
 }

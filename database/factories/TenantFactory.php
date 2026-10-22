@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Database\Factories;
 
+use App\Enums\Vertical;
 use App\Models\Tenant;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -32,5 +33,14 @@ final class TenantFactory extends Factory
         return $this->afterCreating(function (Tenant $tenant) use ($domain): void {
             $tenant->domains()->create(['domain' => $domain]);
         });
+    }
+
+    /**
+     * A site for one kind of business. Tenants have no vertical by default,
+     * matching the column and every pre-pivot template site.
+     */
+    public function vertical(Vertical $vertical): static
+    {
+        return $this->state(fn (): array => ['vertical' => $vertical]);
     }
 }
