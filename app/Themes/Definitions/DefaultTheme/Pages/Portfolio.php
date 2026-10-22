@@ -2,21 +2,26 @@
 
 declare(strict_types=1);
 
-namespace App\Templates\PagePresets;
+namespace App\Themes\Definitions\DefaultTheme\Pages;
 
-use App\Templates\PagePresetDefinition;
+use App\Themes\ThemePage;
+use Filament\Support\Icons\Heroicon;
 
 /**
  * The selected-work page: the quiet full-viewport hero, a tight grid of
  * pieces, and a soft ask. Nothing between the work and the ask, deliberately:
- * a trust band would need real numbers or real artwork, and a preset must
+ * a trust band would need real numbers or real artwork, and a theme page must
  * never invent either.
  */
 final readonly class Portfolio
 {
-    public static function definition(): PagePresetDefinition
+    public static function definition(): ThemePage
     {
-        return new PagePresetDefinition(
+        return new ThemePage(
+            key: 'portfolio',
+            label: 'Portfolio',
+            description: 'Selected work, presented quietly and confidently.',
+            icon: Heroicon::OutlinedRectangleStack,
             title: 'Portfolio',
             metaDescription: 'Selected work by {business_name} — {tagline}.',
             blocks: [

@@ -14,7 +14,6 @@ use App\Models\Location;
 use App\Models\Page;
 use App\Models\Post;
 use App\Models\SiteSetting;
-use App\Templates\PagePreset;
 use App\Templates\SiteTemplate;
 use App\Themes\Theme;
 
@@ -66,11 +65,19 @@ arch('templates are final readonly artifacts, never Eloquent-backed')
     // being something a diff can tell you. Readonly is what keeps that true.
     ->expect('App\Templates')
     ->toBeFinal()
-    // The two enum indexes — implicitly final, which the checker cannot see.
-    ->ignoring([SiteTemplate::class, PagePreset::class]);
+    // The enum index — implicitly final, which the checker cannot see.
+    ->ignoring([SiteTemplate::class]);
 
 arch('template definitions expose exactly one entry point')
     ->expect('App\Templates\Definitions')
+    ->toBeReadonly()
+    ->toHaveMethod('definition');
+
+arch('theme definitions and their pages are final readonly artifacts with one entry point')
+    // Same reasoning as templates: a theme (and every page it designs) is a
+    // versioned artifact a diff can read, never a row.
+    ->expect('App\Themes\Definitions')
+    ->toBeFinal()
     ->toBeReadonly()
     ->toHaveMethod('definition');
 

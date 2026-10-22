@@ -2,9 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Templates\PagePresets;
+namespace App\Themes\Definitions\DefaultTheme\Pages;
 
-use App\Templates\PagePresetDefinition;
+use App\Themes\ThemePage;
+use Filament\Support\Icons\Heroicon;
 
 /**
  * The contact page: a short hero, the practical strip (open now, address,
@@ -18,9 +19,13 @@ use App\Templates\PagePresetDefinition;
  */
 final readonly class Contact
 {
-    public static function definition(): PagePresetDefinition
+    public static function definition(): ThemePage
     {
-        return new PagePresetDefinition(
+        return new ThemePage(
+            key: 'contact',
+            label: 'Contact',
+            description: 'An enquiry form with your address and hours, plus before-you-visit answers.',
+            icon: Heroicon::OutlinedEnvelope,
             title: 'Contact',
             metaDescription: 'Address, hours and contact details for {business_name} in {city}.',
             blocks: [
@@ -51,6 +56,7 @@ final readonly class Contact
                     ],
                 ]],
             ],
+            draftSlug: '/contact',
         );
     }
 }

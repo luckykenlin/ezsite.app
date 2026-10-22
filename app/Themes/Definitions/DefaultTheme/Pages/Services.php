@@ -2,9 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Templates\PagePresets;
+namespace App\Themes\Definitions\DefaultTheme\Pages;
 
-use App\Templates\PagePresetDefinition;
+use App\Themes\ThemePage;
+use Filament\Support\Icons\Heroicon;
 
 /**
  * The offer page: what you sell with prices, proof, then the ask. Offerings over features on purpose — this page exists for
@@ -13,9 +14,13 @@ use App\Templates\PagePresetDefinition;
  */
 final readonly class Services
 {
-    public static function definition(): PagePresetDefinition
+    public static function definition(): ThemePage
     {
-        return new PagePresetDefinition(
+        return new ThemePage(
+            key: 'services',
+            label: 'Services',
+            description: 'What you offer, with prices, how it works, and a push to book.',
+            icon: Heroicon::OutlinedWrenchScrewdriver,
             title: 'Services',
             metaDescription: 'Services and prices at {business_name} in {city}, and how to book.',
             blocks: [
@@ -48,6 +53,7 @@ final readonly class Services
                     'image_query' => 'professional service work close up',
                 ]],
             ],
+            draftSlug: '/services',
         );
     }
 }

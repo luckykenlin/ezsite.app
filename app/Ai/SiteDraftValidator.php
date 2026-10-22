@@ -33,14 +33,6 @@ use Illuminate\Support\Str;
  */
 final readonly class SiteDraftValidator
 {
-    /**
-     * The slugs a generated site may use beyond the home page. A fixed menu
-     * rather than model-invented paths: these are the pages a small-business
-     * brochure site actually has, and a closed set keeps slugs collision-free
-     * and linkable before anything exists.
-     */
-    public const array EXTRA_SLUGS = ['/about', '/services', '/contact'];
-
     private const int MIN_BLOCKS = 3;
 
     /**
@@ -89,6 +81,9 @@ final readonly class SiteDraftValidator
         $home = null;
         $extras = [];
         $seen = [];
+        // The closed menu of supporting pages is the theme's: every page it
+        // designs with a draft slug ({@see \App\Themes\ThemeDefinition::draftSlugs()}).
+        $extraSlugs = $this->theme->definition()->draftSlugs();
 
         foreach ($rawPages as $index => $page) {
             if (! is_array($page)) {
@@ -99,7 +94,7 @@ final readonly class SiteDraftValidator
 
             $slug = is_string($page['slug'] ?? null) ? $page['slug'] : null;
 
-            if ($slug !== '/' && ! in_array($slug, self::EXTRA_SLUGS, true)) {
+            if ($slug !== '/' && ! in_array($slug, $extraSlugs, true)) {
                 Log::warning('site_draft.page_dropped', ['reason' => 'unknown_slug', 'slug' => $slug, 'index' => $index]);
 
                 continue;
@@ -159,8 +154,8 @@ final readonly class SiteDraftValidator
      * One page's block list, sanitized from INPUT shape to stored shape.
      *
      * Public because it is the single validating door for a BARE block list,
-     * not just this class's own pages: {@see \App\Actions\Pages\BuildPresetPageBlocks}
-     * runs each page preset through it so a preset cannot drift from what the
+     * not just this class's own pages: {@see \App\Actions\Pages\BuildThemePageBlocks}
+     * runs each theme page through it so a theme page cannot drift from what the
      * draft path is allowed to produce. The page-level rules (closed slug
      * menu, minimum block count, home-needs-hero) deliberately stay in
      * {@see handle()} — they are draft rules, not block rules. Do not

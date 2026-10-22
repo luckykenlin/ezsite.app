@@ -2,9 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Templates\PagePresets;
+namespace App\Themes\Definitions\DefaultTheme\Pages;
 
-use App\Templates\PagePresetDefinition;
+use App\Themes\ThemePage;
+use Filament\Support\Icons\Heroicon;
 
 /**
  * The answers page: one long FAQ seeded with the questions every local
@@ -14,9 +15,13 @@ use App\Templates\PagePresetDefinition;
  */
 final readonly class Faqs
 {
-    public static function definition(): PagePresetDefinition
+    public static function definition(): ThemePage
     {
-        return new PagePresetDefinition(
+        return new ThemePage(
+            key: 'faqs',
+            label: 'FAQs',
+            description: 'Answer the questions you get asked every week, once.',
+            icon: Heroicon::OutlinedQuestionMarkCircle,
             title: 'FAQs',
             metaDescription: 'Answers to the questions {business_name} in {city} gets asked most.',
             blocks: [

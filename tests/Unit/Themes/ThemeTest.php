@@ -221,3 +221,41 @@ test('a theme definition resolves a staged selection to tokens, falling back to 
         ->and($definition->tokensFor(['scheme' => 'retired-look'], $saved))->toBe($saved)
         ->and($definition->tokensFor([], $saved))->toBe($saved);
 });
+
+/*
+ * The page map is keyed data, like the scheme map: the key and the page must
+ * agree (the picker submits the key and resolves it back through `page()`),
+ * and no page may be keyed `blank` — that is the picker's fixed first card,
+ * and a theme page under the same value would be unreachable.
+ *
+ * The draft slugs are the AI site draft's closed menu: each one is a path
+ * (leading slash), none is the home page (the draft always writes `/` itself),
+ * and none repeats — the validator drops a second page on the same slug, so a
+ * duplicate would offer the model a page it can never land.
+ */
+test('every theme keys its pages by their own key and offers a well-formed draft slug menu', function (): void {
+    foreach (Theme::cases() as $theme) {
+        $definition = $theme->definition();
+
+        foreach ($definition->pages as $key => $page) {
+            expect($page->key)->toBe($key)
+                ->and($definition->page($key))->toBe($page);
+        }
+
+        $slugs = $definition->draftSlugs();
+
+        expect($definition->pages)->not->toHaveKey('blank')
+            ->and($slugs)->toBe(array_values(array_unique($slugs)))
+            ->and($slugs)->not->toContain('/')
+            ->and($slugs)->each->toStartWith('/');
+    }
+});
+
+test('a theme definition answers its pages by key, and lists the draft slugs in page order', function (): void {
+    $definition = Theme::Default->definition();
+
+    expect(array_keys($definition->pages))->toBe(['home', 'about', 'services', 'contact', 'team', 'faqs', 'gallery', 'portfolio'])
+        ->and($definition->page('about')?->title)->toBe('About')
+        ->and($definition->page('blank'))->toBeNull()
+        ->and($definition->draftSlugs())->toBe(['/about', '/services', '/contact']);
+});

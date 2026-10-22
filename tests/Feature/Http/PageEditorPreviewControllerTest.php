@@ -144,46 +144,46 @@ it('404s a sample of a type the library does not offer', function (string $type)
 })->with(['unknown type' => 'carousel', 'site chrome' => 'header']);
 
 /*
- * The "Add a page" picker's thumbnails: ?preset=<page-preset> renders that
- * preset's whole personalized block list — the exact page pressing Create
+ * The "Add a page" picker's thumbnails: ?page=<theme page key> renders that
+ * theme page's whole personalized block list — the exact page pressing Create
  * would land — as the same inert themed document the block samples use.
  */
-it('serves a page preset as an inert themed thumbnail document', function (): void {
+it('serves a theme page as an inert themed thumbnail document', function (): void {
     $tenant = Tenant::factory()->withDomain('acme')->create();
     $this->createTenantBusiness($tenant, ['name' => 'Corner Cafe']);
     $page = $this->createTenantPage($tenant, []);
 
     cachePreviewFor($tenant, $page, [], 'valid-token');
 
-    $this->get(sprintf('http://acme.%s/_editor/preview?token=valid-token&preset=about', $this->centralDomain()))
+    $this->get(sprintf('http://acme.%s/_editor/preview?token=valid-token&page=about', $this->centralDomain()))
         ->assertOk()
         ->assertSee('filament-fabricator-body', false)
-        // The preset's copy, personalized through the tenant's own business row.
+        // The page's copy, personalized through the tenant's own business row.
         ->assertSee('The story behind Corner Cafe')
         // No editor affordances: a thumbnail is a picture, not a canvas.
         ->assertDontSee('data-editor-insert', false)
         ->assertDontSee('data-block-key', false);
 });
 
-it('404s a preset the picker does not offer', function (string $preset): void {
+it('404s a page the theme does not offer', function (string $key): void {
     $tenant = Tenant::factory()->withDomain('acme')->create();
     $page = $this->createTenantPage($tenant, []);
 
     cachePreviewFor($tenant, $page, [], 'valid-token');
 
-    $this->get(sprintf('http://acme.%s/_editor/preview?token=valid-token&preset=%s', $this->centralDomain(), $preset))
+    $this->get(sprintf('http://acme.%s/_editor/preview?token=valid-token&page=%s', $this->centralDomain(), $key))
         ->assertNotFound();
 })->with([
-    'unknown preset' => 'moodboard',
-    // Blank has no blocks and therefore no thumbnail — the picker renders an
-    // icon tile for it and never requests this document.
+    'unknown page' => 'moodboard',
+    // Blank is the picker's fixed card, not a theme page — it has no blocks
+    // and no thumbnail, and the picker never requests this document for it.
     'blank' => 'blank',
 ]);
 
-it('404s a preset thumbnail without a valid token', function (): void {
+it('404s a theme page thumbnail without a valid token', function (): void {
     Tenant::factory()->withDomain('acme')->create();
 
-    $this->get(sprintf('http://acme.%s/_editor/preview?token=bogus&preset=about', $this->centralDomain()))
+    $this->get(sprintf('http://acme.%s/_editor/preview?token=bogus&page=about', $this->centralDomain()))
         ->assertNotFound();
 });
 

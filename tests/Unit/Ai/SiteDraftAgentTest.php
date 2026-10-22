@@ -3,7 +3,6 @@
 declare(strict_types=1);
 
 use App\Ai\Agents\SiteDraftAgent;
-use App\Ai\SiteDraftValidator;
 use App\Site\Blocks\BlockVocabulary;
 use App\Themes\Theme;
 use Illuminate\JsonSchema\JsonSchemaTypeFactory;
@@ -18,11 +17,11 @@ it("constrains the structured output to the theme's schemes and non-chrome vocab
 
     expect($serialized['scheme']['enum'])->toContain('warm-craft', 'professional-minimal')
         ->and($serialized['scheme']['enum'])->toHaveSameSize(Theme::Default->definition()->schemes)
-        // The home page plus the fixed extra-slug menu — a closed set, so
+        // The home page plus the theme's draft-slug menu — a closed set, so
         // slugs are collision-free and the navigation can be stamped.
-        ->and($serialized['pages']['maxItems'])->toBe(1 + count(SiteDraftValidator::EXTRA_SLUGS))
+        ->and($serialized['pages']['maxItems'])->toBe(4)
         ->and($serialized['pages']['items']['properties']['slug']['enum'])
-        ->toBe(['/', ...SiteDraftValidator::EXTRA_SLUGS]);
+        ->toBe(['/', '/about', '/services', '/contact']);
 
     $blockItems = $serialized['pages']['items']['properties']['blocks']['items']['properties'];
 

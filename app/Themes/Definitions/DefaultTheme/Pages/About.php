@@ -2,20 +2,25 @@
 
 declare(strict_types=1);
 
-namespace App\Templates\PagePresets;
+namespace App\Themes\Definitions\DefaultTheme\Pages;
 
-use App\Templates\PagePresetDefinition;
+use App\Themes\ThemePage;
+use Filament\Support\Icons\Heroicon;
 
 /**
  * The story page: prose first because an about page is the one place a
  * visitor arrives wanting to READ, then faces to back the story up. Team
- * members are deliberately placeholders — a preset must never invent a person.
+ * members are deliberately placeholders — a theme page must never invent a person.
  */
 final readonly class About
 {
-    public static function definition(): PagePresetDefinition
+    public static function definition(): ThemePage
     {
-        return new PagePresetDefinition(
+        return new ThemePage(
+            key: 'about',
+            label: 'About',
+            description: 'Tell the story of the business: who you are, the numbers, the people.',
+            icon: Heroicon::OutlinedIdentification,
             title: 'About',
             metaDescription: 'The story behind {business_name} in {city} — who we are and how we work.',
             blocks: [
@@ -47,6 +52,7 @@ final readonly class About
                     'cta_url' => '/contact',
                 ]],
             ],
+            draftSlug: '/about',
         );
     }
 }

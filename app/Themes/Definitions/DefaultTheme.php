@@ -13,12 +13,21 @@ use App\Design\RadiusScale;
 use App\Design\SectionDivider;
 use App\Design\SpacingDensity;
 use App\Design\TypeStyle;
+use App\Themes\Definitions\DefaultTheme\Pages\About;
+use App\Themes\Definitions\DefaultTheme\Pages\Contact;
+use App\Themes\Definitions\DefaultTheme\Pages\Faqs;
+use App\Themes\Definitions\DefaultTheme\Pages\Gallery;
+use App\Themes\Definitions\DefaultTheme\Pages\Home;
+use App\Themes\Definitions\DefaultTheme\Pages\Portfolio;
+use App\Themes\Definitions\DefaultTheme\Pages\Services;
+use App\Themes\Definitions\DefaultTheme\Pages\Team;
 use App\Themes\Scheme;
 use App\Themes\ThemeBlock;
 use App\Themes\ThemeDefinition;
+use App\Themes\ThemePage;
 
 /**
- * The transitional theme: the block set, variants, schemes and stylesheet the
+ * The transitional theme: the block set, variants, schemes, pages and stylesheet the
  * product shipped with before themes existed, restated as a theme definition.
  *
  * Every map below is a verbatim copy of what the block classes used to declare
@@ -189,7 +198,27 @@ final readonly class DefaultTheme
             ],
             stylesheet: 'resources/themes/default/theme.css',
             schemes: self::schemes(),
+            pages: self::pages(),
         );
+    }
+
+    /**
+     * The "Add a page" picker's designed pages, in the order the global preset
+     * enum listed them. Each one's blocks live in its own class under
+     * `DefaultTheme\Pages` — one method returning eight page literals would be
+     * unreadable.
+     *
+     * @return array<string, ThemePage>
+     */
+    private static function pages(): array
+    {
+        $pages = [];
+
+        foreach ([Home::definition(), About::definition(), Services::definition(), Contact::definition(), Team::definition(), Faqs::definition(), Gallery::definition(), Portfolio::definition()] as $page) {
+            $pages[$page->key] = $page;
+        }
+
+        return $pages;
     }
 
     /**

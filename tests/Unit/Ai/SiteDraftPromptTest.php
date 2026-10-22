@@ -8,6 +8,7 @@ use App\Models\Location;
 use App\Models\Tenant;
 use App\Site\Blocks\BlockVocabulary;
 use App\Themes\Theme;
+use App\Themes\ThemeDefinition;
 
 it('assembles the profile, locations, vocabulary, schemes and language sections', function (): void {
     $tenant = Tenant::factory()->create();
@@ -61,6 +62,9 @@ it('assembles the profile, locations, vocabulary, schemes and language sections'
         // instruction to pad sparse profiles with neutral filler copy.
         ->not->toContain('features, gallery, testimonials, contact, cta')
         ->not->toContain('STILL compose the full page')
+        // The supporting-page menu is the theme's draft pages, slug first.
+        ->toContain('"/about" (')
+        ->toContain('"/contact" (')
         ->toContain('warm-craft') // scheme menu
         ->toContain('vibes:')
         ->toContain('Write all user-visible copy in: zh_TW');
@@ -100,4 +104,22 @@ it('degrades gracefully when the business has no locations and no locale', funct
 
     expect($prompt)->toContain('None recorded yet.')
         ->toContain('Write all user-visible copy in: en');
+});
+
+it('offers no supporting pages when the theme designs none the draft may write', function (): void {
+    $tenant = Tenant::factory()->create();
+    $business = $this->createTenantBusiness($tenant, [], 0);
+    $default = Theme::Default->definition();
+
+    $prompt = (string) new SiteDraftPrompt(
+        Business::query()->findOrFail($business->getKey()),
+        Location::query()->get(),
+        resolve(BlockVocabulary::class)->all(),
+        new ThemeDefinition($default->label, $default->blocks, $default->stylesheet, $default->schemes),
+    );
+
+    // An empty menu would only invite the model to invent a slug.
+    expect($prompt)->not->toContain('supporting pages from')
+        ->not->toContain('"/about"')
+        ->toContain('Compose the HOME page');
 });

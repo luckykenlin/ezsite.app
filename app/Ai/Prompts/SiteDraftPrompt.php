@@ -19,8 +19,9 @@ use Stringable;
  * The dynamic context handed to {@see \App\Ai\Agents\SiteDraftAgent}: the
  * business profile, a locations digest, the block vocabulary (the agent's
  * entire allowed space), design guidance for the layout choices the schema
- * now offers, the theme's scheme menu with vibe tags, a composition brief, and
- * the output language.
+ * now offers, the theme's scheme menu with vibe tags, a composition brief
+ * (whose supporting-page menu is the theme's draft pages), and the output
+ * language.
  */
 final readonly class SiteDraftPrompt implements Stringable
 {
@@ -208,16 +209,39 @@ final readonly class SiteDraftPrompt implements Stringable
             .'Include a contact section when the business has a location. '
             .'Use testimonials only if the profile provides real quotes — never fabricate them. '
             ."\n\n"
-            .'Then, ONLY where the profile gives real material for one, add supporting pages from '
-            .'this fixed menu: "/about" (the story and the people), "/services" (what is offered, '
-            .'in depth), "/contact" (how to reach and find the business). Each needs at least 3 '
-            .'sections of substance — a page you would have to pad does not belong in the draft; '
-            .'a sparse profile means the home page alone, and that is a good draft too. Do not '
-            .'repeat the home page: a supporting page goes DEEPER on its one topic. '
-            ."\n\n"
+            .$this->supportingPagesBrief()
             .'For every page also write meta_description: one plain sentence (max 160 characters, no '
             .'marketing punctuation runs) naming the business, what that page covers and its city '
             .'— this is the summary Google shows under the search result.';
+    }
+
+    /**
+     * The supporting-page menu, read off the theme: each page it designs with
+     * a draft slug, described by its own picker line, so the prompt can never
+     * offer a slug the schema enum and the validator would reject. A theme
+     * with no draft pages gets no paragraph at all — a menu with nothing on it
+     * would only invite the model to invent one.
+     */
+    private function supportingPagesBrief(): string
+    {
+        $menu = [];
+
+        foreach ($this->theme->pages as $page) {
+            if ($page->draftSlug !== null) {
+                $menu[] = sprintf('"%s" (%s)', $page->draftSlug, mb_rtrim($page->description, '.'));
+            }
+        }
+
+        if ($menu === []) {
+            return '';
+        }
+
+        return 'Then, ONLY where the profile gives real material for one, add supporting pages from '
+            .'this fixed menu: '.implode(', ', $menu).'. Each needs at least 3 '
+            .'sections of substance — a page you would have to pad does not belong in the draft; '
+            .'a sparse profile means the home page alone, and that is a good draft too. Do not '
+            .'repeat the home page: a supporting page goes DEEPER on its one topic. '
+            ."\n\n";
     }
 
     private function languageSection(): string

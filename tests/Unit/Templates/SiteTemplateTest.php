@@ -111,7 +111,7 @@ it('opens on a home page that leads with a hero', function (SiteTemplate $templa
         ->and(count($home['blocks']))->toBeGreaterThanOrEqual(3);
 
     foreach ($pages as $page) {
-        expect($page['slug'])->toBeIn(['/', ...SiteDraftValidator::EXTRA_SLUGS])
+        expect($page['slug'])->toBeIn(['/', ...$template->definition()->theme->definition()->draftSlugs()])
             ->and(count($page['blocks']))->toBeGreaterThanOrEqual(3);
     }
 })->with('templates');

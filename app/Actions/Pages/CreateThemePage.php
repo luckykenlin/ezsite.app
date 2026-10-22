@@ -8,47 +8,50 @@ use App\Jobs\PopulateDraftImagesJob;
 use App\Models\Page;
 use App\Models\Tenant;
 use App\Site\Blocks\BlockShape;
-use App\Templates\PagePreset;
+use App\Themes\ThemePage;
 
 /**
- * The "Add a page" picker's write path: a chosen preset becomes a DRAFT page
- * in one INSERT, personalized and styled for this tenant, with the
- * stock-photo follow-up queued when the preset asked for imagery.
+ * The "Add a page" picker's write path: a chosen theme page becomes a DRAFT
+ * page in one INSERT, personalized and styled for this tenant, with the
+ * stock-photo follow-up queued when the page asked for imagery.
  *
- * A thin composition over {@see BuildPresetPageBlocks} and
+ * A thin composition over {@see BuildThemePageBlocks} and
  * {@see CreatePageFromName} on purpose — the picker must not grow a second
- * page-creation code path. Blank short-circuits the whole pipeline: "no
- * starting blocks" needs no personalization, no sanitizer and no photo job,
- * and reproduces exactly what the canvas's right-click gesture always did.
+ * page-creation code path. Blank (a null page) short-circuits the whole
+ * pipeline: "no starting blocks" needs no personalization, no sanitizer and no
+ * photo job, and reproduces exactly what the canvas's right-click gesture
+ * always did. Null rather than a "blank" ThemePage because blank is the same
+ * in every theme and has nothing for a theme to design.
  *
  * The photo dispatch mirrors {@see \App\Actions\Templates\ProvisionSiteFromTemplate}:
  * fire-and-forget, only when the feature is on AND a block actually carries a
- * query — a preset with no imagery must not cost a queue round trip.
+ * query — a page with no imagery must not cost a queue round trip.
  */
-final readonly class CreatePresetPage
+final readonly class CreateThemePage
 {
     public function __construct(
-        private BuildPresetPageBlocks $build,
+        private BuildThemePageBlocks $build,
         private CreatePageFromName $create,
     ) {
         //
     }
 
     /**
+     * @param  ThemePage|null  $page  null for a blank page
      * @param  string|null  $title  the operator's name for the page; blank falls
-     *                              back to the preset's own title
+     *                              back to the theme page's own title
      */
-    public function handle(PagePreset $preset, ?string $title = null): Page
+    public function handle(?ThemePage $page, ?string $title = null): Page
     {
         $title = is_string($title) && mb_trim($title) !== '' ? mb_trim($title) : null;
 
-        if ($preset === PagePreset::Blank) {
-            return $this->create->handle($title ?? $preset->definition()->title);
+        if (! $page instanceof ThemePage) {
+            return $this->create->handle($title ?? __('Untitled page'));
         }
 
-        $built = $this->build->handle($preset);
+        $built = $this->build->handle($page);
 
-        $page = $this->create->handle($title ?? $built['title'], $built['blocks'], $built['metaDescription']);
+        $created = $this->create->handle($title ?? $built['title'], $built['blocks'], $built['metaDescription']);
 
         if ($this->wantsPhotos($built['blocks'])) {
             $tenant = tenant();
@@ -62,7 +65,7 @@ final readonly class CreatePresetPage
             }
         }
 
-        return $page;
+        return $created;
     }
 
     /**

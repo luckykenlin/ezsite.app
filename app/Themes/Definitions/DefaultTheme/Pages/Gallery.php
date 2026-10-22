@@ -2,22 +2,27 @@
 
 declare(strict_types=1);
 
-namespace App\Templates\PagePresets;
+namespace App\Themes\Definitions\DefaultTheme\Pages;
 
-use App\Templates\PagePresetDefinition;
+use App\Themes\ThemePage;
+use Filament\Support\Icons\Heroicon;
 
 /**
  * The pictures page: a bare heading, one big masonry wall, and a single ask
- * at the end. Deliberately the quietest preset — on a gallery page every
+ * at the end. Deliberately the quietest page — on a gallery page every
  * sentence competes with the photographs, so there are almost none. Images
  * are alt-only entries the stock-photo pipeline (or the operator's own
  * uploads) fills, exactly as the template definitions author theirs.
  */
 final readonly class Gallery
 {
-    public static function definition(): PagePresetDefinition
+    public static function definition(): ThemePage
     {
-        return new PagePresetDefinition(
+        return new ThemePage(
+            key: 'gallery',
+            label: 'Gallery',
+            description: 'Let the photographs do the talking.',
+            icon: Heroicon::OutlinedPhoto,
             title: 'Gallery',
             metaDescription: 'Photos of {business_name} in {city} and the work we do.',
             blocks: [

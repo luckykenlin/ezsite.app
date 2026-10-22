@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Actions\Pages\AddPageBlock;
-use App\Actions\Pages\BuildPresetPageBlocks;
+use App\Actions\Pages\BuildThemePageBlocks;
 use App\Actions\Pages\CachePageEditorPreview;
 use App\Design\ColorPalette;
 use App\Design\ThemeVariables;
@@ -14,8 +14,8 @@ use App\Enums\ChromeSlot;
 use App\Models\Page;
 use App\Site\BindResolver;
 use App\Site\Blocks\BlockVocabulary;
-use App\Templates\PagePreset;
 use App\Themes\CurrentTheme;
+use App\Themes\ThemePage;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -78,13 +78,13 @@ final class PageEditorPreviewController extends Controller
             return $this->sampleDocument($sample, $payload);
         }
 
-        // The "Add a page" picker's thumbnails: one page preset's whole block
+        // The "Add a page" picker's thumbnails: one theme page's whole block
         // list, rendered through the same theme. Same two gates again — the
-        // preset name is public knowledge, the session token is not.
-        $preset = $request->query('preset');
+        // page key is public knowledge, the session token is not.
+        $themePage = $request->query('page');
 
-        if (is_string($preset) && $preset !== '') {
-            return $this->presetDocument($preset, $payload);
+        if (is_string($themePage) && $themePage !== '') {
+            return $this->themePageDocument($themePage, $payload);
         }
 
         $page = (new Page)->forceFill([
@@ -185,28 +185,28 @@ final class PageEditorPreviewController extends Controller
     }
 
     /**
-     * One page preset's ready-to-create blocks, as a standalone themed
+     * One theme page's ready-to-create blocks, as a standalone themed
      * document — the "Add a page" picker renders these in scaled-down iframes.
      *
-     * Built through {@see BuildPresetPageBlocks} — the exact pipeline
-     * {@see \App\Actions\Pages\CreatePresetPage} persists through — so the
+     * Built through {@see BuildThemePageBlocks} — the exact pipeline
+     * {@see \App\Actions\Pages\CreateThemePage} persists through — so the
      * thumbnail is byte-for-byte the page that pressing Create produces,
      * minus the stock photos that arrive async after creation. Blank 404s
-     * with the unknown names: it has no thumbnail, and the picker never asks
-     * for one.
+     * with the unknown keys: it is not a theme page, has no thumbnail, and
+     * the picker never asks for one.
      *
      * @param  array<array-key, mixed>  $payload
      */
-    private function presetDocument(string $value, array $payload): View
+    private function themePageDocument(string $key, array $payload): View
     {
-        $preset = PagePreset::tryFrom($value);
+        $themePage = resolve(CurrentTheme::class)->definition()->page($key);
 
-        abort_if($preset === null || ! $preset->hasThumbnail(), 404);
+        abort_unless($themePage instanceof ThemePage, 404);
 
-        ['blocks' => $blocks] = resolve(BuildPresetPageBlocks::class)->handle($preset);
+        ['blocks' => $blocks] = resolve(BuildThemePageBlocks::class)->handle($themePage);
 
         $page = (new Page)->forceFill([
-            'title' => $preset->label(),
+            'title' => __($themePage->label),
             'blocks' => $blocks,
         ]);
 

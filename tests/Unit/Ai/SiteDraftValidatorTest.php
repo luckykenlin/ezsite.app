@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 use App\Ai\SiteDraftValidator;
 use App\Exceptions\SiteDraftUnusable;
+use App\Themes\CurrentTheme;
 use App\Themes\Definitions\DefaultTheme;
+use App\Themes\Theme;
+use App\Themes\ThemeDefinition;
 use Illuminate\Support\Facades\Log;
 
 function draftValidator(): SiteDraftValidator
@@ -276,6 +279,20 @@ it('drops extra pages with unknown or duplicate slugs, or too little substance',
     Log::shouldHaveReceived('warning')
         ->withArgs(fn (string $message): bool => $message === 'site_draft.page_dropped')
         ->times(4);
+});
+
+it("reads the slug menu from the current theme's draft pages", function (): void {
+    // A theme that designs no draft pages offers no supporting pages at all:
+    // the menu is the theme's, not a constant on the validator.
+    $default = Theme::Default->definition();
+    app()->instance(CurrentTheme::class, new CurrentTheme(
+        new ThemeDefinition($default->label, $default->blocks, $default->stylesheet, $default->schemes),
+    ));
+
+    $draft = validAiDraft();
+    $draft['pages'][] = extraPage('/about');
+
+    expect(array_column(draftValidator()->handle($draft, 'Fallback')['pages'], 'slug'))->toBe(['/']);
 });
 
 it('rejects a draft whose pages carry no home at all', function (): void {

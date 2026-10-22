@@ -35,8 +35,9 @@ use Laravel\Ai\Promptable;
  * {@see SiteDraftValidator}, which validates every layout choice against the
  * enums before it can reach `data`.
  *
- * A draft is the home page plus, when the profile gives real material, up to
- * three supporting pages from a FIXED slug menu — a closed set, so slugs are
+ * A draft is the home page plus, when the profile gives real material, the
+ * supporting pages from a FIXED slug menu — the theme's
+ * {@see ThemeDefinition::draftSlugs()} — a closed set, so slugs are
  * collision-free and the header navigation can be stamped before anything
  * renders.
  *
@@ -103,11 +104,11 @@ final readonly class SiteDraftAgent implements Agent, HasStructuredOutput
                 ->required(),
             'pages' => $schema->array()
                 ->min(1)
-                ->max(1 + count(SiteDraftValidator::EXTRA_SLUGS))
+                ->max(1 + count($this->theme->draftSlugs()))
                 ->description('The home page (slug "/") first — required — then optional pages from the allowed slugs, only where the profile gives real material.')
                 ->items($schema->object([
                     'title' => $schema->string()->min(1)->max(120)->required(),
-                    'slug' => $schema->string()->enum(['/', ...SiteDraftValidator::EXTRA_SLUGS])->required(),
+                    'slug' => $schema->string()->enum(['/', ...$this->theme->draftSlugs()])->required(),
                     'meta_description' => $schema->string()
                         ->min(1)
                         ->max(160)

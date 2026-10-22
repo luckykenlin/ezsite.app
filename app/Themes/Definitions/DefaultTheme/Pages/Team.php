@@ -2,21 +2,26 @@
 
 declare(strict_types=1);
 
-namespace App\Templates\PagePresets;
+namespace App\Themes\Definitions\DefaultTheme\Pages;
 
-use App\Templates\PagePresetDefinition;
+use App\Themes\ThemePage;
+use Filament\Support\Icons\Heroicon;
 
 /**
  * The people page: a bare heading (a divider, not a second hero — the team
  * block carries its own introduction), the faces, a word from customers about
  * them, and the ask. Every member is an explicit placeholder: the block's own
- * contract says never to invent a person, and a preset is bound by it too.
+ * contract says never to invent a person, and a theme page is bound by it too.
  */
 final readonly class Team
 {
-    public static function definition(): PagePresetDefinition
+    public static function definition(): ThemePage
     {
-        return new PagePresetDefinition(
+        return new ThemePage(
+            key: 'team',
+            label: 'Team',
+            description: 'Introduce the people a customer will actually deal with.',
+            icon: Heroicon::OutlinedUserGroup,
             title: 'Team',
             metaDescription: 'Meet the people behind {business_name} in {city}.',
             blocks: [

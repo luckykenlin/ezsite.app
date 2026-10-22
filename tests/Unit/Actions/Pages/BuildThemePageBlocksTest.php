@@ -2,19 +2,23 @@
 
 declare(strict_types=1);
 
-use App\Actions\Pages\BuildPresetPageBlocks;
+use App\Actions\Pages\BuildThemePageBlocks;
 use App\Models\Location;
 use App\Models\Tenant;
 use App\Site\Blocks\BlockShape;
-use App\Templates\PagePreset;
 use App\Themes\Definitions\DefaultTheme;
+use App\Themes\Theme;
+use App\Themes\ThemePage;
+use Filament\Support\Icons\Heroicon;
 
 /**
  * @return array{title: string, metaDescription: string|null, blocks: list<array{type: string, data: array<string, mixed>}>}
  */
-function buildPresetFor(Tenant $tenant, PagePreset $preset): array
+function buildThemePageFor(Tenant $tenant, string $key): array
 {
-    return test()->runInTenant($tenant, fn (): array => resolve(BuildPresetPageBlocks::class)->handle($preset));
+    $page = Theme::Default->definition()->pages[$key];
+
+    return test()->runInTenant($tenant, fn (): array => resolve(BuildThemePageBlocks::class)->handle($page));
 }
 
 it('personalizes the copy from the business and its primary location', function (): void {
@@ -28,7 +32,7 @@ it('personalizes the copy from the business and its primary location', function 
         'phone' => '(912) 555-0184',
     ]));
 
-    $built = buildPresetFor($tenant, PagePreset::Home);
+    $built = buildThemePageFor($tenant, 'home');
 
     expect($built['title'])->toBe('Home')
         ->and($built['metaDescription'])->toBe('The Lacquer Room — Hand-painted nails, one chair at a time. Based in Savannah.')
@@ -53,7 +57,7 @@ it('falls back from the location to the business for phone and email', function 
         'email' => null,
     ]));
 
-    $built = buildPresetFor($tenant, PagePreset::Home);
+    $built = buildThemePageFor($tenant, 'home');
 
     expect(end($built['blocks'])['data']['cta_label'])->toBe('Call (555) 010-0000');
 });
@@ -61,7 +65,7 @@ it('falls back from the location to the business for phone and email', function 
 it('answers every token with neutral replace-me copy when no rows exist', function (): void {
     $tenant = Tenant::factory()->create();
 
-    $built = buildPresetFor($tenant, PagePreset::Home);
+    $built = buildThemePageFor($tenant, 'home');
 
     expect($built['blocks'][0]['data']['eyebrow'])->toBe('your area')
         ->and($built['blocks'][0]['data']['heading'])->toBe('A line that says what you do')
@@ -69,19 +73,19 @@ it('answers every token with neutral replace-me copy when no rows exist', functi
         ->and(end($built['blocks'])['data']['cta_label'])->toBe('Call (000) 000-0000');
 });
 
-it('re-lays the blocks to the site style preset without losing authored variants', function (): void {
+it('re-lays the blocks to the site scheme without losing authored variants', function (): void {
     $tenant = Tenant::factory()->create();
     $this->createTenantBusiness($tenant, [
         'design_tokens' => defaultScheme(DefaultTheme::QUIET_LUXE)->tokens,
     ]);
 
-    $built = buildPresetFor($tenant, PagePreset::Home);
+    $built = buildThemePageFor($tenant, 'home');
 
-    // fill(), not handle(): the preset's designed hero variant survives the
+    // fill(), not handle(): the page's designed hero variant survives the
     // site style, which only speaks where the author was silent.
     expect($built['blocks'][0]['data'][BlockShape::VARIANT_KEY])->toBe('full-bleed-overlay');
 
-    // The back-fill half is visible on appearance: the preset picker authors
+    // The back-fill half is visible on appearance: the page picker authors
     // no tones, so any appearance on a middle block came from the site style.
     $appearances = array_filter(array_map(
         static fn (array $block): mixed => $block['data'][BlockShape::APPEARANCE_KEY] ?? null,
@@ -91,11 +95,11 @@ it('re-lays the blocks to the site style preset without losing authored variants
     expect($appearances)->not->toBeEmpty();
 });
 
-it('leaves the blocks unstamped on a custom palette with no preset', function (): void {
+it('leaves the blocks unstamped on a custom palette with no scheme', function (): void {
     $tenant = Tenant::factory()->create();
-    $this->createTenantBusiness($tenant); // default design_tokens: preset null
+    $this->createTenantBusiness($tenant); // default design_tokens: scheme null
 
-    $built = buildPresetFor($tenant, PagePreset::Home);
+    $built = buildThemePageFor($tenant, 'home');
 
     $appearances = array_filter(array_map(
         static fn (array $block): mixed => $block['data'][BlockShape::APPEARANCE_KEY] ?? null,
@@ -106,17 +110,22 @@ it('leaves the blocks unstamped on a custom palette with no preset', function ()
         ->and($built['blocks'][0]['data'][BlockShape::VARIANT_KEY])->toBe('full-bleed-overlay');
 });
 
-it('builds Blank as an empty shell with no meta description', function (): void {
-    // CreatePresetPage short-circuits Blank before reaching this action, but
-    // the pipeline still answers for it honestly — the thumbnail route asks
-    // by enum, and a preset with nothing to say must not invent a meta.
+it('leaves a page with no meta description without one, rather than inventing it', function (): void {
     $tenant = Tenant::factory()->create();
+    $page = new ThemePage(
+        key: 'plain',
+        label: 'Plain',
+        description: 'A page that says nothing to search engines.',
+        icon: Heroicon::OutlinedDocument,
+        title: 'Plain',
+        metaDescription: null,
+        blocks: [['type' => 'heading', 'data' => ['content' => '{business_name}']]],
+    );
 
-    $built = buildPresetFor($tenant, PagePreset::Blank);
+    $built = $this->runInTenant($tenant, fn (): array => resolve(BuildThemePageBlocks::class)->handle($page));
 
-    expect($built['title'])->toBe('Untitled page')
-        ->and($built['metaDescription'])->toBeNull()
-        ->and($built['blocks'])->toBeEmpty();
+    expect($built['metaDescription'])->toBeNull()
+        ->and($built['blocks'][0]['data']['content'])->toBe('Your business');
 });
 
 it('carries the image queries through under the reserved transit key', function (): void {
@@ -124,7 +133,7 @@ it('carries the image queries through under the reserved transit key', function 
 
     $tenant = Tenant::factory()->create();
 
-    $built = buildPresetFor($tenant, PagePreset::Home);
+    $built = buildThemePageFor($tenant, 'home');
 
     expect($built['blocks'][0]['data'][BlockShape::IMAGE_QUERY_KEY])->toBe('welcoming small business interior');
 });

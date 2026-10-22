@@ -2,12 +2,13 @@
 
 declare(strict_types=1);
 
-namespace App\Templates\PagePresets;
+namespace App\Themes\Definitions\DefaultTheme\Pages;
 
-use App\Templates\PagePresetDefinition;
+use App\Themes\ThemePage;
+use Filament\Support\Icons\Heroicon;
 
 /**
- * The landing-page preset: headline, the practical strip, why-us, proof, ask.
+ * The landing page: headline, the practical strip, why-us, proof, ask.
  *
  * The strip sits second, directly under the hero, and that placement is the
  * point of it. For the businesses this builder is for — a takeaway, a salon, a
@@ -18,14 +19,22 @@ use App\Templates\PagePresetDefinition;
  * Trade-agnostic where the template definitions are trade-specific: the copy
  * leans on the profile tokens (`{business_name}`, `{tagline}`, `{city}`) for
  * everything factual and reads as an obvious replace-me everywhere it cannot
- * know the answer. The testimonial is a placeholder by design — a preset must
+ * know the answer. The testimonial is a placeholder by design — a theme page must
  * never invent a customer.
+ *
+ * The picker description is careful NOT to promise this becomes the homepage:
+ * it lands as a draft at a slug derived from its title like every other page,
+ * and the operator promotes it via Page settings if that is the intent.
  */
 final readonly class Home
 {
-    public static function definition(): PagePresetDefinition
+    public static function definition(): ThemePage
     {
-        return new PagePresetDefinition(
+        return new ThemePage(
+            key: 'home',
+            label: 'Home',
+            description: 'A landing-page layout — headline, highlights, social proof and a call to action.',
+            icon: Heroicon::OutlinedHome,
             title: 'Home',
             metaDescription: '{business_name} — {tagline}. Based in {city}.',
             blocks: [

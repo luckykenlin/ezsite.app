@@ -25,6 +25,12 @@ use App\Design\DesignTokens;
  * slug in display order; the first is what a site on this theme gets when a
  * stored slug no longer resolves. A theme with no schemes is not a theme —
  * every design surface lists them — and `ThemeTest` requires at least one.
+ *
+ * `$pages` is the theme's set of designed starting pages ({@see ThemePage}),
+ * keyed by key in the "Add a page" picker's display order. The subset with a
+ * `draftSlug` is also the closed menu of supporting pages the AI site draft may
+ * produce ({@see draftSlugs()}) — a theme decides both, because both are pages
+ * built from its own blocks and variants.
  */
 final readonly class ThemeDefinition
 {
@@ -35,12 +41,14 @@ final readonly class ThemeDefinition
      * @param  non-empty-array<string, Scheme>  $schemes  keyed by slug, in
      *                                                    display order; the
      *                                                    first is the default
+     * @param  array<string, ThemePage>  $pages  keyed by key, in display order
      */
     public function __construct(
         public string $label,
         public array $blocks,
         public string $stylesheet,
         public array $schemes,
+        public array $pages = [],
     ) {
         //
     }
@@ -66,6 +74,32 @@ final readonly class ThemeDefinition
     public function scheme(string $slug): ?Scheme
     {
         return $this->schemes[$slug] ?? null;
+    }
+
+    public function page(string $key): ?ThemePage
+    {
+        return $this->pages[$key] ?? null;
+    }
+
+    /**
+     * The slugs the AI site draft may use beyond the home page, in display
+     * order: every page that declares a `draftSlug`. A closed menu rather than
+     * model-invented paths, so slugs are collision-free and linkable before
+     * anything exists.
+     *
+     * @return list<string>
+     */
+    public function draftSlugs(): array
+    {
+        $slugs = [];
+
+        foreach ($this->pages as $page) {
+            if ($page->draftSlug !== null) {
+                $slugs[] = $page->draftSlug;
+            }
+        }
+
+        return $slugs;
     }
 
     /**
