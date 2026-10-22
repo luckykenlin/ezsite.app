@@ -50,6 +50,13 @@ arch('the site render layer never depends on the admin panel')
     ->expect('App\Site')
     ->not->toUse('App\Filament');
 
+arch('the theme layer never depends on the admin panel')
+    // A theme definition is read by the render layer, the AI vocabulary and
+    // the block classes alike; the block classes are the Filament side, so the
+    // dependency must point from them to the theme, never back.
+    ->expect('App\Themes')
+    ->not->toUse('App\Filament');
+
 arch('the tenancy layer never depends on the admin panel')
     ->expect('App\Tenancy')
     ->not->toUse('App\Filament');

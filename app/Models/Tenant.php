@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Templates\SiteTemplate;
+use App\Themes\Theme;
 use Database\Factories\TenantFactory;
 use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
@@ -22,6 +23,7 @@ use Stancl\Tenancy\Database\Models\Tenant as BaseTenant;
  * @property string $name
  * @property string|null $email
  * @property SiteTemplate|null $template
+ * @property Theme $theme
  * @property bool $is_demo
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
@@ -45,6 +47,7 @@ final class Tenant extends BaseTenant implements TenantWithDatabase
             'name',
             'email',
             'template',
+            'theme',
             'is_demo',
             'created_at',
             'updated_at',
@@ -98,6 +101,7 @@ final class Tenant extends BaseTenant implements TenantWithDatabase
         return [
             'is_demo' => 'boolean',
             'template' => SiteTemplate::class,
+            'theme' => Theme::class,
         ];
     }
 }
