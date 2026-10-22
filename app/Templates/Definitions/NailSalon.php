@@ -232,16 +232,6 @@ final readonly class NailSalon
                         ['group' => 'Art', 'name' => 'Freehand, foil and chrome', 'price' => 'Quoted at the chair', 'description' => 'Anything from a single accent nail to ten. Show us the photo and we will tell you honestly what will survive a fortnight.'],
                     ],
                 ]],
-                ['type' => 'steps', 'variant' => 'list', 'tone' => 'base', 'data' => [
-                    'heading' => 'How an appointment runs',
-                    'intro' => 'Ninety minutes most of the time. Two hours if there is art on it.',
-                    'steps' => [
-                        ['title' => 'Ten minutes talking', 'description' => 'Shape, length, colour, and what your week looks like. If what you want will not last on your nails, you hear it now rather than at the end.'],
-                        ['title' => 'Prep, properly', 'description' => 'Cuticle work under magnification, no drill on the natural nail, and a dry, dehydrated surface before a single layer goes down.'],
-                        ['title' => 'Build, then paint', 'description' => 'Structure first, colour second, art last — painted freehand while everything is still adjustable.'],
-                        ['title' => 'Two weeks later', 'description' => 'A free file and check-in if anything catches. It rarely does, but the offer stands and people use it.'],
-                    ],
-                ]],
                 ['type' => 'faq', 'tone' => 'muted', 'data' => [
                     'heading' => 'Asked at the desk',
                     'intro' => 'The questions that come up before a first appointment.',

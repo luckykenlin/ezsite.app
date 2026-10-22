@@ -581,20 +581,6 @@
     }
 
     /*
-     * A price, set as display type. Its own class rather than `.site-display`
-     * because a price never takes the responsive jump a headline does — three
-     * of them sit side by side — and because the menu in `offerings` needs
-     * exactly this treatment at a smaller size.
-     */
-    .site-price {
-        font-size: calc(2.25rem * var(--type-scale, 1));
-        line-height: 1;
-        font-weight: var(--type-display-weight, 700);
-        letter-spacing: var(--type-display-tracking, -0.025em);
-        font-variant-numeric: tabular-nums;
-    }
-
-    /*
      * A text link that is not a call to action: no underline at rest, one
      * that arrives on hover in a colour mixed out of currentColor, so it
      * works on the dark tones without a variant.
@@ -1666,27 +1652,6 @@
     }
 
     /*
-     * Stat values get display-grade type without the .site-display
-     * responsive jump (a stat row holds three or four of them), and
-     * adjacent stats are seamed by a hairline once the grid goes
-     * multi-column.
-     */
-    .site-stat {
-        font-size: calc(3rem * var(--type-scale, 1));
-        line-height: 1;
-        font-weight: var(--type-display-weight, 700);
-        letter-spacing: var(--type-display-tracking, -0.025em);
-        font-variant-numeric: tabular-nums;
-    }
-
-    @media (width >= 48rem) {
-        .site-stat-item + .site-stat-item {
-            border-inline-start: 1px solid
-                color-mix(in oklch, currentcolor 14%, transparent);
-        }
-    }
-
-    /*
      * The photo-overlay scrim (full-bleed hero, full-photo CTA). Bottom-
      * weighted so the copy zone keeps at least the contrast the old flat
      * bg-neutral/60 gave it while the top of the photo stays legible;
@@ -1855,10 +1820,6 @@
         .site-h4 {
             font-size: calc(1.75rem * var(--type-scale, 1));
             line-height: calc(2.25 / 1.75);
-        }
-
-        .site-price {
-            font-size: calc(2.75rem * var(--type-scale, 1));
         }
     }
 }

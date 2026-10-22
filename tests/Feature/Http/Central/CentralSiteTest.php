@@ -65,7 +65,7 @@ it('points the made-with wall at the real running demos', function (): void {
     $gallery = resolve(TemplateGallery::class);
     $response = $this->get(localeUrl(Locale::English))->assertOk();
 
-    foreach ([SiteTemplate::ChineseRestaurant, SiteTemplate::NailSalon, SiteTemplate::DesignerPortfolio] as $template) {
+    foreach ([SiteTemplate::ChineseRestaurant, SiteTemplate::NailSalon, SiteTemplate::MassageSpa] as $template) {
         $response->assertSee($gallery->demoUrl($template));
     }
 });
@@ -276,7 +276,7 @@ it('serves the committed screenshot for every template', function (): void {
 it('serves the apply wizard on the central domain, on step one', function (): void {
     // Full-page Livewire outside a panel: this is the smoke test that the
     // component, its layout and the central route actually compose.
-    $template = SiteTemplate::DesignerPortfolio;
+    $template = SiteTemplate::HairStudio;
 
     $this->get(localeUrl(Locale::English, '/start/'.$template->value))
         ->assertOk()

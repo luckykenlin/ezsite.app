@@ -152,16 +152,10 @@ it('gives the presets genuinely different section rhythms', function (): void {
  * menu of three.
  */
 it('reserves the dark tone for the one preset whose whole idea it is', function (): void {
-    // The stats band is exempt: a statement band was dark in every preset that
-    // chose it back when that darkness was a VARIANT ('band'), and moving it
-    // into the tone axis must not read as new presets reaching for drama.
     $withInverted = array_values(array_filter(
         StylePreset::cases(),
         static function (StylePreset $preset): bool {
-            $tones = array_column(
-                array_diff_key($preset->blockAppearanceDefaults(), ['stats' => null]),
-                'tone',
-            );
+            $tones = array_column($preset->blockAppearanceDefaults(), 'tone');
 
             return in_array(SectionTone::Inverted->value, $tones, true);
         },

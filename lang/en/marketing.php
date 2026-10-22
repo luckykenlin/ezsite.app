@@ -664,45 +664,6 @@ return [
                 'treatment_three_price' => ['label' => 'Its length and price'],
             ],
         ],
-
-        'personal-resume' => [
-            'label' => 'Personal resume',
-            'description' => 'Your name, your work and a way to reach you. Type only — no stock photograph in sight.',
-            'highlights' => [
-                'A type-only hero: your name, your title, one line',
-                'Three experience entries you fill in during signup',
-                'No stock photograph pretending to be you',
-            ],
-            'fields' => [
-                'current_title' => [
-                    'label' => 'Your title right now',
-                    'help' => 'One line. It sits directly under your name in the hero.',
-                ],
-                'role_one' => ['label' => 'Your current or most recent role'],
-                'role_two' => ['label' => 'The one before it'],
-                'role_three' => ['label' => 'And the one before that'],
-                'focus' => ['label' => 'The work you want more of'],
-            ],
-        ],
-
-        'designer-portfolio' => [
-            'label' => 'Designer portfolio',
-            'description' => 'Magazine layout, work in the first viewport. For studios whose portfolio does the selling.',
-            'highlights' => [
-                'Your work on black, in the first viewport',
-                'Three project write-ups from the signup form',
-                'A services page with real engagement shapes and prices',
-            ],
-            'fields' => [
-                'discipline' => [
-                    'label' => 'What you actually do',
-                    'help' => 'One line. It goes under your name in the hero.',
-                ],
-                'project_one' => ['label' => 'A project to lead with'],
-                'project_two' => ['label' => 'A second project'],
-                'project_three' => ['label' => 'A third project'],
-            ],
-        ],
     ],
 
     /*

@@ -65,22 +65,21 @@ enum StylePreset: string
         // goes to the three presets whose businesses hand you a printed menu —
         // WarmCraft (the tea house and its kin), NightLounge (the tasting menu,
         // the cocktail list) and QuietLuxe (the omakase counter, the salon's
-        // service menu, where the hairline frame is the same one spend as its
-        // outline pricing). The other five sell from a list, and a frame around
+        // service menu). The other five sell from a list, and a frame around
         // it would be chrome against their point — restraint, SaaS convention,
         // editorial flatness, clinical calm, counter-service casualness.
         return match ($this) {
-            self::WarmCraft => ['hero' => 'left-text-right-image', 'features' => 'alternating', 'offerings' => 'menu-card', 'testimonials' => 'grid', 'gallery' => 'masonry', 'cta' => 'banner', 'header' => 'centered', 'footer' => 'columns', 'prose' => 'side-heading', 'steps' => 'list', 'signup' => 'banner', 'updates' => 'cards'],
-            self::ProfessionalMinimal => ['hero' => 'centered-minimal', 'features' => 'rows', 'offerings' => 'simple', 'testimonials' => 'grid', 'gallery' => 'grid', 'cta' => 'banner', 'header' => 'simple', 'footer' => 'minimal', 'prose' => 'stacked', 'steps' => 'list', 'signup' => 'stacked', 'updates' => 'list'],
-            self::FreshModern => ['hero' => 'left-text-right-image', 'features' => 'grid', 'offerings' => 'simple', 'testimonials' => 'carousel', 'gallery' => 'grid', 'cta' => 'banner', 'header' => 'simple', 'footer' => 'columns', 'prose' => 'stacked', 'steps' => 'timeline', 'signup' => 'banner', 'updates' => 'cards'],
-            self::BoldEditorial => ['hero' => 'full-bleed-overlay', 'features' => 'grid', 'offerings' => 'simple', 'testimonials' => 'spotlight', 'gallery' => 'masonry', 'cta' => 'banner', 'header' => 'centered', 'footer' => 'minimal', 'prose' => 'side-heading', 'steps' => 'list', 'signup' => 'stacked', 'updates' => 'cards'],
-            self::CalmCoastal => ['hero' => 'centered-minimal', 'features' => 'grid', 'offerings' => 'simple', 'testimonials' => 'carousel', 'gallery' => 'grid', 'cta' => 'banner', 'header' => 'simple', 'footer' => 'columns', 'prose' => 'stacked', 'steps' => 'timeline', 'signup' => 'stacked', 'updates' => 'list'],
-            self::PlayfulFriendly => ['hero' => 'full-bleed-overlay', 'features' => 'grid', 'offerings' => 'simple', 'testimonials' => 'carousel', 'gallery' => 'filmstrip', 'cta' => 'banner', 'header' => 'centered', 'footer' => 'columns', 'prose' => 'stacked', 'steps' => 'list', 'signup' => 'banner', 'updates' => 'cards'],
-            self::NightLounge => ['hero' => 'full-bleed-overlay', 'features' => 'alternating', 'offerings' => 'menu-card', 'testimonials' => 'spotlight', 'gallery' => 'masonry', 'cta' => 'banner', 'header' => 'inverted', 'footer' => 'minimal', 'prose' => 'side-heading', 'steps' => 'list', 'signup' => 'banner', 'updates' => 'cards'],
+            self::WarmCraft => ['hero' => 'left-text-right-image', 'features' => 'alternating', 'offerings' => 'menu-card', 'testimonials' => 'grid', 'gallery' => 'masonry', 'cta' => 'banner', 'header' => 'centered', 'footer' => 'columns', 'prose' => 'side-heading', 'signup' => 'banner', 'updates' => 'cards'],
+            self::ProfessionalMinimal => ['hero' => 'centered-minimal', 'features' => 'rows', 'offerings' => 'simple', 'testimonials' => 'grid', 'gallery' => 'grid', 'cta' => 'banner', 'header' => 'simple', 'footer' => 'minimal', 'prose' => 'stacked', 'signup' => 'stacked', 'updates' => 'list'],
+            self::FreshModern => ['hero' => 'left-text-right-image', 'features' => 'grid', 'offerings' => 'simple', 'testimonials' => 'carousel', 'gallery' => 'grid', 'cta' => 'banner', 'header' => 'simple', 'footer' => 'columns', 'prose' => 'stacked', 'signup' => 'banner', 'updates' => 'cards'],
+            self::BoldEditorial => ['hero' => 'full-bleed-overlay', 'features' => 'grid', 'offerings' => 'simple', 'testimonials' => 'spotlight', 'gallery' => 'masonry', 'cta' => 'banner', 'header' => 'centered', 'footer' => 'minimal', 'prose' => 'side-heading', 'signup' => 'stacked', 'updates' => 'cards'],
+            self::CalmCoastal => ['hero' => 'centered-minimal', 'features' => 'grid', 'offerings' => 'simple', 'testimonials' => 'carousel', 'gallery' => 'grid', 'cta' => 'banner', 'header' => 'simple', 'footer' => 'columns', 'prose' => 'stacked', 'signup' => 'stacked', 'updates' => 'list'],
+            self::PlayfulFriendly => ['hero' => 'full-bleed-overlay', 'features' => 'grid', 'offerings' => 'simple', 'testimonials' => 'carousel', 'gallery' => 'filmstrip', 'cta' => 'banner', 'header' => 'centered', 'footer' => 'columns', 'prose' => 'stacked', 'signup' => 'banner', 'updates' => 'cards'],
+            self::NightLounge => ['hero' => 'full-bleed-overlay', 'features' => 'alternating', 'offerings' => 'menu-card', 'testimonials' => 'spotlight', 'gallery' => 'masonry', 'cta' => 'banner', 'header' => 'inverted', 'footer' => 'minimal', 'prose' => 'side-heading', 'signup' => 'banner', 'updates' => 'cards'],
             // The one preset that opens with the type-only hero: everything else
             // here is the quietest layout its type offers, and a photograph in
             // the first viewport would be the loudest thing on the site.
-            self::QuietLuxe => ['hero' => 'full-viewport-quiet', 'features' => 'rows', 'offerings' => 'menu-card', 'testimonials' => 'spotlight', 'gallery' => 'grid', 'cta' => 'banner', 'header' => 'simple', 'footer' => 'minimal', 'prose' => 'stacked', 'steps' => 'list', 'signup' => 'stacked', 'updates' => 'list'],
+            self::QuietLuxe => ['hero' => 'full-viewport-quiet', 'features' => 'rows', 'offerings' => 'menu-card', 'testimonials' => 'spotlight', 'gallery' => 'grid', 'cta' => 'banner', 'header' => 'simple', 'footer' => 'minimal', 'prose' => 'stacked', 'signup' => 'stacked', 'updates' => 'list'],
         };
     }
 
@@ -147,8 +146,6 @@ enum StylePreset: string
                 'faq' => ['tone' => 'muted'],
                 'contact' => ['tone' => 'muted', 'spacing' => 'airy'],
                 'cta' => ['tone' => 'muted', 'item_style' => 'card'],
-                'stats' => ['tone' => 'muted'],
-                'steps' => ['spacing' => 'airy'],
             ],
             // Sells trust, so it spends nothing on decoration: almost every
             // section sits on the page background, including testimonials, whose
@@ -161,10 +158,6 @@ enum StylePreset: string
                 'testimonials' => ['tone' => 'base'],
                 'faq' => ['tone' => 'base'],
                 'contact' => ['tone' => 'base'],
-                // Outline, not filled: plan cards drawn in one hairline are the
-                // most this preset ever spends on chrome.
-                'pricing' => ['item_style' => 'outline'],
-                'logos' => ['tone' => 'base'],
             ],
             // Alternating shade gives it pace without weight — the closest in the
             // library to a conventional SaaS page.
@@ -177,7 +170,6 @@ enum StylePreset: string
                 'faq' => ['tone' => 'muted', 'width' => 'wide', 'align' => 'center', 'columns' => 'two'],
                 'team' => ['item_style' => 'card', 'image_shape' => 'portrait'],
                 'contact' => ['tone' => 'base'],
-                'pricing' => ['tone' => 'muted'],
             ],
             // The one preset that uses the dark tone as a design element:
             // photographs and quotes go on black, and the compact spacing token
@@ -190,10 +182,8 @@ enum StylePreset: string
                 'offerings' => ['tone' => 'muted', 'spacing' => 'tight'],
                 'prose' => ['spacing' => 'tight'],
                 'faq' => ['tone' => 'base', 'spacing' => 'tight', 'width' => 'wide', 'align' => 'center', 'columns' => 'two'],
-                'stats' => ['tone' => 'inverted'],
                 'team' => ['item_style' => 'card', 'image_shape' => 'portrait'],
                 'contact' => ['tone' => 'inverted', 'width' => 'narrow', 'align' => 'center', 'columns' => 'one'],
-                'steps' => ['spacing' => 'tight'],
             ],
             // Air is the whole point: every content section gets the roomiest
             // step, and nothing is ever dark — wellness and care do not shout.
@@ -207,8 +197,6 @@ enum StylePreset: string
                 'prose' => ['spacing' => 'airy'],
                 'faq' => ['tone' => 'base', 'spacing' => 'airy'],
                 'contact' => ['tone' => 'muted', 'spacing' => 'airy', 'width' => 'narrow', 'align' => 'center', 'columns' => 'one'],
-                'stats' => ['tone' => 'muted'],
-                'steps' => ['spacing' => 'airy'],
             ],
             // Colour-forward and busy on purpose: the brand tone shows up on the
             // call to action, and shaded bands keep the page lively.
@@ -219,7 +207,6 @@ enum StylePreset: string
                 'visit' => ['tone' => 'muted'],
                 'testimonials' => ['tone' => 'muted'],
                 'faq' => ['tone' => 'base', 'width' => 'wide', 'align' => 'center', 'columns' => 'two'],
-                'stats' => ['tone' => 'inverted'],
                 'contact' => ['tone' => 'muted', 'width' => 'narrow', 'align' => 'center', 'columns' => 'one'],
                 'cta' => ['tone' => 'accent'],
                 // Square, not portrait: with the Full radius token the crop
@@ -240,11 +227,9 @@ enum StylePreset: string
                 'visit' => ['tone' => 'muted', 'spacing' => 'tight'],
                 'testimonials' => ['tone' => 'muted', 'spacing' => 'airy'],
                 'faq' => ['tone' => 'muted'],
-                'stats' => ['tone' => 'inverted'],
                 'team' => ['item_style' => 'card', 'image_shape' => 'portrait'],
                 'contact' => ['tone' => 'base', 'width' => 'narrow', 'align' => 'center', 'columns' => 'one'],
                 'cta' => ['tone' => 'accent', 'spacing' => 'tight'],
-                'logos' => ['tone' => 'base'],
             ],
             // Air and narrow measures everywhere, and the only preset that never
             // reaches for `accent`: its palette has no accent HUE to spend (see
@@ -269,11 +254,7 @@ enum StylePreset: string
                 // on a monochrome palette the accent surface is the near-black
                 // primary — a black slab two thirds down a page made of paper.
                 'signup' => ['tone' => 'muted', 'spacing' => 'airy', 'align' => 'center'],
-                'stats' => ['tone' => 'muted', 'spacing' => 'airy'],
-                'steps' => ['spacing' => 'airy', 'width' => 'narrow'],
                 'team' => ['item_style' => 'plain', 'image_shape' => 'portrait'],
-                'pricing' => ['spacing' => 'airy', 'columns' => 'two', 'item_style' => 'outline'],
-                'logos' => ['tone' => 'base', 'spacing' => 'airy'],
             ],
         };
     }

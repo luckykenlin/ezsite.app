@@ -223,24 +223,6 @@ final readonly class BurgerJoint
                         ['text' => 'The griddle from the trailer is still in the kitchen. It is scarred, it is uneven, and it makes a better crust than the new one.'],
                     ],
                 ]],
-                ['type' => 'stats', 'tone' => 'muted', 'data' => [
-                    'heading' => 'Some numbers',
-                    'stats' => [
-                        ['value' => '3', 'label' => 'Burgers on the menu'],
-                        ['value' => '2 min', 'label' => 'From smash to tray'],
-                        ['value' => '8', 'label' => 'Blocks to the butcher'],
-                    ],
-                ]],
-                ['type' => 'steps', 'variant' => 'list', 'data' => [
-                    'heading' => 'What happens after you order',
-                    'intro' => 'Four moves, in the same order, every single time.',
-                    'steps' => [
-                        ['title' => 'A ball of beef hits the steel', 'description' => 'Loose-packed, never pre-formed, straight from the fridge onto a griddle at full heat.'],
-                        ['title' => 'One press, ten seconds', 'description' => 'Pressed once and hard, then left alone. Pressing twice squeezes out everything worth eating.'],
-                        ['title' => 'Cheese on, bun on', 'description' => 'The cheese goes down while the patty is still going, so it melts instead of just sitting there.'],
-                        ['title' => 'Wrapped and handed over', 'description' => 'It steams the bun on the way to you. That is the point of the paper.'],
-                    ],
-                ]],
                 ['type' => 'gallery', 'variant' => 'grid', 'data' => [
                     'heading' => 'The room',
                     'images' => [

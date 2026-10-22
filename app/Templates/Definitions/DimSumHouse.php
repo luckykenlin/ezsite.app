@@ -231,14 +231,6 @@ final readonly class DimSumHouse
                         ['text' => 'The kitchen has grown, the carts have multiplied, and the duck still takes a full day. Some things should not scale.'],
                     ],
                 ]],
-                ['type' => 'stats', 'tone' => 'muted', 'data' => [
-                    'heading' => 'By the numbers',
-                    'stats' => [
-                        ['value' => '30', 'label' => 'Years of morning folds'],
-                        ['value' => '19', 'label' => 'Pleats in a proper har gow'],
-                        ['value' => '24', 'label' => "Hours to earn a duck's skin"],
-                    ],
-                ]],
                 ['type' => 'gallery', 'variant' => 'masonry', 'data' => [
                     'heading' => 'Behind the steam',
                     'images' => [

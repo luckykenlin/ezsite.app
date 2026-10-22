@@ -224,24 +224,6 @@ final readonly class PizzaShop
                         ['text' => 'The people who work here have mostly been here a while. On a busy Friday there are four of us behind the counter and one of us is always covered in flour.'],
                     ],
                 ]],
-                ['type' => 'steps', 'variant' => 'timeline', 'tone' => 'muted', 'data' => [
-                    'heading' => 'From flour to your hands',
-                    'intro' => 'Four days a week this runs on a loop, and it is the only part of the shop that never changes.',
-                    'steps' => [
-                        ['title' => 'Mix', 'description' => 'Flour, water, salt and a little starter, worked until it is smooth and then left alone.'],
-                        ['title' => 'Rest', 'description' => 'Forty-eight hours cold. This is the step that cannot be rushed, and the one everybody tries to rush.'],
-                        ['title' => 'Stretch', 'description' => 'By hand, on the counter, in front of you. Rolling pins flatten the air out of the rim.'],
-                        ['title' => 'Fire', 'description' => 'Ninety seconds at the mouth of the oven, turned twice, out before the base goes stiff.'],
-                    ],
-                ]],
-                ['type' => 'stats', 'tone' => 'muted', 'data' => [
-                    'heading' => 'The shop in numbers',
-                    'stats' => [
-                        ['value' => '48', 'label' => 'Hours the dough rests'],
-                        ['value' => '900', 'label' => 'Degrees at the oven mouth'],
-                        ['value' => '6', 'label' => 'Pizzas on the board'],
-                    ],
-                ]],
                 ['type' => 'gallery', 'variant' => 'grid', 'data' => [
                     'heading' => 'Before the doors open',
                     'images' => [

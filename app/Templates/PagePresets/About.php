@@ -8,9 +8,8 @@ use App\Templates\PagePresetDefinition;
 
 /**
  * The story page: prose first because an about page is the one place a
- * visitor arrives wanting to READ, then numbers and faces to back the story
- * up. Stats and team members are deliberately zeroed placeholders — a preset
- * must never invent a track record or a person.
+ * visitor arrives wanting to READ, then faces to back the story up. Team
+ * members are deliberately placeholders — a preset must never invent a person.
  */
 final readonly class About
 {
@@ -31,14 +30,6 @@ final readonly class About
                     'paragraphs' => [
                         ['text' => 'Replace this with how {business_name} started — the year, the reason, the first customer. Origin stories build more trust than adjectives.'],
                         ['text' => 'Add a second paragraph about how you work today and what you refuse to compromise on. Short paragraphs read better on a phone.'],
-                    ],
-                ]],
-                ['type' => 'stats', 'data' => [
-                    'heading' => 'By the numbers',
-                    'stats' => [
-                        ['value' => '00', 'label' => 'Years in {city}'],
-                        ['value' => '00', 'label' => 'Customers served'],
-                        ['value' => '00', 'label' => 'Replace with a number you are proud of'],
                     ],
                 ]],
                 ['type' => 'team', 'data' => [

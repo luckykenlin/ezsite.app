@@ -229,7 +229,6 @@ it('derives where every image-bearing type keeps its media ids', function (): vo
         'features' => [null, 'features', 'image_id'],
         'gallery' => [null, 'images', 'media_id'],
         'hero' => ['image_id', null, null],
-        'logos' => [null, 'logos', 'media_id'],
         'offerings' => [null, 'items', 'image_id'],
         'team' => [null, 'members', 'avatar_media_id'],
         'testimonials' => [null, 'testimonials', 'avatar_media_id'],

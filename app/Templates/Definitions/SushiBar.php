@@ -245,16 +245,6 @@ final readonly class SushiBar
                         ['text' => 'The fish is bought whole where the size allows and broken down in the back each morning. Some of it is served within hours; some is salted, cured or aged for days first, because a good piece of mackerel is made, not found.'],
                     ],
                 ]],
-                ['type' => 'steps', 'variant' => 'timeline', 'tone' => 'muted', 'data' => [
-                    'heading' => 'A day, in order',
-                    'intro' => 'The same loop five days a week, and the reason the card is never written before ten in the morning.',
-                    'steps' => [
-                        ['title' => 'Market', 'description' => 'At the stalls by six. What is bought is whatever was best that morning, not whatever the menu promised.'],
-                        ['title' => 'Rice', 'description' => 'Washed, rested, cooked in small batches and seasoned while warm. The pot is remade through the night rather than held.'],
-                        ['title' => 'Cut', 'description' => "The morning's fish broken down, cured or set aside to age. The card is written only after the last box is open."],
-                        ['title' => 'Serve', 'description' => 'Two seatings, twelve chairs each, one piece at a time. Nothing leaves the board until the person it is for is ready.'],
-                    ],
-                ]],
                 ['type' => 'gallery', 'variant' => 'grid', 'data' => [
                     'heading' => 'Before the first seating',
                     'images' => [

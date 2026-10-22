@@ -241,14 +241,6 @@ final readonly class FineDining
                         ['name' => 'Jonah Wells', 'role' => 'Head of wine', 'bio' => 'Keeps the cellar and the room’s pace. Will find you something better than the bottle you came in wanting, one shelf down in price.'],
                     ],
                 ]],
-                ['type' => 'stats', 'tone' => 'base', 'data' => [
-                    'heading' => 'The room in numbers',
-                    'stats' => [
-                        ['value' => '8', 'label' => 'Tables in the dining room'],
-                        ['value' => '1', 'label' => 'Page on the menu, rewritten daily'],
-                        ['value' => '400+', 'label' => 'Bins in the cellar'],
-                    ],
-                ]],
                 ['type' => 'gallery', 'variant' => 'grid', 'data' => [
                     'heading' => 'Before the first cover',
                     'images' => [

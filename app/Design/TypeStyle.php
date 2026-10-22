@@ -48,8 +48,7 @@ enum TypeStyle: string
      * decision of its own: a hero headline can be twice the size of a section
      * title or four times it, and before this axis the only way to grow one was
      * to grow the whole page's type with it — which is how "make the headline
-     * enormous" turned into 20px body copy. Kept off `.site-stat`, whose
-     * three-or-four-across row overflows long before a headline does.
+     * enormous" turned into 20px body copy.
      *
      * The ceiling on it is set by real copy, not by taste. A magazine can set a
      * headline at 8rem because an editor wrote it to two words; a tenant's

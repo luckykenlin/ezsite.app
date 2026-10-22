@@ -29,7 +29,7 @@
     // grouping (no category routes exist), labels straight from
     // marketing.templates.*.label via SiteTemplate::label().
     $footerFood = [SiteTemplate::ChineseRestaurant, SiteTemplate::DimSumHouse, SiteTemplate::PizzaShop, SiteTemplate::BurgerJoint, SiteTemplate::BubbleTea, SiteTemplate::FineDining, SiteTemplate::SushiBar, SiteTemplate::CafeBrunch, SiteTemplate::FamilyBistro];
-    $footerServices = [SiteTemplate::NailSalon, SiteTemplate::HairStudio, SiteTemplate::MassageSpa, SiteTemplate::PersonalResume, SiteTemplate::DesignerPortfolio];
+    $footerServices = [SiteTemplate::NailSalon, SiteTemplate::HairStudio, SiteTemplate::MassageSpa];
 @endphp
 <!DOCTYPE html>
 <html lang="{{ $localeUrls->locale()->htmlLang() }}">

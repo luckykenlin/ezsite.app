@@ -214,14 +214,6 @@ final readonly class ChineseRestaurant
                         ['text' => 'What has not changed is who cooks. It is the same family, most nights, in the same kitchen.'],
                     ],
                 ]],
-                ['type' => 'stats', 'tone' => 'muted', 'data' => [
-                    'heading' => 'By the numbers',
-                    'stats' => [
-                        ['value' => '30', 'label' => 'Years on the same street'],
-                        ['value' => '3', 'label' => 'Generations at the wok'],
-                        ['value' => '1', 'label' => 'Recipe book, unwritten'],
-                    ],
-                ]],
                 ['type' => 'gallery', 'variant' => 'grid', 'data' => [
                     'heading' => 'In the kitchen',
                     'images' => [

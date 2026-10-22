@@ -7,8 +7,7 @@ namespace App\Templates\PagePresets;
 use App\Templates\PagePresetDefinition;
 
 /**
- * The offer page: what you sell with prices, how an engagement runs, proof,
- * then the ask. Offerings over features on purpose — this page exists for
+ * The offer page: what you sell with prices, proof, then the ask. Offerings over features on purpose — this page exists for
  * things a customer can BUY, and the `$00` prices are loud placeholders that
  * demand replacing rather than quiet lies.
  */
@@ -32,15 +31,6 @@ final readonly class Services
                         ['group' => 'Popular', 'name' => 'Your most-asked-for service', 'price' => '$00', 'description' => 'Replace this with what the customer gets and how long it takes.'],
                         ['group' => 'Popular', 'name' => 'Your second service', 'price' => '$00', 'description' => 'Replace this with what the customer gets and how long it takes.'],
                         ['group' => 'Also available', 'name' => 'A third service', 'price' => 'from $00', 'description' => 'Use "from" pricing when the job varies — and say what moves the price.'],
-                    ],
-                ]],
-                ['type' => 'steps', 'variant' => 'list', 'data' => [
-                    'heading' => 'How it works',
-                    'intro' => 'From first contact to finished job.',
-                    'steps' => [
-                        ['title' => 'Get in touch', 'description' => 'Replace this with what the customer does first — call, message or book online.'],
-                        ['title' => 'We agree the details', 'description' => 'Replace this with what happens next: the quote, the appointment, the plan.'],
-                        ['title' => 'The work gets done', 'description' => 'Replace this with how it finishes, and what happens if something is not right.'],
                     ],
                 ]],
                 ['type' => 'testimonials', 'variant' => 'carousel', 'data' => [

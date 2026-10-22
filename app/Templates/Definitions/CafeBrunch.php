@@ -240,16 +240,6 @@ final readonly class CafeBrunch
                         ['text' => 'Brunch grew out of the bread, not the other way round. Once there was good sourdough every morning, eggs were the obvious next question, and the answer has been getting longer ever since.'],
                     ],
                 ]],
-                ['type' => 'steps', 'variant' => 'timeline', 'tone' => 'muted', 'data' => [
-                    'heading' => 'The morning, in order',
-                    'intro' => 'Seven days a week this runs the same way, and the whole café is downstream of it.',
-                    'steps' => [
-                        ['title' => 'Ovens on at five', 'description' => 'The bakers arrive in the dark, the ovens come up to heat, and the overnight proofs come out of the cold room.'],
-                        ['title' => 'Bake', 'description' => 'Croissants first, morning buns behind them, loaves last. Two hours, one long run, no second batch.'],
-                        ['title' => 'Doors at seven', 'description' => 'The first hour belongs to the regulars — the same orders, the good window light, the batch filter doing most of the work.'],
-                        ['title' => 'Brunch', 'description' => 'The pans go on from eight and stay on until close. When the hotcake batter runs out, that is the day calling time.'],
-                    ],
-                ]],
                 ['type' => 'gallery', 'variant' => 'grid', 'data' => [
                     'heading' => 'Before the doors open',
                     'images' => [

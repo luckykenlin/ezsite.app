@@ -194,10 +194,18 @@ it('gives every template its own demo subdomain, label and gallery copy', functi
     }
 });
 
-it('uses every style preset at least once across the library', function (): void {
+it('leaves only the two presets without a template unshowcased', function (): void {
     // The gallery is the design system's shop window: a preset no template
-    // reaches for is a preset no visitor ever sees.
+    // reaches for is a preset no visitor ever sees. Two are unshowcased on
+    // purpose — their only templates (the designer portfolio on BoldEditorial,
+    // the personal resume on ProfessionalMinimal) were retired — and listing
+    // them here keeps the gap deliberate: a third orphan, or a template that
+    // picks one of these up, both show here.
     $used = array_map(fn (SiteTemplate $t): string => $t->definition()->preset->value, SiteTemplate::cases());
+    $unused = array_values(array_filter(
+        StylePreset::cases(),
+        fn (StylePreset $preset): bool => ! in_array($preset->value, $used, true),
+    ));
 
-    expect(array_unique($used))->toHaveSameSize(StylePreset::cases());
+    expect($unused)->toBe([StylePreset::ProfessionalMinimal, StylePreset::BoldEditorial]);
 });

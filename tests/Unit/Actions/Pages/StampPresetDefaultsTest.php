@@ -191,15 +191,15 @@ it('fill: a model tone resets the alternation state', function (): void {
 });
 
 it('fill: writes nothing over silence, and a spacing-only preset entry stays spacing-only', function (): void {
-    // pricing has no WarmCraft entry and no flip is needed first in the list,
+    // team has no WarmCraft entry and no flip is needed first in the list,
     // so it keeps its view's own default; prose has a spacing-only entry.
     $blocks = stampPresetDefaults()->fill([
-        ['type' => 'pricing', 'data' => []],
+        ['type' => 'team', 'data' => []],
         ['type' => 'prose', 'data' => []],
     ], StylePreset::WarmCraft);
 
     expect($blocks[0]['data'])->not->toHaveKey('appearance')
-        // pricing counted as base, so prose (also no tone opinion) flips to
+        // team counted as base, so prose (also no tone opinion) flips to
         // muted to keep two silent base bands from stacking — plus its preset
         // airy.
         ->and($blocks[1]['data']['appearance'])->toBe(['tone' => 'muted', 'spacing' => 'airy']);

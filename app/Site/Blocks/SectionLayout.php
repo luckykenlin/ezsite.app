@@ -224,9 +224,8 @@ final readonly class SectionLayout
 
     /**
      * The grid classes capped at the number of items actually present — for
-     * views like pricing where one plan sitting in a third of a three-column
-     * grid reads as a mistake, not a layout. The axis is a ceiling here, never
-     * exceeded.
+     * views where one item sitting in a third of a three-column grid reads as
+     * a mistake, not a layout. The axis is a ceiling here, never exceeded.
      */
     public function gridFor(int $items): string
     {
@@ -276,18 +275,6 @@ final readonly class SectionLayout
         $style = $this->axis(LayoutAxis::ItemStyle);
 
         return $style instanceof SectionItemStyle && $style->isCard();
-    }
-
-    /**
-     * Whether this section's items sit on a surface of their own — what a view
-     * asks before deciding that something INSIDE an item contrasts with the item
-     * rather than with the band ({@see SectionItemStyle::paintsSurface()}).
-     */
-    public function itemPaintsSurface(): bool
-    {
-        $style = $this->axis(LayoutAxis::ItemStyle);
-
-        return $style instanceof SectionItemStyle && $style->paintsSurface();
     }
 
     public function image(): string

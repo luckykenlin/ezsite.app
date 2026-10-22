@@ -313,7 +313,7 @@ test('the page-block views type through the shared site-* classes, never utility
         // The button silhouette a section stands on is SectionTone's call, for
         // the accent-band reason spelled out on buttonClasses(). A view may
         // still reach for `site-btn site-btn-primary` where the button sits on
-        // a CARD rather than on the band (pricing, cta) — what it must not do
+        // a CARD rather than on the band (cta) — what it must not do
         // is decide the on-band case for itself.
         'site-btn-on-accent',
         // Photo scrims go through .site-scrim (the graded overlay); the old
