@@ -11,6 +11,8 @@ use App\Site\Blocks\BlockIntent;
 use App\Site\Blocks\BlockShape;
 use App\Site\Blocks\BlockType;
 use App\Site\Blocks\LayoutAxis;
+use App\Themes\CurrentTheme;
+use App\Themes\ThemeBlock;
 use Awcodes\Curator\Components\Forms\CuratorPicker;
 use Filament\Forms\Components\Builder\Block as BuilderBlock;
 use Filament\Forms\Components\Field;
@@ -33,10 +35,12 @@ use Z3d0X\FilamentFabricator\PageBlocks\PageBlock;
  * {@see \App\Site\Blocks\BlockVocabulary}, the single enumeration point that makes
  * blocks selectable but never authorable by tenants.
  *
- * A subclass declares its layout variants and bind target by redeclaring the
- * {@see $variants} / {@see $bindType} properties, and implements {@see fields()}
- * (content fields only). It never touches `defineBlock()` — the variant selector
- * is composed here, uniformly.
+ * A subclass declares its bind target by redeclaring {@see $bindType} and
+ * implements {@see fields()} (content fields only). It never touches
+ * `defineBlock()` — the variant selector is composed here, uniformly. Its
+ * layout VARIANTS are not declared here at all: they belong to the theme
+ * ({@see ThemeBlock}), because which layouts exist for a type is a design
+ * decision that differs between themes, while the content fields do not.
  */
 abstract class Block extends PageBlock
 {
@@ -56,14 +60,6 @@ abstract class Block extends PageBlock
     protected static string $description = '';
 
     /**
-     * The layout variants this block offers, as `variantKey => human label`.
-     * An empty map means the block has a single, non-variant view.
-     *
-     * @var array<string, string>
-     */
-    protected static array $variants = [];
-
-    /**
      * The kind of factual record this block binds to, or null when it holds only
      * its own narrative content. See {@see BindType}.
      */
@@ -79,25 +75,6 @@ abstract class Block extends PageBlock
      * @var array<string, string>
      */
     protected static array $axes = [];
-
-    /**
-     * Per-variant overrides of those defaults, `variant => [axis => value]` —
-     * for the handful of variants whose look IS a different default (the
-     * full-bleed hero is inverted and tall; the centered one airy).
-     *
-     * @var array<string, array<string, string>>
-     */
-    protected static array $variantAxes = [];
-
-    /**
-     * Variants whose layout is built around NOT having a photograph, so the
-     * draft pipeline must not hand them one unasked — see
-     * {@see BlockType::wantsAutoImage()} for why this is about the automatic
-     * fill only.
-     *
-     * @var list<string>
-     */
-    protected static array $imagelessVariants = [];
 
     /**
      * The icon representing this block type in the editor's block library and
@@ -146,7 +123,7 @@ abstract class Block extends PageBlock
      */
     final public static function defaultVariant(): ?string
     {
-        return array_key_first(static::$variants);
+        return self::themeBlock()->defaultVariant();
     }
 
     /**
@@ -160,11 +137,12 @@ abstract class Block extends PageBlock
     final public static function contract(): BlockType
     {
         [$mediaField, $itemsField, $itemMediaField] = self::mediaFields();
+        $themeBlock = self::themeBlock();
 
         return new BlockType(
             type: static::getName(),
             description: static::$description,
-            variants: array_keys(static::$variants),
+            variants: array_keys($themeBlock->variants),
             bind: static::$bindType,
             icon: static::$icon?->value,
             fields: array_values(array_map(
@@ -173,13 +151,13 @@ abstract class Block extends PageBlock
             )),
             sample: self::sample(),
             intent: static::$intent,
-            variantLabels: static::$variants,
+            variantLabels: $themeBlock->variants,
             mediaField: $mediaField,
             itemsField: $itemsField,
             itemMediaField: $itemMediaField,
             axes: static::$axes,
-            variantAxes: static::$variantAxes,
-            imagelessVariants: static::$imagelessVariants,
+            variantAxes: $themeBlock->variantAxes,
+            imagelessVariants: $themeBlock->imagelessVariants,
         );
     }
 
@@ -200,11 +178,29 @@ abstract class Block extends PageBlock
             $schema = [static::bindField(), ...$schema];
         }
 
-        if (static::$variants !== []) {
+        if (self::themeBlock()->hasVariants()) {
             $schema = [static::variantField(), ...$schema];
         }
 
         return $block->schema($schema);
+    }
+
+    /**
+     * How the current theme draws this type: its layout variants and the
+     * per-variant opinions that travel with them. A type the theme does not
+     * list gets an empty, single-view block — harmless, because
+     * {@see \App\Filament\Fabricator\BlockRegistry::contracts()} never offers
+     * such a type in the first place.
+     *
+     * The ONE place a block class reads the theme. Variants used to be a static
+     * on each subclass, which made every theme draw the same layouts; moving
+     * the declaration onto the theme is what lets two themes offer different
+     * layouts for the same content contract. Resolved rather than injected
+     * because Fabricator calls every schema method statically.
+     */
+    protected static function themeBlock(): ThemeBlock
+    {
+        return resolve(CurrentTheme::class)->definition()->block(static::getName()) ?? new ThemeBlock;
     }
 
     /**
@@ -218,7 +214,7 @@ abstract class Block extends PageBlock
     {
         return Select::make(BlockShape::VARIANT_KEY)
             ->label('Layout variant')
-            ->options(static::$variants)
+            ->options(self::themeBlock()->variants)
             ->default(self::defaultVariant())
             ->selectablePlaceholder(false)
             ->live()

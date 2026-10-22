@@ -10,6 +10,9 @@ use App\Filament\Fabricator\PageBlocks\Hero;
 use App\Models\Location;
 use App\Models\Tenant;
 use App\Site\Blocks\BlockShape;
+use App\Themes\CurrentTheme;
+use App\Themes\ThemeBlock;
+use App\Themes\ThemeDefinition;
 use Filament\Forms\Components\Builder\Block;
 use Filament\Forms\Components\Field;
 use Filament\Forms\Components\Select;
@@ -132,6 +135,28 @@ it('auto-injects optional, immediately-live appearance selects after the content
         ->and($spacing->getDefaultState())->toBeNull()
         ->and($spacing->isLive())->toBeTrue()
         ->and($spacing->isLiveDebounced())->toBeFalse();
+});
+
+it("offers the current theme's variants in the selector, and none when the theme draws a single view", function (): void {
+    app()->instance(CurrentTheme::class, new CurrentTheme(new ThemeDefinition(
+        label: 'Reduced',
+        blocks: [
+            'hero' => new ThemeBlock(variants: ['poster' => 'Poster', 'quiet' => 'Quiet']),
+            'features' => new ThemeBlock,
+        ],
+        stylesheet: 'resources/css/site.css',
+    )));
+
+    /** @var Select $variantSelect */
+    $variantSelect = containerizedBlockComponents(Hero::getBlockSchema())[0];
+
+    expect($variantSelect->getName())->toBe(BlockShape::VARIANT_KEY)
+        ->and($variantSelect->getOptions())->toBe(['poster' => 'Poster', 'quiet' => 'Quiet'])
+        ->and($variantSelect->getDefaultState())->toBe('poster')
+        // Features has three layouts in the default theme; this theme draws it
+        // one way, so the selector is not composed at all.
+        ->and(array_map(fn (Field $field): string => $field->getName(), containerizedBlockComponents(Features::getBlockSchema())))
+        ->not->toContain(BlockShape::VARIANT_KEY);
 });
 
 it('composes a no-variant block from its content fields only, without a variant selector', function (): void {

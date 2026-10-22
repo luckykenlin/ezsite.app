@@ -11,13 +11,11 @@ use App\Themes\ThemeDefinition;
  * The transitional theme: the block set, variants and stylesheet the product
  * shipped with before themes existed, restated as a theme definition.
  *
- * Every map below is a verbatim copy of what the block classes declared in
- * their static `$variants` / `$variantAxes` / `$imagelessVariants`; while
- * both exist, `DefaultThemeTest` holds them in parity, and the statics are
- * removed in the slice that makes the block classes read from the theme. Do
- * not design here — a change to how the default theme looks is a change to
- * what the old product looked like, and the point of this class is that it
- * does not.
+ * Every map below is a verbatim copy of what the block classes used to declare
+ * in their static `$variants` / `$variantAxes` / `$imagelessVariants`,
+ * comments included. Do not design here — a change to how the default theme
+ * looks is a change to what the old product looked like, and the point of this
+ * class is that it does not.
  */
 final readonly class DefaultTheme
 {
@@ -50,8 +48,20 @@ final readonly class DefaultTheme
                     variantAxes: [
                         'left-text-right-image' => ['spacing' => 'normal', 'width' => 'wide', 'align' => 'start'],
                         'full-bleed-overlay' => ['tone' => 'inverted', 'spacing' => 'tall', 'width' => 'normal', 'align' => 'start'],
+                        // Narrow and centred like the minimal hero, but at the
+                        // SMALLEST vertical step, which looks backwards for the
+                        // tallest layout in the library and is the reason it
+                        // works: this variant takes its height from its own
+                        // min-height and centres inside it, so section padding
+                        // does not add grandeur, it adds offset — the tallest
+                        // step pushed the call to action clean out of a small
+                        // laptop window. What is left is a guard for windows too
+                        // short to centre in at all.
                         'full-viewport-quiet' => ['spacing' => 'flush'],
                     ],
+                    // The type-only opening is the whole argument of the layout,
+                    // and a stock photograph is what the draft pipeline would
+                    // otherwise put there without being asked.
                     imagelessVariants: ['full-viewport-quiet'],
                 ),
                 'heading' => new ThemeBlock,
@@ -76,10 +86,17 @@ final readonly class DefaultTheme
                     ],
                 ),
                 'offerings' => new ThemeBlock(
+                    // `simple` first: every offerings block stored before
+                    // variants existed has no variant key, and the default
+                    // (first declared) is what keeps them rendering as they did.
                     variants: [
                         'simple' => 'Simple — plain priced list or cards',
                         'menu-card' => 'Menu card — the whole menu as one framed card, with course tabs',
                     ],
+                    // The menu card is always a two-up printed menu inside its
+                    // frame: rows, not cards (the frame is the card), wide
+                    // because the card supplies its own measure, centred because
+                    // that is how a menu is set.
                     variantAxes: [
                         'menu-card' => ['spacing' => 'airy', 'width' => 'wide', 'align' => 'center', 'columns' => 'two', 'item_style' => 'plain'],
                     ],
@@ -111,6 +128,8 @@ final readonly class DefaultTheme
                         'list' => 'Dated list',
                     ],
                     variantAxes: [
+                        // A dated list is a column of rows, not a grid, and it
+                        // reads better narrow and left-aligned — a noticeboard.
                         'list' => ['width' => 'narrow', 'align' => 'start', 'columns' => 'one', 'item_style' => 'plain'],
                     ],
                 ),

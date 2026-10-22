@@ -45,7 +45,7 @@ final readonly class SetBlockImage implements Tool
             .'(pass item_index for those). Use only media ids announced in this conversation — '
             .'attached images are announced with their media id. Never invent a media id. '
             .'For a photographic background, set the image here and switch the layout with the '
-            .'set block variant tool (hero: full-bleed-overlay, cta: full-photo).';
+            .'set block variant tool to one of that block\'s photographic layouts.';
     }
 
     /**

@@ -20,9 +20,20 @@ use App\Models\Tenant;
  * Outside a tenant context (the central panel, the 404 page, a console
  * command) the answer is the default theme, so callers never special-case
  * "no tenant".
+ *
+ * `$override` exists for tests only: with a single theme in the library there
+ * is no tenant to point at a different one, and the seams that read the theme
+ * (the vocabulary filter, the variant selector) still need to be proven to
+ * follow it. A test binds `new CurrentTheme($definition)` as the container
+ * instance; production never passes it.
  */
 final readonly class CurrentTheme
 {
+    public function __construct(private ?ThemeDefinition $override = null)
+    {
+        //
+    }
+
     public function theme(): Theme
     {
         $tenant = tenant();
@@ -32,6 +43,6 @@ final readonly class CurrentTheme
 
     public function definition(): ThemeDefinition
     {
-        return $this->theme()->definition();
+        return $this->override ?? $this->theme()->definition();
     }
 }

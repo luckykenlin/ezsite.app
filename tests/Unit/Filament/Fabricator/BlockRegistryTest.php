@@ -11,6 +11,9 @@ use App\Models\Tenant;
 use App\Site\Blocks\BlockIntent;
 use App\Site\Blocks\BlockType;
 use App\Site\Blocks\BlockVocabulary;
+use App\Themes\CurrentTheme;
+use App\Themes\ThemeBlock;
+use App\Themes\ThemeDefinition;
 
 it('enumerates every block contract in the vocabulary', function (): void {
     $vocabulary = resolve(BlockVocabulary::class)->all();
@@ -83,6 +86,35 @@ it('separates the page-level types from site chrome', function (): void {
         ->and($vocabulary->isAddableToPage('carousel'))->toBeFalse()
         ->and($vocabulary->has('carousel'))->toBeFalse()
         ->and($vocabulary->get('carousel'))->toBeNull();
+});
+
+/*
+ * The theme, not the registered class list, decides what a site may use. A
+ * type the theme does not list is absent from the vocabulary — and so from the
+ * block library, the AI tools and the validator — even though Fabricator still
+ * has its class registered.
+ */
+it('offers only the block types the current theme draws, with the variants it draws them in', function (): void {
+    app()->instance(CurrentTheme::class, new CurrentTheme(new ThemeDefinition(
+        label: 'Two-block',
+        blocks: [
+            'hero' => new ThemeBlock(variants: ['poster' => 'Poster', 'quiet' => 'Quiet']),
+            'heading' => new ThemeBlock,
+        ],
+        stylesheet: 'resources/css/site.css',
+    )));
+
+    $vocabulary = new BlockVocabulary(BlockRegistry::contracts());
+
+    expect(array_keys($vocabulary->all()))->toBe(['heading', 'hero'])
+        ->and($vocabulary->get('hero')?->variants)->toBe(['poster', 'quiet'])
+        ->and($vocabulary->get('hero')?->variantLabels)->toBe(['poster' => 'Poster', 'quiet' => 'Quiet'])
+        ->and($vocabulary->get('heading')?->variants)->toBe([])
+        ->and(BlockRegistry::resolveComponent(['type' => 'hero', 'data' => ['variant' => 'quiet']]))
+        ->toBe('filament-fabricator.page-blocks.hero.quiet')
+        // The old default-theme layout is unknown under this theme.
+        ->and(BlockRegistry::resolveComponent(['type' => 'hero', 'data' => ['variant' => 'centered-minimal']]))
+        ->toBeNull();
 });
 
 it('resolves a valid variant to its component', function (): void {

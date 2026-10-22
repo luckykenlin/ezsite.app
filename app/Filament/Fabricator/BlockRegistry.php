@@ -14,6 +14,7 @@ use App\Site\Blocks\BlockType;
 use App\Site\Blocks\BlockVocabulary;
 use App\Site\MediaResolver;
 use App\Site\UrlScheme;
+use App\Themes\CurrentTheme;
 use Illuminate\Support\Facades\Log;
 use Z3d0X\FilamentFabricator\Facades\FilamentFabricator;
 
@@ -63,10 +64,17 @@ final class BlockRegistry
      */
     public static function contracts(): array
     {
+        $theme = resolve(CurrentTheme::class)->definition();
         $contracts = [];
 
+        // Fabricator registers every block class it finds; the THEME decides
+        // which of them this site may use. A type the theme does not list is
+        // absent from the vocabulary and therefore from the block library, the
+        // AI's tools and the validator alike — which is also how a block
+        // exclusive to one theme works: it is an ordinary class here, listed by
+        // one theme and no other.
         foreach (FilamentFabricator::getPageBlocksRaw() as $class) {
-            if (is_string($class) && is_subclass_of($class, Block::class)) {
+            if (is_string($class) && is_subclass_of($class, Block::class) && $theme->supports($class::getName())) {
                 $contracts[$class::getName()] = $class::contract();
             }
         }

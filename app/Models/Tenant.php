@@ -38,6 +38,18 @@ final class Tenant extends BaseTenant implements TenantWithDatabase
     use HasFactory;
 
     /**
+     * The column default repeated on the PHP side so a freshly built instance
+     * — a factory's, the central panel's — already answers `->theme` before it
+     * is re-read from the database; CurrentTheme reads it off whatever model
+     * tenancy was initialized with.
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'theme' => 'default',
+    ];
+
+    /**
      * @return array<int, string>
      */
     public static function getCustomColumns(): array
