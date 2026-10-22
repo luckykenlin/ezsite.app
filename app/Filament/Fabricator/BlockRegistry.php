@@ -83,7 +83,7 @@ final class BlockRegistry
     }
 
     /**
-     * Resolve the Blade component a stored block should render into, or null if
+     * Resolve the themed Blade view a stored block should render into, or null if
      * the block cannot be safely rendered: an unknown type, a type not backed by
      * an app {@see Block} (never authorable by tenants), or an explicitly invalid
      * variant. A *missing* variant falls back to the block's default; only a
@@ -91,7 +91,7 @@ final class BlockRegistry
      *
      * @param  array<string, mixed>  $block
      */
-    public static function resolveComponent(array $block): ?string
+    public static function resolveView(array $block): ?string
     {
         $blockType = self::blockTypeFor($block);
 
@@ -99,16 +99,16 @@ final class BlockRegistry
             return null;
         }
 
-        $base = 'filament-fabricator.page-blocks.'.$blockType->type;
+        $theme = resolve(CurrentTheme::class)->theme();
 
         if ($blockType->variants === []) {
-            return $base;
+            return $theme->blockView($blockType->type);
         }
 
         $data = is_array($block['data'] ?? null) ? $block['data'] : [];
         $variant = $blockType->resolveVariant($data[BlockShape::VARIANT_KEY] ?? null);
 
-        return $variant === null ? null : $base.'.'.$variant;
+        return $variant === null ? null : $theme->blockView($blockType->type, $variant);
     }
 
     /**

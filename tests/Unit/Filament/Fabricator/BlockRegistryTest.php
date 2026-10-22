@@ -101,7 +101,7 @@ it('offers only the block types the current theme draws, with the variants it dr
             'hero' => new ThemeBlock(variants: ['poster' => 'Poster', 'quiet' => 'Quiet']),
             'heading' => new ThemeBlock,
         ],
-        stylesheet: 'resources/css/site.css',
+        stylesheet: 'resources/themes/default/theme.css',
     )));
 
     $vocabulary = new BlockVocabulary(BlockRegistry::contracts());
@@ -110,43 +110,43 @@ it('offers only the block types the current theme draws, with the variants it dr
         ->and($vocabulary->get('hero')?->variants)->toBe(['poster', 'quiet'])
         ->and($vocabulary->get('hero')?->variantLabels)->toBe(['poster' => 'Poster', 'quiet' => 'Quiet'])
         ->and($vocabulary->get('heading')?->variants)->toBe([])
-        ->and(BlockRegistry::resolveComponent(['type' => 'hero', 'data' => ['variant' => 'quiet']]))
-        ->toBe('filament-fabricator.page-blocks.hero.quiet')
+        ->and(BlockRegistry::resolveView(['type' => 'hero', 'data' => ['variant' => 'quiet']]))
+        ->toBe('themes::default.blocks.hero.quiet')
         // The old default-theme layout is unknown under this theme.
-        ->and(BlockRegistry::resolveComponent(['type' => 'hero', 'data' => ['variant' => 'centered-minimal']]))
+        ->and(BlockRegistry::resolveView(['type' => 'hero', 'data' => ['variant' => 'centered-minimal']]))
         ->toBeNull();
 });
 
 it('resolves a valid variant to its component', function (): void {
-    expect(BlockRegistry::resolveComponent([
+    expect(BlockRegistry::resolveView([
         'type' => 'hero',
         'data' => ['variant' => 'left-text-right-image'],
-    ]))->toBe('filament-fabricator.page-blocks.hero.left-text-right-image');
+    ]))->toBe('themes::default.blocks.hero.left-text-right-image');
 });
 
 it('falls back to the default variant when none is stored', function (): void {
-    expect(BlockRegistry::resolveComponent([
+    expect(BlockRegistry::resolveView([
         'type' => 'hero',
         'data' => ['heading' => 'Hi'],
-    ]))->toBe('filament-fabricator.page-blocks.hero.centered-minimal');
+    ]))->toBe('themes::default.blocks.hero.centered-minimal');
 });
 
 it('rejects an unrecognised variant', function (): void {
-    expect(BlockRegistry::resolveComponent([
+    expect(BlockRegistry::resolveView([
         'type' => 'hero',
         'data' => ['variant' => 'does-not-exist'],
     ]))->toBeNull();
 });
 
 it('resolves a no-variant block to its bare component', function (): void {
-    expect(BlockRegistry::resolveComponent([
+    expect(BlockRegistry::resolveView([
         'type' => 'heading',
         'data' => ['content' => 'Hi'],
-    ]))->toBe('filament-fabricator.page-blocks.heading');
+    ]))->toBe('themes::default.blocks.heading');
 });
 
 it('returns null for an unknown or malformed type', function (array $block): void {
-    expect(BlockRegistry::resolveComponent($block))->toBeNull();
+    expect(BlockRegistry::resolveView($block))->toBeNull();
 })->with([
     'unknown type' => [['type' => 'nope', 'data' => []]],
     'missing type' => [['data' => ['heading' => 'x']]],

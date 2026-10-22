@@ -42,4 +42,20 @@ enum Theme: string
     {
         return $this->definition()->label;
     }
+
+    /**
+     * The view that draws one block type (and variant) in this theme:
+     * `themes::{slug}.blocks.{type}` or `…{type}.{variant}`, under the `themes`
+     * view namespace rooted at `resources/themes`.
+     *
+     * The path is derived from the slug rather than declared per block so a
+     * theme's view tree is self-describing: a directory listing of
+     * `resources/themes/{slug}/blocks` IS the list of what it draws.
+     */
+    public function blockView(string $type, ?string $variant = null): string
+    {
+        $view = 'themes::'.$this->value.'.blocks.'.$type;
+
+        return $variant === null ? $view : $view.'.'.$variant;
+    }
 }

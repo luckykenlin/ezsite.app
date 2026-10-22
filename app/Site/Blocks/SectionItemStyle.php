@@ -15,7 +15,7 @@ namespace App\Site\Blocks;
  * hard-coded views had.
  *
  * The card's SHAPE comes from `.site-card` / `.site-card-outline` in
- * resources/css/site.css rather than from DaisyUI's `.card`, which this app no
+ * resources/themes/default/theme.css rather than from DaisyUI's `.card`, which this app no
  * longer emits — see the chrome-layer note in that file.
  */
 enum SectionItemStyle: string

@@ -24,6 +24,7 @@ use App\StockPhotos\StockPhotoProvider;
 use Awcodes\Curator\Components\Forms\Uploader;
 use Filament\Forms\Components\BaseFileUpload;
 use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 
@@ -80,6 +81,12 @@ final class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // Theme views live outside resources/views — one directory per theme
+        // under resources/themes — and are reached as `themes::{slug}.blocks.…`
+        // (see Theme::blockView()). A namespace rather than a second view path,
+        // so a theme view can never shadow an app view by name.
+        View::addNamespace('themes', resource_path('themes'));
+
         // The `{locale}` segment every central marketing route carries, for the
         // callers that generate one of those URLs WITHOUT going through
         // SetLocale: the 404 view, robots.txt and sitemap.xml, and anything

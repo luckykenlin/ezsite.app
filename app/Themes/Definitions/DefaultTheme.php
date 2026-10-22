@@ -156,7 +156,7 @@ final readonly class DefaultTheme
                     ],
                 ),
             ],
-            stylesheet: 'resources/css/site.css',
+            stylesheet: 'resources/themes/default/theme.css',
         );
     }
 }

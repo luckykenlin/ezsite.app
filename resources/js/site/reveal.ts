@@ -8,7 +8,7 @@
  * the `still` style is a duration of zero, and this runs identically either way.
  *
  * It also does not touch the OPENING. The first screenful stages itself with a
- * CSS animation (`.site-stage` in resources/css/site.css), because anything this
+ * CSS animation (`.site-stage` in resources/themes/default/theme.css), because anything this
  * script hides is visible until the bundle lands — and a first screen that
  * appears, vanishes and fades back in is worse than one that never moved. What
  * is left for JavaScript is the part CSS genuinely cannot do: noticing that

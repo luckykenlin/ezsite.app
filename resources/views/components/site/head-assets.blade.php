@@ -9,5 +9,5 @@
     brand-colour overrides).
 --}}
 @props(['tokens', 'business' => null])
-@vite(['resources/css/site.css'])
+@vite([app(\App\Themes\CurrentTheme::class)->definition()->stylesheet])
 {{ app(\Illuminate\Foundation\Vite::class)->fonts($tokens->fontPair->viteAliases()) }} {{ \App\Design\ThemeVariables::styleFor($tokens, $business) }}

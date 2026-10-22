@@ -104,7 +104,7 @@ test('public site views never use unescaped output', function (): void {
     // this list — the base layout it wraps legitimately emits the SEO package's
     // pre-rendered tags.
     $dirs = [
-        dirname(__DIR__, 2).'/resources/views/components/filament-fabricator/page-blocks',
+        ...(glob(dirname(__DIR__, 2).'/resources/themes/*/blocks', GLOB_ONLYDIR) ?: []),
         dirname(__DIR__, 2).'/resources/views/site',
     ];
 
@@ -134,12 +134,11 @@ test('page block views declare their props exactly as the stored data keys them'
     // not a review note. Stored keys are snake_case (Filament schemas, the AI
     // tools and every template definition write them that way), so the props
     // are too.
-    $views = new RecursiveIteratorIterator(
-        new RecursiveDirectoryIterator(
-            dirname(__DIR__, 2).'/resources/views/components/filament-fabricator/page-blocks',
-            FilesystemIterator::SKIP_DOTS,
-        ),
-    );
+    $views = new AppendIterator;
+
+    foreach (glob(dirname(__DIR__, 2).'/resources/themes/*/blocks', GLOB_ONLYDIR) ?: [] as $root) {
+        $views->append(new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS)));
+    }
 
     foreach ($views as $view) {
         if ($view->getExtension() !== 'php') {
@@ -233,12 +232,13 @@ test('every page block view renders through the shared section shell', function 
     // dimension only exists where <x-site.section> does. Site chrome is exempt
     // by design: a header/footer is the frame around pages, not a section in a
     // page's rhythm, so it keeps its own element.
-    $dir = dirname(__DIR__, 2).'/resources/views/components/filament-fabricator/page-blocks';
     $chrome = ['header', 'footer'];
 
-    $views = new RecursiveIteratorIterator(
-        new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS),
-    );
+    $views = new AppendIterator;
+
+    foreach (glob(dirname(__DIR__, 2).'/resources/themes/*/blocks', GLOB_ONLYDIR) ?: [] as $root) {
+        $views->append(new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS)));
+    }
 
     foreach ($views as $view) {
         if ($view->getExtension() !== 'php') {
@@ -264,14 +264,13 @@ test('every page block view renders through the shared section shell', function 
 });
 
 test('the page-block views type through the shared site-* classes, never utility literals', function (): void {
-    // The heading/eyebrow/intro treatments live ONCE in resources/css/site.css
+    // The heading/eyebrow/intro treatments live ONCE in resources/themes/default/theme.css
     // (.site-h2 and friends), where the TypeStyle token's --type-* variables
     // can reach them. A pasted utility literal (`text-3xl font-bold
     // tracking-tight`, the pre-refactor state of a dozen views) silently
     // escapes the token system: it renders fine today and simply ignores every
     // typography token forever after. Chrome is exempt like everywhere else —
     // a header's nav is not section typography.
-    $dir = dirname(__DIR__, 2).'/resources/views/components/filament-fabricator/page-blocks';
     $chrome = ['header', 'footer'];
     $literals = [
         'text-3xl font-bold tracking-tight',
@@ -328,7 +327,12 @@ test('the page-block views type through the shared site-* classes, never utility
     // and resolves its container through the same SectionLayout, and without this
     // it would be a brand-new unenforced typography surface in a product whose
     // stated moat is that the operator never picks a font size.
-    foreach ([$dir, dirname(__DIR__, 2).'/resources/views/site'] as $scanRoot) {
+    $scanRoots = [
+        ...(glob(dirname(__DIR__, 2).'/resources/themes/*/blocks', GLOB_ONLYDIR) ?: []),
+        dirname(__DIR__, 2).'/resources/views/site',
+    ];
+
+    foreach ($scanRoots as $scanRoot) {
         $views = new RecursiveIteratorIterator(
             new RecursiveDirectoryIterator($scanRoot, FilesystemIterator::SKIP_DOTS),
         );
@@ -363,21 +367,29 @@ test('the page-block views type through the shared site-* classes, never utility
     expect($offenders)->toBeEmpty();
 });
 
-test("the section shell's Tailwind sources are declared", function (): void {
-    // A section's background and vertical padding now live ONLY as class strings
-    // inside two PHP enums plus one view outside the page-blocks tree. Tailwind
-    // compiles the public site from site.css, whose explicit @source list does
-    // not reach either — so without these lines every block renders with no
-    // background and no padding, and no PHP test can see it (they assert on the
-    // class names, which are still emitted).
-    expect(file_get_contents(dirname(__DIR__, 2).'/resources/css/site.css'))
-        ->toContain("@source '../views/components/site/**/*.blade.php';")
-        ->toContain("@source '../../app/Site/Blocks/Section*.php';")
-        // The standalone public pages (/updates and its permalinks, the
-        // coming-soon notice) are not Fabricator pages, so no glob above reaches
-        // them. Without this line they ship unstyled — and no request test can
-        // see it, because those assert on class names, which are still emitted.
-        ->toContain("@source '../views/site/**/*.blade.php';");
+test("every theme stylesheet declares the section shell's Tailwind sources", function (): void {
+    // A section's background and vertical padding live ONLY as class strings
+    // inside two PHP enums plus one view outside any theme's block tree. Each
+    // theme compiles its own stylesheet from its own explicit @source list,
+    // which does not reach either — so without these lines every block in
+    // that theme renders with no background and no padding, and no PHP test
+    // can see it (they assert on the class names, which are still emitted).
+    $stylesheets = glob(dirname(__DIR__, 2).'/resources/themes/*/theme.css') ?: [];
+
+    expect($stylesheets)->not->toBeEmpty();
+
+    foreach ($stylesheets as $stylesheet) {
+        expect(file_get_contents($stylesheet))
+            ->toContain("@source './blocks/**/*.blade.php';")
+            ->toContain("@source '../../views/components/site/**/*.blade.php';")
+            ->toContain("@source '../../../app/Site/Blocks/Section*.php';")
+            // The standalone public pages (/updates and its permalinks, the
+            // coming-soon notice) are not Fabricator pages, so no glob above
+            // reaches them. Without this line they ship unstyled under this
+            // theme — and no request test can see it, because those assert on
+            // class names, which are still emitted.
+            ->toContain("@source '../../views/site/**/*.blade.php';");
+    }
 });
 
 test("the central stylesheet's Tailwind sources are declared", function (): void {

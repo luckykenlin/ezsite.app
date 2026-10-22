@@ -1,16 +1,19 @@
 /*
- * Tenant public-site stylesheet (FilamentFabricator front-end).
+ * The default theme's stylesheet (FilamentFabricator front-end).
  *
+ * One stylesheet per theme, each its own Vite entry (vite.config.js globs
+ * resources/themes/*\/theme.css), loaded into the Fabricator <head> for the
+ * current tenant's theme by the HEAD_END hook in FilamentServiceProvider.
  * Kept separate from app.css so the site's design system (DaisyUI: semantic
- * slots, themes) stays out of the admin bundle, and so per-tenant
- * token/theme derivation has a clean home. Loaded via
- * FilamentFabricator::registerStyles() in FilamentServiceProvider.
+ * slots, themes) stays out of the admin bundle.
  */
 @import 'tailwindcss';
 
 @plugin 'daisyui';
 
-@source '../views/components/filament-fabricator/**/*.blade.php';
+/* This theme's own block views, plus the shared page layout. */
+@source './blocks/**/*.blade.php';
+@source '../../views/components/filament-fabricator/**/*.blade.php';
 
 /*
  * The shared section shell, and the two enums whose cases ARE Tailwind class
@@ -22,8 +25,8 @@
  * Guarded by "the section shell's Tailwind sources are declared" in
  * tests/Arch/ConventionsTest.php.
  */
-@source '../views/components/site/**/*.blade.php';
-@source '../../app/Site/Blocks/Section*.php';
+@source '../../views/components/site/**/*.blade.php';
+@source '../../../app/Site/Blocks/Section*.php';
 
 /*
  * The standalone public pages that are not Fabricator pages — `/updates` and its
@@ -33,7 +36,7 @@
  * test can see it (a PHP request test asserts on class NAMES, which are still
  * emitted). Guarded by the same arch test as the two lines above.
  */
-@source '../views/site/**/*.blade.php';
+@source '../../views/site/**/*.blade.php';
 
 @theme {
     /* The NeoGrotesque pair's two families (App\Design\FontPair), which is

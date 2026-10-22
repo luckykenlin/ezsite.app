@@ -1,6 +1,7 @@
 ---
 paths:
   - 'resources/css/**'
+  - 'resources/themes/*/theme.css'
 ---
 
 # Css

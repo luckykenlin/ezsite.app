@@ -144,7 +144,7 @@ it("offers the current theme's variants in the selector, and none when the theme
             'hero' => new ThemeBlock(variants: ['poster' => 'Poster', 'quiet' => 'Quiet']),
             'features' => new ThemeBlock,
         ],
-        stylesheet: 'resources/css/site.css',
+        stylesheet: 'resources/themes/default/theme.css',
     )));
 
     /** @var Select $variantSelect */

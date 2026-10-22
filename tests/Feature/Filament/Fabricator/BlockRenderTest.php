@@ -616,7 +616,7 @@ it('skips a bound block with a warning when its bind cannot resolve, while sibli
 ]);
 
 /*
- * The craft layer (resources/css/site.css) reaches the page through exactly
+ * The craft layer (resources/themes/default/theme.css) reaches the page through exactly
  * these hooks — a scrim that replaced the flat overlay, the enum-injected
  * card chrome, the offerings price leader, the hung testimonial quote, and
  * the arrow-link secondary CTA. One page exercises all of them so a view

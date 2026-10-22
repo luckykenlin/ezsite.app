@@ -17,7 +17,7 @@ namespace App\Design;
  * AI dial them independently is how a site starts to look wrong.
  *
  * `variables()` fills the `--type-*` contract consumed by the `.site-h*` /
- * `.site-eyebrow` / `.site-intro` classes in resources/css/site.css. Classic
+ * `.site-eyebrow` / `.site-intro` classes in resources/themes/default/theme.css. Classic
  * emits exactly those classes' fallback values, so a site that has never
  * chosen a type style renders byte-identically to the pre-token markup —
  * the same zero-regression strategy as {@see \App\Site\Blocks\SectionAppearance}.

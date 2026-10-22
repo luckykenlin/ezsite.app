@@ -1,6 +1,7 @@
 import tailwindcss from '@tailwindcss/vite';
 import laravel from 'laravel-vite-plugin';
 import { bunny } from 'laravel-vite-plugin/fonts';
+import { globSync } from 'node:fs';
 import { defineConfig } from 'vite-plus';
 
 export default defineConfig({
@@ -33,7 +34,7 @@ export default defineConfig({
             },
         ],
         sortTailwindcss: {
-            stylesheet: 'resources/css/site.css',
+            stylesheet: 'resources/themes/default/theme.css',
         },
         sortImports: {
             groups: [
@@ -50,7 +51,9 @@ export default defineConfig({
     plugins: [
         laravel({
             input: [
-                'resources/css/site.css',
+                // One public-site stylesheet per theme; a new theme is picked
+                // up by adding its directory, not by editing this list.
+                ...globSync('resources/themes/*/theme.css'),
                 'resources/css/central.css',
                 'resources/css/page-editor-canvas.css',
                 'resources/css/page-editor.css',
