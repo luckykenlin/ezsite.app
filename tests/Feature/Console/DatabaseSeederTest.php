@@ -5,17 +5,19 @@ declare(strict_types=1);
 use App\Models\Tenant;
 use App\Models\User;
 use App\Templates\SiteTemplate;
+use App\Themes\Theme;
 use Illuminate\Database\Console\Seeds\SeedCommand;
 use Illuminate\Support\Facades\Artisan;
 
-it('seeds a super admin and every demo site', function (): void {
+it('seeds a super admin and only the demo sites of verticals that have their own theme', function (): void {
     // Regression guard: `WithoutModelEvents` on the seeder muted the `creating`
     // listener that fills a tenant's UUID key, so every demo site died on a
     // null id. Assert the keys, not just the count.
     $this->artisan('db:seed')->assertSuccessful();
 
     expect(User::query()->where('is_super_admin', true)->count())->toBe(1)
-        ->and(Tenant::query()->demo()->count())->toBe(count(SiteTemplate::cases()))
+        ->and(Tenant::query()->demo()->pluck('template')->all())->toBe([SiteTemplate::NailSalon])
+        ->and(Tenant::query()->demo()->sole()->theme)->toBe(Theme::NailLuxe)
         ->and(Tenant::query()->demo()->pluck('id')->all())->each->toBeString();
 });
 
