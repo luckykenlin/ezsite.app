@@ -9,6 +9,7 @@ use App\Actions\StoreCuratorUpload;
 use App\Enums\Locale;
 use App\Filament\Fabricator\BlockRegistry;
 use App\Site\BindResolver;
+use App\Site\Blocks\BlockVocabularies;
 use App\Site\Blocks\BlockVocabulary;
 use App\Site\LeadFormIds;
 use App\Site\MediaResolver;
@@ -21,6 +22,7 @@ use App\Site\SiteSettingsLoader;
 use App\StockPhotos\NullProvider;
 use App\StockPhotos\PexelsProvider;
 use App\StockPhotos\StockPhotoProvider;
+use App\Themes\CurrentTheme;
 use Awcodes\Curator\Components\Forms\Uploader;
 use Filament\Forms\Components\BaseFileUpload;
 use Illuminate\Support\Facades\URL;
@@ -61,12 +63,22 @@ final class AppServiceProvider extends ServiceProvider
         // domain gets it injected and never imports the panel. A provider is the
         // right home for that translation — it is the layer allowed to see both.
         //
-        // Scoped, and lazily built by the closure: walking every registered block
-        // class is not free, and nothing outside a request that renders or edits
-        // blocks needs it at all.
+        // The vocabulary depends on the current tenant's THEME, so it is not
+        // itself a scoped instance: nothing flushes those when RunInTenant
+        // switches tenants in one process, and a second tenant on another theme
+        // would inherit the first one's. The scoped BlockVocabularies holder
+        // memoizes one per theme definition instead (walking every registered
+        // block class is not free), and this binding asks it for the current
+        // theme's on every resolve — lazily, so nothing outside a request that
+        // renders or edits blocks pays for it at all.
         $this->app->scoped(
+            BlockVocabularies::class,
+            static fn (): BlockVocabularies => new BlockVocabularies(BlockRegistry::contracts(...)),
+        );
+
+        $this->app->bind(
             BlockVocabulary::class,
-            static fn (): BlockVocabulary => new BlockVocabulary(BlockRegistry::contracts()),
+            static fn (): BlockVocabulary => resolve(BlockVocabularies::class)->for(resolve(CurrentTheme::class)->definition()),
         );
 
         // Three surfaces ask "how far through setup is this owner?" on a single

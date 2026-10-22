@@ -69,9 +69,9 @@ trait EditsSiteStyles
      * the current theme, so a slug from the browser that the theme does not
      * offer stages nothing.
      *
-     * Replaces the staged selection rather than merging into it: a scheme is
-     * the whole look, and a brand hex staged against the previous one belongs
-     * to a decision the operator just walked away from.
+     * Replaces any previously staged SCHEME but keeps staged brand hexes: they
+     * are bound for the business's brand columns, not for the look, so a scheme
+     * pick is no reason to throw away a colour the operator just chose.
      */
     public function stageScheme(string $slug): void
     {
@@ -81,12 +81,19 @@ trait EditsSiteStyles
             return;
         }
 
-        $this->stageStyles(['scheme' => $chosen->slug]);
+        $this->stageStyles([...$this->stagedBrandColors(), 'scheme' => $chosen->slug]);
     }
 
     /**
      * Stage one brand hex. Only offered while the look in force is built on
      * the brand palette, which is the only palette that reads these columns.
+     *
+     * Merged into what is STAGED, never into the saved tokens: a staged
+     * `scheme` means "replace the look with this scheme's bundle", so seeding
+     * one from the saved slug would turn a colour tweak into a scheme re-apply
+     * — and wipe whatever a template folded in on top of it (DimSumHouse's
+     * Brand palette is the case that made this visible). No scheme staged
+     * means the saved look stays exactly as it is, with these colours.
      *
      * The hex itself is validated by {@see TokenSelection::normalise()} on the
      * way in — these values end up inside a `style` attribute, so that check is
@@ -127,24 +134,33 @@ trait EditsSiteStyles
     }
 
     /**
-     * What the panel is currently showing: the staged selection when there is
-     * one, the saved tokens otherwise.
+     * The staged selection, or an empty one when nothing is staged.
      *
-     * The saved side is carried as {@see DesignTokens::toArray()}, which has
-     * the `scheme` key a staged selection has, so the blade reads which scheme
-     * is active the same way in both states; a staged selection is only ever
-     * `scheme` plus brand hexes.
+     * Deliberately NOT the saved tokens as a fallback: a selection carrying a
+     * `scheme` is an instruction to replace the look with that scheme's bundle,
+     * so presenting the saved slug as if it were staged is what turned a
+     * brand-colour edit into a scheme re-apply. Which scheme is on is
+     * {@see activeScheme()}'s question.
      *
      * @return array<string, string|null>
      */
     public function styleSelection(): array
     {
-        return $this->stagedStyles() ?? $this->styleBusiness()->design_tokens->toArray();
+        return $this->stagedStyles() ?? [];
+    }
+
+    /**
+     * The scheme the panel marks as active: the one staged this session, else
+     * the one the saved tokens came from.
+     */
+    public function activeScheme(): ?string
+    {
+        return $this->styleSelection()['scheme'] ?? $this->styleBusiness()->design_tokens->scheme;
     }
 
     /**
      * The tokens the panel is showing, resolved: the staged scheme's bundle
-     * through the current theme, or the saved tokens when nothing is staged.
+     * through the current theme, or the saved tokens when no scheme is staged.
      *
      * The saved tokens are returned as they are rather than re-resolved from
      * their slug — a template may have provisioned them with its own axis
@@ -153,12 +169,10 @@ trait EditsSiteStyles
      */
     public function styleTokens(): DesignTokens
     {
-        $saved = $this->styleBusiness()->design_tokens;
-        $staged = $this->stagedStyles();
-
-        return $staged === null
-            ? $saved
-            : resolve(CurrentTheme::class)->definition()->tokensFor($staged, $saved);
+        return resolve(CurrentTheme::class)->definition()->tokensFor(
+            $this->styleSelection(),
+            $this->styleBusiness()->design_tokens,
+        );
     }
 
     /**
@@ -181,5 +195,26 @@ trait EditsSiteStyles
     public function hasStagedStyles(): bool
     {
         return $this->stagedStyles() !== null;
+    }
+
+    /**
+     * The brand hexes in the staged selection — what a scheme pick carries
+     * forward.
+     *
+     * @return array<string, string>
+     */
+    private function stagedBrandColors(): array
+    {
+        $hexes = [];
+
+        foreach (TokenSelection::BRAND_KEYS as $key) {
+            $hex = $this->styleSelection()[$key] ?? null;
+
+            if (is_string($hex)) {
+                $hexes[$key] = $hex;
+            }
+        }
+
+        return $hexes;
     }
 }

@@ -31,9 +31,23 @@ enum Theme: string
 {
     case Default = 'default';
 
+    /**
+     * The case's definition, built once per process and then reused.
+     *
+     * Memoized because it is read on every block render, prompt and design
+     * surface and building one constructs every scheme, block and page object
+     * — and because a stable object per case is what lets
+     * {@see \App\Site\Blocks\BlockVocabularies} key its memo by identity.
+     * A function-level static because an enum cannot declare static
+     * properties; the definitions are pure data, so nothing tenant-specific
+     * outlives a request through it.
+     */
     public function definition(): ThemeDefinition
     {
-        return match ($this) {
+        /** @var array<string, ThemeDefinition> $definitions */
+        static $definitions = [];
+
+        return $definitions[$this->value] ??= match ($this) {
             self::Default => DefaultTheme::definition(),
         };
     }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Ai\SiteStyleDraft;
 use App\Design\ColorPalette;
 use App\Design\DesignTokens;
+use App\Templates\SiteTemplate;
 use App\Themes\Definitions\DefaultTheme;
 
 /*
@@ -39,28 +40,28 @@ it('stages a scheme without disturbing the saved tokens', function (): void {
 });
 
 /*
- * The shape is the contract with two consumers that were written before this
- * class: PageEditor::previewDesign() stages it, and SaveDesignSelection reads
- * the `scheme` out of it. If they matched only by luck there would be an
- * adapter somewhere on this path; there is not.
+ * The shape is the contract with the editor's preview and SaveDesignSelection:
+ * a selection (`scheme` + brand hexes), which both read through
+ * TokenSelection::normalise(). No axes — every reader resolves the slug through
+ * the current theme.
  */
-it('serialises into the shape the editor previews and the writer consumes', function (): void {
+it('serialises a picked scheme as its slug alone', function (): void {
     $draft = new SiteStyleDraft(DesignTokens::default());
     $draft->applyScheme(defaultScheme(DefaultTheme::PROFESSIONAL_MINIMAL));
 
-    expect($draft->toArray())->toBe(defaultScheme(DefaultTheme::PROFESSIONAL_MINIMAL)->tokens->toArray());
+    expect($draft->toArray())->toBe(['scheme' => DefaultTheme::PROFESSIONAL_MINIMAL]);
 });
 
 /*
- * Cross-turn continuity. A previous turn's staged-but-unapplied style rides
+ * Cross-turn continuity. A previous turn's staged-but-unapplied scheme rides
  * back in as the seed: "a bit darker" must refine what the operator is looking
  * at, not silently restart from the saved tokens.
  */
 it('reads from a seeded preview and restyles on top of it', function (): void {
-    $seeded = defaultScheme(DefaultTheme::BOLD_EDITORIAL)->tokens;
+    $seeded = defaultScheme(DefaultTheme::BOLD_EDITORIAL);
     $draft = new SiteStyleDraft(DesignTokens::default(), $seeded);
 
-    expect($draft->current())->toBe($seeded)
+    expect($draft->current())->toBe($seeded->tokens)
         ->and($draft->seededPreview())->toBeTrue()
         // The saved side is untouched by the seed: a new page created this
         // turn must still be laid out for the style the site actually has.
@@ -73,40 +74,51 @@ it('reads from a seeded preview and restyles on top of it', function (): void {
 });
 
 /*
- * The brand layer: staged hexes ride inside the one draft array, the seeded
- * draft's hexes survive a later restyle, and the saved row's hexes count as the
- * effective brand without ever being re-emitted.
+ * The regression this pins: a brand-only turn used to materialise the CURRENT
+ * tokens as staged, so toArray() handed back the saved slug as if the
+ * assistant had picked it — and every reader treats a staged scheme as
+ * "replace the look with its bundle", wiping a template's overrides (here
+ * DimSumHouse's Brand palette, the only palette the hex shows on).
  */
-it('carries staged brand hexes inside the draft array, on top of the look in force', function (): void {
-    $draft = new SiteStyleDraft(defaultScheme(DefaultTheme::CALM_COASTAL)->tokens);
+it('stages brand hexes without staging a scheme, leaving the look in force alone', function (): void {
+    $saved = SiteTemplate::DimSumHouse->definition()->tokens();
+    $draft = new SiteStyleDraft($saved);
 
     $draft->stageBrand(['brand_primary' => '#1a2b3c']);
 
-    // A brand-only turn still materialises a complete draft — the look it is
-    // staged against — rather than a dirty flag with nothing behind it.
     expect($draft->touched())->toBeTrue()
-        ->and($draft->toArray()['brand_primary'])->toBe('#1a2b3c')
-        ->and($draft->toArray()['scheme'])->toBe(DefaultTheme::CALM_COASTAL)
+        ->and($draft->current())->toBe($saved)
+        ->and($draft->toArray())->toBe(['brand_primary' => '#1a2b3c'])
         ->and($draft->brand())->toBe(['brand_primary' => '#1a2b3c']);
+});
+
+it('keeps a seeded scheme on the canvas through a brand-only follow-up', function (): void {
+    // The editor's draft is REPLACED by toArray(), so a brand tweak on top of
+    // last turn's unapplied scheme must hand that scheme back too.
+    $draft = new SiteStyleDraft(DesignTokens::default(), defaultScheme(DefaultTheme::BOLD_EDITORIAL));
+
+    $draft->stageBrand(['brand_primary' => '#1a2b3c']);
+
+    expect($draft->toArray())->toBe(['scheme' => DefaultTheme::BOLD_EDITORIAL, 'brand_primary' => '#1a2b3c']);
 });
 
 it('layers brand hexes staged over seeded over saved', function (): void {
     $draft = new SiteStyleDraft(
         DesignTokens::default(),
-        defaultScheme(DefaultTheme::BOLD_EDITORIAL)->tokens,
         savedBrand: ['brand_primary' => '#111111', 'brand_secondary' => '#222222'],
         seededBrand: ['brand_primary' => '#333333'],
     );
 
-    expect($draft->brand())->toBe(['brand_primary' => '#333333', 'brand_secondary' => '#222222']);
+    // Seeded hexes alone are an unapplied preview too.
+    expect($draft->brand())->toBe(['brand_primary' => '#333333', 'brand_secondary' => '#222222'])
+        ->and($draft->seededPreview())->toBeTrue();
 
     $draft->stageBrand(['brand_primary' => '#444444']);
 
     expect($draft->brand()['brand_primary'])->toBe('#444444')
         // The seeded hex is re-emitted (the editor draft is replaced whole),
         // the saved one is not (it is already on the row).
-        ->and($draft->toArray()['brand_primary'])->toBe('#444444')
-        ->and($draft->toArray())->not->toHaveKey('brand_secondary');
+        ->and($draft->toArray())->toBe(['brand_primary' => '#444444']);
 });
 
 /*
@@ -115,13 +127,8 @@ it('layers brand hexes staged over seeded over saved', function (): void {
  * already up, and a re-staged copy would snapshot an edit nobody made.
  */
 it('does not re-stage a seeded preview the turn left alone', function (): void {
-    $draft = new SiteStyleDraft(DesignTokens::default(), defaultScheme(DefaultTheme::BOLD_EDITORIAL)->tokens);
+    $draft = new SiteStyleDraft(DesignTokens::default(), defaultScheme(DefaultTheme::BOLD_EDITORIAL));
 
     expect($draft->touched())->toBeFalse()
         ->and($draft->toArray())->toBeNull();
-
-    $draft->stageBrand(['brand_primary' => '#1a2b3c']);
-
-    expect($draft->touched())->toBeTrue()
-        ->and($draft->toArray())->not->toBeNull();
 });

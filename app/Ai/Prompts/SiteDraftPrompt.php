@@ -226,10 +226,8 @@ final readonly class SiteDraftPrompt implements Stringable
     {
         $menu = [];
 
-        foreach ($this->theme->pages as $page) {
-            if ($page->draftSlug !== null) {
-                $menu[] = sprintf('"%s" (%s)', $page->draftSlug, mb_rtrim($page->description, '.'));
-            }
+        foreach ($this->theme->draftPages() as $page) {
+            $menu[] = sprintf('"%s" (%s)', $page->draftSlug, mb_rtrim($page->description, '.'));
         }
 
         if ($menu === []) {

@@ -40,28 +40,26 @@ use App\Themes\Scheme;
 final class SiteStyleDraft
 {
     /**
-     * Null until something in this turn changes the style — which is what lets
-     * {@see toArray()} distinguish "left alone" from "deliberately set back to
-     * what it already was". Only the former must avoid staging a draft, because
-     * a staged draft raises an Apply affordance the operator would have nothing
-     * to apply.
+     * The scheme THIS turn applied, or null when it applied none. Null is what
+     * lets a brand-only turn stage colours without staging a scheme — and a
+     * staged scheme is a "replace the look with this bundle" instruction, so
+     * inventing one from the saved slug would wipe a template's overrides.
      */
-    private ?DesignTokens $staged = null;
+    private ?Scheme $applied = null;
 
     /**
      * Whether THIS turn changed anything. Its own flag rather than
-     * `$staged !== null`, because a turn can start with `$seeded` — a style a
-     * previous turn staged that the operator has not applied yet — and a turn
-     * that merely reads that seed must not re-stage it through
-     * {@see toArray()}: the Apply gate is already up, and a re-staged copy
-     * would snapshot an edit nobody made.
+     * `$applied !== null`, because a brand-only turn changes something without
+     * applying a scheme, and a turn that merely STARTS from a seeded preview
+     * must not re-stage it through {@see toArray()}: the Apply gate is already
+     * up, and a re-staged copy would snapshot an edit nobody made.
      */
     private bool $dirty = false;
 
     /**
      * Brand hexes staged by THIS turn — the "make the primary colour deep
      * blue" lever. Validated by the tool before they get here; ride inside
-     * {@see toArray()} beside the tokens so the whole staged look travels as
+     * {@see toArray()} beside the scheme so the whole staged look travels as
      * one draft.
      *
      * @var array<string, string>
@@ -70,16 +68,18 @@ final class SiteStyleDraft
 
     /**
      * @param  DesignTokens  $saved  the tokens as they are on disk
-     * @param  DesignTokens|null  $seeded  a previous turn's still-unapplied staged
-     *                                     style, carried back in so "a bit darker"
-     *                                     refines what the operator is LOOKING AT
-     *                                     rather than silently restarting from the
-     *                                     saved tokens
+     * @param  Scheme|null  $seeded  the scheme a previous turn staged that the
+     *                               operator has not applied yet, carried back
+     *                               in so "a bit darker" refines what the
+     *                               operator is LOOKING AT rather than silently
+     *                               restarting from the saved tokens. A Scheme,
+     *                               not tokens: an unapplied draft only ever
+     *                               holds a slug, and re-emitting it is what
+     *                               keeps it on the canvas after a brand-only
+     *                               follow-up
      * @param  array<string, string>  $savedBrand  the business row's persisted brand
-     *                                             hexes — what makes `palette: brand`
-     *                                             legal without staging a new hex.
-     *                                             Never re-emitted by toArray(): they
-     *                                             are already on disk.
+     *                                             hexes. Never re-emitted by
+     *                                             toArray(): they are already on disk.
      * @param  array<string, string>  $seededBrand  hexes riding in the editor's
      *                                              still-unapplied draft, re-emitted by
      *                                              toArray() so a later fine-tune does
@@ -88,7 +88,7 @@ final class SiteStyleDraft
      */
     public function __construct(
         private readonly DesignTokens $saved,
-        private readonly ?DesignTokens $seeded = null,
+        private readonly ?Scheme $seeded = null,
         private readonly array $savedBrand = [],
         private readonly array $seededBrand = [],
     ) {
@@ -97,8 +97,7 @@ final class SiteStyleDraft
 
     /**
      * The effective brand hexes — this turn's staged ones over the seeded
-     * draft's over the saved row's. What the brand-palette guard reads to
-     * decide whether `palette: brand` has a primary to derive from.
+     * draft's over the saved row's.
      *
      * @return array<string, string>
      */
@@ -108,23 +107,26 @@ final class SiteStyleDraft
     }
 
     /**
-     * Stage validated brand hexes on top of whatever this turn holds. The
-     * tokens are materialised too, so a brand-only turn still produces a
-     * complete draft rather than a dirty flag with nothing behind it; the
-     * hexes only show once the look in force is built on the brand palette.
+     * Stage validated brand hexes on top of whatever this turn holds. The look
+     * is left exactly as it is — {@see current()} keeps answering the scheme
+     * staged so far, or the saved tokens — because the hexes are colours for
+     * the brand palette, not a choice of look.
      *
      * @param  array<string, string>  $hexes
      */
     public function stageBrand(array $hexes): void
     {
-        $this->staged ??= $this->current();
         $this->stagedBrand = [...$this->stagedBrand, ...$hexes];
         $this->dirty = true;
     }
 
+    /**
+     * The look in force: this turn's scheme, then the seeded draft's, then the
+     * saved tokens — which a brand-only turn leaves untouched.
+     */
     public function current(): DesignTokens
     {
-        return $this->staged ?? $this->seeded ?? $this->saved;
+        return ($this->applied ?? $this->seeded)->tokens ?? $this->saved;
     }
 
     /**
@@ -134,7 +136,7 @@ final class SiteStyleDraft
      */
     public function seededPreview(): bool
     {
-        return $this->seeded instanceof DesignTokens;
+        return $this->seeded instanceof Scheme || $this->seededBrand !== [];
     }
 
     /**
@@ -157,43 +159,46 @@ final class SiteStyleDraft
     }
 
     /**
-     * Replace every token with a scheme's bundle, keeping the scheme marker —
-     * the staged equivalent of {@see \App\Actions\ApplyScheme}.
+     * Stage a scheme as the whole look — the staged equivalent of
+     * {@see \App\Actions\ApplyScheme}.
      */
     public function applyScheme(Scheme $scheme): void
     {
-        $this->staged = $scheme->tokens;
+        $this->applied = $scheme;
         $this->dirty = true;
     }
 
     /**
-     * The staged tokens in the shape the editor stages and
-     * {@see \App\Actions\SaveDesignSelection} consumes, or null when this turn
-     * left the style alone — including a turn that merely STARTED from a
+     * The staged selection in the shape the editor stages and
+     * {@see \App\Actions\SaveDesignSelection} consumes
+     * ({@see \App\Design\TokenSelection::normalise()}), or null when this
+     * turn left the style alone — including a turn that merely STARTED from a
      * seeded, still-unapplied preview: the editor already holds that draft,
      * and handing it back would re-stage an edit nobody made this turn.
      *
-     * {@see DesignTokens::toArray()} carries the `scheme` slug both of those
-     * read (the axes ride along and are dropped by `TokenSelection::normalise()`
-     * on the way in), so there is no adapter anywhere on this path. Brand hexes
-     * ride beside it: this turn's staged ones, plus the seeded draft's — the
-     * editor's draft is REPLACED by this array, so leaving a seeded hex out
-     * would silently strip it from the preview.
+     * `scheme` is present only when a scheme was actually picked — this turn
+     * or the seeded draft — never the saved slug: every reader treats a staged
+     * scheme as "replace the look with this bundle", so a brand-only turn must
+     * hand back only its hexes. No axes ride along; every reader resolves the
+     * slug through the current theme. Brand hexes: this turn's staged ones,
+     * plus the seeded draft's — the editor's draft is REPLACED by this array,
+     * so leaving a seeded hex (or the seeded scheme) out would silently strip
+     * it from the preview.
      *
-     * @return array<string, string|null>|null
+     * @return array<string, string>|null
      */
     public function toArray(): ?array
     {
-        // Every dirty-setter also materialises $staged, so the second half of
-        // this condition is the type-level restatement of that invariant, not
-        // a reachable branch of its own.
-        if (! $this->dirty || ! $this->staged instanceof DesignTokens) {
+        if (! $this->dirty) {
             return null;
         }
 
-        $tokens = $this->staged->toArray();
-        $brand = [...$this->seededBrand, ...$this->stagedBrand];
+        $scheme = $this->applied ?? $this->seeded;
 
-        return $brand === [] ? $tokens : [...$tokens, ...$brand];
+        return [
+            ...($scheme instanceof Scheme ? ['scheme' => $scheme->slug] : []),
+            ...$this->seededBrand,
+            ...$this->stagedBrand,
+        ];
     }
 }

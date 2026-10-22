@@ -11,6 +11,7 @@ use App\Themes\Definitions\DefaultTheme;
 use App\Themes\Theme;
 use App\Themes\ThemeBlock;
 use App\Themes\ThemeDefinition;
+use App\Themes\ThemePage;
 
 /**
  * The block contracts as THIS theme publishes them — bound as the current
@@ -257,5 +258,19 @@ test('a theme definition answers its pages by key, and lists the draft slugs in 
     expect(array_keys($definition->pages))->toBe(['home', 'about', 'services', 'contact', 'team', 'faqs', 'gallery', 'portfolio'])
         ->and($definition->page('about')?->title)->toBe('About')
         ->and($definition->page('blank'))->toBeNull()
-        ->and($definition->draftSlugs())->toBe(['/about', '/services', '/contact']);
+        ->and($definition->draftSlugs())->toBe(['/about', '/services', '/contact'])
+        // The pages behind that menu, in the same order — the one filter the
+        // slug enum and the draft prompt's described menu both read.
+        ->and(array_map(fn (ThemePage $page): string => $page->key, $definition->draftPages()))->toBe(['about', 'services', 'contact']);
+});
+
+/*
+ * Built once per case: the definition is read on every block render, and the
+ * vocabulary memo (BlockVocabularies) keys by the definition object, so a
+ * rebuilt one per call would also defeat that memo.
+ */
+test('a theme hands back the same definition object on every call', function (): void {
+    foreach (Theme::cases() as $theme) {
+        expect($theme->definition())->toBe($theme->definition());
+    }
 });

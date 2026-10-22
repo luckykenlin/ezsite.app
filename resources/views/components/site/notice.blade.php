@@ -12,7 +12,8 @@
     link back to the home page is the whole navigation.
 
     Every Tailwind class on this page lives in THIS file on purpose: it sits
-    under `components/site/`, which site.css already declares as a @source, so
+    under `components/site/`, which the theme stylesheet
+    (`resources/themes/{theme}/theme.css`) already declares as a @source, so
     the callers (resources/views/errors, resources/views/site) need no new
     source line and must not introduce utility classes of their own.
 --}}
@@ -20,9 +21,11 @@
 @use('App\Themes\CurrentTheme')
 @props(['business' => null, 'title', 'heading', 'body' => null, 'noindex' => false])
 @php
-    // A tenant with no Business profile still gets a themed page: ThemeVariables
-    // takes a null business and the current theme's default scheme stands,
-    // exactly as the central marketing site does it.
+    // A tenant with no Business profile still gets a themed page, and the
+    // fallback is DELIBERATELY the current theme's default scheme (WarmCraft in
+    // the default theme) rather than DesignTokens::default(): a business-less
+    // 404 should look like a designed site on this theme, not like the bare
+    // tokens nothing vouches for. ThemeVariables takes the null business.
     $tokens = $business?->design_tokens ?? app(CurrentTheme::class)->definition()->defaultScheme()->tokens;
     $siteName = $business->name ?? config('app.name');
 @endphp

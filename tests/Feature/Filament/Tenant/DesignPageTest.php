@@ -6,6 +6,7 @@ use App\Design\ColorPalette;
 use App\Design\DesignTokens;
 use App\Filament\Tenant\Pages\Design;
 use App\Models\Business;
+use App\Templates\SiteTemplate;
 use App\Themes\Definitions\DefaultTheme;
 use App\Themes\Theme;
 use Livewire\Livewire;
@@ -33,7 +34,7 @@ test('a staged look waits for apply, and nothing reaches the site before it', fu
 
     // The panel shows the staged look — resolved through the theme, since the
     // staged selection itself is only the slug...
-    expect($component->instance()->styleSelection()['scheme'])->toBe('bold-editorial')
+    expect($component->instance()->activeScheme())->toBe('bold-editorial')
         ->and($component->instance()->styleTokens()->palette)->toBe(ColorPalette::Plum)
         ->and($component->instance()->hasStagedStyles())->toBeTrue()
         // ...while the site is still on the saved one. A stray click used to
@@ -72,8 +73,31 @@ test('the panel opens on the stored tokens, as the site actually has them', func
 
     $instance = Livewire::test(Design::class)->instance();
 
-    expect($instance->styleSelection()['scheme'])->toBe('calm-coastal')
+    expect($instance->activeScheme())->toBe('calm-coastal')
+        ->and($instance->styleSelection())->toBe([])
         ->and($instance->styleTokens()->toArray())->toBe($provisioned->toArray());
+});
+
+/*
+ * A brand edit is a colour change, not a scheme pick. It used to stage the
+ * saved slug alongside the hex, which this surface's Save then re-applied as
+ * the scheme's bare bundle — so editing a DimSumHouse site's red threw away the
+ * Brand palette the red was for.
+ */
+test('a brand edit keeps a template s overridden look, staged and saved', function (): void {
+    $provisioned = SiteTemplate::DimSumHouse->definition()->tokens();
+    Business::factory()->create(['tenant_id' => $this->tenant->id, 'design_tokens' => $provisioned]);
+
+    $component = Livewire::test(Design::class)->call('stageBrandColor', 'brand_primary', '#ff6b35');
+
+    expect($component->instance()->styleSelection())->toBe(['scheme' => null, 'brand_primary' => '#ff6b35'])
+        ->and($component->instance()->styleTokens()->toArray())->toBe($provisioned->toArray())
+        ->and($component->instance()->activeScheme())->toBe(DefaultTheme::WARM_CRAFT);
+
+    $component->call('applySiteStyles');
+
+    expect(Business::query()->sole()->design_tokens->toArray())->toBe($provisioned->toArray())
+        ->and(Business::query()->sole()->brand_primary)->toBe('#ff6b35');
 });
 
 test('discarding a staged look returns the panel to the saved one', function (): void {
@@ -84,7 +108,7 @@ test('discarding a staged look returns the panel to the saved one', function ():
         ->call('resetSiteStyles');
 
     expect($component->instance()->hasStagedStyles())->toBeFalse()
-        ->and($component->instance()->styleSelection()['scheme'])->toBe('warm-craft');
+        ->and($component->instance()->activeScheme())->toBe('warm-craft');
 });
 
 test('every scheme of the current theme is offered at the top level, each drawn as itself', function (): void {

@@ -161,13 +161,15 @@ final readonly class ChatEditPage
 
         // Seeded from the editor's still-unapplied chat draft when one rode in:
         // the operator is LOOKING at that style, so "a bit darker" must refine
-        // it rather than silently restart from the saved tokens. The brand
-        // baselines ride along — the saved row's hexes make `palette: brand`
-        // legal, and the draft's hexes must survive a later fine-tune.
+        // it rather than silently restart from the saved tokens. Only a scheme
+        // the draft actually picked seeds the look — a brand-only draft stands
+        // on the saved tokens, and treating the saved slug as picked would
+        // re-apply its bare bundle over a template's overrides. The draft's
+        // brand hexes ride along so a later fine-tune does not drop them.
         $style = $business instanceof Business
             ? new SiteStyleDraft(
                 $business->design_tokens,
-                $designDraft === null ? null : $this->theme->definition()->tokensFor($designDraft, $business->design_tokens),
+                is_string($designDraft['scheme'] ?? null) ? $this->theme->definition()->scheme($designDraft['scheme']) : null,
                 $this->brandHexes([
                     'brand_primary' => $business->brand_primary,
                     'brand_secondary' => $business->brand_secondary,

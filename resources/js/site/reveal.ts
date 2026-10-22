@@ -8,7 +8,7 @@
  * the `still` style is a duration of zero, and this runs identically either way.
  *
  * It also does not touch the OPENING. The first screenful stages itself with a
- * CSS animation (`.site-stage` in resources/themes/default/theme.css), because anything this
+ * CSS animation (`.site-stage` in resources/themes/{theme}/theme.css), because anything this
  * script hides is visible until the bundle lands — and a first screen that
  * appears, vanishes and fades back in is worse than one that never moved. What
  * is left for JavaScript is the part CSS genuinely cannot do: noticing that
@@ -24,7 +24,7 @@
  * setting never depends on this file having run.
  */
 
-/** Marks the root as reveal-capable; mirrors the selector in site.css. */
+/** Marks the root as reveal-capable; mirrors the selector in the theme stylesheet. */
 export const REVEAL_ATTRIBUTE = 'data-site-reveal';
 
 /** Set on an element once it has arrived. */

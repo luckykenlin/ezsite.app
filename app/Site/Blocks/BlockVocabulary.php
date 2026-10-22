@@ -14,11 +14,13 @@ namespace App\Site\Blocks;
  * to reach a business rule. The block CLASSES still live under `App\Filament`
  * (Fabricator globs them from there, and they are genuinely Filament form
  * schemas), but the enumeration they produce no longer drags the panel along:
- * {@see \App\Providers\AppServiceProvider} builds this from them once per request
- * and binds it, so the wiring lives in the one layer allowed to see both sides.
+ * {@see \App\Providers\AppServiceProvider} builds this from them and binds it, so
+ * the wiring lives in the one layer allowed to see both sides.
  *
- * Scoped rather than singleton: block discovery is per-request in the panel, and a
- * queue worker handling two tenants' turns must not share a stale enumeration.
+ * Which types and variants it holds depends on the current tenant's theme, so it
+ * is memoized per theme by {@see BlockVocabularies} rather than being a scoped
+ * instance itself: a queue worker handling two tenants' turns must not hand the
+ * second tenant the first one's enumeration.
  */
 final readonly class BlockVocabulary
 {

@@ -82,8 +82,23 @@ final readonly class ThemeDefinition
     }
 
     /**
-     * The slugs the AI site draft may use beyond the home page, in display
-     * order: every page that declares a `draftSlug`. A closed menu rather than
+     * The pages the AI site draft may produce beyond the home page, in display
+     * order: every page that declares a `draftSlug`. The one definition of that
+     * filter — the slug menu ({@see draftSlugs()}) and the prompt's described
+     * menu both read it, so they cannot disagree about which pages are on it.
+     *
+     * @return list<ThemePage>
+     */
+    public function draftPages(): array
+    {
+        return array_values(array_filter(
+            $this->pages,
+            static fn (ThemePage $page): bool => $page->draftSlug !== null,
+        ));
+    }
+
+    /**
+     * The slugs of {@see draftPages()}. A closed menu rather than
      * model-invented paths, so slugs are collision-free and linkable before
      * anything exists.
      *
@@ -91,15 +106,7 @@ final readonly class ThemeDefinition
      */
     public function draftSlugs(): array
     {
-        $slugs = [];
-
-        foreach ($this->pages as $page) {
-            if ($page->draftSlug !== null) {
-                $slugs[] = $page->draftSlug;
-            }
-        }
-
-        return $slugs;
+        return array_map(static fn (ThemePage $page): string => (string) $page->draftSlug, $this->draftPages());
     }
 
     /**

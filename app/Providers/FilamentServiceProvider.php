@@ -70,7 +70,11 @@ final class FilamentServiceProvider extends ServiceProvider
         // Registered unconditionally (unlike registerScripts above) — the
         // closure is lazy, it only runs when a Fabricator page renders.
         FilamentView::registerRenderHook(LayoutRenderHook::HEAD_END, function (): HtmlString {
-            $stylesheet = resolve(Vite::class)([resolve(CurrentTheme::class)->definition()->stylesheet])->toHtml();
+            // The stylesheet is skipped in a console process (a queue worker
+            // rendering a page), where there is no Vite manifest to read —
+            // the guard registerScripts above has always had. Unit tests run
+            // in the console but fake Vite, so they keep the tag.
+            $stylesheet = $this->app->runningInConsole() && ! $this->app->runningUnitTests() ? '' : resolve(Vite::class)([resolve(CurrentTheme::class)->definition()->stylesheet])->toHtml();
 
             // Reuse the request-scoped BindResolver so theming shares the
             // page render's single memoized business query — and never

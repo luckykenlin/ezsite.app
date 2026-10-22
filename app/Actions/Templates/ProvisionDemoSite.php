@@ -96,7 +96,12 @@ final readonly class ProvisionDemoSite
             ->first();
 
         if ($existing instanceof Tenant) {
-            $existing->update(['name' => $template->definition()->demoProfile->name, 'template' => $template, 'is_demo' => true]);
+            $existing->update([
+                'name' => $template->definition()->demoProfile->name,
+                'template' => $template,
+                'is_demo' => true,
+                'theme' => $template->definition()->theme,
+            ]);
 
             return $existing;
         }

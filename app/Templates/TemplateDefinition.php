@@ -77,14 +77,13 @@ final readonly class TemplateDefinition
      * The scheme's tokens with this template's overrides folded in — the value
      * that goes onto `businesses.design_tokens`.
      *
-     * The scheme MARKER survives an override, unlike {@see DesignTokens::with()},
-     * which detaches it. That asymmetry is deliberate on both sides: an
-     * operator dragging a token in the design panel really has left the scheme,
-     * but a template is a curated *variation* of one, and the marker is what
+     * The scheme MARKER survives an override. A template is a curated
+     * *variation* of a scheme, not a departure from it (there is no per-axis
+     * editor an operator could leave a scheme with), and the marker is what
      * {@see \App\Actions\Pages\StampSchemeDefaults} and the design panel read to
      * know which scheme's per-block opinions still apply. Two WarmCraft
      * templates with different palettes are the "one system, two different
-     * restaurants" pitch; dropping them both to `custom` would lose it.
+     * restaurants" pitch; dropping both markers would lose it.
      *
      * Throws on a slug the template's theme does not offer: a template is
      * hand-authored PHP, so that is an authoring error to surface at the first

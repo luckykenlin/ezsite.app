@@ -25,7 +25,8 @@ use Z3d0X\FilamentFabricator\Facades\FilamentFabricator;
 /**
  * Renders the page editor's canvas document: the draft state that
  * {@see CachePageEditorPreview} put in the cache, rendered through the SAME
- * layout chain as the live tenant site (theme variables, fonts, site.css),
+ * layout chain as the live tenant site (theme variables, fonts, the theme
+ * stylesheet),
  * plus the editor-only `data-block-key` wrappers and the click-to-select
  * script the wrapping editor page talks to.
  *

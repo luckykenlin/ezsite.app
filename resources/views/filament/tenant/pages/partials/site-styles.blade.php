@@ -24,7 +24,7 @@
      path to the database. --}}
 
 @php
-    $selection = $this->styleSelection();
+    $activeScheme = $this->activeScheme();
     $tokens = $this->styleTokens();
     $business = $this->styleBusiness();
 @endphp
@@ -45,7 +45,7 @@
                 type="button"
                 class="pe-option"
                 wire:key="scheme-{{ $slug }}"
-                @if (($selection['scheme'] ?? null) === $slug) data-active @endif
+                @if ($activeScheme === $slug) data-active @endif
                 wire:click="stageScheme('{{ $slug }}')"
             >
                 <x-design.specimen :tokens="$scheme->tokens" :business="$business" />

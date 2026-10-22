@@ -1,6 +1,6 @@
 {{--
     A block-library thumbnail: ONE block type's sample content through the real
-    base layout (theme variables, fonts, site.css), with no chrome, no SEO head
+    base layout (theme variables, fonts, the theme stylesheet), with no chrome, no SEO head
     and none of the editor's canvas glue. Loaded in a scaled-down iframe the
     parent makes inert (pointer-events: none in page-editor.css), so nothing
     here is interactive.

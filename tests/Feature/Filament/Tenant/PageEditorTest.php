@@ -27,6 +27,7 @@ use App\Models\SiteSetting;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Site\Blocks\BlockVocabulary;
+use App\Templates\SiteTemplate;
 use App\Themes\Definitions\DefaultTheme;
 use App\Themes\Theme;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -1340,8 +1341,10 @@ describe('the site styles rail', function (): void {
 
         $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
 
-        expect($component->instance()->styleSelection()['scheme'])
-            ->toBe(Business::query()->sole()->design_tokens->scheme)
+        // Nothing staged is an EMPTY selection, never the saved tokens dressed
+        // up as one; which scheme is on is activeScheme()'s answer.
+        expect($component->instance()->styleSelection())->toBe([])
+            ->and($component->instance()->activeScheme())->toBe(Business::query()->sole()->design_tokens->scheme)
             ->and($component->instance()->hasStagedStyles())->toBeFalse();
 
         $component->call('stageScheme', 'calm-coastal');
@@ -1410,6 +1413,46 @@ describe('the site styles rail', function (): void {
 
         expect(Business::query()->sole()->brand_primary)->toBe('#ff6b35')
             ->and(Business::query()->sole()->design_tokens->palette)->toBe(ColorPalette::Brand);
+    });
+
+    /*
+     * The regression this pins: a brand edit used to stage the SAVED slug as
+     * if it had been picked, so the canvas drew the scheme's bare bundle and
+     * Apply re-ran ApplyScheme — wiping whatever a template folded in on top
+     * (DimSumHouse's Brand palette, the very palette the swatch exists for).
+     */
+    it('keeps a template s overridden look through a brand edit, in the preview and after apply', function (): void {
+        $provisioned = SiteTemplate::DimSumHouse->definition()->tokens();
+        $this->createTenantBusiness($this->tenant, ['name' => 'Golden Lotus', 'design_tokens' => $provisioned]);
+        $page = editorPage([]);
+
+        $component = Livewire::test(PageEditor::class, ['record' => $page->id])
+            ->call('showSiteStyles')
+            ->call('stageBrandColor', 'brand_primary', '#ff6b35');
+
+        expect($component->get('designDraft'))->toBe(['scheme' => null, 'brand_primary' => '#ff6b35'])
+            ->and($component->instance()->styleTokens()->toArray())->toBe($provisioned->toArray())
+            // Still the template's scheme in the picker, and the swatches stay.
+            ->and($component->instance()->activeScheme())->toBe(DefaultTheme::WARM_CRAFT);
+
+        $component->assertSee('Your brand colours')->call('applySiteStyles');
+
+        expect(Business::query()->sole()->design_tokens->toArray())->toBe($provisioned->toArray())
+            ->and(Business::query()->sole()->brand_primary)->toBe('#ff6b35');
+    });
+
+    it('carries a staged brand hex forward when a scheme is picked after it', function (): void {
+        $this->createTenantBusiness($this->tenant, [
+            'name' => 'Corner Cafe',
+            'design_tokens' => DesignTokens::fromArray([...DesignTokens::default()->toArray(), 'palette' => 'brand']),
+        ]);
+        $page = editorPage([]);
+
+        $component = Livewire::test(PageEditor::class, ['record' => $page->id])
+            ->call('stageBrandColor', 'brand_primary', '#ff6b35')
+            ->call('stageScheme', 'calm-coastal');
+
+        expect($component->get('designDraft'))->toBe(['scheme' => 'calm-coastal', 'brand_primary' => '#ff6b35']);
     });
 
     it('ignores a brand colour key the browser invented', function (): void {

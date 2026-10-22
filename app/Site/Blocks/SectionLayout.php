@@ -13,8 +13,8 @@ use InvalidArgumentException;
  *
  * A view opens with `SectionLayout::for('features', 'grid')->resolve($appearance)`
  * and reads ready class strings from the accessors; every literal class lives
- * in the `Section*` value enums (whose file names keep them inside site.css's
- * `@source` glob), never here and never in the blade.
+ * in the `Section*` value enums (whose file names keep them inside the theme
+ * stylesheet's `@source` glob, resources/themes/{theme}/theme.css), never here and never in the blade.
  *
  * Trust model, same as everywhere: the stored `data.appearance` goes through
  * `tryFrom` (tenant data degrades silently to the contract default); the

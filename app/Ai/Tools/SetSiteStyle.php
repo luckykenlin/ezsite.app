@@ -36,7 +36,8 @@ use Laravel\Ai\Tools\Request;
  * designed got onto a live site, and they are gone. The menu is the current
  * theme's ({@see Scheme}), so the model is only ever offered looks the
  * tenant's theme can draw. The brand hexes are the one exact-colour lever,
- * and they show only on a scheme built on the brand palette.
+ * and they show only on a look built on the brand palette — which is why a
+ * hex aimed at any other look is refused rather than staged.
  *
  * `align_layouts` is what keeps a whole-site restyle to ONE call. Without it an
  * eight-block page needs nine, against `#[MaxSteps(12)]` and a 90-second turn
@@ -86,7 +87,8 @@ final readonly class SetSiteStyle implements Tool
             $fields[$key] = $schema->string()
                 ->description(Str::headline($key).' as a six-digit hex like #1a2b3c. ONLY when the operator '
                     .'asked for that specific colour ("make the main colour deep blue", a hex they pasted). '
-                    .'Brand colours take effect on styles built on the brand palette; they do not change the style itself.');
+                    .'Brand colours only show on a style built on the brand palette and do not change the style itself; '
+                    .'on any other style they are refused and nothing changes.');
         }
 
         return $fields;
@@ -135,6 +137,16 @@ final readonly class SetSiteStyle implements Tool
             return $this->draft->reply('No style was given, so nothing changed.');
         }
 
+        // Brand hexes only paint a look built on the brand palette. On any
+        // other they would be staged, saved and never seen — a silent no-op
+        // the model would still report as done — so the call is refused whole,
+        // judged against the look it would land on.
+        $landsOn = $scheme instanceof Scheme ? $scheme->tokens : $this->style->current();
+
+        if ($brand !== [] && $landsOn->palette !== ColorPalette::Brand) {
+            return $this->draft->reply($this->brandRefusal($definition->schemes));
+        }
+
         if ($scheme instanceof Scheme) {
             $this->style->applyScheme($scheme);
         }
@@ -181,6 +193,26 @@ final readonly class SetSiteStyle implements Tool
         }
 
         return $blocks;
+    }
+
+    /**
+     * Why brand hexes changed nothing, and where they would: the theme's
+     * brand-palette schemes by slug, or the plain fact that it has none — so
+     * the model can offer a real alternative rather than retry the same call.
+     *
+     * @param  array<string, Scheme>  $schemes
+     */
+    private function brandRefusal(array $schemes): string
+    {
+        $brandSchemes = array_keys(array_filter(
+            $schemes,
+            static fn (Scheme $scheme): bool => $scheme->tokens->palette === ColorPalette::Brand,
+        ));
+
+        return 'Nothing changed: this style does not use brand colours, so they would not show. '
+            .($brandSchemes === []
+                ? 'None of the styles in this theme uses brand colours.'
+                : 'The styles that do are: '.implode(', ', $brandSchemes).'.');
     }
 
     /**

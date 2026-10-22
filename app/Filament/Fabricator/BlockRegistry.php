@@ -57,8 +57,9 @@ final class BlockRegistry
      * {@see BlockVocabulary}, which is what the rest of the app actually reads.
      *
      * Lives here because this is the side that can enumerate the Filament block
-     * classes; it is assembled into the domain-layer vocabulary once per request
-     * by {@see \App\Providers\AppServiceProvider}.
+     * classes; {@see \App\Providers\AppServiceProvider} hands it to
+     * {@see \App\Site\Blocks\BlockVocabularies} as the builder, which
+     * assembles the domain-layer vocabulary once per theme.
      *
      * @return array<string, BlockType>
      */
@@ -114,7 +115,7 @@ final class BlockRegistry
     /**
      * The block's `data`, guaranteed to be an array and with the variant reserved
      * key backfilled to the block's default when absent. Used to build the
-     * component's attributes after {@see resolveComponent()} has accepted it.
+     * component's attributes after {@see resolveView()} has accepted it.
      *
      * @param  array<string, mixed>  $block
      * @return array<array-key, mixed>

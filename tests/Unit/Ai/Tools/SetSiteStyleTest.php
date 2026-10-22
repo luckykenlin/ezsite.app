@@ -6,8 +6,8 @@ use App\Actions\Pages\StampSchemeDefaults;
 use App\Ai\PageDraft;
 use App\Ai\SiteStyleDraft;
 use App\Ai\Tools\SetSiteStyle;
-use App\Design\ColorPalette;
 use App\Design\DesignTokens;
+use App\Templates\SiteTemplate;
 use App\Themes\CurrentTheme;
 use App\Themes\Definitions\DefaultTheme;
 use App\Themes\Theme;
@@ -38,7 +38,7 @@ it('stages a scheme chosen by name', function (): void {
     $result = styleTool($style, styleableDraft())->handle(new Request(['scheme' => 'warm-craft']));
 
     expect($style->current()->scheme)->toBe(DefaultTheme::WARM_CRAFT)
-        ->and($style->toArray())->toBe(defaultScheme(DefaultTheme::WARM_CRAFT)->tokens->toArray())
+        ->and($style->toArray())->toBe(['scheme' => DefaultTheme::WARM_CRAFT])
         // The model has to relay both facts, so the tool result states them.
         ->and($result)->toContain('affects every page')
         ->and($result)->toContain('staged on the canvas only');
@@ -129,37 +129,61 @@ it('reports doing nothing when given nothing', function (): void {
 
 /*
  * The exact-colour lever — the one place the assistant may hold a hex, and
- * everything stays staged behind Apply.
+ * everything stays staged behind Apply. It only paints a look built on the
+ * Brand palette, so a hex aimed anywhere else is refused rather than staged:
+ * staging it was a silent no-op the model still reported as done.
  */
-it('stages a brand hex against the look in force, without changing the style', function (): void {
+it('refuses brand hexes on a look that does not use brand colours, naming none when the theme has none', function (): void {
     $style = styleDraft();
 
-    $result = styleTool($style, styleableDraft())->handle(new Request([
-        'brand_primary' => '#1A2B3C',
-    ]));
+    $result = styleTool($style, styleableDraft())->handle(new Request(['brand_primary' => '#1a2b3c']));
 
-    // No palette switch: the hex shows once the site is on a brand-palette
-    // scheme, and the tool has no lever to move one axis on its own.
-    expect($style->current()->palette)->toBe(ColorPalette::Default)
-        ->and($style->current()->scheme)->toBeNull()
-        // Lower-cased by the validity gate, like the businesses columns store it.
-        ->and($style->toArray()['brand_primary'])->toBe('#1a2b3c')
+    expect($style->touched())->toBeFalse()
+        ->and($result)->toContain('Nothing changed: this style does not use brand colours')
+        ->and($result)->toContain('None of the styles in this theme uses brand colours');
+});
+
+it('stages a brand hex on a brand-palette look without changing the look', function (): void {
+    // DimSumHouse: WarmCraft's marker on the Brand palette — the template
+    // override a staged scheme would have wiped.
+    $saved = SiteTemplate::DimSumHouse->definition()->tokens();
+    $style = new SiteStyleDraft($saved);
+
+    $result = styleTool($style, styleableDraft())->handle(new Request(['brand_primary' => '#1A2B3C']));
+
+    expect($style->current())->toBe($saved)
+        // Lower-cased by the validity gate, like the businesses columns store
+        // it — and no scheme: the look stays the one on disk.
+        ->and($style->toArray())->toBe(['brand_primary' => '#1a2b3c'])
         ->and($result)->toContain('brand primary #1a2b3c')
         ->and($result)->toContain('staged on the canvas only');
 });
 
-it('stages a scheme and a brand hex together in one call', function (): void {
-    $style = styleDraft();
+/*
+ * The scheme given in the SAME call decides, not the look in force: hexes
+ * with a brand-palette scheme land, hexes with any other are refused whole —
+ * and the refusal names the schemes that would take them.
+ */
+it('judges brand hexes against the scheme picked in the same call', function (): void {
+    app()->instance(CurrentTheme::class, new CurrentTheme(brandSchemeTheme()));
 
+    $style = styleDraft();
     $result = styleTool($style, styleableDraft())->handle(new Request([
-        'scheme' => 'warm-craft',
+        'scheme' => 'house-colours',
         'brand_primary' => '#1a2b3c',
     ]));
 
-    expect($style->current()->scheme)->toBe(DefaultTheme::WARM_CRAFT)
-        ->and($style->toArray()['brand_primary'])->toBe('#1a2b3c')
-        ->and($result)->toContain('warm-craft')
+    expect($style->toArray())->toBe(['scheme' => 'house-colours', 'brand_primary' => '#1a2b3c'])
         ->and($result)->toContain('with brand primary #1a2b3c');
+
+    $refused = styleDraft();
+    $result = styleTool($refused, styleableDraft())->handle(new Request([
+        'scheme' => DefaultTheme::WARM_CRAFT,
+        'brand_primary' => '#1a2b3c',
+    ]));
+
+    expect($refused->touched())->toBeFalse()
+        ->and($result)->toContain('The styles that do are: house-colours.');
 });
 
 it('rejects the whole call when a hex is not a colour', function (): void {
@@ -196,7 +220,7 @@ it('publishes the scheme vocabulary and the blast radius in its schema', functio
         // The hex fields carry their narrow licence, and where they show, in
         // the schema itself.
         ->and($serialized['brand_primary']['description'])->toContain('ONLY when the operator')
-        ->and($serialized['brand_primary']['description'])->toContain('built on the brand palette')
+        ->and($serialized['brand_primary']['description'])->toContain('on any other style they are refused and nothing changes')
         // The load-bearing clauses: this reaches pages the operator is not
         // looking at, they have to be told, and there is nothing to fine-tune.
         ->and($tool->description())->toContain('affects every page')
