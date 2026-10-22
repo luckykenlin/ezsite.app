@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use App\Enums\Vertical;
 use App\Models\Business;
 use App\Models\Domain;
 use App\Models\Tenant;
@@ -76,7 +75,6 @@ test('to array', function (): void {
             'email',
             'template',
             'theme',
-            'vertical',
             'is_demo',
             'created_at',
             'updated_at',
@@ -89,13 +87,4 @@ test('a tenant renders through the default theme unless told otherwise', functio
     $tenant = Tenant::query()->findOrFail($tenant->getKey());
 
     expect($tenant->theme)->toBe(Theme::Default);
-});
-
-test('a tenant has no vertical unless told, and casts the one it is given', function (): void {
-    // Null is a real answer — every pre-pivot template site has no vertical.
-    $plain = Tenant::factory()->create();
-    $salon = Tenant::factory()->vertical(Vertical::NailSalon)->create();
-
-    expect(Tenant::query()->findOrFail($plain->getKey())->vertical)->toBeNull()
-        ->and(Tenant::query()->findOrFail($salon->getKey())->vertical)->toBe(Vertical::NailSalon);
 });

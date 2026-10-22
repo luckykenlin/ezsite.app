@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Actions;
 
-use App\Enums\Vertical;
 use App\Models\Domain;
 use App\Models\Tenant;
 use App\Templates\SiteTemplate;
@@ -30,9 +29,6 @@ final readonly class CreateTenant
      * @param  Theme  $theme  which design package renders the site; every
      *                        theme-aware seam reads it back through
      *                        {@see \App\Themes\CurrentTheme}
-     * @param  Vertical|null  $vertical  what kind of business the site is for;
-     *                                   null for a site with no vertical (every
-     *                                   pre-pivot template)
      */
     public function handle(
         string $name,
@@ -41,15 +37,13 @@ final readonly class CreateTenant
         ?SiteTemplate $template = null,
         bool $isDemo = false,
         Theme $theme = Theme::Default,
-        ?Vertical $vertical = null,
     ): Tenant {
-        return DB::transaction(function () use ($name, $email, $subdomain, $template, $isDemo, $theme, $vertical): Tenant {
+        return DB::transaction(function () use ($name, $email, $subdomain, $template, $isDemo, $theme): Tenant {
             $tenant = Tenant::query()->create([
                 'name' => $name,
                 'email' => $email,
                 'template' => $template,
                 'theme' => $theme,
-                'vertical' => $vertical,
                 'is_demo' => $isDemo,
             ]);
 

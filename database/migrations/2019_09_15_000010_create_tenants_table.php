@@ -27,13 +27,6 @@ return new class extends Migration
             // every pre-theme site exactly as it looked.
             $table->string('theme')->default('default');
 
-            // Which kind of business this site is for — see App\Enums\Vertical.
-            // It decides the vocabulary ("Services", "Technicians"), which
-            // themes are on offer and the schema.org type. Nullable with no
-            // default: null is a real answer, "no vertical", which is what every
-            // pre-pivot template site is.
-            $table->string('vertical')->nullable();
-
             // The showcase tenants behind /templates. Indexed because the
             // central panel lists real tenants only, so every listing filters
             // on it.
