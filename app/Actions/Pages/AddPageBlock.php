@@ -17,9 +17,8 @@ use InvalidArgumentException;
  * `[{type, data}]` shape plus a transient `key` (uuid) per entry that gives
  * each block a stable identity for canvas selection. This action is pure
  * (arrays in, arrays out) so the phase-2 AI tools can call it against the
- * same state the human editor uses. Unknown types fail LOUD, mirroring
- * {@see \App\Actions\UpdateDesignTokens}: a misbehaving caller gets an
- * exception, never a silent no-op.
+ * same state the human editor uses. Unknown types fail LOUD: a misbehaving
+ * caller gets an exception, never a silent no-op.
  */
 final readonly class AddPageBlock
 {

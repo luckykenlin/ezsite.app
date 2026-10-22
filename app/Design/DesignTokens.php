@@ -4,17 +4,21 @@ declare(strict_types=1);
 
 namespace App\Design;
 
-use BackedEnum;
-
 /**
  * The tenant's chosen design tokens — enum keys only, never derived CSS
  * values (those live in the enums so they can evolve without data
  * migrations). Reads are lenient: any unknown/missing stored value falls
  * back to the default silently, so bad data can never break a page render.
- * Writes are strict — see App\Actions\UpdateDesignTokens.
+ *
+ * The eight axes are the INTERNAL representation of a look, not a form: a
+ * site's look is a theme {@see \App\Themes\Scheme} plus the business's brand
+ * hexes, and only a scheme or a template definition constructs one of these.
+ * There is deliberately no `with()` — nothing may change one axis independently
+ * of the scheme it came from, which is what kept the old free-axis editors
+ * producing combinations nobody designed.
  *
  * `$scheme` is the slug of the theme scheme these tokens were taken from, or
- * null once a manual override detached them. A bare string rather than a
+ * null for a look no scheme vouches for. A bare string rather than a
  * {@see \App\Themes\Scheme}, so this module stays unaware of themes: the
  * tokens are stored data, and whether the slug still names a scheme in the
  * tenant's current theme is the reader's question (`ThemeDefinition::scheme()`
@@ -100,58 +104,9 @@ final readonly class DesignTokens
      */
     public function describe(): string
     {
-        $values = array_map(
-            fn (TokenKey $key): string => $key->valueOn($this),
-            TokenKey::cases(),
-        );
+        $axes = $this->toArray();
+        unset($axes['scheme']);
 
-        return ($this->scheme ?? 'custom').' — '.implode(', ', $values);
-    }
-
-    /**
-     * A copy with ONE token replaced, addressed by its key.
-     *
-     * The keyed door onto {@see with()}, which takes named arguments and so
-     * cannot be reached from a loop over {@see TokenKey::cases()} — exactly the
-     * gap {@see TokenKey::valueOn()} fills in the read direction. The specimen
-     * renderer lives on that loop: "these tokens, but with `radius` set to
-     * `full`", once per option, for every key.
-     *
-     * Routed through {@see toArray()}/{@see fromArray()} rather than a `match`
-     * over eight cases, because those two are already the symmetric pair and a
-     * `match` would be a third place listing every key. It inherits their
-     * leniency too: an enum that does not belong to `$key` falls back to that
-     * token's default instead of raising a TypeError mid-render.
-     */
-    public function withToken(TokenKey $key, BackedEnum $value): self
-    {
-        return self::fromArray([...$this->toArray(), 'scheme' => null, $key->value => (string) $value->value]);
-    }
-
-    /**
-     * A copy with the given tokens replaced. Any manual override detaches
-     * the scheme marker — the combination is custom from then on.
-     */
-    public function with(
-        ?ColorPalette $palette = null,
-        ?FontPair $fontPair = null,
-        ?RadiusScale $radius = null,
-        ?SpacingDensity $density = null,
-        ?TypeStyle $typeStyle = null,
-        ?SectionDivider $divider = null,
-        ?AccentStyle $accent = null,
-        ?MotionStyle $motion = null,
-    ): self {
-        return new self(
-            scheme: null,
-            palette: $palette ?? $this->palette,
-            fontPair: $fontPair ?? $this->fontPair,
-            radius: $radius ?? $this->radius,
-            density: $density ?? $this->density,
-            typeStyle: $typeStyle ?? $this->typeStyle,
-            divider: $divider ?? $this->divider,
-            accent: $accent ?? $this->accent,
-            motion: $motion ?? $this->motion,
-        );
+        return ($this->scheme ?? 'custom').' — '.implode(', ', $axes);
     }
 }

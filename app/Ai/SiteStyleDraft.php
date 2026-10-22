@@ -4,15 +4,7 @@ declare(strict_types=1);
 
 namespace App\Ai;
 
-use App\Design\AccentStyle;
-use App\Design\ColorPalette;
 use App\Design\DesignTokens;
-use App\Design\FontPair;
-use App\Design\RadiusScale;
-use App\Design\SectionDivider;
-use App\Design\SpacingDensity;
-use App\Design\TokenKey;
-use App\Design\TypeStyle;
 use App\Themes\Scheme;
 
 /**
@@ -27,15 +19,20 @@ use App\Themes\Scheme;
  * published ones. They are not part of the block list, so neither
  * {@see ChangedBlocks} nor the editor's undo snapshot can see them. And the
  * turn runs in a queue worker, where a tool calling
- * {@see \App\Actions\UpdateDesignTokens} would write immediately —
+ * {@see \App\Actions\ApplyScheme} would write immediately —
  * {@see \App\Design\ThemeVariables::style()} reads saved tokens on every public
  * render, so the assistant would restyle the operator's live site while they
  * were still reading its reply.
  *
  * So a tool mutates this instead, and nothing here touches the database. What
- * it holds rides back to the editor as a preview draft (the same one the Design
- * modal's live fields produce), and {@see \App\Actions\SaveDesignSelection}
- * stays the single write path.
+ * it holds rides back to the editor as a preview draft (the same one the Site
+ * Styles rail produces), and {@see \App\Actions\SaveDesignSelection} stays
+ * the single write path.
+ *
+ * Two moves only — a whole scheme, or brand hexes — because those are the two
+ * things a site's look is made of. There is no per-axis `apply()`: it was the
+ * assistant's door onto combinations nobody designed, and it went with the
+ * operator's.
  *
  * Mutable and therefore not `readonly`: several tools in one turn have to see
  * each other's work, exactly as they do with {@see PageDraft}.
@@ -112,10 +109,9 @@ final class SiteStyleDraft
 
     /**
      * Stage validated brand hexes on top of whatever this turn holds. The
-     * caller pairs this with a `palette: brand` fine-tune — a hex without the
-     * brand palette would change nothing visible — but the tokens are
-     * materialised here too, so a caller that forgets still produces a
-     * complete draft rather than a dirty flag with nothing behind it.
+     * tokens are materialised too, so a brand-only turn still produces a
+     * complete draft rather than a dirty flag with nothing behind it; the
+     * hexes only show once the look in force is built on the brand palette.
      *
      * @param  array<string, string>  $hexes
      */
@@ -171,47 +167,18 @@ final class SiteStyleDraft
     }
 
     /**
-     * Fine-tune individual tokens on top of whatever is staged so far. Keys
-     * absent from `$changes` are left alone.
-     *
-     * Delegates to {@see DesignTokens::with()}, so it inherits the rule that any
-     * manual override detaches the scheme marker — a scheme-then-tweak turn
-     * ends up custom, the same as it would through the Design modal.
-     *
-     * Callers hand over raw enum VALUES, already checked against the tool
-     * schema's enum, so an unrecognised one here means a caller bypassed that
-     * check; it leaves the token alone rather than throwing, because the
-     * alternative is an exception inside a queue worker that would lose the
-     * whole turn over one field.
-     *
-     * @param  array<string, string>  $changes  TokenKey value => enum value
-     */
-    public function apply(array $changes): void
-    {
-        $this->dirty = true;
-        $this->staged = $this->current()->with(
-            palette: $this->value(ColorPalette::class, $changes, TokenKey::Palette),
-            fontPair: $this->value(FontPair::class, $changes, TokenKey::FontPair),
-            radius: $this->value(RadiusScale::class, $changes, TokenKey::Radius),
-            density: $this->value(SpacingDensity::class, $changes, TokenKey::Density),
-            typeStyle: $this->value(TypeStyle::class, $changes, TokenKey::TypeStyle),
-            divider: $this->value(SectionDivider::class, $changes, TokenKey::Divider),
-            accent: $this->value(AccentStyle::class, $changes, TokenKey::Accent),
-        );
-    }
-
-    /**
      * The staged tokens in the shape the editor stages and
      * {@see \App\Actions\SaveDesignSelection} consumes, or null when this turn
      * left the style alone — including a turn that merely STARTED from a
      * seeded, still-unapplied preview: the editor already holds that draft,
      * and handing it back would re-stage an edit nobody made this turn.
      *
-     * {@see DesignTokens::toArray()} already emits exactly the keys both of
-     * those expect, so there is no adapter anywhere on this path. Brand hexes
-     * ride beside the tokens: this turn's staged ones, plus the seeded draft's
-     * — the editor's draft is REPLACED by this array, so leaving a seeded hex
-     * out would silently strip it from the preview.
+     * {@see DesignTokens::toArray()} carries the `scheme` slug both of those
+     * read (the axes ride along and are dropped by `TokenSelection::normalise()`
+     * on the way in), so there is no adapter anywhere on this path. Brand hexes
+     * ride beside it: this turn's staged ones, plus the seeded draft's — the
+     * editor's draft is REPLACED by this array, so leaving a seeded hex out
+     * would silently strip it from the preview.
      *
      * @return array<string, string|null>|null
      */
@@ -228,23 +195,5 @@ final class SiteStyleDraft
         $brand = [...$this->seededBrand, ...$this->stagedBrand];
 
         return $brand === [] ? $tokens : [...$tokens, ...$brand];
-    }
-
-    /**
-     * One token from a raw change map, typed. Mirrors
-     * {@see \App\Actions\UpdateDesignTokens::enumValue()} — see that method for
-     * why the class is passed rather than read from `$key->tokenClass()`.
-     *
-     * @template TEnum of \BackedEnum
-     *
-     * @param  class-string<TEnum>  $enum
-     * @param  array<string, string>  $changes
-     * @return TEnum|null
-     */
-    private function value(string $enum, array $changes, TokenKey $key): mixed
-    {
-        $raw = $changes[$key->value] ?? null;
-
-        return is_string($raw) ? $enum::tryFrom($raw) : null;
     }
 }

@@ -8,12 +8,9 @@ use App\Actions\Pages\StampSchemeDefaults;
 use App\Ai\PageDraft;
 use App\Ai\SiteStyleDraft;
 use App\Design\ColorPalette;
-use App\Design\TokenKey;
-use App\Design\TokenOptions;
 use App\Design\TokenSelection;
 use App\Themes\CurrentTheme;
 use App\Themes\Scheme;
-use BackedEnum;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Support\Str;
 use Laravel\Ai\Contracts\Tool;
@@ -31,14 +28,15 @@ use Laravel\Ai\Tools\Request;
  * public render, so a tool that persisted would restyle a live website while
  * its owner was still reading the reply.
  *
- * Schemes first, tokens second, by design. A scheme is a combination that was
- * designed together — the guard rail against jarring free-form variant × token
- * combinations — so an adjective resolves to a scheme, and fine-tuning is for
- * when the operator named the thing itself ("rounder corners"). Fine-tuning
- * detaches the scheme marker, exactly as it does through the Design modal,
- * because {@see \App\Design\DesignTokens::with()} says so. The menu is the
- * current theme's ({@see Scheme}), so the model is only ever offered looks the
- * tenant's theme can draw.
+ * The model picks a designed scheme, never an individual setting. A scheme is
+ * a combination that was designed together — the guard rail against jarring
+ * free-form variant × token combinations — so an adjective resolves to a
+ * scheme and that is the whole vocabulary; the per-axis fields this tool used
+ * to carry ("rounder corners", "a different font") were the way a look nobody
+ * designed got onto a live site, and they are gone. The menu is the current
+ * theme's ({@see Scheme}), so the model is only ever offered looks the
+ * tenant's theme can draw. The brand hexes are the one exact-colour lever,
+ * and they show only on a scheme built on the brand palette.
  *
  * `align_layouts` is what keeps a whole-site restyle to ONE call. Without it an
  * eight-block page needs nine, against `#[MaxSteps(12)]` and a 90-second turn
@@ -58,10 +56,10 @@ final readonly class SetSiteStyle implements Tool
 
     public function description(): string
     {
-        return 'Change how the whole site looks: its colours, fonts, corner shapes and spacing. '
+        return 'Change how the whole site looks by picking one of its designed styles — each sets the colours, '
+            .'fonts, corner shapes and spacing together — and, for an exact colour the operator named, its brand colours. '
             .'This affects every page, not just the open one, and the operator has to apply it separately. '
-            .'Pick a style by matching the words they used; only fine-tune an individual setting when they '
-            .'named that setting themselves.';
+            .'Pick the style by matching the words they used; there are no individual settings to fine-tune.';
     }
 
     /**
@@ -72,7 +70,7 @@ final readonly class SetSiteStyle implements Tool
         $fields = [
             'scheme' => $schema->string()
                 ->description("The overall look, chosen by matching the operator's words against these: ".$this->schemeGuide()
-                    .' Omit to keep the current look and only fine-tune.')
+                    .' Omit to keep the current look and only set brand colours.')
                 ->enum(array_keys($this->theme->definition()->schemes)),
             'align_layouts' => $schema->boolean()
                 ->description('Re-lay every section on this page to the layouts AND section backgrounds the chosen '
@@ -81,17 +79,6 @@ final readonly class SetSiteStyle implements Tool
                     .'Ignored when no style is given.'),
         ];
 
-        foreach (TokenKey::cases() as $key) {
-            $fields[$key->value] = $schema->string()
-                ->description($key === TokenKey::Palette
-                    // The palette gets colour words, not just its label: "make it
-                    // deep blue" is the request this tool most often fails, and a
-                    // bare slug list gives the model nothing to match "blue" against.
-                    ? 'Palette. Only set this when the operator asked for a colour, matching their words against: '.$this->paletteGuide()
-                    : $key->label().'. Only set this when the operator asked for this specific thing.')
-                ->enum(array_keys(TokenOptions::for($key)));
-        }
-
         // The exact-colour lever. Free-form by necessity — a specific colour
         // has no enum — but validated against the same hex pattern that guards
         // the businesses columns, and staged like every other design change.
@@ -99,7 +86,7 @@ final readonly class SetSiteStyle implements Tool
             $fields[$key] = $schema->string()
                 ->description(Str::headline($key).' as a six-digit hex like #1a2b3c. ONLY when the operator '
                     .'asked for that specific colour ("make the main colour deep blue", a hex they pasted). '
-                    .'Setting any brand colour switches the palette to brand.');
+                    .'Brand colours take effect on styles built on the brand palette; they do not change the style itself.');
         }
 
         return $fields;
@@ -121,11 +108,8 @@ final readonly class SetSiteStyle implements Tool
             ));
         }
 
-        ['accepted' => $changes, 'rejected' => $rejected] = $this->partitionTokens(TokenSelection::changes($arguments));
-
-        // The hexes are all-or-nothing, unlike the tokens: a specific colour IS
-        // the request, so applying half of it would report success on the half
-        // that failed.
+        // The hexes are all-or-nothing: a specific colour IS the request, so
+        // applying half of it would report success on the half that failed.
         $brand = [];
 
         foreach (TokenSelection::BRAND_KEYS as $key) {
@@ -147,27 +131,8 @@ final readonly class SetSiteStyle implements Tool
             $brand[$key] = $hex;
         }
 
-        // A hex implies the brand palette — a staged colour nobody renders is a
-        // change the model would report and the operator would never see.
-        if ($brand !== []) {
-            $changes[TokenKey::Palette->value] = ColorPalette::Brand->value;
-        }
-
-        // The silent-fallback trap: `palette: brand` with no primary anywhere
-        // renders the Default palette while the reply claims a brand look.
-        // Refuse it with directions instead.
-        if (($changes[TokenKey::Palette->value] ?? null) === ColorPalette::Brand->value
-            && ($brand['brand_primary'] ?? $this->style->brand()['brand_primary'] ?? null) === null) {
-            return $this->draft->reply(
-                'The brand palette needs a primary colour first, so nothing changed. '
-                .'Give brand_primary as a hex, or tell the operator to set their brand colours on the business profile.',
-            );
-        }
-
-        if (! $scheme instanceof Scheme && $changes === []) {
-            return $this->draft->reply($rejected === []
-                ? 'No style was given, so nothing changed.'
-                : 'Nothing changed. '.implode(' ', $rejected));
+        if (! $scheme instanceof Scheme && $brand === []) {
+            return $this->draft->reply('No style was given, so nothing changed.');
         }
 
         if ($scheme instanceof Scheme) {
@@ -178,10 +143,6 @@ final readonly class SetSiteStyle implements Tool
             $this->style->stageBrand($brand);
         }
 
-        if ($changes !== []) {
-            $this->style->apply($changes);
-        }
-
         $aligned = $scheme instanceof Scheme && ($arguments['align_layouts'] ?? false) === true;
 
         if ($aligned) {
@@ -189,11 +150,10 @@ final readonly class SetSiteStyle implements Tool
         }
 
         return $this->draft->reply(sprintf(
-            'The site style is now %s%s%s.%s It is staged on the canvas only — tell the operator it affects every page and that they need to apply it.',
+            'The site style is now %s%s%s. It is staged on the canvas only — tell the operator it affects every page and that they need to apply it.',
             $this->style->current()->describe(),
             isset($brand['brand_primary']) ? ' with brand primary '.$brand['brand_primary'] : '',
             $aligned ? ", and this page's section layouts and backgrounds were aligned to it" : '',
-            $rejected === [] ? '' : ' '.implode(' ', $rejected),
         ));
     }
 
@@ -221,64 +181,6 @@ final readonly class SetSiteStyle implements Tool
         }
 
         return $blocks;
-    }
-
-    /**
-     * Split the requested tokens into the ones that can apply and one line of
-     * report per one that cannot. Partial, not all-or-nothing: one bad value
-     * used to void the whole call and burn a step of `#[MaxSteps]` re-sending
-     * six good ones — but the rejection is REPORTED, never silently dropped,
-     * because a model that believes an unrecognised value landed builds its
-     * next call on a false premise.
-     *
-     * @param  array<string, string>  $changes
-     * @return array{accepted: array<string, string>, rejected: list<string>}
-     */
-    private function partitionTokens(array $changes): array
-    {
-        $accepted = [];
-        $rejected = [];
-
-        foreach (TokenKey::cases() as $key) {
-            $value = $changes[$key->value] ?? null;
-
-            if ($value === null) {
-                continue;
-            }
-
-            if ($key->tryValue($value) instanceof BackedEnum) {
-                $accepted[$key->value] = $value;
-
-                continue;
-            }
-
-            $rejected[] = sprintf(
-                "'%s' is not a valid %s and was not applied — the options are: %s.",
-                $value,
-                mb_strtolower($key->label()),
-                // The palette rejection repeats the colour guide, not just the
-                // slugs: a model that guessed "navy" needs the hue words to make
-                // its NEXT call the right one instead of a second guess.
-                $key === TokenKey::Palette
-                    ? $this->paletteGuide()
-                    : implode(', ', array_keys(TokenOptions::for($key))),
-            );
-        }
-
-        return ['accepted' => $accepted, 'rejected' => $rejected];
-    }
-
-    /**
-     * The palette menu the model matches a colour word against — the colour
-     * counterpart of {@see schemeGuide()}, grounded on the enum for the same
-     * reason.
-     */
-    private function paletteGuide(): string
-    {
-        return implode(' ', array_map(
-            static fn (ColorPalette $palette): string => $palette->value.': '.$palette->guide().'.',
-            ColorPalette::cases(),
-        ));
     }
 
     /**

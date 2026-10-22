@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Design\ColorPalette;
+use App\Design\DesignTokens;
 use App\Design\ThemeVariables;
 use App\Models\Business;
 use App\Models\Tenant;
@@ -67,14 +68,13 @@ it('renders the same declarations as an attribute body, for one element instead 
 it('tells the browser the palette scheme, so native UI follows a dark site', function (): void {
     $business = Business::query()->findOrFail(themedBusiness()->getKey());
 
+    $midnight = DesignTokens::fromArray([...$business->design_tokens->toArray(), 'palette' => ColorPalette::Midnight->value]);
+
     $light = ThemeVariables::variablesFor($business->design_tokens, $business);
-    $dark = ThemeVariables::variablesFor(
-        $business->design_tokens->with(palette: ColorPalette::Midnight),
-        $business,
-    );
+    $dark = ThemeVariables::variablesFor($midnight, $business);
 
     expect($light['color-scheme'])->toBe('light')
         ->and($dark['color-scheme'])->toBe('dark')
-        ->and(ThemeVariables::styleFor($business->design_tokens->with(palette: ColorPalette::Midnight), $business)->toHtml())
+        ->and(ThemeVariables::styleFor($midnight, $business)->toHtml())
         ->toContain('color-scheme: dark;');
 });

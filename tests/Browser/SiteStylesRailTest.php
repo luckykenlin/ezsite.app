@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-use App\Design\FontPair;
 use App\Filament\Tenant\Resources\PageResource;
 use App\Models\Business;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Themes\Definitions\DefaultTheme;
+use App\Themes\Theme;
 
 /**
  * A tenant with a business profile (the rail's precondition) and a home page,
@@ -36,18 +36,18 @@ function stylesRailUrl(): string
  * The one claim about this rail that no PHP test can make. Every server-side
  * test can prove the markup names Bodoni Moda; only a browser can say whether
  * the face was actually fetched and is available to paint with. If it is not,
- * every Fonts specimen renders in the admin theme's own sans — seven identical
- * rows — which is precisely the dropdown this rail replaced.
+ * every scheme specimen renders its "Aa" in the admin theme's own sans — eight
+ * identical tiles — which is precisely the dropdown this rail replaced.
  *
  * It is also the check on the delivery mechanism: FontStylesheet links one
  * cacheable stylesheet instead of inlining ~111KB per Livewire round trip, and
  * a link that 404s or never loads fails exactly here and nowhere else.
  */
 it('loads the real font faces the specimens are drawn in', function (): void {
-    // The rail is open by default (the URL's tenant has a Business).
+    // The rail is open by default (the URL's tenant has a Business), and it is
+    // one level: the schemes are right there, no group to open first.
     $browser = visit(stylesRailUrl())
-        ->click('Fonts')
-        ->assertSee('Heading')
+        ->assertSee(defaultScheme(DefaultTheme::WARM_CRAFT)->label)
         // The stylesheet is a <link>, so its faces register on load rather than
         // with the markup. script() does not await, so the wait is here.
         ->wait(1);
@@ -64,25 +64,21 @@ it('loads the real font faces the specimens are drawn in', function (): void {
 });
 
 /*
- * The specimens' whole premise: an option is drawn with the tokens it would
+ * The specimens' whole premise: a scheme is drawn with the tokens it would
  * apply, not with the ones already in force. Asserted through computed style,
  * because that is the layer the operator actually sees — the inline custom
  * properties could be present and still be overridden by the panel's own CSS.
  */
-it('draws each font option in its own family, not the current one', function (): void {
+it('draws each scheme in its own heading face, not the current one', function (): void {
     $families = visit(stylesRailUrl())
-        ->click('Fonts')
-        // Only the drilled-in panel has a way back, so this pins the state the
-        // specimens below belong to. Without it the script races the Livewire
-        // update and reads the single specimen on the group CARD instead.
-        ->assertSee('All styles')
+        ->assertSee(defaultScheme(DefaultTheme::WARM_CRAFT)->label)
         ->script(<<<'JS'
-            Array.from(document.querySelectorAll('.pe-specimen[data-facet="font_pair"] .pe-specimen-heading'))
+            Array.from(document.querySelectorAll('.pe-specimen .pe-specimen-aa'))
                 .map((el) => getComputedStyle(el).fontFamily)
         JS);
 
-    // One specimen per pair, and they must not all resolve to the same stack.
-    expect($families)->toHaveSameSize(FontPair::cases())
+    // One specimen per scheme, and they must not all resolve to the same stack.
+    expect($families)->toHaveSameSize(Theme::Default->definition()->schemes)
         ->and(array_unique($families))->not->toHaveCount(1);
 });
 
@@ -91,9 +87,8 @@ it('draws each font option in its own family, not the current one', function ():
  * cached preview payload; only here does the iframe actually reload and show
  * the new theme.
  */
-it('repaints the canvas when a swatch is clicked, without saving', function (): void {
+it('repaints the canvas when a scheme is clicked, without saving', function (): void {
     $browser = visit(stylesRailUrl())
-        ->click('Themes')
         // The scheme's own label, not a copy of it: a literal that drifts does
         // not fail here, it hangs — Playwright waits for a match forever.
         ->click(defaultScheme(DefaultTheme::NIGHT_LOUNGE)->label)
@@ -102,8 +97,8 @@ it('repaints the canvas when a swatch is clicked, without saving', function (): 
         ->assertSee('Apply to site')
         ->wait(2);
 
-    // The preview document is re-rendered with the staged tokens, so the
-    // canvas's own theme variables change — proof the round trip reached it.
+    // The preview document is re-rendered with the staged scheme's tokens, so
+    // the canvas's own theme variables change — proof the round trip reached it.
     $palette = $browser->script(<<<'JS'
         getComputedStyle(
             document.querySelector('.pe-canvas-frame iframe').contentDocument.documentElement

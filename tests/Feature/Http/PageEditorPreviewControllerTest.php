@@ -3,12 +3,14 @@
 declare(strict_types=1);
 
 use App\Actions\Pages\CachePageEditorPreview;
+use App\Design\DesignTokens;
 use App\Models\Business;
 use App\Models\Media;
 use App\Models\Page;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Tenancy\RunInTenant;
+use App\Themes\Definitions\DefaultTheme;
 
 /**
  * The page editor's canvas preview route: token-gated draft rendering through
@@ -217,20 +219,22 @@ it('renders a selectable placeholder for a block the live site would skip', func
     ],
 ]);
 
-it('layers a design-token draft style over the saved theme', function (): void {
+it('layers a design-token draft style over the saved theme, resolving the scheme through the theme', function (): void {
     $tenant = Tenant::factory()->withDomain('acme')->create();
     $this->createTenantBusiness($tenant, ['name' => 'Corner Cafe']);
     $page = $this->createTenantPage($tenant, []);
 
+    // The draft carries only the slug — a controller that read it as
+    // DesignTokens::fromArray() would silently paint the defaults.
     resolve(RunInTenant::class)->handle(
         $tenant,
-        fn () => resolve(CachePageEditorPreview::class)->handle($page, [], 'valid-token', null, ['palette' => 'ocean']),
+        fn () => resolve(CachePageEditorPreview::class)->handle($page, [], 'valid-token', null, ['scheme' => 'calm-coastal']),
     );
 
     $html = $this->get(sprintf('http://acme.%s/_editor/preview?token=valid-token', $this->centralDomain()))
         ->assertOk()
         ->assertSee('data-editor-theme-draft', false)
-        ->assertSee('--color-primary', false)
+        ->assertSee('--color-primary: '.defaultScheme(DefaultTheme::CALM_COASTAL)->tokens->palette->colors()['--color-primary'].';', false)
         ->getContent();
 
     // "Layers over" is the part that used to be untrue. The draft is written by
@@ -243,11 +247,17 @@ it('layers a design-token draft style over the saved theme', function (): void {
         ->and($html)->toContain('<style data-editor-theme-draft>:root:root{');
 });
 
-it('renders a staged brand hex without the business row changing', function (): void {
+it('renders a staged brand hex over the saved look without the business row changing', function (): void {
     $tenant = Tenant::factory()->withDomain('acme')->create();
-    $this->createTenantBusiness($tenant, ['name' => 'Corner Cafe', 'brand_primary' => '#111111']);
+    $this->createTenantBusiness($tenant, [
+        'name' => 'Corner Cafe',
+        'brand_primary' => '#111111',
+        'design_tokens' => DesignTokens::fromArray([...DesignTokens::default()->toArray(), 'palette' => 'brand']),
+    ]);
     $page = $this->createTenantPage($tenant, []);
 
+    // No scheme in the draft: the saved (brand-palette) look is what the hex
+    // paints over.
     resolve(RunInTenant::class)->handle(
         $tenant,
         fn () => resolve(CachePageEditorPreview::class)->handle(
@@ -255,7 +265,7 @@ it('renders a staged brand hex without the business row changing', function (): 
             [],
             'valid-token',
             null,
-            ['palette' => 'brand', 'brand_primary' => '#1a2b3c'],
+            ['scheme' => null, 'brand_primary' => '#1a2b3c'],
         ),
     );
 
@@ -278,7 +288,7 @@ it('skips the design draft when no business exists to theme', function (): void 
 
     resolve(RunInTenant::class)->handle(
         $tenant,
-        fn () => resolve(CachePageEditorPreview::class)->handle($page, [], 'valid-token', null, ['palette' => 'ocean']),
+        fn () => resolve(CachePageEditorPreview::class)->handle($page, [], 'valid-token', null, ['scheme' => 'calm-coastal']),
     );
 
     $this->get(sprintf('http://acme.%s/_editor/preview?token=valid-token', $this->centralDomain()))

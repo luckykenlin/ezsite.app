@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Themes;
 
+use App\Design\DesignTokens;
+
 /**
  * One theme's complete design contract: which block types it draws, how each
  * may be laid out, and the stylesheet that paints them.
@@ -64,6 +66,32 @@ final readonly class ThemeDefinition
     public function scheme(string $slug): ?Scheme
     {
         return $this->schemes[$slug] ?? null;
+    }
+
+    /**
+     * The tokens a staged design selection stands for: the named scheme's
+     * bundle, or `$saved` when the selection names no scheme or one this theme
+     * does not offer.
+     *
+     * A selection ({@see \App\Design\TokenSelection::normalise()}) carries only
+     * a slug and brand hexes, never axes, so every reader that needs to DRAW
+     * it — the canvas preview, the panel's own specimen backdrop, the chat
+     * turn's seeded style — has to resolve the slug through a theme. One method
+     * here rather than three copies of the same `is_string` + null-coalesce, and
+     * here rather than in `App\Design`, which must stay unaware of themes.
+     *
+     * Falls back to the SAVED tokens, not the default scheme: a brand-only
+     * selection means "the look you have, with these colours", and a slug a
+     * theme switch retired should keep showing what is on disk until the
+     * operator picks again.
+     *
+     * @param  array<array-key, mixed>  $selection
+     */
+    public function tokensFor(array $selection, DesignTokens $saved): DesignTokens
+    {
+        $slug = $selection['scheme'] ?? null;
+
+        return (is_string($slug) ? $this->scheme($slug)?->tokens : null) ?? $saved;
     }
 
     /**

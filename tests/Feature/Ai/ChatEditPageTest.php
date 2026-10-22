@@ -424,15 +424,18 @@ it('stages a site style without writing it to the business', function (): void {
 
     $result = chatTurn(chatBlocks(), 'make it warmer');
 
+    // The action hands back the draft's own shape; CacheChatTurn reduces it
+    // to the slug (plus brand hexes) on the way to the editor.
     expect($result['design'])->toBe(defaultScheme(DefaultTheme::WARM_CRAFT)->tokens->toArray())
         // Untouched on disk — the "Apply to site" click is what writes it.
         ->and(Business::query()->sole()->design_tokens->scheme)->toBeNull();
 });
 
 /*
- * "把主色换成深蓝" end to end: a named colour becomes a staged brand hex plus
- * the brand palette, riding in the same design draft — and still nothing on
- * disk until "Apply to site".
+ * "把主色换成深蓝" end to end: a named colour becomes a staged brand hex riding
+ * in the same design draft as the look in force — and still nothing on disk
+ * until "Apply to site". The look itself does not move: there is no palette
+ * switch, the hex shows on a scheme built on the brand palette.
  */
 it('stages an exact brand colour the operator named, unwritten', function (): void {
     $this->createTenantBusiness($this->tenant, ['design_tokens' => DesignTokens::default(), 'brand_primary' => null], 0);
@@ -444,8 +447,9 @@ it('stages an exact brand colour the operator named, unwritten', function (): vo
 
     $result = chatTurn(chatBlocks(), 'make the primary colour deep blue');
 
-    expect($result['design']['palette'])->toBe('brand')
-        ->and($result['design']['brand_primary'])->toBe('#16305e')
+    expect($result['design']['brand_primary'])->toBe('#16305e')
+        ->and($result['design']['scheme'])->toBeNull()
+        ->and($result['design']['palette'])->toBe(DesignTokens::default()->palette->value)
         ->and(Business::query()->sole()->brand_primary)->toBeNull();
 });
 
@@ -461,28 +465,31 @@ it('reports no staged style when the turn only edited content', function (): voi
 });
 
 /*
- * Cross-turn continuity: "a bit rounder" after an unapplied "make it bold" must
- * refine the bold preview the operator is looking at — the turn seeds from the
- * editor's chat-staged draft instead of restarting from the saved tokens.
+ * Cross-turn continuity: "and make the main colour navy" after an unapplied
+ * "make it bold" must refine the bold preview the operator is looking at — the
+ * turn seeds from the editor's chat-staged draft, resolving its slug through
+ * the theme, instead of restarting from the saved tokens.
  */
 it('refines a still-unapplied style from an earlier turn instead of restarting', function (): void {
     $this->createTenantBusiness($this->tenant, ['design_tokens' => DesignTokens::default()], 0);
 
     PageEditorAgent::fake([
-        toolCall('SetSiteStyle', ['radius' => 'none']),
-        'Squared the corners off.',
+        toolCall('SetSiteStyle', ['brand_primary' => '#16305e']),
+        'Made the main colour navy.',
     ])->preventStrayPrompts();
 
     $result = $this->runInTenant($this->tenant, fn (): array => resolve(ChatEditPage::class)->handle(
         $this->page,
         chatBlocks(),
-        'square corners',
-        designDraft: defaultScheme(DefaultTheme::BOLD_EDITORIAL)->tokens->toArray(),
+        'make the main colour navy',
+        // The editor's draft is the normalised shape: a slug, no axes.
+        designDraft: ['scheme' => DefaultTheme::BOLD_EDITORIAL],
     ));
 
-    // The fine-tune landed ON the seeded preview, not on the saved default.
-    expect($result['design']['palette'])->toBe(defaultScheme(DefaultTheme::BOLD_EDITORIAL)->tokens->palette->value)
-        ->and($result['design']['radius'])->toBe('none');
+    // The hex landed ON the seeded preview, not on the saved default.
+    expect($result['design']['scheme'])->toBe(DefaultTheme::BOLD_EDITORIAL)
+        ->and($result['design']['palette'])->toBe(defaultScheme(DefaultTheme::BOLD_EDITORIAL)->tokens->palette->value)
+        ->and($result['design']['brand_primary'])->toBe('#16305e');
 
     // And the model was told the style it sees is an unapplied preview.
     PageEditorAgent::assertPrompted(fn (AgentPrompt $prompt): bool => $prompt->contains('PREVIEW you staged earlier'));
@@ -505,7 +512,7 @@ it('does not re-stage a seeded style the turn left alone', function (): void {
         $this->page,
         chatBlocks(),
         'rewrite the headline',
-        designDraft: defaultScheme(DefaultTheme::BOLD_EDITORIAL)->tokens->toArray(),
+        designDraft: ['scheme' => DefaultTheme::BOLD_EDITORIAL],
     ));
 
     expect($result['design'])->toBeNull();

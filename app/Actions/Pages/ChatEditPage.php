@@ -13,7 +13,6 @@ use App\Ai\Prompts\PageEditPrompt;
 use App\Ai\SiteChromeDraft;
 use App\Ai\SiteStyleDraft;
 use App\Design\ColorPalette;
-use App\Design\DesignTokens;
 use App\Design\TokenSelection;
 use App\Enums\ChatMode;
 use App\Enums\ChatRole;
@@ -168,7 +167,7 @@ final readonly class ChatEditPage
         $style = $business instanceof Business
             ? new SiteStyleDraft(
                 $business->design_tokens,
-                $designDraft === null ? null : DesignTokens::fromArray($designDraft),
+                $designDraft === null ? null : $this->theme->definition()->tokensFor($designDraft, $business->design_tokens),
                 $this->brandHexes([
                     'brand_primary' => $business->brand_primary,
                     'brand_secondary' => $business->brand_secondary,

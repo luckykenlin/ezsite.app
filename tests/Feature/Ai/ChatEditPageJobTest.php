@@ -13,7 +13,6 @@ use App\Models\Page;
 use App\Models\PageChatMessage;
 use App\Models\Tenant;
 use App\Models\User;
-use App\Themes\Definitions\DefaultTheme;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Laravel\Ai\Prompts\AgentPrompt;
@@ -307,8 +306,7 @@ it('publishes a staged site style for the editor to pick up', function (): void 
 
     $turn = $this->runInTenant($this->tenant, fn (): ?array => resolve(CacheChatTurn::class)->read('tok'));
 
-    expect($turn['design']['scheme'])->toBe('warm-craft')
-        ->and($turn['design']['palette'])->toBe(defaultScheme(DefaultTheme::WARM_CRAFT)->tokens->palette->value)
+    expect($turn['design'])->toBe(['scheme' => 'warm-craft'])
         // And still nothing written — the operator applies it from the rail.
         ->and(Business::query()->sole()->design_tokens->scheme)->toBeNull();
 });

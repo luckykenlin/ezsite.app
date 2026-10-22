@@ -7,7 +7,6 @@ use App\Design\DesignTokens;
 use App\Design\FontPair;
 use App\Design\RadiusScale;
 use App\Design\SpacingDensity;
-use App\Design\TokenKey;
 use App\Design\TypeStyle;
 use App\Themes\Definitions\DefaultTheme;
 
@@ -64,31 +63,15 @@ it('keeps a scheme slug it cannot vouch for', function (): void {
     expect(DesignTokens::fromArray(['scheme' => 'retired-look'])->scheme)->toBe('retired-look');
 });
 
-it('replaces only the given tokens and detaches the scheme on manual overrides', function (): void {
-    $tokens = defaultScheme(DefaultTheme::WARM_CRAFT)->tokens->with(radius: RadiusScale::None, typeStyle: TypeStyle::Impact);
-
-    expect($tokens->scheme)->toBeNull()
-        ->and($tokens->radius)->toBe(RadiusScale::None)
-        ->and($tokens->typeStyle)->toBe(TypeStyle::Impact)
-        ->and($tokens->palette)->toBe(ColorPalette::WarmSand)
-        ->and($tokens->fontPair)->toBe(FontPair::WarmEditorial)
-        ->and($tokens->density)->toBe(SpacingDensity::Spacious);
-});
-
-it('replaces one token addressed by its key, leaving the rest alone', function (): void {
-    $tokens = defaultScheme(DefaultTheme::WARM_CRAFT)->tokens->withToken(TokenKey::Radius, RadiusScale::None);
-
-    expect($tokens->scheme)->toBeNull()
-        ->and($tokens->radius)->toBe(RadiusScale::None)
-        ->and($tokens->palette)->toBe(ColorPalette::WarmSand)
-        ->and($tokens->fontPair)->toBe(FontPair::WarmEditorial);
-});
-
-it('falls back to the token default when the value does not belong to the key', function (): void {
-    // The specimen renderer drives withToken() from a loop over every key and
-    // every option, so a mismatched pair should draw the default rather than
-    // raise a TypeError through a half-rendered panel.
-    $tokens = defaultScheme(DefaultTheme::WARM_CRAFT)->tokens->withToken(TokenKey::Radius, ColorPalette::Ocean);
-
-    expect($tokens->radius)->toBe(RadiusScale::Md);
+/*
+ * The one line the chat assistant reads to know where the site stands. Scheme
+ * first (or `custom` for a look no scheme vouches for), then every axis in
+ * toArray() order, so the prompt and the tool reply can never describe the same
+ * tokens differently.
+ */
+it('describes itself as the scheme and every axis in order', function (): void {
+    expect(defaultScheme(DefaultTheme::CALM_COASTAL)->tokens->describe())
+        ->toBe('calm-coastal — ocean, quiet-serif, refined, lg, spacious, curve, sheen, still')
+        ->and(DesignTokens::default()->describe())
+        ->toBe('custom — default, neo-grotesque, classic, md, normal, none, flat, still');
 });

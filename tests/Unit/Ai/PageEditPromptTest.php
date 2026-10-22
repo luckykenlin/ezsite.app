@@ -274,11 +274,11 @@ it('publishes the style menu and where the site currently stands', function (): 
         ->toContain('premium')
         // A named brand is translated into those words, never stored or echoed.
         ->toContain('never stored or repeated back')
-        // The colour grounding: "deep blue" has to land on a palette slug, and
-        // the slugs alone don't say which. A named colour is a fine-tune, so
-        // the model must not answer it by switching the whole style.
-        ->toContain('deep blue')
-        ->toContain('is a palette fine-tune, NOT a style change');
+        // A scheme and brand colours are the whole vocabulary; the tool used
+        // to take individual settings, and a model that remembers that must
+        // be told outright that they are gone.
+        ->toContain('There are no individual settings to fine-tune')
+        ->toContain('is a brand colour');
 });
 
 it('tells the model which page addresses actually exist', function (): void {

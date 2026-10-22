@@ -8,7 +8,6 @@ use App\Actions\Pages\AddPageBlock;
 use App\Actions\Pages\BuildPresetPageBlocks;
 use App\Actions\Pages\CachePageEditorPreview;
 use App\Design\ColorPalette;
-use App\Design\DesignTokens;
 use App\Design\ThemeVariables;
 use App\Design\TokenSelection;
 use App\Enums\ChromeSlot;
@@ -16,6 +15,7 @@ use App\Models\Page;
 use App\Site\BindResolver;
 use App\Site\Blocks\BlockVocabulary;
 use App\Templates\PagePreset;
+use App\Themes\CurrentTheme;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -255,8 +255,11 @@ final class PageEditorPreviewController extends Controller
             $business = (clone $business)->forceFill($overrides);
         }
 
+        // The draft carries a scheme slug, not axes; the current theme turns
+        // it into tokens, and a draft with no scheme (brand hexes only) draws
+        // the saved look with the staged colours.
         return ThemeVariables::styleFor(
-            DesignTokens::fromArray($tokens),
+            resolve(CurrentTheme::class)->definition()->tokensFor($tokens, $business->design_tokens),
             $business,
             'data-editor-theme-draft',
             // Doubled on purpose — see ThemeVariables::styleFor(). This block

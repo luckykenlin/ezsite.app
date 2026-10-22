@@ -33,7 +33,7 @@ it('reads back what was written', function (): void {
         'sample_hint_shown' => true,
         'chat_edit_awaiting_save' => true,
         'chat_turn' => ['token' => 'tok', 'started_at' => 1_700_000_000],
-        'design' => ['scheme' => 'warm-craft', 'palette' => 'warm-sand', 'font_pair' => 'elegant-serif', 'radius' => 'lg', 'density' => 'spacious'],
+        'design' => ['scheme' => 'warm-craft', 'brand_primary' => '#1A2B3C', 'palette' => 'warm-sand'],
     ]);
 
     $draft = resolve(ReadPageEditorDraft::class)->handle(Page::query()->findOrFail($page->getKey()));
@@ -47,8 +47,8 @@ it('reads back what was written', function (): void {
         ->and($draft['sample_hint_shown'])->toBeTrue()
         ->and($draft['chat_edit_awaiting_save'])->toBeTrue()
         ->and($draft['chat_turn'])->toBe(['token' => 'tok', 'started_at' => 1_700_000_000])
-        ->and($draft['design']['scheme'])->toBe('warm-craft')
-        ->and($draft['design']['density'])->toBe('spacious')
+        // Normalised on the way in: the slug and a valid hex, never an axis.
+        ->and($draft['design'])->toBe(['scheme' => 'warm-craft', 'brand_primary' => '#1a2b3c'])
         ->and($draft['saved_at'])->not->toBeNull();
 });
 

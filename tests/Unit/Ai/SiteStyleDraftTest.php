@@ -5,13 +5,11 @@ declare(strict_types=1);
 use App\Ai\SiteStyleDraft;
 use App\Design\ColorPalette;
 use App\Design\DesignTokens;
-use App\Design\RadiusScale;
-use App\Design\TokenKey;
 use App\Themes\Definitions\DefaultTheme;
 
 /*
  * The safety property this class exists for. A chat turn runs in a queue worker;
- * a tool that called UpdateDesignTokens there would write immediately, and
+ * a tool that called ApplyScheme there would write immediately, and
  * ThemeVariables::style() reads SAVED tokens on every public render — so the
  * assistant would repaint a live website while its owner was still reading the
  * reply. Nothing here may touch the database.
@@ -40,48 +38,11 @@ it('stages a scheme without disturbing the saved tokens', function (): void {
         ->and($saved->palette)->toBe(ColorPalette::Default);
 });
 
-it('fine-tunes on top of what is already staged', function (): void {
-    $draft = new SiteStyleDraft(DesignTokens::default());
-
-    $draft->applyScheme(defaultScheme(DefaultTheme::WARM_CRAFT));
-    $draft->apply([TokenKey::Radius->value => RadiusScale::None->value]);
-
-    expect($draft->current()->radius)->toBe(RadiusScale::None)
-        // Everything the scheme chose survives the tweak.
-        ->and($draft->current()->palette)->toBe(defaultScheme(DefaultTheme::WARM_CRAFT)->tokens->palette);
-});
-
-/*
- * Inherited from DesignTokens::with(), and it must stay inherited: the Design
- * modal and the assistant have to agree on when a combination stops being a
- * preset, or SaveDesignSelection would store an AI-tuned look as the untouched
- * preset it no longer is.
- */
-it('detaches the scheme marker once a token is tuned by hand', function (): void {
-    $draft = new SiteStyleDraft(DesignTokens::default());
-
-    $draft->applyScheme(defaultScheme(DefaultTheme::BOLD_EDITORIAL));
-    $draft->apply([TokenKey::Palette->value => ColorPalette::Ocean->value]);
-
-    expect($draft->current()->scheme)->toBeNull();
-});
-
-it('leaves a token alone when its change is absent or unrecognised', function (mixed $value): void {
-    $draft = new SiteStyleDraft(defaultScheme(DefaultTheme::FRESH_MODERN)->tokens);
-
-    $draft->apply($value === null ? [] : [TokenKey::Palette->value => $value]);
-
-    expect($draft->current()->palette)->toBe(defaultScheme(DefaultTheme::FRESH_MODERN)->tokens->palette);
-})->with([
-    'absent' => [null],
-    'unrecognised' => ['chartreuse'],
-]);
-
 /*
  * The shape is the contract with two consumers that were written before this
- * class: PageEditor::previewDesign() stages exactly these keys, and
- * SaveDesignSelection reads exactly these keys. If they matched only by luck
- * there would be an adapter somewhere on this path; there is not.
+ * class: PageEditor::previewDesign() stages it, and SaveDesignSelection reads
+ * the `scheme` out of it. If they matched only by luck there would be an
+ * adapter somewhere on this path; there is not.
  */
 it('serialises into the shape the editor previews and the writer consumes', function (): void {
     $draft = new SiteStyleDraft(DesignTokens::default());
@@ -95,7 +56,7 @@ it('serialises into the shape the editor previews and the writer consumes', func
  * back in as the seed: "a bit darker" must refine what the operator is looking
  * at, not silently restart from the saved tokens.
  */
-it('reads from a seeded preview and fine-tunes on top of it', function (): void {
+it('reads from a seeded preview and restyles on top of it', function (): void {
     $seeded = defaultScheme(DefaultTheme::BOLD_EDITORIAL)->tokens;
     $draft = new SiteStyleDraft(DesignTokens::default(), $seeded);
 
@@ -105,25 +66,27 @@ it('reads from a seeded preview and fine-tunes on top of it', function (): void 
         // turn must still be laid out for the style the site actually has.
         ->and($draft->saved())->toEqual(DesignTokens::default());
 
-    $draft->apply([TokenKey::Radius->value => RadiusScale::None->value]);
+    $draft->applyScheme(defaultScheme(DefaultTheme::WARM_CRAFT));
 
-    expect($draft->current()->radius)->toBe(RadiusScale::None)
-        ->and($draft->current()->palette)->toBe($seeded->palette);
+    expect($draft->current()->scheme)->toBe(DefaultTheme::WARM_CRAFT)
+        ->and($draft->saved())->toEqual(DesignTokens::default());
 });
 
 /*
  * The brand layer: staged hexes ride inside the one draft array, the seeded
- * draft's hexes survive a later fine-tune, and the saved row's hexes count for
- * "is the brand palette legal" without ever being re-emitted.
+ * draft's hexes survive a later restyle, and the saved row's hexes count as the
+ * effective brand without ever being re-emitted.
  */
-it('carries staged brand hexes inside the draft array', function (): void {
-    $draft = new SiteStyleDraft(DesignTokens::default());
+it('carries staged brand hexes inside the draft array, on top of the look in force', function (): void {
+    $draft = new SiteStyleDraft(defaultScheme(DefaultTheme::CALM_COASTAL)->tokens);
 
     $draft->stageBrand(['brand_primary' => '#1a2b3c']);
-    $draft->apply([TokenKey::Palette->value => ColorPalette::Brand->value]);
 
-    expect($draft->toArray()['brand_primary'])->toBe('#1a2b3c')
-        ->and($draft->toArray()['palette'])->toBe(ColorPalette::Brand->value)
+    // A brand-only turn still materialises a complete draft — the look it is
+    // staged against — rather than a dirty flag with nothing behind it.
+    expect($draft->touched())->toBeTrue()
+        ->and($draft->toArray()['brand_primary'])->toBe('#1a2b3c')
+        ->and($draft->toArray()['scheme'])->toBe(DefaultTheme::CALM_COASTAL)
         ->and($draft->brand())->toBe(['brand_primary' => '#1a2b3c']);
 });
 
@@ -157,7 +120,7 @@ it('does not re-stage a seeded preview the turn left alone', function (): void {
     expect($draft->touched())->toBeFalse()
         ->and($draft->toArray())->toBeNull();
 
-    $draft->apply([TokenKey::Radius->value => RadiusScale::None->value]);
+    $draft->stageBrand(['brand_primary' => '#1a2b3c']);
 
     expect($draft->touched())->toBeTrue()
         ->and($draft->toArray())->not->toBeNull();

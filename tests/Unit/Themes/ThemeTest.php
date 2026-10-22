@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Design\DesignTokens;
 use App\Filament\Fabricator\BlockRegistry;
 use App\Site\Blocks\BlockVocabulary;
 use App\Site\Blocks\LayoutAxis;
@@ -202,4 +203,21 @@ test('every scheme only shapes page block types of its theme, never chrome, a he
             }
         }
     }
+});
+
+/*
+ * A staged selection carries a slug and brand hexes, never axes, so every
+ * reader that draws it resolves the slug here. The fallback is the SAVED
+ * tokens, not the default scheme: a brand-only selection means "the look you
+ * have, with these colours", and a retired slug keeps showing what is on disk.
+ */
+test('a theme definition resolves a staged selection to tokens, falling back to the saved look', function (): void {
+    $definition = Theme::Default->definition();
+    $saved = DesignTokens::default();
+
+    expect($definition->tokensFor(['scheme' => DefaultTheme::BOLD_EDITORIAL], $saved))
+        ->toBe($definition->scheme(DefaultTheme::BOLD_EDITORIAL)?->tokens)
+        ->and($definition->tokensFor(['scheme' => null, 'brand_primary' => '#1a2b3c'], $saved))->toBe($saved)
+        ->and($definition->tokensFor(['scheme' => 'retired-look'], $saved))->toBe($saved)
+        ->and($definition->tokensFor([], $saved))->toBe($saved);
 });

@@ -6,13 +6,10 @@ namespace App\Filament\Tenant\Concerns;
 
 use App\Actions\SaveDesignSelection;
 use App\Design\DesignTokens;
-use App\Design\StyleGroup;
-use App\Design\TokenKey;
 use App\Design\TokenSelection;
 use App\Models\Business;
 use App\Themes\CurrentTheme;
 use App\Themes\Scheme;
-use BackedEnum;
 use Filament\Notifications\Notification;
 
 /**
@@ -25,28 +22,27 @@ use Filament\Notifications\Notification;
  * looked like. Both now render `partials/site-styles.blade.php` over this trait,
  * so a change to the panel lands on both or on neither.
  *
- * What genuinely differs between them is WHERE a staged selection lives and what
- * happens when it changes: the editor stages into the canvas preview draft so
- * the operator judges it against their real page, while the settings page — the
- * only way in for a tenant with no pages yet — has no canvas and simply holds
- * the selection until Save. That is the whole of the seam, and it is these three
- * abstract methods.
+ * The panel is ONE level: the current theme's schemes, each drawn as itself,
+ * then the brand colours when the look in force is built on the brand palette.
+ * It used to be two — five group cards with the eight axes one tap down — and
+ * that second level is gone on purpose: a site's look is a designed scheme plus
+ * brand colours, and letting an operator move one axis on its own is how the
+ * combinations nobody designed got made. A theme that wants its schemes to
+ * take the operator's colours builds them on the Brand palette.
+ *
+ * What genuinely differs between the two surfaces is WHERE a staged selection
+ * lives and what happens when it changes: the editor stages into the canvas
+ * preview draft so the operator judges it against their real page, while the
+ * settings page — the only way in for a tenant with no pages yet — has no
+ * canvas and simply holds the selection until Save. That is the whole of the
+ * seam, and it is these three abstract methods.
  *
  * Staging is never saving on either surface. {@see SaveDesignSelection}
- * is the single write path and decides scheme-vs-custom for both, which is what
- * stops the two from disagreeing about what applying a design means.
+ * is the single write path for both, which is what stops the two from
+ * disagreeing about what applying a design means.
  */
 trait EditsSiteStyles
 {
-    /**
-     * The group drilled into, or null at the top level. Mirrors Squarespace's
-     * two-level shape: five cards, details one tap down.
-     *
-     * Not `#[Locked]`: which card is open is the browser's business, and the
-     * worst a forged value can do is read as the top level.
-     */
-    public ?string $styleGroup = null;
-
     /**
      * The Business the tokens belong to. Both surfaces are gated on one
      * existing, so this fails loud rather than returning null.
@@ -68,30 +64,14 @@ trait EditsSiteStyles
      */
     abstract protected function stageStyles(?array $selection): void;
 
-    public function openStyleGroup(string $group): void
-    {
-        $this->styleGroup = StyleGroup::tryFrom($group)?->value;
-    }
-
-    public function closeStyleGroup(): void
-    {
-        $this->styleGroup = null;
-    }
-
     /**
-     * The group drilled into, resolved. Null at the top level — and also for a
-     * value the browser invented, which then simply reads as the top level.
-     */
-    public function openedStyleGroup(): ?StyleGroup
-    {
-        return $this->styleGroup === null ? null : StyleGroup::tryFrom($this->styleGroup);
-    }
-
-    /**
-     * Stage a whole scheme: one click sets all eight tokens, which is the only
-     * reason the Themes card can offer a look rather than a list. Resolved
-     * through the current theme, so a slug from the browser that the theme
-     * does not offer stages nothing.
+     * Stage a whole scheme: one click sets the entire look. Resolved through
+     * the current theme, so a slug from the browser that the theme does not
+     * offer stages nothing.
+     *
+     * Replaces the staged selection rather than merging into it: a scheme is
+     * the whole look, and a brand hex staged against the previous one belongs
+     * to a decision the operator just walked away from.
      */
     public function stageScheme(string $slug): void
     {
@@ -101,41 +81,18 @@ trait EditsSiteStyles
             return;
         }
 
-        $this->stageStyles($chosen->tokens->toArray());
+        $this->stageStyles(['scheme' => $chosen->slug]);
     }
 
     /**
-     * Stage one token, leaving the rest of the selection alone.
-     *
-     * `scheme` deliberately RIDES ALONG unchanged rather than being cleared:
-     * {@see SaveDesignSelection} decides scheme-vs-custom by comparing the whole
-     * selection, so changing a token and changing it back is saved as the scheme
-     * again. Clearing it here would make that a one-way door.
-     *
-     * Both arguments arrive from the browser, so both are resolved against their
-     * enum before use — an unrecognised pair would otherwise reach the canvas as
-     * a silent fallback to the default token and then throw on save, which is a
-     * far worse way to find out.
-     */
-    public function stageToken(string $key, string $value): void
-    {
-        $token = TokenKey::tryFrom($key);
-
-        if (! $token instanceof TokenKey || ! $token->tryValue($value) instanceof BackedEnum) {
-            return;
-        }
-
-        $this->stageStyles([...$this->styleSelection(), $key => $value]);
-    }
-
-    /**
-     * Stage one brand hex. Only reachable while the palette is `brand`, which is
-     * the only palette that reads these columns.
+     * Stage one brand hex. Only offered while the look in force is built on
+     * the brand palette, which is the only palette that reads these columns.
      *
      * The hex itself is validated by {@see TokenSelection::normalise()} on the
      * way in — these values end up inside a `style` attribute, so that check is
-     * the injection guard and belongs there. The KEY is checked here for the
-     * same reason `stageToken()` checks its own.
+     * the injection guard and belongs there. The KEY is checked here, because
+     * an invented one would otherwise ride into the staged selection and from
+     * there into a `businesses` update.
      */
     public function stageBrandColor(string $key, string $hex): void
     {
@@ -173,9 +130,10 @@ trait EditsSiteStyles
      * What the panel is currently showing: the staged selection when there is
      * one, the saved tokens otherwise.
      *
-     * Carried as {@see DesignTokens::toArray()}, which is already exactly the
-     * `scheme` + eight-key shape {@see SaveDesignSelection} reads, so nothing
-     * here rebuilds it field by field.
+     * The saved side is carried as {@see DesignTokens::toArray()}, which has
+     * the `scheme` key a staged selection has, so the blade reads which scheme
+     * is active the same way in both states; a staged selection is only ever
+     * `scheme` plus brand hexes.
      *
      * @return array<string, string|null>
      */
@@ -185,12 +143,22 @@ trait EditsSiteStyles
     }
 
     /**
-     * The same selection as tokens — the backdrop every specimen varies one axis
-     * of, so a candidate is always shown against the rest of YOUR look.
+     * The tokens the panel is showing, resolved: the staged scheme's bundle
+     * through the current theme, or the saved tokens when nothing is staged.
+     *
+     * The saved tokens are returned as they are rather than re-resolved from
+     * their slug — a template may have provisioned them with its own axis
+     * overrides on top of a scheme, and the panel must show the look the site
+     * actually has.
      */
     public function styleTokens(): DesignTokens
     {
-        return DesignTokens::fromArray($this->styleSelection());
+        $saved = $this->styleBusiness()->design_tokens;
+        $staged = $this->stagedStyles();
+
+        return $staged === null
+            ? $saved
+            : resolve(CurrentTheme::class)->definition()->tokensFor($staged, $saved);
     }
 
     /**
