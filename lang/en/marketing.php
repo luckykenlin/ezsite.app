@@ -715,5 +715,17 @@ return [
             'label' => 'Quiet luxe',
             'description' => 'Warm stone, hairline serifs set very large, square corners and sections that arrive as you scroll.',
         ],
+        'blush-plum' => [
+            'label' => 'Blush & plum',
+            'description' => 'Blush walls, deep plum ink and a condensed serif — the signature boutique studio.',
+        ],
+        'cream-sage' => [
+            'label' => 'Cream & sage',
+            'description' => 'Cream linen, sage green and a warm editorial serif — the natural, non-toxic studio.',
+        ],
+        'ivory-noir' => [
+            'label' => 'Ivory & noir',
+            'description' => 'Ivory paper, black lacquer and a high-contrast didone — the couture nail atelier.',
+        ],
     ],
 ];

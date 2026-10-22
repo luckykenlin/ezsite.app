@@ -12,6 +12,7 @@ use App\Templates\PhotoQuery;
 use App\Templates\SiteTemplate;
 use App\Templates\TemplateDefinition;
 use App\Templates\TemplateField;
+use App\Themes\CurrentTheme;
 use App\Themes\Definitions\DefaultTheme;
 use App\Themes\Scheme;
 use App\Themes\Theme;
@@ -29,13 +30,26 @@ dataset('templates', fn (): array => array_reduce(
 ));
 
 /**
- * The filled template run through the same door the AI path uses.
+ * Bind the template's own theme as the current one: the validator, the
+ * vocabulary and every variant check read the theme through CurrentTheme, and
+ * a template on a vertical theme names block types and layouts the default
+ * theme does not draw.
+ */
+function bindTemplateTheme(SiteTemplate $template): void
+{
+    app()->instance(CurrentTheme::class, new CurrentTheme($template->definition()->theme->definition()));
+}
+
+/**
+ * The filled template run through the same door the AI path uses, under the
+ * template's own theme.
  *
  * @return array{scheme: Scheme, pages: non-empty-list<array{slug: string, title: string, metaDescription: string|null, blocks: list<array{type: string, data: array<string, mixed>}>}>}
  */
 function validateTemplate(SiteTemplate $template): array
 {
     config(['stock-photos.enabled' => true]);
+    bindTemplateTheme($template);
 
     $definition = $template->definition();
     $filled = resolve(FillTemplatePlaceholders::class)->handle($definition);
@@ -170,6 +184,8 @@ it('pre-warms the library with photo searches, and asks a short answerable set o
 })->with('templates');
 
 it('names header and footer chrome that renders', function (SiteTemplate $template): void {
+    bindTemplateTheme($template);
+
     $vocabulary = resolve(BlockVocabulary::class);
     $chrome = $template->definition()->chrome;
 

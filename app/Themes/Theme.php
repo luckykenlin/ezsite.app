@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Themes;
 
 use App\Themes\Definitions\DefaultTheme;
+use App\Themes\Definitions\NailLuxe;
 
 /**
  * The design packages a tenant site can render through: the whole library,
@@ -26,10 +27,14 @@ use App\Themes\Definitions\DefaultTheme;
  * product shipped with before themes existed, byte for byte, so the engine can
  * be proven with zero visual change. It is deleted once every vertical has a
  * theme of its own.
+ *
+ * `NailLuxe` is the first vertical theme: a boutique nail studio, designed
+ * from its own layouts rather than ported from the default ones.
  */
 enum Theme: string
 {
     case Default = 'default';
+    case NailLuxe = 'nail-luxe';
 
     /**
      * The case's definition, built once per process and then reused.
@@ -49,6 +54,7 @@ enum Theme: string
 
         return $definitions[$this->value] ??= match ($this) {
             self::Default => DefaultTheme::definition(),
+            self::NailLuxe => NailLuxe::definition(),
         };
     }
 

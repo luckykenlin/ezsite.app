@@ -13,6 +13,7 @@ use App\Site\Blocks\BlockType;
 use App\Site\Blocks\BlockVocabulary;
 use App\Themes\CurrentTheme;
 use App\Themes\Definitions\DefaultTheme;
+use App\Themes\Theme;
 use App\Themes\ThemeBlock;
 use App\Themes\ThemeDefinition;
 
@@ -55,6 +56,40 @@ it('enumerates every block contract in the vocabulary', function (): void {
         ->and(array_keys(array_filter($vocabulary, fn (BlockType $contract): bool => $contract->bind instanceof BindType)))
         ->toEqualCanonicalizing(['header', 'contact', 'visit', 'reservation', 'footer']);
 });
+
+/*
+ * The per-contract invariants above, for EVERY theme's vocabulary: a block
+ * class only one theme lists (credentials) is invisible to the default-theme
+ * test, so it would otherwise ship without anything checking its icon,
+ * description, sample or library intent.
+ */
+it('keeps every contract of every theme complete', function (Theme $theme): void {
+    app()->instance(CurrentTheme::class, new CurrentTheme($theme->definition()));
+
+    $vocabulary = new BlockVocabulary(BlockRegistry::contracts());
+
+    foreach ($vocabulary->all() as $type => $contract) {
+        expect($contract->icon)->not->toBeNull($type.' has no icon')
+            ->and($contract->description)->not->toBe('', $type.' has no description')
+            ->and($contract->sample)->not->toBeEmpty($type.' has no sample')
+            ->and(array_diff(array_keys($contract->sample), $contract->fields))->toBeEmpty($type.' samples a field it does not declare')
+            ->and($contract->isChrome() || $contract->intent instanceof BlockIntent)->toBeTrue($type.' has no library intent');
+    }
+})->with(Theme::cases());
+
+/*
+ * A theme-exclusive block is an ordinary registered class that one theme
+ * names: credentials is in the nail studio's vocabulary and absent from the
+ * default theme's, block library, AI tools and validator alike.
+ */
+it('offers the credentials block to the nail theme only', function (Theme $theme, bool $offered): void {
+    app()->instance(CurrentTheme::class, new CurrentTheme($theme->definition()));
+
+    expect((new BlockVocabulary(BlockRegistry::contracts()))->has('credentials'))->toBe($offered);
+})->with([
+    'default' => [Theme::Default, false],
+    'nail-luxe' => [Theme::NailLuxe, true],
+]);
 
 /*
  * The library groups by intent, and a page type without one is silently

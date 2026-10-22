@@ -528,6 +528,11 @@ test('every template, scheme and wizard question is translated', function (): vo
     }
 
     foreach (SiteTemplate::cases() as $template) {
+        // The template card names its scheme from the same group, and a
+        // template on a vertical theme names a scheme the default theme does
+        // not have — a missing key would print its own path on the card.
+        expect($presets)->toHaveKey($template->definition()->scheme.'.label');
+
         expect($templates)->toHaveKey($template->value.'.label')
             ->and($templates)->toHaveKey($template->value.'.description')
             ->and($templates[$template->value]['highlights'])->toHaveCount(3);

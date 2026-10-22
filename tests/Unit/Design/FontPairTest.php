@@ -110,7 +110,14 @@ it('only pairs a light display weight with a face drawn and bundled for it', fun
     // sits at 500 or above still asserts something: that it is allowed to.
     expect($weight >= 500 || $tokens->fontPair->supportsLightDisplay())->toBeTrue()
         ->and($weight >= 500 || in_array($weight, $bundled, true))->toBeTrue();
-})->with(Theme::Default->definition()->schemes);
+})->with(array_merge(...array_map(
+    // Every theme's schemes, keyed theme/slug so a failure names both.
+    static fn (Theme $theme): array => array_combine(
+        array_map(static fn (string $slug): string => $theme->value.'/'.$slug, array_keys($theme->definition()->schemes)),
+        array_map(static fn (Scheme $scheme): array => [$scheme], array_values($theme->definition()->schemes)),
+    ),
+    Theme::cases(),
+)));
 
 it('draws exactly one face finely enough to whisper', function (): void {
     // Kept explicit: `supportsLightDisplay()` is a judgement about a typeface,
