@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 /*
  * Every word on the CENTRAL marketing site: the frame, the four pages, the
- * apply wizard, the template library's prose and the style presets as the
- * marketing site describes them.
+ * apply wizard, the template library's prose and the theme's style schemes as
+ * the marketing site describes them.
  *
  * ONE file, and the group name matters. Split into `central.php`,
  * `templates.php` and `design.php` it broke the tenant page editor:
@@ -664,61 +664,23 @@ return [
                 'treatment_three_price' => ['label' => 'Its length and price'],
             ],
         ],
-
-        'personal-resume' => [
-            'label' => 'Personal resume',
-            'description' => 'Your name, your work and a way to reach you. Type only — no stock photograph in sight.',
-            'highlights' => [
-                'A type-only hero: your name, your title, one line',
-                'Three experience entries you fill in during signup',
-                'No stock photograph pretending to be you',
-            ],
-            'fields' => [
-                'current_title' => [
-                    'label' => 'Your title right now',
-                    'help' => 'One line. It sits directly under your name in the hero.',
-                ],
-                'role_one' => ['label' => 'Your current or most recent role'],
-                'role_two' => ['label' => 'The one before it'],
-                'role_three' => ['label' => 'And the one before that'],
-                'focus' => ['label' => 'The work you want more of'],
-            ],
-        ],
-
-        'designer-portfolio' => [
-            'label' => 'Designer portfolio',
-            'description' => 'Magazine layout, work in the first viewport. For studios whose portfolio does the selling.',
-            'highlights' => [
-                'Your work on black, in the first viewport',
-                'Three project write-ups from the signup form',
-                'A services page with real engagement shapes and prices',
-            ],
-            'fields' => [
-                'discipline' => [
-                    'label' => 'What you actually do',
-                    'help' => 'One line. It goes under your name in the hero.',
-                ],
-                'project_one' => ['label' => 'A project to lead with'],
-                'project_two' => ['label' => 'A second project'],
-                'project_three' => ['label' => 'A third project'],
-            ],
-        ],
     ],
 
     /*
-     * The style presets as the MARKETING site describes them, keyed by
-     * StylePreset::$value.
+     * The default theme's schemes as the MARKETING site describes them, keyed
+     * by Scheme::$slug. The group keeps its `presets` name: these are lang keys,
+     * not code, and renaming them buys nothing.
      *
-     * A deliberate fork from StylePreset::label()/description(), which stay hard
-     * English literals. Those two feed the tenant panel's preset picker AND two AI
+     * A deliberate fork from Scheme::$label/$description, which stay hard
+     * English literals. Those two feed the tenant panel's scheme picker AND two AI
      * system prompts (SiteDraftPrompt, PageEditPrompt), where the description plus
      * its synonyms are the whole grounding for a request like "make it more
      * premium". Translating the strings the model reasons over would quietly change
-     * which preset it picks, so the marketing surface gets its own copy instead and
+     * which scheme it picks, so the marketing surface gets its own copy instead and
      * the prompt keeps the English it was tuned against.
      *
-     * @see \App\Design\StylePreset
-     * @see \App\Ai\Prompts\SiteDraftPrompt::presetsSection()
+     * @see \App\Themes\Definitions\DefaultTheme
+     * @see \App\Ai\Prompts\SiteDraftPrompt::schemesSection()
      */
     'presets' => [
         'warm-craft' => [
@@ -752,6 +714,18 @@ return [
         'quiet-luxe' => [
             'label' => 'Quiet luxe',
             'description' => 'Warm stone, hairline serifs set very large, square corners and sections that arrive as you scroll.',
+        ],
+        'blush-plum' => [
+            'label' => 'Blush & plum',
+            'description' => 'Blush walls, deep plum ink and a condensed serif — the signature boutique studio.',
+        ],
+        'cream-sage' => [
+            'label' => 'Cream & sage',
+            'description' => 'Cream linen, sage green and a warm editorial serif — the natural, non-toxic studio.',
+        ],
+        'ivory-noir' => [
+            'label' => 'Ivory & noir',
+            'description' => 'Ivory paper, black lacquer and a high-contrast didone — the couture nail atelier.',
         ],
     ],
 ];

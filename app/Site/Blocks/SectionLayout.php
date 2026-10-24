@@ -13,8 +13,8 @@ use InvalidArgumentException;
  *
  * A view opens with `SectionLayout::for('features', 'grid')->resolve($appearance)`
  * and reads ready class strings from the accessors; every literal class lives
- * in the `Section*` value enums (whose file names keep them inside site.css's
- * `@source` glob), never here and never in the blade.
+ * in the `Section*` value enums (whose file names keep them inside the theme
+ * stylesheet's `@source` glob, resources/themes/{theme}/theme.css), never here and never in the blade.
  *
  * Trust model, same as everywhere: the stored `data.appearance` goes through
  * `tryFrom` (tenant data degrades silently to the contract default); the
@@ -224,9 +224,8 @@ final readonly class SectionLayout
 
     /**
      * The grid classes capped at the number of items actually present — for
-     * views like pricing where one plan sitting in a third of a three-column
-     * grid reads as a mistake, not a layout. The axis is a ceiling here, never
-     * exceeded.
+     * views where one item sitting in a third of a three-column grid reads as
+     * a mistake, not a layout. The axis is a ceiling here, never exceeded.
      */
     public function gridFor(int $items): string
     {
@@ -276,18 +275,6 @@ final readonly class SectionLayout
         $style = $this->axis(LayoutAxis::ItemStyle);
 
         return $style instanceof SectionItemStyle && $style->isCard();
-    }
-
-    /**
-     * Whether this section's items sit on a surface of their own — what a view
-     * asks before deciding that something INSIDE an item contrasts with the item
-     * rather than with the band ({@see SectionItemStyle::paintsSurface()}).
-     */
-    public function itemPaintsSurface(): bool
-    {
-        $style = $this->axis(LayoutAxis::ItemStyle);
-
-        return $style instanceof SectionItemStyle && $style->paintsSurface();
     }
 
     public function image(): string

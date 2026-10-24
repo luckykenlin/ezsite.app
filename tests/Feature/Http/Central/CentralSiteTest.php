@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-use App\Design\StylePreset;
 use App\Enums\Locale;
 use App\Models\Tenant;
 use App\Templates\SiteTemplate;
 use App\Templates\TemplateGallery;
+use App\Themes\Theme;
 use Illuminate\Support\Facades\File;
 
 /*
@@ -30,11 +30,11 @@ it('lands on a page that says what the product is and offers every template', fu
             ->assertSee(localeRoute('central.templates.show', Locale::English, ['template' => $template]));
     }
 
-    // The design system is the pitch, so every preset is on the page — named
-    // from lang/*/design.php, NOT from StylePreset::description(), which stays
-    // English because two AI prompts reason over it.
-    foreach (StylePreset::cases() as $preset) {
-        $response->assertSee(__('marketing.presets.'.$preset->value.'.label'));
+    // The design system is the pitch, so every scheme of the default theme is
+    // on the page — named from lang/*/marketing.php, NOT from Scheme::$description,
+    // which stays English because two AI prompts reason over it.
+    foreach (Theme::Default->definition()->schemes as $slug => $scheme) {
+        $response->assertSee(__('marketing.presets.'.$slug.'.label'));
     }
 });
 
@@ -65,7 +65,7 @@ it('points the made-with wall at the real running demos', function (): void {
     $gallery = resolve(TemplateGallery::class);
     $response = $this->get(localeUrl(Locale::English))->assertOk();
 
-    foreach ([SiteTemplate::ChineseRestaurant, SiteTemplate::NailSalon, SiteTemplate::DesignerPortfolio] as $template) {
+    foreach ([SiteTemplate::ChineseRestaurant, SiteTemplate::NailSalon, SiteTemplate::MassageSpa] as $template) {
         $response->assertSee($gallery->demoUrl($template));
     }
 });
@@ -111,10 +111,10 @@ it('counts the library correctly wherever the copy counts it', function (string 
  * looks" against eight presets) — the same failure libraryCount() exists to
  * prevent, one section further down the same page.
  */
-it('counts the presets in the copy that counts them', function (): void {
+it('counts the schemes in the copy that counts them', function (): void {
     $this->get(localeUrl(Locale::English))
         ->assertOk()
-        ->assertSee(count(StylePreset::cases()).' looks')
+        ->assertSee(count(Theme::Default->definition()->schemes).' looks')
         ->assertDontSee('Seven looks');
 });
 
@@ -124,7 +124,7 @@ it('gives every template a detail page with a live demo and a way to start', fun
     $this->get(localeUrl(Locale::English, '/templates/'.$template->value))
         ->assertOk()
         ->assertSee($template->label())
-        ->assertSee(__('marketing.presets.'.$template->definition()->preset->value.'.label'))
+        ->assertSee(__('marketing.presets.'.$template->definition()->scheme.'.label'))
         ->assertSee($template->highlights()[0])
         // The two things a visitor can do next.
         ->assertSee($gallery->demoUrl($template))
@@ -276,7 +276,7 @@ it('serves the committed screenshot for every template', function (): void {
 it('serves the apply wizard on the central domain, on step one', function (): void {
     // Full-page Livewire outside a panel: this is the smoke test that the
     // component, its layout and the central route actually compose.
-    $template = SiteTemplate::DesignerPortfolio;
+    $template = SiteTemplate::HairStudio;
 
     $this->get(localeUrl(Locale::English, '/start/'.$template->value))
         ->assertOk()

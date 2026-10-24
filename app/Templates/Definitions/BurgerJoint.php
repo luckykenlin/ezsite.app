@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Templates\Definitions;
 
-use App\Design\StylePreset;
 use App\Enums\PhotoCategory;
 use App\StockPhotos\PhotoOrientation;
 use App\Templates\DemoProfile;
 use App\Templates\PhotoQuery;
 use App\Templates\TemplateDefinition;
 use App\Templates\TemplateField;
+use App\Themes\Definitions\DefaultTheme;
 
 /**
  * Counter-service burger joint — the loud one.
@@ -34,7 +34,7 @@ final readonly class BurgerJoint
     public static function definition(): TemplateDefinition
     {
         return new TemplateDefinition(
-            preset: StylePreset::PlayfulFriendly,
+            scheme: DefaultTheme::PLAYFUL_FRIENDLY,
             brandPrimary: '#D9342B',
             brandSecondary: '#2B1A12',
             brandAccent: '#F2A81D',
@@ -221,24 +221,6 @@ final readonly class BurgerJoint
                         ['text' => 'We spent two summers running a flat-top out of a trailer, selling one burger and one order of fries because that was all the space allowed. Turns out that was also all anybody wanted.'],
                         ['text' => 'When we finally got a room with a roof on it, the temptation was to add fifteen things to the menu. We added two. Everything else went into better beef, better buns, and a fryer that can actually keep up.'],
                         ['text' => 'The griddle from the trailer is still in the kitchen. It is scarred, it is uneven, and it makes a better crust than the new one.'],
-                    ],
-                ]],
-                ['type' => 'stats', 'tone' => 'muted', 'data' => [
-                    'heading' => 'Some numbers',
-                    'stats' => [
-                        ['value' => '3', 'label' => 'Burgers on the menu'],
-                        ['value' => '2 min', 'label' => 'From smash to tray'],
-                        ['value' => '8', 'label' => 'Blocks to the butcher'],
-                    ],
-                ]],
-                ['type' => 'steps', 'variant' => 'list', 'data' => [
-                    'heading' => 'What happens after you order',
-                    'intro' => 'Four moves, in the same order, every single time.',
-                    'steps' => [
-                        ['title' => 'A ball of beef hits the steel', 'description' => 'Loose-packed, never pre-formed, straight from the fridge onto a griddle at full heat.'],
-                        ['title' => 'One press, ten seconds', 'description' => 'Pressed once and hard, then left alone. Pressing twice squeezes out everything worth eating.'],
-                        ['title' => 'Cheese on, bun on', 'description' => 'The cheese goes down while the patty is still going, so it melts instead of just sitting there.'],
-                        ['title' => 'Wrapped and handed over', 'description' => 'It steams the bun on the way to you. That is the point of the paper.'],
                     ],
                 ]],
                 ['type' => 'gallery', 'variant' => 'grid', 'data' => [

@@ -9,7 +9,7 @@ namespace App\Design;
  * treatment" tokens PLAN.md called for. Every `<x-site.section>` renders a
  * `.site-divider` element at its top edge; this token decides whether it
  * shows and what silhouette it cuts (see the divider rules in
- * resources/css/site.css). The divider paints in the section's own
+ * resources/themes/{theme}/theme.css). The divider paints in the section's own
  * background and overlaps the previous section's bottom padding, so it is
  * only visible where two adjacent tones differ — which is exactly when a
  * shaped seam reads as intentional.

@@ -3,12 +3,14 @@
 declare(strict_types=1);
 
 use App\Actions\Pages\CachePageEditorPreview;
+use App\Design\DesignTokens;
 use App\Models\Business;
 use App\Models\Media;
 use App\Models\Page;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Tenancy\RunInTenant;
+use App\Themes\Definitions\DefaultTheme;
 
 /**
  * The page editor's canvas preview route: token-gated draft rendering through
@@ -142,46 +144,46 @@ it('404s a sample of a type the library does not offer', function (string $type)
 })->with(['unknown type' => 'carousel', 'site chrome' => 'header']);
 
 /*
- * The "Add a page" picker's thumbnails: ?preset=<page-preset> renders that
- * preset's whole personalized block list — the exact page pressing Create
+ * The "Add a page" picker's thumbnails: ?page=<theme page key> renders that
+ * theme page's whole personalized block list — the exact page pressing Create
  * would land — as the same inert themed document the block samples use.
  */
-it('serves a page preset as an inert themed thumbnail document', function (): void {
+it('serves a theme page as an inert themed thumbnail document', function (): void {
     $tenant = Tenant::factory()->withDomain('acme')->create();
     $this->createTenantBusiness($tenant, ['name' => 'Corner Cafe']);
     $page = $this->createTenantPage($tenant, []);
 
     cachePreviewFor($tenant, $page, [], 'valid-token');
 
-    $this->get(sprintf('http://acme.%s/_editor/preview?token=valid-token&preset=about', $this->centralDomain()))
+    $this->get(sprintf('http://acme.%s/_editor/preview?token=valid-token&page=about', $this->centralDomain()))
         ->assertOk()
         ->assertSee('filament-fabricator-body', false)
-        // The preset's copy, personalized through the tenant's own business row.
+        // The page's copy, personalized through the tenant's own business row.
         ->assertSee('The story behind Corner Cafe')
         // No editor affordances: a thumbnail is a picture, not a canvas.
         ->assertDontSee('data-editor-insert', false)
         ->assertDontSee('data-block-key', false);
 });
 
-it('404s a preset the picker does not offer', function (string $preset): void {
+it('404s a page the theme does not offer', function (string $key): void {
     $tenant = Tenant::factory()->withDomain('acme')->create();
     $page = $this->createTenantPage($tenant, []);
 
     cachePreviewFor($tenant, $page, [], 'valid-token');
 
-    $this->get(sprintf('http://acme.%s/_editor/preview?token=valid-token&preset=%s', $this->centralDomain(), $preset))
+    $this->get(sprintf('http://acme.%s/_editor/preview?token=valid-token&page=%s', $this->centralDomain(), $key))
         ->assertNotFound();
 })->with([
-    'unknown preset' => 'moodboard',
-    // Blank has no blocks and therefore no thumbnail — the picker renders an
-    // icon tile for it and never requests this document.
+    'unknown page' => 'moodboard',
+    // Blank is the picker's fixed card, not a theme page — it has no blocks
+    // and no thumbnail, and the picker never requests this document for it.
     'blank' => 'blank',
 ]);
 
-it('404s a preset thumbnail without a valid token', function (): void {
+it('404s a theme page thumbnail without a valid token', function (): void {
     Tenant::factory()->withDomain('acme')->create();
 
-    $this->get(sprintf('http://acme.%s/_editor/preview?token=bogus&preset=about', $this->centralDomain()))
+    $this->get(sprintf('http://acme.%s/_editor/preview?token=bogus&page=about', $this->centralDomain()))
         ->assertNotFound();
 });
 
@@ -217,20 +219,22 @@ it('renders a selectable placeholder for a block the live site would skip', func
     ],
 ]);
 
-it('layers a design-token draft style over the saved theme', function (): void {
+it('layers a design-token draft style over the saved theme, resolving the scheme through the theme', function (): void {
     $tenant = Tenant::factory()->withDomain('acme')->create();
     $this->createTenantBusiness($tenant, ['name' => 'Corner Cafe']);
     $page = $this->createTenantPage($tenant, []);
 
+    // The draft carries only the slug — a controller that read it as
+    // DesignTokens::fromArray() would silently paint the defaults.
     resolve(RunInTenant::class)->handle(
         $tenant,
-        fn () => resolve(CachePageEditorPreview::class)->handle($page, [], 'valid-token', null, ['palette' => 'ocean']),
+        fn () => resolve(CachePageEditorPreview::class)->handle($page, [], 'valid-token', null, ['scheme' => 'calm-coastal']),
     );
 
     $html = $this->get(sprintf('http://acme.%s/_editor/preview?token=valid-token', $this->centralDomain()))
         ->assertOk()
         ->assertSee('data-editor-theme-draft', false)
-        ->assertSee('--color-primary', false)
+        ->assertSee('--color-primary: '.defaultScheme(DefaultTheme::CALM_COASTAL)->tokens->palette->colors()['--color-primary'].';', false)
         ->getContent();
 
     // "Layers over" is the part that used to be untrue. The draft is written by
@@ -243,11 +247,17 @@ it('layers a design-token draft style over the saved theme', function (): void {
         ->and($html)->toContain('<style data-editor-theme-draft>:root:root{');
 });
 
-it('renders a staged brand hex without the business row changing', function (): void {
+it('renders a staged brand hex over the saved look without the business row changing', function (): void {
     $tenant = Tenant::factory()->withDomain('acme')->create();
-    $this->createTenantBusiness($tenant, ['name' => 'Corner Cafe', 'brand_primary' => '#111111']);
+    $this->createTenantBusiness($tenant, [
+        'name' => 'Corner Cafe',
+        'brand_primary' => '#111111',
+        'design_tokens' => DesignTokens::fromArray([...DesignTokens::default()->toArray(), 'palette' => 'brand']),
+    ]);
     $page = $this->createTenantPage($tenant, []);
 
+    // No scheme in the draft: the saved (brand-palette) look is what the hex
+    // paints over.
     resolve(RunInTenant::class)->handle(
         $tenant,
         fn () => resolve(CachePageEditorPreview::class)->handle(
@@ -255,7 +265,7 @@ it('renders a staged brand hex without the business row changing', function (): 
             [],
             'valid-token',
             null,
-            ['palette' => 'brand', 'brand_primary' => '#1a2b3c'],
+            ['scheme' => null, 'brand_primary' => '#1a2b3c'],
         ),
     );
 
@@ -278,7 +288,7 @@ it('skips the design draft when no business exists to theme', function (): void 
 
     resolve(RunInTenant::class)->handle(
         $tenant,
-        fn () => resolve(CachePageEditorPreview::class)->handle($page, [], 'valid-token', null, ['palette' => 'ocean']),
+        fn () => resolve(CachePageEditorPreview::class)->handle($page, [], 'valid-token', null, ['scheme' => 'calm-coastal']),
     );
 
     $this->get(sprintf('http://acme.%s/_editor/preview?token=valid-token', $this->centralDomain()))

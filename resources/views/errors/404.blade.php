@@ -8,7 +8,8 @@
     customer's own domain reads as "this business's website is broken".
 
     The central branch's utilities compile from central.css (this file is in
-    its @source list); the tenant branch's from site.css via x-site.notice.
+    its @source list); the tenant branch's from the theme stylesheet
+    (resources/themes/{theme}/theme.css) via x-site.notice.
 --}}
 @use('App\Site\BindResolver')
 

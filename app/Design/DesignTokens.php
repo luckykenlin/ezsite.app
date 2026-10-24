@@ -4,19 +4,30 @@ declare(strict_types=1);
 
 namespace App\Design;
 
-use BackedEnum;
-
 /**
  * The tenant's chosen design tokens — enum keys only, never derived CSS
  * values (those live in the enums so they can evolve without data
  * migrations). Reads are lenient: any unknown/missing stored value falls
  * back to the default silently, so bad data can never break a page render.
- * Writes are strict — see App\Actions\UpdateDesignTokens.
+ *
+ * The eight axes are the INTERNAL representation of a look, not a form: a
+ * site's look is a theme {@see \App\Themes\Scheme} plus the business's brand
+ * hexes, and only a scheme or a template definition constructs one of these.
+ * There is deliberately no `with()` — nothing may change one axis independently
+ * of the scheme it came from, which is what kept the old free-axis editors
+ * producing combinations nobody designed.
+ *
+ * `$scheme` is the slug of the theme scheme these tokens were taken from, or
+ * null for a look no scheme vouches for. A bare string rather than a
+ * {@see \App\Themes\Scheme}, so this module stays unaware of themes: the
+ * tokens are stored data, and whether the slug still names a scheme in the
+ * tenant's current theme is the reader's question (`ThemeDefinition::scheme()`
+ * answers null), not something to validate on every hydration.
  */
 final readonly class DesignTokens
 {
     public function __construct(
-        public ?StylePreset $preset,
+        public ?string $scheme,
         public ColorPalette $palette,
         public FontPair $fontPair,
         public RadiusScale $radius,
@@ -32,7 +43,7 @@ final readonly class DesignTokens
     public static function default(): self
     {
         return new self(
-            preset: null,
+            scheme: null,
             palette: ColorPalette::Default,
             fontPair: FontPair::NeoGrotesque,
             radius: RadiusScale::Md,
@@ -50,7 +61,7 @@ final readonly class DesignTokens
     public static function fromArray(array $data): self
     {
         return new self(
-            preset: is_string($data['preset'] ?? null) ? StylePreset::tryFrom($data['preset']) : null,
+            scheme: is_string($data['scheme'] ?? null) ? $data['scheme'] : null,
             palette: (is_string($data['palette'] ?? null) ? ColorPalette::tryFrom($data['palette']) : null) ?? ColorPalette::Default,
             fontPair: (is_string($data['font_pair'] ?? null) ? FontPair::tryFrom($data['font_pair']) : null) ?? FontPair::NeoGrotesque,
             radius: (is_string($data['radius'] ?? null) ? RadiusScale::tryFrom($data['radius']) : null) ?? RadiusScale::Md,
@@ -63,12 +74,12 @@ final readonly class DesignTokens
     }
 
     /**
-     * @return array{preset: string|null, palette: string, font_pair: string, type_style: string, radius: string, density: string, divider: string, accent: string, motion: string}
+     * @return array{scheme: string|null, palette: string, font_pair: string, type_style: string, radius: string, density: string, divider: string, accent: string, motion: string}
      */
     public function toArray(): array
     {
         return [
-            'preset' => $this->preset?->value,
+            'scheme' => $this->scheme,
             'palette' => $this->palette->value,
             'font_pair' => $this->fontPair->value,
             'type_style' => $this->typeStyle->value,
@@ -93,60 +104,9 @@ final readonly class DesignTokens
      */
     public function describe(): string
     {
-        $values = array_map(
-            fn (TokenKey $key): string => $key->valueOn($this),
-            TokenKey::cases(),
-        );
+        $axes = $this->toArray();
+        unset($axes['scheme']);
 
-        $preset = $this->preset;
-
-        return ($preset instanceof StylePreset ? $preset->value : 'custom').' — '.implode(', ', $values);
-    }
-
-    /**
-     * A copy with ONE token replaced, addressed by its key.
-     *
-     * The keyed door onto {@see with()}, which takes named arguments and so
-     * cannot be reached from a loop over {@see TokenKey::cases()} — exactly the
-     * gap {@see TokenKey::valueOn()} fills in the read direction. The specimen
-     * renderer lives on that loop: "these tokens, but with `radius` set to
-     * `full`", once per option, for every key.
-     *
-     * Routed through {@see toArray()}/{@see fromArray()} rather than a `match`
-     * over eight cases, because those two are already the symmetric pair and a
-     * `match` would be a third place listing every key. It inherits their
-     * leniency too: an enum that does not belong to `$key` falls back to that
-     * token's default instead of raising a TypeError mid-render.
-     */
-    public function withToken(TokenKey $key, BackedEnum $value): self
-    {
-        return self::fromArray([...$this->toArray(), 'preset' => null, $key->value => (string) $value->value]);
-    }
-
-    /**
-     * A copy with the given tokens replaced. Any manual override detaches
-     * the preset marker — the combination is custom from then on.
-     */
-    public function with(
-        ?ColorPalette $palette = null,
-        ?FontPair $fontPair = null,
-        ?RadiusScale $radius = null,
-        ?SpacingDensity $density = null,
-        ?TypeStyle $typeStyle = null,
-        ?SectionDivider $divider = null,
-        ?AccentStyle $accent = null,
-        ?MotionStyle $motion = null,
-    ): self {
-        return new self(
-            preset: null,
-            palette: $palette ?? $this->palette,
-            fontPair: $fontPair ?? $this->fontPair,
-            radius: $radius ?? $this->radius,
-            density: $density ?? $this->density,
-            typeStyle: $typeStyle ?? $this->typeStyle,
-            divider: $divider ?? $this->divider,
-            accent: $accent ?? $this->accent,
-            motion: $motion ?? $this->motion,
-        );
+        return ($this->scheme ?? 'custom').' — '.implode(', ', $axes);
     }
 }

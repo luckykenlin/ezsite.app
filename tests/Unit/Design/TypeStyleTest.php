@@ -50,9 +50,9 @@ it('emits the full deterministic --type-* variable set for every style', functio
     }
 })->with(TypeStyle::cases());
 
-it('classic emits exactly the site.css fallback values, so an untouched site cannot change', function (): void {
+it('classic emits exactly the theme stylesheet fallback values, so an untouched site cannot change', function (): void {
     // The zero-regression contract: every `.site-*` declaration in
-    // resources/css/site.css falls back to these values when no theme tag is
+    // resources/themes/{theme}/theme.css falls back to these values when no theme tag is
     // present, so Classic-with-variables and no-variables-at-all must render
     // the same pixels. Change either side only together.
     expect(TypeStyle::Classic->variables())->toBe([

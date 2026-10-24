@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-use App\Actions\UpdateDesignTokens;
-use App\Design\StylePreset;
+use App\Design\DesignTokens;
 use App\Models\Business;
 use App\Models\Tenant;
+use App\Themes\Definitions\DefaultTheme;
 use Illuminate\Support\Facades\Storage;
 
 it('injects the tenant theme variables into the public site head', function (): void {
     $tenant = Tenant::factory()->withDomain('acme')->create();
     $this->runInTenant($tenant, fn (): Business => Business::factory()
-        ->themed(StylePreset::WarmCraft)
+        ->themed(DefaultTheme::WARM_CRAFT)
         ->create(['tenant_id' => $tenant->id]));
     $this->createTenantPage($tenant, [
         ['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']],
@@ -27,12 +27,11 @@ it('injects the tenant theme variables into the public site head', function (): 
 
 it('emits the brand hex colors when the palette is brand', function (): void {
     $tenant = Tenant::factory()->withDomain('acme')->create();
-    $business = $this->runInTenant($tenant, fn (): Business => Business::factory()->create([
+    $this->runInTenant($tenant, fn (): Business => Business::factory()->create([
         'tenant_id' => $tenant->id,
         'brand_primary' => '#336699',
+        'design_tokens' => DesignTokens::fromArray([...DesignTokens::default()->toArray(), 'palette' => 'brand']),
     ]));
-    $this->runInTenant($tenant, fn (): Business => resolve(UpdateDesignTokens::class)
-        ->handle($business, ['palette' => 'brand']));
     $this->createTenantPage($tenant, [
         ['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']],
     ]);

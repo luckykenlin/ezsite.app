@@ -15,7 +15,7 @@
                     >&larr; {{ __('marketing.detail.back') }}</a>
 
                 <div class="flex flex-col gap-4">
-                    <p class="central-eyebrow">{{ __('marketing.presets.'.$definition->preset->value.'.label') }}</p>
+                    <p class="central-eyebrow">{{ __('marketing.presets.'.$definition->scheme.'.label') }}</p>
                     <h1 class="central-display-sm">{{ $template->label() }}</h1>
                     <p class="central-intro">{{ $template->description() }}</p>
                 </div>
@@ -67,7 +67,7 @@
             <div class="grid gap-10 lg:grid-cols-3">
                 <div class="flex flex-col gap-3">
                     <h2 class="central-h3">{{ __('marketing.detail.look.title') }}</h2>
-                    <p class="opacity-80">{{ __('marketing.presets.'.$definition->preset->value.'.description') }}</p>
+                    <p class="opacity-80">{{ __('marketing.presets.'.$definition->scheme.'.description') }}</p>
                     <p class="text-sm opacity-60">{{ __('marketing.detail.look.note') }}</p>
                 </div>
 

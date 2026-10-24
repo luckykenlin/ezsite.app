@@ -611,51 +611,12 @@ return [
                 'treatment_three_price' => ['label' => '时长和价格'],
             ],
         ],
-
-        'personal-resume' => [
-            'label' => '个人简历',
-            'description' => '你的名字、你做过的事，以及找到你的方式。只有字，看不到一张素材照。',
-            'highlights' => [
-                '只有字的首屏：名字、头衔、一句话',
-                '三段经历，注册时填好',
-                '没有素材照假装是你',
-            ],
-            'fields' => [
-                'current_title' => [
-                    'label' => '你现在的头衔',
-                    'help' => '一句话。它就排在首屏你名字的下面。',
-                ],
-                'role_one' => ['label' => '现在或最近的一份工作'],
-                'role_two' => ['label' => '上一份'],
-                'role_three' => ['label' => '再上一份'],
-                'focus' => ['label' => '你想多做的那类事'],
-            ],
-        ],
-
-        'designer-portfolio' => [
-            'label' => '设计师作品集',
-            'description' => '杂志式排版，作品就在第一屏。为靠作品说话的工作室而做。',
-            'highlights' => [
-                '作品在黑底上，就在第一屏',
-                '三个项目的介绍，从注册表单填进去',
-                '服务页写的是真实的合作方式和价格',
-            ],
-            'fields' => [
-                'discipline' => [
-                    'label' => '你到底做什么',
-                    'help' => '一句话。它排在首屏你名字的下面。',
-                ],
-                'project_one' => ['label' => '拿来打头的项目'],
-                'project_two' => ['label' => '第二个项目'],
-                'project_three' => ['label' => '第三个项目'],
-            ],
-        ],
     ],
 
     /*
      * 版式在营销站上的中文说法，键与 lang/en/marketing.php 的同一段一致。
      *
-     * 这份文案是营销站专用的分叉：StylePreset::label()/description() 仍然是英文字面量，
+     * 这份文案是营销站专用的分叉：Scheme::$label/$description 仍然是英文字面量，
      * 因为它们同时喂给两个 AI 系统提示（SiteDraftPrompt、PageEditPrompt），
      * 模型是靠那段英文判断「再高级一点」该选哪套版式的。详见 lang/en/marketing.php 里这一段的英文注释。
      */
@@ -691,6 +652,18 @@ return [
         'quiet-luxe' => [
             'label' => '安静高级',
             'description' => '暖石色，发丝般的衬线字放得很大，直角收边，板块随着滚动依次到场。',
+        ],
+        'blush-plum' => [
+            'label' => '腮红与梅紫',
+            'description' => '腮红粉的墙面、深梅紫的字色和窄体衬线字 —— 招牌精品美甲工作室。',
+        ],
+        'cream-sage' => [
+            'label' => '奶油与鼠尾草',
+            'description' => '奶油色亚麻、鼠尾草绿和温暖的编辑感衬线字 —— 天然无毒的美甲工作室。',
+        ],
+        'ivory-noir' => [
+            'label' => '象牙与黑漆',
+            'description' => '象牙白纸感、黑漆般的字色和高反差的迪多体 —— 高定美甲工坊。',
         ],
     ],
 ];

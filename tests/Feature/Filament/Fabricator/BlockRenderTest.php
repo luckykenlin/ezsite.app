@@ -197,46 +197,6 @@ it('renders each block variant with its own layout', function (array $block, arr
         ]],
         ['Questions', 'Do you deliver?', 'Within five miles.'], 'sm:grid-cols-2', 'none',
     ],
-    // The five types added to widen what the assistant can reach for. Each is a
-    // shape the library genuinely lacked, not a variation on one it had — see
-    // each block class's description for the line that separates it from its
-    // nearest look-alike.
-    'steps numbers itself from position, not from content' => [
-        ['type' => 'steps', 'data' => [
-            'heading' => 'How it works',
-            'steps' => [
-                ['title' => 'Get in touch', 'description' => 'Call or email.'],
-                ['title' => 'We visit', 'description' => 'Free quote.'],
-            ],
-        ]],
-        ['How it works', 'Get in touch', 'We visit'], '<ol', 'none',
-    ],
-    'steps timeline' => [
-        ['type' => 'steps', 'data' => [
-            'variant' => 'timeline',
-            'heading' => 'How it works',
-            'steps' => [
-                ['title' => 'Get in touch', 'description' => 'Call or email.'],
-                ['title' => 'We visit', 'description' => 'Free quote.'],
-            ],
-        ]],
-        ['How it works', 'Get in touch', 'We visit'], 'border-l-2', 'none',
-    ],
-    'stats pairs each number with what it counts' => [
-        ['type' => 'stats', 'data' => [
-            'heading' => 'By the numbers',
-            'stats' => [['value' => '500+', 'label' => 'happy customers', 'description' => 'since 2010']],
-        ]],
-        ['500+', 'happy customers', 'since 2010'], '<dl', 'none',
-    ],
-    'stats band (the old variant, via the tone axis)' => [
-        ['type' => 'stats', 'data' => [
-            'appearance' => ['tone' => 'inverted'],
-            'heading' => 'By the numbers',
-            'stats' => [['value' => '500+', 'label' => 'happy customers']],
-        ]],
-        ['500+', 'happy customers'], 'site-stat text-primary', 'none',
-    ],
     'team renders a person with a role' => [
         ['type' => 'team', 'data' => [
             'heading' => 'Meet the team',
@@ -252,39 +212,6 @@ it('renders each block variant with its own layout', function (array $block, arr
         ]],
         ['Meet the team', 'Dana Reed', 'Head baker', 'Twelve years at the oven.'], 'aspect-[4/5]', 'none',
     ],
-    'logos uses the brand name as alt text' => [
-        ['type' => 'logos', 'data' => [
-            'heading' => 'Trusted by',
-            'logos' => [['url' => 'https://example.com/acme.png', 'name' => 'Acme Corp']],
-        ]],
-        ['Trusted by', 'Acme Corp', 'https://example.com/acme.png'], 'grayscale', 'none',
-    ],
-    'pricing renders a plan with its included lines' => [
-        ['type' => 'pricing', 'data' => [
-            'heading' => 'Choose a plan',
-            'plans' => [[
-                'name' => 'Standard',
-                'price' => '$29',
-                'period' => 'per month',
-                'features' => "Weekly visit\nSame-day callout",
-                'cta_label' => 'Start now',
-                'cta_url' => '/contact',
-            ]],
-        ]],
-        ['Choose a plan', 'Standard', '$29', 'per month', 'Weekly visit', 'Same-day callout', 'Start now'], 'card-actions', 'none',
-    ],
-    'pricing highlights the featured plan' => [
-        ['type' => 'pricing', 'data' => [
-            'heading' => 'Choose a plan',
-            'plans' => [
-                ['name' => 'Starter', 'price' => '$19', 'cta_label' => 'Start now', 'cta_url' => '/contact'],
-                ['name' => 'Standard', 'price' => '$29', 'is_featured' => true, 'cta_label' => 'Start now', 'cta_url' => '/contact'],
-            ],
-        ]],
-        ['Choose a plan', 'Starter', 'Standard', '$29', 'Recommended'], 'ring-primary', 'none',
-    ],
-    // One block for menus, service lists and packages alike — what differs
-    // between those is the content, not the layout.
     // The practical strip. Its open-or-closed line is derived, not authored,
     // so the marker is the lit dot rather than a phrase from the block data —
     // OpeningStateTest pins the wording against a frozen clock.
@@ -296,6 +223,8 @@ it('renders each block variant with its own layout', function (array $block, arr
         ]],
         ['Come and find us', 'Street parking after seven.'], 'site-open-state', 'business with location',
     ],
+    // One block for menus, service lists and packages alike — what differs
+    // between those is the content, not the layout.
     'offerings as a priced list (the old list variant)' => [
         ['type' => 'offerings', 'data' => [
             'appearance' => ['columns' => 'one', 'item_style' => 'plain', 'width' => 'narrow', 'align' => 'start'],
@@ -687,7 +616,7 @@ it('skips a bound block with a warning when its bind cannot resolve, while sibli
 ]);
 
 /*
- * The craft layer (resources/css/site.css) reaches the page through exactly
+ * The craft layer (resources/themes/default/theme.css) reaches the page through exactly
  * these hooks — a scrim that replaced the flat overlay, the enum-injected
  * card chrome, the offerings price leader, the hung testimonial quote, and
  * the arrow-link secondary CTA. One page exercises all of them so a view

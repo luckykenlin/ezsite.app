@@ -6,7 +6,6 @@ use App\Actions\Pages\CacheChatTurn;
 use App\Actions\Pages\CachePageEditorPreview;
 use App\Actions\Pages\RecordPageChatMessage;
 use App\Ai\Agents\PageEditorAgent;
-use App\Design\StylePreset;
 use App\Enums\ChatRole;
 use App\Jobs\ChatEditPageJob;
 use App\Models\Business;
@@ -130,7 +129,7 @@ it('paints a staged style and chrome into the preview mid-turn', function (): vo
     $this->createTenantBusiness($this->tenant, [], 0);
 
     PageEditorAgent::fake([
-        new ToolCall('c1', 'SetSiteStyle', ['preset' => 'warm-craft']),
+        new ToolCall('c1', 'SetSiteStyle', ['scheme' => 'warm-craft']),
         new ToolCall('c2', 'UpdateChrome', ['slot' => 'header', 'add_links' => [['label' => 'Pricing', 'url' => '/pricing']]]),
         'Restyled the site and added Pricing to the menu.',
     ])->preventStrayPrompts();
@@ -148,7 +147,7 @@ it('paints a staged style and chrome into the preview mid-turn', function (): vo
 
     $entry = $this->runInTenant($this->tenant, fn (): ?array => Cache::get(CachePageEditorPreview::key('ptok')));
 
-    expect($entry['design_tokens']['preset'])->toBe('warm-craft')
+    expect($entry['design_tokens']['scheme'])->toBe('warm-craft')
         ->and($entry['chrome']['header'][0]['data']['nav_links'])->toBe([['label' => 'Pricing', 'url' => '/pricing']])
         // The untouched slot keeps what the editor pushed — a header edit must
         // not clobber a footer the operator was editing by hand.
@@ -299,7 +298,7 @@ it('publishes a staged site style for the editor to pick up', function (): void 
     $this->createTenantBusiness($this->tenant, [], 0);
 
     PageEditorAgent::fake([
-        new ToolCall('call-1', 'SetSiteStyle', ['preset' => 'warm-craft']),
+        new ToolCall('call-1', 'SetSiteStyle', ['scheme' => 'warm-craft']),
         'Warmed the site up.',
     ])->preventStrayPrompts();
 
@@ -307,10 +306,9 @@ it('publishes a staged site style for the editor to pick up', function (): void 
 
     $turn = $this->runInTenant($this->tenant, fn (): ?array => resolve(CacheChatTurn::class)->read('tok'));
 
-    expect($turn['design']['preset'])->toBe('warm-craft')
-        ->and($turn['design']['palette'])->toBe(StylePreset::WarmCraft->tokens()->palette->value)
+    expect($turn['design'])->toBe(['scheme' => 'warm-craft'])
         // And still nothing written — the operator applies it from the rail.
-        ->and(Business::query()->sole()->design_tokens->preset)->toBeNull();
+        ->and(Business::query()->sole()->design_tokens->scheme)->toBeNull();
 });
 
 it('publishes no style for a turn that only touched content', function (): void {

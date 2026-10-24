@@ -36,6 +36,9 @@ enum ColorPalette: string
     case Sunset = 'sunset';
     case Midnight = 'midnight';
     case NoirGold = 'noir-gold';
+    case Blush = 'blush';
+    case Sage = 'sage';
+    case Ivory = 'ivory';
     case Brand = 'brand';
 
     /**
@@ -93,6 +96,9 @@ enum ColorPalette: string
             self::Sunset => 'warm peach base, orange-red primary — orange, red, coral, pink, sunset',
             self::Midnight => 'DARK navy base site-wide, light text — only for a deliberately dark site; navy, midnight blue',
             self::NoirGold => 'DARK near-black base site-wide, gold primary — only for a deliberately dark site; black, gold, luxury',
+            self::Blush => 'blush pink base, deep plum primary, berry secondary — blush, pink, plum, rose, mauve, berry',
+            self::Sage => 'cream base, sage green primary, clay secondary — sage, cream, muted green, eucalyptus, clay',
+            self::Ivory => 'ivory base, near-black primary, bronze secondary — ivory, black and white, noir, champagne, bronze',
             self::Brand => "the business's own brand colours — requires the brand primary colour to be set",
         };
     }
@@ -202,6 +208,35 @@ enum ColorPalette: string
                 secondary: 'oklch(65% 0.03 60)', secondaryContent: 'oklch(15% 0.01 60)',
                 accent: 'oklch(60% 0.15 25)', accentContent: 'oklch(97% 0.01 60)',
                 neutral: 'oklch(10% 0 0)', neutralContent: 'oklch(88% 0.02 85)',
+            ),
+            // The three boutique palettes behind the nail-luxe theme's schemes.
+            // Each one spends its SECONDARY on the ink that sets an italic
+            // phrase inside a headline (`.site-accent`) and the ornament above
+            // it, so the secondary is a readable mid-tone on the base rather
+            // than a pale tint: berry between the plum and the blush, clay
+            // against the sage, bronze against the ivory. The blush base is
+            // the warm pink of a nail studio's walls, which is the whole
+            // reason it is a palette of its own and not Plum's near-white.
+            self::Blush => self::palette(
+                base100: 'oklch(95.5% 0.014 40)', base200: 'oklch(91.5% 0.022 30)', base300: 'oklch(86.5% 0.03 25)', baseContent: 'oklch(23% 0.03 355)',
+                primary: 'oklch(37% 0.12 5)', primaryContent: 'oklch(96% 0.012 40)',
+                secondary: 'oklch(48% 0.14 0)', secondaryContent: 'oklch(97% 0.008 40)',
+                accent: 'oklch(82% 0.06 15)', accentContent: 'oklch(28% 0.08 5)',
+                neutral: 'oklch(27% 0.07 355)', neutralContent: 'oklch(94% 0.015 30)',
+            ),
+            self::Sage => self::palette(
+                base100: 'oklch(97% 0.012 90)', base200: 'oklch(93% 0.02 110)', base300: 'oklch(88% 0.028 120)', baseContent: 'oklch(25% 0.025 150)',
+                primary: 'oklch(45% 0.06 150)', primaryContent: 'oklch(97% 0.012 90)',
+                secondary: 'oklch(55% 0.09 45)', secondaryContent: 'oklch(98% 0.008 90)',
+                accent: 'oklch(84% 0.05 130)', accentContent: 'oklch(28% 0.04 150)',
+                neutral: 'oklch(30% 0.035 155)', neutralContent: 'oklch(95% 0.012 90)',
+            ),
+            self::Ivory => self::palette(
+                base100: 'oklch(98% 0.008 85)', base200: 'oklch(94% 0.012 80)', base300: 'oklch(89% 0.015 75)', baseContent: 'oklch(17% 0.005 60)',
+                primary: 'oklch(20% 0.006 60)', primaryContent: 'oklch(97% 0.008 85)',
+                secondary: 'oklch(50% 0.06 70)', secondaryContent: 'oklch(98% 0.006 85)',
+                accent: 'oklch(85% 0.045 80)', accentContent: 'oklch(20% 0.01 60)',
+                neutral: 'oklch(16% 0.004 60)', neutralContent: 'oklch(94% 0.01 85)',
             ),
             self::Brand => self::brandPalette($business),
         };

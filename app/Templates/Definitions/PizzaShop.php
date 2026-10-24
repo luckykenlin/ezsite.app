@@ -6,13 +6,13 @@ namespace App\Templates\Definitions;
 
 use App\Design\ColorPalette;
 use App\Design\FontPair;
-use App\Design\StylePreset;
 use App\Enums\PhotoCategory;
 use App\StockPhotos\PhotoOrientation;
 use App\Templates\DemoProfile;
 use App\Templates\PhotoQuery;
 use App\Templates\TemplateDefinition;
 use App\Templates\TemplateField;
+use App\Themes\Definitions\DefaultTheme;
 
 /**
  * Neighbourhood pizzeria — the preset-variation pilot.
@@ -37,7 +37,7 @@ final readonly class PizzaShop
     public static function definition(): TemplateDefinition
     {
         return new TemplateDefinition(
-            preset: StylePreset::WarmCraft,
+            scheme: DefaultTheme::WARM_CRAFT,
             brandPrimary: '#C2410C',
             brandSecondary: '#2B1B14',
             brandAccent: '#F2A65A',
@@ -222,24 +222,6 @@ final readonly class PizzaShop
                         ['text' => 'We took over a shuttered sandwich shop with a good corner and a bad ceiling, put an oven where the fryer had been, and opened with four pizzas because that was all we could make properly.'],
                         ['text' => 'It is six now, and two of them change with whatever the market has. That is as much menu as one oven can do without something slipping.'],
                         ['text' => 'The people who work here have mostly been here a while. On a busy Friday there are four of us behind the counter and one of us is always covered in flour.'],
-                    ],
-                ]],
-                ['type' => 'steps', 'variant' => 'timeline', 'tone' => 'muted', 'data' => [
-                    'heading' => 'From flour to your hands',
-                    'intro' => 'Four days a week this runs on a loop, and it is the only part of the shop that never changes.',
-                    'steps' => [
-                        ['title' => 'Mix', 'description' => 'Flour, water, salt and a little starter, worked until it is smooth and then left alone.'],
-                        ['title' => 'Rest', 'description' => 'Forty-eight hours cold. This is the step that cannot be rushed, and the one everybody tries to rush.'],
-                        ['title' => 'Stretch', 'description' => 'By hand, on the counter, in front of you. Rolling pins flatten the air out of the rim.'],
-                        ['title' => 'Fire', 'description' => 'Ninety seconds at the mouth of the oven, turned twice, out before the base goes stiff.'],
-                    ],
-                ]],
-                ['type' => 'stats', 'tone' => 'muted', 'data' => [
-                    'heading' => 'The shop in numbers',
-                    'stats' => [
-                        ['value' => '48', 'label' => 'Hours the dough rests'],
-                        ['value' => '900', 'label' => 'Degrees at the oven mouth'],
-                        ['value' => '6', 'label' => 'Pizzas on the board'],
                     ],
                 ]],
                 ['type' => 'gallery', 'variant' => 'grid', 'data' => [

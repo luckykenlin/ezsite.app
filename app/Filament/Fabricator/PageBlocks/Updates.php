@@ -48,14 +48,6 @@ final class Updates extends Block
     /**
      * @var array<string, string>
      */
-    protected static array $variants = [
-        'cards' => 'Cards',
-        'list' => 'Dated list',
-    ];
-
-    /**
-     * @var array<string, string>
-     */
     protected static array $axes = [
         'tone' => 'muted',
         'spacing' => 'normal',
@@ -64,15 +56,6 @@ final class Updates extends Block
         'columns' => 'three',
         'item_style' => 'card',
         'image_shape' => 'wide',
-    ];
-
-    /**
-     * @var array<string, array<string, string>>
-     */
-    protected static array $variantAxes = [
-        // A dated list is a column of rows, not a grid, and it reads better
-        // narrow and left-aligned — the shape of a noticeboard.
-        'list' => ['width' => 'narrow', 'align' => 'start', 'columns' => 'one', 'item_style' => 'plain'],
     ];
 
     /**

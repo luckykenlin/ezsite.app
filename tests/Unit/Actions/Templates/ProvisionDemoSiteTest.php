@@ -13,6 +13,7 @@ use App\Models\Tenant;
 use App\Site\Blocks\BlockShape;
 use App\StockPhotos\StockPhotoProvider;
 use App\Templates\SiteTemplate;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 
 function provisionDemo(SiteTemplate $template, bool $skipPhotos = true): Tenant
@@ -86,6 +87,25 @@ it('re-runs onto the same tenant, replacing last deploy s published pages', func
             // truth for what it says.
             ->and(Page::query()->where('slug', '/')->sole()->title)->not->toBe('Edited between deploys');
     });
+});
+
+/*
+ * A re-provision re-asserts EVERYTHING the template decides, the theme
+ * included: a demo whose theme drifted (or a template that moved to a new
+ * one) would otherwise keep rendering the old look under the new content.
+ * With a single theme in the library the drift is staged on the column
+ * directly.
+ */
+it('re-points a re-provisioned demo at the template s theme', function (): void {
+    $template = SiteTemplate::ChineseRestaurant;
+    $first = provisionDemo($template);
+
+    DB::table('tenants')->where('id', $first->getKey())->update(['theme' => 'retired-theme']);
+
+    provisionDemo($template);
+
+    expect(DB::table('tenants')->where('id', $first->getKey())->value('theme'))
+        ->toBe($template->definition()->theme->value);
 });
 
 it('pre-warms the shared library and lands real photographs on the pages', function (): void {

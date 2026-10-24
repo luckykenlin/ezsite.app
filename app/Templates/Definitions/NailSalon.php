@@ -4,51 +4,47 @@ declare(strict_types=1);
 
 namespace App\Templates\Definitions;
 
-use App\Design\StylePreset;
 use App\Enums\PhotoCategory;
 use App\StockPhotos\PhotoOrientation;
 use App\Templates\DemoProfile;
 use App\Templates\PhotoQuery;
 use App\Templates\TemplateDefinition;
 use App\Templates\TemplateField;
+use App\Themes\Definitions\NailLuxe;
+use App\Themes\Theme;
 
 /**
- * Independent nail studio — the dark-room template.
+ * Independent nail studio — the first template on a vertical theme.
  *
- * NightLounge, unmodified, and here the preset picked the template rather than
- * the other way round: its own `vibes()` are `['bar', 'nightlife', 'barber',
- * 'tattoo', 'salon', 'music']`, so *salon* is literally one of the industry
- * nouns this preset answers to. A category of "nail salon" would be matched to
- * NightLounge on the AI draft path anyway; curating the template onto anything
- * else would mean the hand-made version and the generated version disagreed
- * about the same trade.
+ * It renders through {@see Theme::NailLuxe} rather than the default theme: a
+ * blush-and-plum boutique with arched photographs, a serif headline whose key
+ * phrase is set in italic (`*like this*` in a heading), pill buttons, a price
+ * list on hairline rules and a dark rounded footer card. The template used to
+ * borrow the default theme's dark NightLounge scheme, which made the studio
+ * look like a cocktail bar; the vertical theme is what lets it look like the
+ * trade it is.
  *
- * Near-black and gold, heavy Impact type on a slanted seam — the one preset in
- * the library that renders a dark site, and that is the entire art direction.
- * Nail photography is small, glossy and lit from one side: on white it reads as
- * a clinical close-up, on black it reads as jewellery. So the gallery sits
- * SECOND, directly under the hero, where a visitor deciding whether to book is
- * really deciding on the pictures.
- *
- * No token overrides, and no `inverted` tone anywhere — on a dark ramp `muted`
- * is the LIGHTER step, so raised panels go there, and the gold `accent` is
- * spent exactly once, on the booking banner.
+ * The home page runs the order a client decides in: the arched opening, the
+ * studio's credentials (this theme's own block), the menu as category cards,
+ * recent sets, what clients said, then the offer band. The full price list
+ * lives on /services.
  */
 final readonly class NailSalon
 {
     public static function definition(): TemplateDefinition
     {
         return new TemplateDefinition(
-            preset: StylePreset::NightLounge,
-            brandPrimary: '#C9A227',
-            brandSecondary: '#12100E',
-            brandAccent: '#E6D3A3',
+            scheme: NailLuxe::BLUSH_PLUM,
+            brandPrimary: '#6E1E3A',
+            brandSecondary: '#F7EDE8',
+            brandAccent: '#C9708A',
             category: 'nail salon',
             chrome: self::chrome(),
             pages: [self::home(), self::services(), self::contact()],
             photoQueries: self::photoQueries(),
             demoProfile: self::demoProfile(),
             extraFields: self::extraFields(),
+            theme: Theme::NailLuxe,
         );
     }
 
@@ -90,9 +86,10 @@ final readonly class NailSalon
     {
         return [
             new PhotoQuery('nail art manicure close up', category: PhotoCategory::Product, count: 6),
-            new PhotoQuery('nail salon interior dark', category: PhotoCategory::Interior, count: 4),
-            new PhotoQuery('manicure hands treatment', category: PhotoCategory::People, count: 4),
-            new PhotoQuery('beauty salon gold detail', category: PhotoCategory::Interior, count: 3),
+            new PhotoQuery('nail salon interior calm', category: PhotoCategory::Interior, count: 4),
+            new PhotoQuery('manicure hands soft light', category: PhotoCategory::People, count: 4),
+            new PhotoQuery('manicure pastel nails', category: PhotoCategory::Product, count: 3),
+            new PhotoQuery('nail polish bottles pastel', category: PhotoCategory::Product, count: 2),
             new PhotoQuery('nail technician portrait salon', PhotoOrientation::Portrait, PhotoCategory::People, 3),
         ];
     }
@@ -104,19 +101,19 @@ final readonly class NailSalon
     {
         return [
             ['type' => 'header', 'data' => [
-                'variant' => 'inverted',
+                'variant' => 'studio',
                 'nav_links' => [
                     ['label' => 'Home', 'url' => '/'],
-                    ['label' => 'Menu', 'url' => '/services'],
+                    ['label' => 'Services', 'url' => '/services'],
                     ['label' => 'Visit', 'url' => '/contact'],
                 ],
-                'cta_label' => 'Book a chair',
-                'cta_url' => 'tel:{phone}',
+                'cta_label' => 'Book',
+                'cta_url' => '/contact',
             ]],
             ['type' => 'footer', 'data' => [
-                'variant' => 'minimal',
+                'variant' => 'card',
                 'nav_links' => [
-                    ['label' => 'Menu', 'url' => '/services'],
+                    ['label' => 'Services', 'url' => '/services'],
                     ['label' => 'Visit', 'url' => '/contact'],
                 ],
                 'note' => '{business_name} — {city}. The book opens a week at a time.',
@@ -134,73 +131,65 @@ final readonly class NailSalon
             'title' => '{business_name}',
             'meta_description' => '{business_name} — {tagline}. Structured gel and freehand nail art in {city}, by appointment.',
             'blocks' => [
-                ['type' => 'hero', 'variant' => 'full-bleed-overlay', 'data' => [
-                    'eyebrow' => '{city}',
-                    'heading' => '{tagline}',
+                ['type' => 'hero', 'variant' => 'arch', 'data' => [
+                    'eyebrow' => 'Nail studio · {city}',
+                    'heading' => 'Nails, painted *slowly* and by hand',
                     'subheading' => 'Six chairs, ninety-minute appointments, and a lamp bright enough to catch every edge. No double-booking, no rushing the cuticle work.',
-                    'cta_label' => 'See the menu',
-                    'cta_url' => '/services',
-                    'image_query' => 'nail salon interior dark',
+                    'cta_label' => 'Book an appointment',
+                    'cta_url' => '/contact',
+                    'image_query' => 'manicure hands soft light',
                 ]],
-                ['type' => 'visit', 'data' => [
-                    'heading' => 'The room today',
-                    'intro' => 'Six chairs, by appointment. Call for a cancellation — they come up more often than you would think.',
-                    'show_hours' => true,
+                ['type' => 'credentials', 'data' => [
+                    'eyebrow' => 'Why clients stay',
+                    'heading' => 'Rooted in *calm*',
+                    'figures' => [
+                        ['value' => '4.9', 'label' => 'Average rating, two hundred reviews'],
+                        ['value' => '6', 'label' => 'Chairs, never double-booked'],
+                        ['value' => '90', 'label' => 'Minutes for every set'],
+                    ],
+                    'quote' => 'I opened the studio I wanted to sit in: quiet, unhurried, and honest about what will still look good in week three.',
+                    'quote_author' => 'Mara Ellison',
+                    'quote_role' => 'Founder, {business_name}',
+                    'image_query' => 'nail salon interior calm',
                 ]],
-                ['type' => 'gallery', 'variant' => 'masonry', 'tone' => 'base', 'spacing' => 'tight', 'data' => [
-                    'heading' => 'Recent sets',
+                ['type' => 'offerings', 'variant' => 'category-cards', 'data' => [
+                    'heading' => 'The *menu*',
+                    'intro' => 'Hands, feet and everything painted. Every price is the price of the appointment, not the opening bid.',
+                    'items' => [
+                        ['group' => 'Hands', 'name' => '{service_one}', 'price' => '{service_one_price}'],
+                        ['group' => 'Hands', 'name' => 'Classic manicure', 'price' => '$40'],
+                        ['group' => 'Hands', 'name' => 'Removal and reset', 'price' => '$20'],
+                        ['group' => 'Feet', 'name' => '{service_three}', 'price' => '{service_three_price}'],
+                        ['group' => 'Feet', 'name' => 'Gel pedicure', 'price' => '$70'],
+                        ['group' => 'Art', 'name' => '{service_two}', 'price' => '{service_two_price}'],
+                        ['group' => 'Art', 'name' => 'Chrome and foil', 'price' => '$15'],
+                        ['group' => 'Art', 'name' => 'Accent nails', 'price' => '$10'],
+                    ],
+                ]],
+                ['type' => 'gallery', 'variant' => 'arch-grid', 'data' => [
+                    'heading' => 'Recent *sets*',
                     'images' => [
-                        ['alt' => 'Chrome over a smoked almond set'],
+                        ['alt' => 'Milky pink almond set with a gold cuff ring'],
                         ['alt' => 'Micro-French in oxblood'],
-                        ['alt' => 'Gold foil, painted freehand'],
-                        ['alt' => 'A short square set, high gloss'],
-                        ['alt' => 'Negative-space line work'],
-                        ['alt' => 'A single accent nail in leaf'],
+                        ['alt' => 'Hand-painted florals on a nude base'],
                     ],
                     'image_query' => 'nail art manicure close up',
                 ]],
-                ['type' => 'offerings', 'tone' => 'muted', 'data' => [
-                    'heading' => 'The short menu',
-                    'intro' => 'The three things we are asked for most. Everything else, including art pricing, is on the menu page.',
-                    'items' => [
-                        ['group' => 'Hands', 'name' => '{service_one}', 'price' => '{service_one_price}', 'description' => 'Structure first — the apex built where it belongs, so the set grows out flat instead of lifting in week three.'],
-                        ['group' => 'Hands', 'name' => '{service_two}', 'price' => '{service_two_price}', 'description' => 'Painted freehand at the chair. Bring a reference or hand it over entirely; both go fine.'],
-                        ['group' => 'Feet', 'name' => '{service_three}', 'price' => '{service_three_price}', 'description' => 'An hour off your feet. Dry-filed, finished and out the door without a soggy sandal.'],
-                    ],
-                ]],
-                // Straight after the menu, where the visitor has just seen a
-                // price and is deciding — not at the bottom of the page, which
-                // most of them never reach. One field, because a phone number
-                // is all a salon needs to call someone back.
-                ['type' => 'signup', 'variant' => 'banner', 'tone' => 'accent', 'data' => [
-                    'heading' => 'Want a cancellation?',
-                    'offer' => 'Leave your number and we will text you when a chair comes free this week.',
-                    'fields' => 'phone',
-                    'button_label' => 'Text me',
-                    'success_message' => 'Got it — we will text you the moment something opens up.',
-                    'fine_print' => 'Only about cancellations. Reply STOP any time.',
-                ]],
-                ['type' => 'prose', 'variant' => 'side-heading', 'tone' => 'muted', 'data' => [
-                    'heading' => 'Why the room is dark',
-                    'paragraphs' => [
-                        ['text' => 'The overheads are low because nobody relaxes under a supermarket ceiling. The light that matters is at the chair — colour-true, aimed at about ten square centimetres of work, and honest about what a shade will actually look like in daylight.'],
-                        ['text' => 'Everything else is deliberate too. One client per technician, no drill on the natural nail, and a fresh tray out of the autoclave for every appointment.'],
-                    ],
-                ]],
-                ['type' => 'testimonials', 'variant' => 'grid', 'tone' => 'muted', 'data' => [
-                    'heading' => 'Said on the way out',
+                ['type' => 'testimonials', 'variant' => 'cards', 'data' => [
+                    'heading' => 'Why they keep *coming back*',
                     'testimonials' => [
                         ['quote' => 'Three weeks in and not one lift. I keep checking the edges, and they keep being fine.', 'author' => 'Priya N.', 'role' => 'In every month since 2023'],
                         ['quote' => 'I asked for something loud for a wedding and got the exact shade that was in my head, which has genuinely never happened to me before.', 'author' => 'Dominique R.', 'role' => 'Bride, June'],
                     ],
                 ]],
-                ['type' => 'cta', 'variant' => 'banner', 'tone' => 'accent', 'data' => [
-                    'heading' => 'The book opens on Sundays',
-                    'body' => 'Appointments go up a week at a time. Call and we will find you a chair — or a cancellation, which comes up more often than you would think.',
-                    'cta_label' => 'Call {phone}',
-                    'cta_url' => 'tel:{phone}',
-                    'secondary_label' => 'See the menu',
+                ['type' => 'cta', 'variant' => 'offer', 'data' => [
+                    'heading' => 'Your first set, *fifteen off*',
+                    'body' => 'New to the studio? Mention the website when you book and your first appointment is fifteen percent off.',
+                    'cta_label' => 'Book now',
+                    'cta_url' => '/contact',
+                    'secondary_label' => 'See the full menu',
                     'secondary_url' => '/services',
+                    'image_query' => 'manicure pastel nails',
                 ]],
             ],
         ];
@@ -213,37 +202,34 @@ final readonly class NailSalon
     {
         return [
             'slug' => '/services',
-            'title' => 'Menu',
+            'title' => 'Services',
             'meta_description' => 'Manicures, pedicures and nail art at {business_name} in {city}, with prices and how long each appointment takes.',
             'blocks' => [
-                ['type' => 'hero', 'variant' => 'centered-minimal', 'data' => [
-                    'eyebrow' => 'Menu',
-                    'heading' => 'What a chair gets you',
+                ['type' => 'hero', 'variant' => 'editorial', 'data' => [
+                    'eyebrow' => 'Services & prices',
+                    'heading' => 'What a chair *gets you*',
                     'subheading' => 'Every price below is the price of the appointment, not the opening bid. Art is quoted at the chair before anything is painted.',
+                    'cta_label' => 'Book an appointment',
+                    'cta_url' => '/contact',
                 ]],
-                ['type' => 'offerings', 'tone' => 'muted', 'data' => [
-                    'heading' => 'Hands, feet, and everything painted',
+                ['type' => 'offerings', 'variant' => 'price-list', 'data' => [
+                    'heading' => 'The *menu*',
                     'intro' => "Removal of our own work is included. Removal of somebody else's is fifteen dollars and no commentary.",
                     'items' => [
-                        ['group' => 'Hands', 'name' => '{service_one}', 'price' => '{service_one_price}', 'description' => 'Ninety minutes. Cuticle work under magnification, a built apex, and a finish that files flat rather than domed.'],
-                        ['group' => 'Hands', 'name' => '{service_two}', 'price' => 'from {service_two_price}', 'description' => 'Two hours with art on it. Line work, chrome, foil or hand-painted — priced by what is on the nail, agreed before we start.'],
-                        ['group' => 'Hands', 'name' => 'Removal and reset', 'price' => 'Free on our own work', 'description' => 'Soaked off slowly, never pried. If you are taking a break from gel, we will send you home with the nail in decent shape.'],
-                        ['group' => 'Feet', 'name' => '{service_three}', 'price' => '{service_three_price}', 'description' => 'No basin and no soaking — dry work holds longer and looks better the next morning. Callus work included.'],
-                        ['group' => 'Art', 'name' => 'Freehand, foil and chrome', 'price' => 'Quoted at the chair', 'description' => 'Anything from a single accent nail to ten. Show us the photo and we will tell you honestly what will survive a fortnight.'],
+                        ['group' => 'Manicures', 'name' => '{service_one}', 'price' => '{service_one_price}', 'description' => 'Ninety minutes. Cuticle work under magnification and a built apex that grows out flat.'],
+                        ['group' => 'Manicures', 'name' => 'Classic manicure', 'price' => '$40'],
+                        ['group' => 'Manicures', 'name' => 'Builder gel overlay', 'price' => '$60'],
+                        ['group' => 'Manicures', 'name' => 'Removal and reset', 'price' => '$20'],
+                        ['group' => 'Pedicures', 'name' => '{service_three}', 'price' => '{service_three_price}', 'description' => 'No basin and no soaking — dry work holds longer. Callus work included.'],
+                        ['group' => 'Pedicures', 'name' => 'Gel pedicure', 'price' => '$70'],
+                        ['group' => 'Nail art', 'name' => '{service_two}', 'price' => 'from {service_two_price}', 'description' => 'Line work, chrome, foil or hand-painted — priced by what is on the nail, agreed before we start.'],
+                        ['group' => 'Nail art', 'name' => 'Chrome or foil', 'price' => '$15'],
+                        ['group' => 'Nail art', 'name' => 'Accent nails', 'price' => '$10'],
+                        ['group' => 'Nail art', 'name' => 'French tips', 'price' => '$12'],
                     ],
                 ]],
-                ['type' => 'steps', 'variant' => 'list', 'tone' => 'base', 'data' => [
-                    'heading' => 'How an appointment runs',
-                    'intro' => 'Ninety minutes most of the time. Two hours if there is art on it.',
-                    'steps' => [
-                        ['title' => 'Ten minutes talking', 'description' => 'Shape, length, colour, and what your week looks like. If what you want will not last on your nails, you hear it now rather than at the end.'],
-                        ['title' => 'Prep, properly', 'description' => 'Cuticle work under magnification, no drill on the natural nail, and a dry, dehydrated surface before a single layer goes down.'],
-                        ['title' => 'Build, then paint', 'description' => 'Structure first, colour second, art last — painted freehand while everything is still adjustable.'],
-                        ['title' => 'Two weeks later', 'description' => 'A free file and check-in if anything catches. It rarely does, but the offer stands and people use it.'],
-                    ],
-                ]],
-                ['type' => 'faq', 'tone' => 'muted', 'data' => [
-                    'heading' => 'Asked at the desk',
+                ['type' => 'faq', 'data' => [
+                    'heading' => 'Asked at the *desk*',
                     'intro' => 'The questions that come up before a first appointment.',
                     'questions' => [
                         ['question' => 'Do you take walk-ins?', 'answer' => 'Rarely, and only when somebody cancels. Call {phone} and ask — Tuesday afternoons are the likeliest.'],
@@ -251,6 +237,13 @@ final readonly class NailSalon
                         ['question' => 'How long does a set actually last?', 'answer' => 'Three to four weeks before a fill, longer if you are gentle with them. Anything lifting inside two weeks is our problem to fix, free.'],
                         ['question' => 'Do you use a drill?', 'answer' => 'On product, yes. On your natural nail, never — that is where the thinning and the sensitivity come from.'],
                     ],
+                ]],
+                ['type' => 'cta', 'variant' => 'offer', 'data' => [
+                    'heading' => 'The book opens *on Sundays*',
+                    'body' => 'Appointments go up a week at a time. Call and we will find you a chair — or a cancellation, which comes up more often than you would think.',
+                    'cta_label' => 'Call {phone}',
+                    'cta_url' => 'tel:{phone}',
+                    'image_query' => 'nail polish bottles pastel',
                 ]],
             ],
         ];
@@ -266,28 +259,24 @@ final readonly class NailSalon
             'title' => 'Visit',
             'meta_description' => 'Address, hours and booking phone for {business_name} in {city}.',
             'blocks' => [
-                ['type' => 'hero', 'variant' => 'centered-minimal', 'data' => [
+                ['type' => 'hero', 'variant' => 'editorial', 'data' => [
                     'eyebrow' => '{city}',
-                    'heading' => 'Book a chair',
+                    'heading' => 'Book a *chair*',
                     'subheading' => 'The phone is answered between clients, so leave a message if it rings out. Everybody gets called back the same day.',
                 ]],
                 ['type' => 'contact', 'tone' => 'base', 'spacing' => 'airy', 'data' => [
-                    'heading' => 'Where to find us',
+                    'heading' => 'Send a *message*',
                     'intro' => 'Street parking is free after six. If the door is locked we are mid-appointment — buzz once and give us a minute.',
                     'show_form' => true,
                     'success_message' => 'Thank you — we will call you back the same day to put you in the book.',
                 ]],
-                ['type' => 'gallery', 'variant' => 'filmstrip', 'tone' => 'base', 'spacing' => 'tight', 'data' => [
-                    'heading' => 'The room',
-                    'images' => [
-                        ['alt' => 'The row of chairs at opening'],
-                        ['alt' => 'A work lamp over a clean tray'],
-                        ['alt' => 'The colour wall'],
-                    ],
-                    'image_query' => 'nail salon interior dark',
+                ['type' => 'visit', 'data' => [
+                    'heading' => 'The studio *today*',
+                    'intro' => 'Six chairs, by appointment. Call for a cancellation — they come up more often than you would think.',
+                    'show_hours' => true,
                 ]],
-                ['type' => 'faq', 'tone' => 'muted', 'data' => [
-                    'heading' => 'Before you book',
+                ['type' => 'faq', 'data' => [
+                    'heading' => 'Before you *book*',
                     'questions' => [
                         ['question' => 'What is the cancellation policy?', 'answer' => 'Twenty-four hours, and we mean it kindly — the chair is ninety minutes that somebody else wanted.'],
                         ['question' => 'Can I bring a picture?', 'answer' => 'Please do. It is by far the fastest way to get what is in your head onto your hands.'],

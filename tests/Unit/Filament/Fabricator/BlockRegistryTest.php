@@ -11,6 +11,11 @@ use App\Models\Tenant;
 use App\Site\Blocks\BlockIntent;
 use App\Site\Blocks\BlockType;
 use App\Site\Blocks\BlockVocabulary;
+use App\Themes\CurrentTheme;
+use App\Themes\Definitions\DefaultTheme;
+use App\Themes\Theme;
+use App\Themes\ThemeBlock;
+use App\Themes\ThemeDefinition;
 
 it('enumerates every block contract in the vocabulary', function (): void {
     $vocabulary = resolve(BlockVocabulary::class)->all();
@@ -53,6 +58,40 @@ it('enumerates every block contract in the vocabulary', function (): void {
 });
 
 /*
+ * The per-contract invariants above, for EVERY theme's vocabulary: a block
+ * class only one theme lists (credentials) is invisible to the default-theme
+ * test, so it would otherwise ship without anything checking its icon,
+ * description, sample or library intent.
+ */
+it('keeps every contract of every theme complete', function (Theme $theme): void {
+    app()->instance(CurrentTheme::class, new CurrentTheme($theme->definition()));
+
+    $vocabulary = new BlockVocabulary(BlockRegistry::contracts());
+
+    foreach ($vocabulary->all() as $type => $contract) {
+        expect($contract->icon)->not->toBeNull($type.' has no icon')
+            ->and($contract->description)->not->toBe('', $type.' has no description')
+            ->and($contract->sample)->not->toBeEmpty($type.' has no sample')
+            ->and(array_diff(array_keys($contract->sample), $contract->fields))->toBeEmpty($type.' samples a field it does not declare')
+            ->and($contract->isChrome() || $contract->intent instanceof BlockIntent)->toBeTrue($type.' has no library intent');
+    }
+})->with(Theme::cases());
+
+/*
+ * A theme-exclusive block is an ordinary registered class that one theme
+ * names: credentials is in the nail studio's vocabulary and absent from the
+ * default theme's, block library, AI tools and validator alike.
+ */
+it('offers the credentials block to the nail theme only', function (Theme $theme, bool $offered): void {
+    app()->instance(CurrentTheme::class, new CurrentTheme($theme->definition()));
+
+    expect((new BlockVocabulary(BlockRegistry::contracts()))->has('credentials'))->toBe($offered);
+})->with([
+    'default' => [Theme::Default, false],
+    'nail-luxe' => [Theme::NailLuxe, true],
+]);
+
+/*
  * The library groups by intent, and a page type without one is silently
  * dropped from the modal — a block that quietly cannot be added, with no
  * failure anywhere else. Chrome is the opposite: it is never in the library,
@@ -85,36 +124,66 @@ it('separates the page-level types from site chrome', function (): void {
         ->and($vocabulary->get('carousel'))->toBeNull();
 });
 
+/*
+ * The theme, not the registered class list, decides what a site may use. A
+ * type the theme does not list is absent from the vocabulary — and so from the
+ * block library, the AI tools and the validator — even though Fabricator still
+ * has its class registered.
+ */
+it('offers only the block types the current theme draws, with the variants it draws them in', function (): void {
+    app()->instance(CurrentTheme::class, new CurrentTheme(new ThemeDefinition(
+        label: 'Two-block',
+        blocks: [
+            'hero' => new ThemeBlock(variants: ['poster' => 'Poster', 'quiet' => 'Quiet']),
+            'heading' => new ThemeBlock,
+        ],
+        stylesheet: 'resources/themes/default/theme.css',
+        schemes: [DefaultTheme::WARM_CRAFT => defaultScheme(DefaultTheme::WARM_CRAFT)],
+    )));
+
+    $vocabulary = new BlockVocabulary(BlockRegistry::contracts());
+
+    expect(array_keys($vocabulary->all()))->toBe(['heading', 'hero'])
+        ->and($vocabulary->get('hero')?->variants)->toBe(['poster', 'quiet'])
+        ->and($vocabulary->get('hero')?->variantLabels)->toBe(['poster' => 'Poster', 'quiet' => 'Quiet'])
+        ->and($vocabulary->get('heading')?->variants)->toBe([])
+        ->and(BlockRegistry::resolveView(['type' => 'hero', 'data' => ['variant' => 'quiet']]))
+        ->toBe('themes::default.blocks.hero.quiet')
+        // The old default-theme layout is unknown under this theme.
+        ->and(BlockRegistry::resolveView(['type' => 'hero', 'data' => ['variant' => 'centered-minimal']]))
+        ->toBeNull();
+});
+
 it('resolves a valid variant to its component', function (): void {
-    expect(BlockRegistry::resolveComponent([
+    expect(BlockRegistry::resolveView([
         'type' => 'hero',
         'data' => ['variant' => 'left-text-right-image'],
-    ]))->toBe('filament-fabricator.page-blocks.hero.left-text-right-image');
+    ]))->toBe('themes::default.blocks.hero.left-text-right-image');
 });
 
 it('falls back to the default variant when none is stored', function (): void {
-    expect(BlockRegistry::resolveComponent([
+    expect(BlockRegistry::resolveView([
         'type' => 'hero',
         'data' => ['heading' => 'Hi'],
-    ]))->toBe('filament-fabricator.page-blocks.hero.centered-minimal');
+    ]))->toBe('themes::default.blocks.hero.centered-minimal');
 });
 
 it('rejects an unrecognised variant', function (): void {
-    expect(BlockRegistry::resolveComponent([
+    expect(BlockRegistry::resolveView([
         'type' => 'hero',
         'data' => ['variant' => 'does-not-exist'],
     ]))->toBeNull();
 });
 
 it('resolves a no-variant block to its bare component', function (): void {
-    expect(BlockRegistry::resolveComponent([
+    expect(BlockRegistry::resolveView([
         'type' => 'heading',
         'data' => ['content' => 'Hi'],
-    ]))->toBe('filament-fabricator.page-blocks.heading');
+    ]))->toBe('themes::default.blocks.heading');
 });
 
 it('returns null for an unknown or malformed type', function (array $block): void {
-    expect(BlockRegistry::resolveComponent($block))->toBeNull();
+    expect(BlockRegistry::resolveView($block))->toBeNull();
 })->with([
     'unknown type' => [['type' => 'nope', 'data' => []]],
     'missing type' => [['data' => ['heading' => 'x']]],
@@ -229,7 +298,6 @@ it('derives where every image-bearing type keeps its media ids', function (): vo
         'features' => [null, 'features', 'image_id'],
         'gallery' => [null, 'images', 'media_id'],
         'hero' => ['image_id', null, null],
-        'logos' => [null, 'logos', 'media_id'],
         'offerings' => [null, 'items', 'image_id'],
         'team' => [null, 'members', 'avatar_media_id'],
         'testimonials' => [null, 'testimonials', 'avatar_media_id'],

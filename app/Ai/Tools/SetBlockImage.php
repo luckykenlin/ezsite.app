@@ -15,7 +15,7 @@ use Laravel\Ai\Tools\Request;
 
 /**
  * Place an image from the tenant's media library into one block — the image on
- * a hero or CTA, a gallery/logos item, a team or testimonial avatar.
+ * a hero or CTA, a gallery item, a team or testimonial avatar.
  *
  * The media id is the only thing the model authors, and it is validated
  * against the library (RLS scopes the lookup, so a cross-tenant id simply does
@@ -41,11 +41,11 @@ final readonly class SetBlockImage implements Tool
     public function description(): string
     {
         return 'Place an image from the media library into a block: the main image of a hero or cta, '
-            .'or one item of a gallery, logos, features, offerings, team, or testimonials block '
+            .'or one item of a gallery, features, offerings, team, or testimonials block '
             .'(pass item_index for those). Use only media ids announced in this conversation — '
             .'attached images are announced with their media id. Never invent a media id. '
             .'For a photographic background, set the image here and switch the layout with the '
-            .'set block variant tool (hero: full-bleed-overlay, cta: full-photo).';
+            .'set block variant tool to one of that block\'s photographic layouts.';
     }
 
     /**
@@ -61,7 +61,7 @@ final readonly class SetBlockImage implements Tool
                 ->description('The media library id of the image, exactly as announced in this conversation.')
                 ->required(),
             'item_index' => $schema->integer()
-                ->description('For blocks whose images live on repeater items (gallery, logos, features, offerings, team, testimonials): the zero-based index of the item to change.'),
+                ->description('For blocks whose images live on repeater items (gallery, features, offerings, team, testimonials): the zero-based index of the item to change.'),
             'alt' => $schema->string()
                 ->description('Alt text for the image, when the slot supports it (gallery items). A short description of what the photo shows.'),
         ];

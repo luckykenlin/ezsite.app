@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-use App\Actions\Pages\StampPresetDefaults;
-use App\Design\StylePreset;
+use App\Actions\Pages\StampSchemeDefaults;
 use App\Models\Tenant;
+use App\Themes\Definitions\DefaultTheme;
 use Illuminate\Testing\TestResponse;
 
 /**
@@ -332,29 +332,29 @@ it('drops the viewport-filling height from the quiet hero when it carries a phot
  * unit-tested, but only a render proves the whole chain is connected —
  * preset → stamped `data.appearance` → section shell → CSS classes.
  *
- * One preset per test case rather than two in one: each needs its own tenant, and
+ * One scheme per test case rather than two in one: each needs its own tenant, and
  * a domain can only be occupied once per test.
  */
-it('renders a preset section rhythm end to end', function (StylePreset $preset, string $see, string $dontSee): void {
-    $blocks = resolve(StampPresetDefaults::class)->handle([
+it('renders a scheme section rhythm end to end', function (string $scheme, string $see, string $dontSee): void {
+    $blocks = resolve(StampSchemeDefaults::class)->handle([
         ['type' => 'features', 'data' => ['heading' => 'Why us']],
         ['type' => 'gallery', 'data' => ['heading' => 'Our work']],
-    ], $preset);
+    ], defaultScheme($scheme));
 
     renderBlocks($blocks, 'acme')
         ->assertSeeHtml($see)
         ->assertDontSeeHtml($dontSee);
 })->with([
-    // Editorial is the one preset that puts photographs on black, and it runs
+    // Editorial is the one scheme that puts photographs on black, and it runs
     // compact throughout.
     'bold-editorial goes dark and tight' => [
-        StylePreset::BoldEditorial,
+        DefaultTheme::BOLD_EDITORIAL,
         '<div data-animate class="py-16 md:py-20">',
         '<div data-animate class="py-24 md:py-32">',
     ],
     // Coastal never goes dark and gives everything room.
     'calm-coastal stays light and airy' => [
-        StylePreset::CalmCoastal,
+        DefaultTheme::CALM_COASTAL,
         '<div data-animate class="py-24 md:py-32">',
         'bg-neutral text-neutral-content',
     ],

@@ -8,8 +8,6 @@ use App\Ai\ChatAttachment;
 use App\Ai\PageDraft;
 use App\Ai\SiteChromeDraft;
 use App\Ai\SiteStyleDraft;
-use App\Design\ColorPalette;
-use App\Design\StylePreset;
 use App\Enums\BindType;
 use App\Enums\ChromeSlot;
 use App\Models\Business;
@@ -17,6 +15,8 @@ use App\Models\Page;
 use App\Site\Blocks\BlockType;
 use App\Site\Blocks\LayoutAxis;
 use App\Site\SiteContext;
+use App\Themes\Scheme;
+use App\Themes\ThemeDefinition;
 use Stringable;
 
 /**
@@ -51,6 +51,7 @@ final readonly class PageEditPrompt implements Stringable
         private array $vocabulary,
         private ?Business $business,
         private string $message,
+        private ThemeDefinition $theme,
         private ?SiteContext $site = null,
         private ?SiteStyleDraft $style = null,
         private ?SiteChromeDraft $chrome = null,
@@ -302,13 +303,16 @@ final readonly class PageEditPrompt implements Stringable
      * profile means no token row to write to, so it would invite a call that
      * cannot land. But that case still gets a SECTION: silence left the model
      * improvising excuses for a verb it mysteriously lacked, where one line
-     * lets it say plainly why a style request cannot be served yet. ~150
+     * lets it say plainly why a style request cannot be served yet. ~120
      * tokens with the menu, and it is the whole grounding for "make it more
-     * premium": {@see StylePreset::vibes()} holds INDUSTRY nouns, so without
-     * `synonyms()` in the prompt an adjective has nothing to match against and
-     * the model free-associates among six labels. The palette lines do the
-     * same job for colours — "deep blue" has to land on a slug, and the slugs
-     * alone don't say which.
+     * premium": {@see Scheme::$vibes} holds INDUSTRY nouns, so without the
+     * scheme synonyms in the prompt an adjective has nothing to match against
+     * and the model free-associates among six labels. The menu is the current
+     * theme's, so the model is only offered looks the tenant's theme draws.
+     *
+     * A scheme and brand colours are the whole vocabulary — the model is told
+     * so outright, because the tool used to take individual settings and a
+     * model that remembers that will keep asking for them.
      */
     private function styleSection(): string
     {
@@ -320,18 +324,13 @@ final readonly class PageEditPrompt implements Stringable
         }
 
         $lines = array_map(
-            static fn (StylePreset $preset): string => sprintf(
+            static fn (Scheme $scheme): string => sprintf(
                 '- %s — %s Words: %s',
-                $preset->value,
-                $preset->description(),
-                implode(', ', $preset->synonyms()),
+                $scheme->slug,
+                $scheme->description,
+                implode(', ', $scheme->synonyms),
             ),
-            StylePreset::cases(),
-        );
-
-        $palettes = array_map(
-            static fn (ColorPalette $palette): string => sprintf('- %s — %s', $palette->value, $palette->guide()),
-            ColorPalette::cases(),
+            array_values($this->theme->schemes),
         );
 
         return "## Site style\n"
@@ -343,11 +342,9 @@ final readonly class PageEditPrompt implements Stringable
             .implode("\n", $lines)
             ."\nMatch the operator's own words against the \"Words\" list. A brand or website they "
             .'name is translated into those words, never stored or repeated back.'
-            ."\nThe colour palettes:\n"
-            .implode("\n", $palettes)
-            ."\nA colour request (\"make it blue\", \"a deep blue main colour\") is a palette "
-            .'fine-tune, NOT a style change: pick the palette whose words match theirs and leave '
-            .'the other settings alone.';
+            ."\nThere are no individual settings to fine-tune: a colour request (\"make it blue\") "
+            .'picks the style whose description matches, and an exact colour they name (a hex, "our '
+            .'deep blue") is a brand colour, which only shows on a style built on the brand palette.';
     }
 
     /**

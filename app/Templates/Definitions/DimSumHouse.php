@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace App\Templates\Definitions;
 
 use App\Design\ColorPalette;
-use App\Design\StylePreset;
 use App\Enums\PhotoCategory;
 use App\StockPhotos\PhotoOrientation;
 use App\Templates\DemoProfile;
 use App\Templates\PhotoQuery;
 use App\Templates\TemplateDefinition;
 use App\Templates\TemplateField;
+use App\Themes\Definitions\DefaultTheme;
 
 /**
  * Cantonese tea house — the menu-card showcase.
@@ -35,7 +35,7 @@ final readonly class DimSumHouse
     public static function definition(): TemplateDefinition
     {
         return new TemplateDefinition(
-            preset: StylePreset::WarmCraft,
+            scheme: DefaultTheme::WARM_CRAFT,
             brandPrimary: '#8B1E1E',
             brandSecondary: '#241E17',
             brandAccent: '#C9A24B',
@@ -229,14 +229,6 @@ final readonly class DimSumHouse
                         ['text' => 'The founder learned to fold dumplings standing on a crate in a Guangzhou tea house, because the bench was built for grown-ups and the trade was not. Fifty years later the crate is gone and the standard is not: every pleat by hand, every morning, before the doors open.'],
                         ['text' => 'Food here is not just sustenance — it is a bridge between generations. The dining room has hosted first dates and their weddings, red-egg parties and retirement banquets, and one proposal that had the whole floor pretending not to watch.'],
                         ['text' => 'The kitchen has grown, the carts have multiplied, and the duck still takes a full day. Some things should not scale.'],
-                    ],
-                ]],
-                ['type' => 'stats', 'tone' => 'muted', 'data' => [
-                    'heading' => 'By the numbers',
-                    'stats' => [
-                        ['value' => '30', 'label' => 'Years of morning folds'],
-                        ['value' => '19', 'label' => 'Pleats in a proper har gow'],
-                        ['value' => '24', 'label' => "Hours to earn a duck's skin"],
                     ],
                 ]],
                 ['type' => 'gallery', 'variant' => 'masonry', 'data' => [

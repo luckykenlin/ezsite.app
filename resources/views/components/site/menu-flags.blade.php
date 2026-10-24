@@ -21,7 +21,7 @@
         marks are a menu's lingua franca — a chilli, a leaf and a struck ear of
         wheat say in one glyph what a lettermark badge would make diners decode.
         Three fixed glyphs, currentColor strokes, coloured by the flag classes
-        in site.css.
+        in the theme stylesheet (resources/themes/{theme}/theme.css).
     --}}
     <span
         class="site-menu-flags"

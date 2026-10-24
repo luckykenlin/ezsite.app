@@ -8,6 +8,7 @@ use App\Models\Location;
 use App\Models\Page;
 use App\Models\Tenant;
 use App\Templates\SiteTemplate;
+use App\Themes\Theme;
 
 it('rolls the whole site back when a step throws mid-way', function (): void {
     // The action owns the transaction precisely so a caller cannot forget it:
@@ -27,4 +28,24 @@ it('rolls the whole site back when a step throws mid-way', function (): void {
             ->and(Business::query()->count())->toBe(0)
             ->and(Location::query()->count())->toBe(0);
     });
+});
+
+/*
+ * Both provisioners build this action in the CENTRAL context, where the
+ * current theme is the default one. A template on a vertical theme must still
+ * land with its own layouts and its theme-exclusive blocks — validated against
+ * the theme the tenant renders through, not the one current where the action
+ * happened to be constructed.
+ */
+it('validates the draft against the provisioned tenant\'s theme, wherever the action was built', function (): void {
+    $tenant = Tenant::factory()->create(['theme' => Theme::NailLuxe]);
+    $action = resolve(ApplyTemplateToTenant::class);
+
+    $this->runInTenant($tenant, fn (): Business => $action->handle($tenant, SiteTemplate::NailSalon->definition()));
+
+    $home = Page::query()->where('slug', '/')->firstOrFail();
+    $blocks = $home->draft ?? $home->blocks;
+
+    expect(array_column($blocks, 'type'))->toContain('credentials')
+        ->and($blocks[0]['data']['variant'])->toBe('arch');
 });

@@ -66,7 +66,8 @@ enum SectionTone: string
             self::Muted => 'bg-base-200 text-base-content',
             // Not `bg-primary`: the accent surface is a token
             // (App\Design\AccentStyle fills --accent-surface, which may be a
-            // gradient), and only a component class in site.css can consume
+            // gradient), and only a component class in the theme stylesheet
+            // (resources/themes/{theme}/theme.css) can consume
             // it — a Tailwind utility cannot carry a var-driven gradient.
             self::Accent => 'site-tone-accent',
             self::Inverted => 'bg-neutral text-neutral-content',
@@ -126,8 +127,9 @@ enum SectionTone: string
      *
      * The `.site-*` classes are ours, not DaisyUI's: the button silhouette is
      * the most recognisable object on a generated page, and while it came from
-     * a plugin every site the builder produced wore the same one. site.css
-     * `@source`s these enums so the strings compile.
+     * a plugin every site the builder produced wore the same one. The theme
+     * stylesheet (resources/themes/{theme}/theme.css) `@source`s these enums
+     * so the strings compile.
      */
     public function buttonClasses(): string
     {

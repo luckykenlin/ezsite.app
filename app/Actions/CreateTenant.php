@@ -7,6 +7,7 @@ namespace App\Actions;
 use App\Models\Domain;
 use App\Models\Tenant;
 use App\Templates\SiteTemplate;
+use App\Themes\Theme;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -25,6 +26,9 @@ final readonly class CreateTenant
      *                                  de-duplicates it
      * @param  SiteTemplate|null  $template  which industry template this site was
      *                                       built from, recorded for attribution
+     * @param  Theme  $theme  which design package renders the site; every
+     *                        theme-aware seam reads it back through
+     *                        {@see \App\Themes\CurrentTheme}
      */
     public function handle(
         string $name,
@@ -32,12 +36,14 @@ final readonly class CreateTenant
         ?string $subdomain = null,
         ?SiteTemplate $template = null,
         bool $isDemo = false,
+        Theme $theme = Theme::Default,
     ): Tenant {
-        return DB::transaction(function () use ($name, $email, $subdomain, $template, $isDemo): Tenant {
+        return DB::transaction(function () use ($name, $email, $subdomain, $template, $isDemo, $theme): Tenant {
             $tenant = Tenant::query()->create([
                 'name' => $name,
                 'email' => $email,
                 'template' => $template,
+                'theme' => $theme,
                 'is_demo' => $isDemo,
             ]);
 

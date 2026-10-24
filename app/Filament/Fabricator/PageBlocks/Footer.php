@@ -34,15 +34,6 @@ final class Footer extends Block
         'note' => 'Replace this with your own footer note.',
     ];
 
-    /**
-     * @var array<string, string>
-     */
-    protected static array $variants = [
-        'columns' => 'Brand, links and contact columns',
-        'minimal' => 'Single centered row',
-        'soft' => 'Soft light',
-    ];
-
     protected static ?BindType $bindType = BindType::Location;
 
     /**

@@ -6,13 +6,9 @@ use App\Models\Tenant;
 use Illuminate\Testing\TestResponse;
 
 /**
- * View logic for the three "proof" blocks — steps, team and logos.
- *
- * Grouped because what needs guarding in each is the same KIND of rule: what the
- * view generates rather than stores (step numbers, initials) and what it refuses
- * to render at all (an incomplete item). Cross-block behaviour that every type
- * shares stays in BlockRenderTest; stats has no logic of its own beyond the
- * required pair, which is covered there.
+ * View logic for the team block — the "proof" block that generates something
+ * the operator never stores (initials) and refuses to render an incomplete
+ * item. Cross-block behaviour that every type shares stays in BlockRenderTest.
  */
 function renderProofBlock(string $type, array $data, string $subdomain = 'acme'): TestResponse
 {
@@ -22,39 +18,6 @@ function renderProofBlock(string $type, array $data, string $subdomain = 'acme')
 
     return test()->get(sprintf('http://%s.%s/', $subdomain, test()->centralDomain()))->assertOk();
 }
-
-/*
- * The numbers come from the item's POSITION, never from stored content. An
- * operator who types "1." into a title has a page that lies the moment they
- * delete step one — and deleting a step mid-list is precisely what this block
- * gets edited for.
- */
-it('numbers steps from their position, so deleting one renumbers the rest', function (): void {
-    $response = renderProofBlock('steps', [
-        'steps' => [
-            ['title' => 'Second step, now first'],
-            ['title' => 'Third step, now second'],
-        ],
-    ]);
-
-    $response->assertSeeHtmlInOrder(['>1<', 'Second step, now first', '>2<', 'Third step, now second'])
-        // aria-hidden, because the <ol> already conveys the ordinal — a screen
-        // reader would otherwise hear "one one". Asserted separately from the
-        // number itself: the two sit in one multi-line tag, and pairing them
-        // would couple this test to Blade's attribute formatting.
-        ->assertSeeHtml('aria-hidden="true"');
-});
-
-it('skips a step with no title', function (): void {
-    $response = renderProofBlock('steps', [
-        'steps' => [['title' => 'Real step'], ['description' => 'Orphaned description']],
-    ]);
-
-    $response->assertSee('Real step')->assertDontSee('Orphaned description');
-
-    // The surviving step is still numbered 1, and there is no second <li>.
-    expect(mb_substr_count($response->getContent(), '<li class="flex gap-5">'))->toBe(1);
-});
 
 /*
  * Initials rather than a broken image frame: a team block is worth adding before
@@ -84,46 +47,4 @@ it('skips a team member with no name', function (): void {
     ]);
 
     $response->assertSee('Dana Reed')->assertDontSee('Nobody in particular');
-});
-
-/*
- * A trust row with a hole in it does the opposite of its job, so an entry missing
- * either half is dropped. `name` counts as a half: a logo is a picture of a word,
- * so without it a screen reader gets nothing at all.
- */
-it('drops a logo that has no image or no name', function (): void {
-    $response = renderProofBlock('logos', [
-        'logos' => [
-            ['url' => 'https://example.com/acme.png', 'name' => 'Acme Corp'],
-            ['name' => 'No image here'],
-            ['url' => 'https://example.com/nameless.png'],
-        ],
-    ]);
-
-    $response->assertSee('Acme Corp')->assertDontSee('No image here');
-
-    expect(mb_substr_count($response->getContent(), '<img'))->toBe(1);
-});
-
-it('wraps a logo in a link only when it has somewhere to go', function (): void {
-    $withLink = renderProofBlock('logos', [
-        'logos' => [[
-            'url' => 'https://example.com/acme.png',
-            'name' => 'Acme Corp',
-            'link_url' => 'https://acme.test',
-        ]],
-    ]);
-
-    $withLink->assertSeeHtml('href="https://acme.test"')
-        // Colour on hover only for a link: a static logo has nothing to react to.
-        ->assertSeeHtml('hover:grayscale-0');
-});
-
-it('leaves an unlinked logo static, with no hover treatment', function (): void {
-    renderProofBlock('logos', [
-        'logos' => [['url' => 'https://example.com/acme.png', 'name' => 'Acme Corp']],
-    ])
-        ->assertSeeHtml('grayscale')
-        ->assertDontSeeHtml('hover:grayscale-0')
-        ->assertDontSeeHtml('<a href="https://example.com');
 });

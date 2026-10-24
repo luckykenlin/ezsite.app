@@ -49,7 +49,7 @@ it('never fills a call to action with the colour of the band behind it', functio
     // Filled from the band's own CONTENT colour, which is the one slot
     // ColorPaletteTest guarantees reads against it — in every palette,
     // including the two monochrome ones where `neutral` would not have. The
-    // colour itself lives on the class in site.css; what this asserts is that
+    // colour itself lives on the class in the theme stylesheet; what this asserts is that
     // the accent band reaches for a DIFFERENT fill than every other band.
     expect($button)->toBe('site-btn site-btn-on-accent')
         ->and($button)->not->toContain('site-btn-primary');

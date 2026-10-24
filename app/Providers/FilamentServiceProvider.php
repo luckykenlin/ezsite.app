@@ -7,6 +7,7 @@ namespace App\Providers;
 use App\Design\ThemeVariables;
 use App\Site\BindResolver;
 use App\Site\Favicon;
+use App\Themes\CurrentTheme;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
@@ -37,19 +38,18 @@ final class FilamentServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        // Load the tenant site's stylesheet into the <head> of every
-        // FilamentFabricator-rendered front-end page, via the plugin's own asset
-        // API. Skipped in the console: registerStyles evaluates Vite eagerly at
-        // boot and there is no build manifest during artisan commands (tests,
-        // `package:discover` in CI, queue workers) — and the front-end is never
-        // served from the console anyway, so the stylesheet isn't needed there.
+        // The site's only script: progressive enhancement for the capture
+        // forms and the offer popup, shared by every theme. Skipped in the
+        // console: registerScripts evaluates Vite eagerly at boot and there is
+        // no build manifest during artisan commands (tests, `package:discover`
+        // in CI, queue workers) — and the front-end is never served from the
+        // console anyway. Everything it does degrades to plain HTML, and it
+        // bails out inside the editor canvas (see resources/js/site.ts).
+        //
+        // The STYLESHEET is not registered here: it is the theme's, and the
+        // theme is the tenant's, which boot cannot know. It is emitted by the
+        // HEAD_END hook below, which runs per render.
         if (! $this->app->runningInConsole()) {
-            FilamentFabricator::registerStyles([resolve(Vite::class)('resources/css/site.css')]);
-
-            // The site's only script: progressive enhancement for the capture
-            // forms and the offer popup. Same console caveat as the stylesheet
-            // above. Everything it does degrades to plain HTML, and it bails
-            // out inside the editor canvas (see resources/js/site.ts).
             FilamentFabricator::registerScripts([resolve(Vite::class)('resources/js/site.ts')]);
         }
 
@@ -62,26 +62,32 @@ final class FilamentServiceProvider extends ServiceProvider
             $this->registerFabricatorComponentsForConsole();
         }
 
-        // Per-tenant theme and identity: the tenant's font preloads, its
-        // design-token CSS variables, and its favicon, emitted into the
-        // Fabricator front-end <head>. This hook rather than the base-layout
-        // override, which is a deliberate verbatim copy of the package's and
-        // stays that way. Registered unconditionally (unlike registerStyles
-        // above) — the closure is lazy, it only runs when a Fabricator page
-        // renders, and Vite::fonts() degrades to '' when no build manifest
-        // exists (tests, CI).
+        // Per-tenant theme and identity, emitted into the Fabricator front-end
+        // <head>: the current theme's stylesheet, then — when the tenant has a
+        // Business — its font preloads, its design-token CSS variables and its
+        // favicon. This hook rather than the base-layout override, which is a
+        // deliberate verbatim copy of the package's and stays that way.
+        // Registered unconditionally (unlike registerScripts above) — the
+        // closure is lazy, it only runs when a Fabricator page renders.
         FilamentView::registerRenderHook(LayoutRenderHook::HEAD_END, function (): HtmlString {
+            // The stylesheet is skipped in a console process (a queue worker
+            // rendering a page), where there is no Vite manifest to read —
+            // the guard registerScripts above has always had. Unit tests run
+            // in the console but fake Vite, so they keep the tag.
+            $stylesheet = $this->app->runningInConsole() && ! $this->app->runningUnitTests() ? '' : resolve(Vite::class)([resolve(CurrentTheme::class)->definition()->stylesheet])->toHtml();
+
             // Reuse the request-scoped BindResolver so theming shares the
             // page render's single memoized business query — and never
             // touch it outside tenancy, where the query would be unscoped.
             $business = tenant() === null ? null : resolve(BindResolver::class)->business();
 
             if ($business === null) {
-                return new HtmlString('');
+                return new HtmlString($stylesheet);
             }
 
             return new HtmlString(
-                resolve(Vite::class)->fonts($business->design_tokens->fontPair->viteAliases())
+                $stylesheet
+                .resolve(Vite::class)->fonts($business->design_tokens->fontPair->viteAliases())
                 .ThemeVariables::style($business)->toHtml()
                 .Favicon::links($business)->toHtml(),
             );

@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Templates\Definitions;
 
-use App\Design\StylePreset;
 use App\Enums\PhotoCategory;
 use App\StockPhotos\PhotoOrientation;
 use App\Templates\DemoProfile;
 use App\Templates\PhotoQuery;
 use App\Templates\TemplateDefinition;
 use App\Templates\TemplateField;
+use App\Themes\Definitions\DefaultTheme;
 
 /**
  * Family Chinese restaurant — the bind-heavy pilot.
@@ -30,7 +30,7 @@ final readonly class ChineseRestaurant
     public static function definition(): TemplateDefinition
     {
         return new TemplateDefinition(
-            preset: StylePreset::WarmCraft,
+            scheme: DefaultTheme::WARM_CRAFT,
             brandPrimary: '#8C2F1F',
             brandSecondary: '#2F2A24',
             brandAccent: '#C8963E',
@@ -212,14 +212,6 @@ final readonly class ChineseRestaurant
                         ['text' => 'We opened with eight tables and a menu written by hand. Most of the dishes on it are still on it, because the people who order them would notice.'],
                         ['text' => 'What has changed is everything around them — a bigger room, a second wok, and a queue on Friday nights we still find slightly unbelievable.'],
                         ['text' => 'What has not changed is who cooks. It is the same family, most nights, in the same kitchen.'],
-                    ],
-                ]],
-                ['type' => 'stats', 'tone' => 'muted', 'data' => [
-                    'heading' => 'By the numbers',
-                    'stats' => [
-                        ['value' => '30', 'label' => 'Years on the same street'],
-                        ['value' => '3', 'label' => 'Generations at the wok'],
-                        ['value' => '1', 'label' => 'Recipe book, unwritten'],
                     ],
                 ]],
                 ['type' => 'gallery', 'variant' => 'grid', 'data' => [

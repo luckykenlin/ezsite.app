@@ -24,6 +24,7 @@ use App\Enums\ChatRole;
 use App\Models\Page;
 use App\Models\PageChatMessage;
 use App\Models\Tenant;
+use App\Themes\Definitions\DefaultTheme;
 use Laravel\Ai\Messages\UserMessage;
 use Laravel\Ai\Tools\Request;
 
@@ -124,6 +125,29 @@ it('binds every tool to the one draft the caller can read back', function (): vo
     $tools[class_basename(RemoveBlock::class)]->handle(new Request(['key' => 'k1']));
 
     expect(array_column($draft->blocks(), 'type'))->toBe(['cta']);
+});
+
+/*
+ * The look a NEW page is laid out in is the SAVED scheme, resolved through the
+ * current theme — never this turn's staged one, because the page is written to
+ * the database and should match the style the site actually has. Observed end
+ * to end through the page verb itself: the private argument has no other
+ * witness, and a wrong one would only show as a page in the wrong rhythm.
+ */
+it("hands the page verb the site's saved scheme, resolved through the current theme", function (): void {
+    $tenant = Tenant::factory()->create();
+    $style = new SiteStyleDraft(defaultScheme(DefaultTheme::BOLD_EDITORIAL)->tokens);
+
+    $tools = collect(editorAgent(new PageDraft([]), style: $style)->tools())
+        ->keyBy(fn (object $tool): string => class_basename($tool));
+
+    $this->runInTenant($tenant, fn (): string => $tools[class_basename(CreatePage::class)]
+        ->handle(new Request(['title' => 'Work', 'sections' => ['gallery']])));
+
+    $blocks = $this->runInTenant($tenant, fn (): array => Page::query()->where('slug', 'work')->sole()->blocks);
+
+    expect($blocks[0]['data']['appearance'])
+        ->toBe(defaultScheme(DefaultTheme::BOLD_EDITORIAL)->blockAppearanceDefaults['gallery']);
 });
 
 it('remembers this page conversation oldest first, and ignores other pages', function (): void {

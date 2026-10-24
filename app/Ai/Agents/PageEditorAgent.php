@@ -12,7 +12,7 @@ use App\Actions\Pages\CreatePageFromName;
 use App\Actions\Pages\DuplicatePage as DuplicatePageAction;
 use App\Actions\Pages\RemovePageBlock;
 use App\Actions\Pages\ReorderPageBlocks;
-use App\Actions\Pages\StampPresetDefaults;
+use App\Actions\Pages\StampSchemeDefaults;
 use App\Actions\Pages\UpdatePageBlock;
 use App\Ai\BlockDataSanitizer;
 use App\Ai\ChatAttachment;
@@ -40,6 +40,8 @@ use App\Models\Page;
 use App\Models\PageChatMessage;
 use App\Site\Blocks\BlockVocabulary;
 use App\StockPhotos\StockPhotoProvider;
+use App\Themes\CurrentTheme;
+use App\Themes\Scheme;
 use Laravel\Ai\Attributes\MaxSteps;
 use Laravel\Ai\Attributes\Temperature;
 use Laravel\Ai\Attributes\Timeout;
@@ -348,17 +350,19 @@ final readonly class PageEditorAgent implements Agent, Conversational, HasTools
             new CreatePage(
                 resolve(CreatePageFromName::class),
                 $vocabulary,
-                resolve(StampPresetDefaults::class),
-                // The SAVED preset, not this turn's staged one: the new page is
+                resolve(StampSchemeDefaults::class),
+                // The SAVED scheme, not this turn's staged one: the new page is
                 // written to the database, so its layouts should match the style
                 // the site actually has, not one the operator has yet to apply.
-                $this->style?->saved()->preset,
+                // Resolved through the current theme, so a slug the theme no
+                // longer knows reads as "no scheme" rather than a stale map.
+                $this->savedScheme(),
             ),
             new DuplicatePage($this->draft, $this->page, resolve(DuplicatePageAction::class)),
         ];
 
         if ($this->style instanceof SiteStyleDraft) {
-            $tools[] = new SetSiteStyle($this->style, $this->draft, resolve(StampPresetDefaults::class));
+            $tools[] = new SetSiteStyle($this->style, $this->draft, resolve(StampSchemeDefaults::class), resolve(CurrentTheme::class));
         }
 
         // Withheld on the same condition as the design tools, for a reason of its
@@ -369,5 +373,17 @@ final readonly class PageEditorAgent implements Agent, Conversational, HasTools
         }
 
         return $tools;
+    }
+
+    /**
+     * The scheme the site is SAVED on, resolved through the current theme —
+     * null with no style draft (no Business profile), on a custom look, or
+     * when the stored slug is one the theme no longer offers.
+     */
+    private function savedScheme(): ?Scheme
+    {
+        $slug = $this->style?->saved()->scheme;
+
+        return $slug === null ? null : resolve(CurrentTheme::class)->definition()->scheme($slug);
     }
 }

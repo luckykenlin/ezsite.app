@@ -4,15 +4,15 @@ declare(strict_types=1);
 
 use App\Actions\Pages\CreatePageFromName;
 use App\Actions\Pages\DuplicatePage as DuplicatePageAction;
-use App\Actions\Pages\StampPresetDefaults;
+use App\Actions\Pages\StampSchemeDefaults;
 use App\Ai\PageDraft;
 use App\Ai\Tools\CreatePage;
 use App\Ai\Tools\DuplicatePage;
-use App\Design\StylePreset;
 use App\Enums\PageStatus;
 use App\Models\Page;
 use App\Models\Tenant;
 use App\Site\Blocks\BlockVocabulary;
+use App\Themes\Definitions\DefaultTheme;
 use Illuminate\JsonSchema\JsonSchemaTypeFactory;
 use Laravel\Ai\Tools\Request;
 
@@ -32,13 +32,13 @@ beforeEach(function (): void {
     $this->tenant = Tenant::factory()->withDomain('acme')->create();
 });
 
-function createPageTool(?StylePreset $preset = null): CreatePage
+function createPageTool(?string $scheme = null): CreatePage
 {
     return new CreatePage(
         resolve(CreatePageFromName::class),
         resolve(BlockVocabulary::class),
-        resolve(StampPresetDefaults::class),
-        $preset,
+        resolve(StampSchemeDefaults::class),
+        $scheme === null ? null : defaultScheme($scheme),
     );
 }
 
@@ -82,17 +82,17 @@ it('starts a page with a skeleton of real sections, each with its sample copy', 
 
 /*
  * A new page should look like it belongs to the site before anyone types into it,
- * so the site's preset supplies both halves — layouts and section rhythm.
+ * so the site's scheme supplies both halves — layouts and section rhythm.
  */
-it("lays the new page out in the site's own style when it is on a preset", function (): void {
-    $this->runInTenant($this->tenant, fn (): string => createPageTool(StylePreset::BoldEditorial)
+it("lays the new page out in the site's own style when it is on a scheme", function (): void {
+    $this->runInTenant($this->tenant, fn (): string => createPageTool(DefaultTheme::BOLD_EDITORIAL)
         ->handle(new Request(['title' => 'Work', 'sections' => ['hero', 'gallery']])));
 
     $blocks = $this->runInTenant($this->tenant, fn (): array => Page::query()->where('slug', 'work')->sole()->blocks);
 
     expect($blocks[0]['data']['variant'])->toBe('full-bleed-overlay')
         ->and($blocks[1]['data']['appearance'])
-        ->toBe(StylePreset::BoldEditorial->blockAppearanceDefaults()['gallery']);
+        ->toBe(defaultScheme(DefaultTheme::BOLD_EDITORIAL)->blockAppearanceDefaults['gallery']);
 });
 
 it("falls back to each block's own default layout when the site has no preset", function (): void {

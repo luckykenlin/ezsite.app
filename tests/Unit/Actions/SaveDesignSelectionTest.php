@@ -3,15 +3,12 @@
 declare(strict_types=1);
 
 use App\Actions\SaveDesignSelection;
-use App\Design\ColorPalette;
-use App\Design\FontPair;
-use App\Design\RadiusScale;
-use App\Design\SpacingDensity;
-use App\Design\StylePreset;
-use App\Design\TokenKey;
 use App\Models\Business;
 use App\Models\Tenant;
+use App\Templates\SiteTemplate;
 use App\Tenancy\RunInTenant;
+use App\Themes\Definitions\DefaultTheme;
+use Illuminate\Support\Facades\DB;
 
 /**
  * @return array{Tenant, Business}
@@ -21,28 +18,10 @@ function designSelectionBusiness(): array
     $tenant = Tenant::factory()->create();
     $business = resolve(RunInTenant::class)->handle(
         $tenant,
-        fn (): Business => Business::factory()->themed(StylePreset::WarmCraft)->create(['tenant_id' => $tenant->id]),
+        fn (): Business => Business::factory()->themed(DefaultTheme::WARM_CRAFT)->create(['tenant_id' => $tenant->id]),
     );
 
     return [$tenant, Business::query()->findOrFail($business->getKey())];
-}
-
-/**
- * @return array<string, string>
- */
-function selectionFor(StylePreset $preset): array
-{
-    // The fixture mirrors what the Design form actually posts: one field per
-    // TokenKey, so a token added to the system is submitted here too instead
-    // of silently "diverging" and detaching every preset.
-    $tokens = $preset->tokens();
-    $selection = ['preset' => $preset->value];
-
-    foreach (TokenKey::cases() as $key) {
-        $selection[$key->value] = $key->valueOn($tokens);
-    }
-
-    return $selection;
 }
 
 /*
@@ -59,7 +38,7 @@ it('persists valid brand hexes and keeps the rest of the row for absent or junk 
         $business->update(['brand_primary' => '#111111', 'brand_secondary' => '#222222']);
 
         resolve(SaveDesignSelection::class)->handle($business, [
-            ...selectionFor(StylePreset::WarmCraft),
+            'scheme' => DefaultTheme::WARM_CRAFT,
             'brand_primary' => '#1A2B3C',
             // Junk is ignored, not written: this string would land inside a
             // <style> tag on the public site.
@@ -75,59 +54,67 @@ it('persists valid brand hexes and keeps the rest of the row for absent or junk 
         ->and($stored->brand_accent)->toBe($accentBefore);
 });
 
-it('saves an untouched preset as that preset', function (): void {
+it('saves a scheme the current theme offers as the whole look', function (): void {
     [$tenant, $business] = designSelectionBusiness();
 
     $this->runInTenant($tenant, fn (): Business => resolve(SaveDesignSelection::class)
-        ->handle($business, selectionFor(StylePreset::BoldEditorial)));
+        ->handle($business, ['scheme' => DefaultTheme::BOLD_EDITORIAL]));
 
     $tokens = Business::query()->findOrFail($business->getKey())->design_tokens;
 
-    expect($tokens->preset)->toBe(StylePreset::BoldEditorial)
-        ->and($tokens->palette)->toBe(StylePreset::BoldEditorial->tokens()->palette);
+    expect($tokens->toArray())->toBe(defaultScheme(DefaultTheme::BOLD_EDITORIAL)->tokens->toArray());
 });
 
-it('detaches the preset as soon as one fine-tune field diverges', function (): void {
+/*
+ * A slug the current theme does not offer — another theme's, a retired one,
+ * one the browser invented — is not a scheme here. Ignored rather than stored
+ * or substituted, and the brand hexes in the same selection still land.
+ */
+it('ignores a scheme the current theme does not offer, saving the brand hexes regardless', function (): void {
     [$tenant, $business] = designSelectionBusiness();
 
-    // BoldEditorial's own radius is None, so Full is a genuine divergence.
-    $selection = [...selectionFor(StylePreset::BoldEditorial), 'radius' => RadiusScale::Full->value];
-
     $this->runInTenant($tenant, fn (): Business => resolve(SaveDesignSelection::class)
-        ->handle($business, $selection));
+        ->handle($business, ['scheme' => 'no-such-scheme', 'brand_primary' => '#1a2b3c']));
 
-    $tokens = Business::query()->findOrFail($business->getKey())->design_tokens;
+    $stored = Business::query()->findOrFail($business->getKey());
 
-    expect($tokens->preset)->toBeNull()
-        ->and($tokens->radius)->toBe(RadiusScale::Full)
-        ->and($tokens->palette)->toBe(StylePreset::BoldEditorial->tokens()->palette);
+    expect($stored->design_tokens->scheme)->toBe(DefaultTheme::WARM_CRAFT)
+        ->and($stored->brand_primary)->toBe('#1a2b3c');
 });
 
-it('treats a cleared preset as a custom combination', function (): void {
+it('leaves the tokens untouched when the selection names no scheme', function (): void {
     [$tenant, $business] = designSelectionBusiness();
 
-    $selection = [...selectionFor(StylePreset::BoldEditorial), 'preset' => null];
+    $before = $business->design_tokens->toArray();
 
-    $this->runInTenant($tenant, fn (): Business => resolve(SaveDesignSelection::class)
-        ->handle($business, $selection));
+    $returned = $this->runInTenant($tenant, fn (): Business => resolve(SaveDesignSelection::class)
+        ->handle($business, ['scheme' => null, 'palette' => 'ocean']));
 
-    $tokens = Business::query()->findOrFail($business->getKey())->design_tokens;
-
-    expect($tokens->preset)->toBeNull()
-        ->and($tokens->fontPair)->toBe(StylePreset::BoldEditorial->tokens()->fontPair);
+    expect($returned->is($business))->toBeTrue()
+        // The stray axis in the selection is not a write path: nothing may
+        // change one axis independently of a scheme.
+        ->and(Business::query()->findOrFail($business->getKey())->design_tokens->toArray())->toBe($before);
 });
 
-it('leaves a token untouched when the form omits its field', function (): void {
-    [$tenant, $business] = designSelectionBusiness();
+/*
+ * What a brand edit hands over: hexes and no scheme. On a template-provisioned
+ * look (DimSumHouse — WarmCraft's marker on the Brand palette, a combination
+ * no scheme's bare bundle matches) the stored tokens must not move by a byte;
+ * re-applying the scheme here is exactly how the override used to be lost.
+ */
+it('leaves overridden tokens byte-identical when the selection is brand hexes only', function (): void {
+    $tenant = Tenant::factory()->create();
+    $business = resolve(RunInTenant::class)->handle($tenant, fn (): Business => Business::factory()->create([
+        'tenant_id' => $tenant->id,
+        'design_tokens' => SiteTemplate::DimSumHouse->definition()->tokens(),
+    ]));
 
-    // Only the palette was supplied — the Brand-colors style of conditionally
-    // hidden fields must not be written as null.
+    $stored = fn (): mixed => DB::table('businesses')->where('id', $business->getKey())->value('design_tokens');
+    $before = $stored();
+
     $this->runInTenant($tenant, fn (): Business => resolve(SaveDesignSelection::class)
-        ->handle($business, ['palette' => ColorPalette::Ocean->value]));
+        ->handle($business, ['scheme' => null, 'brand_primary' => '#1a2b3c']));
 
-    $tokens = Business::query()->findOrFail($business->getKey())->design_tokens;
-
-    expect($tokens->palette)->toBe(ColorPalette::Ocean)
-        ->and($tokens->fontPair)->toBe(FontPair::WarmEditorial) // untouched (WarmCraft)
-        ->and($tokens->density)->toBe(SpacingDensity::Spacious); // untouched (WarmCraft)
+    expect($stored())->toBe($before)
+        ->and(Business::query()->findOrFail($business->getKey())->brand_primary)->toBe('#1a2b3c');
 });

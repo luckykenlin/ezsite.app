@@ -50,15 +50,6 @@ final class Features extends Block
     /**
      * @var array<string, string>
      */
-    protected static array $variants = [
-        'grid' => 'Three-column cards',
-        'alternating' => 'Alternating rows',
-        'rows' => 'Text rows',
-    ];
-
-    /**
-     * @var array<string, string>
-     */
     protected static array $axes = [
         'tone' => 'base',
         'spacing' => 'normal',
@@ -67,14 +58,6 @@ final class Features extends Block
         'columns' => 'three',
         'item_style' => 'card',
         'image_shape' => 'wide',
-    ];
-
-    /**
-     * @var array<string, array<string, string>>
-     */
-    protected static array $variantAxes = [
-        'alternating' => ['item_style' => 'plain', 'image_shape' => 'standard'],
-        'rows' => ['width' => 'normal', 'columns' => 'two', 'item_style' => 'plain'],
     ];
 
     /**

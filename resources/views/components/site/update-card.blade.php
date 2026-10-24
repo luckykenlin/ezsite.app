@@ -3,7 +3,7 @@
     so the same announcement looks the same wherever a visitor meets it.
 
     Lives under `components/site/` deliberately: that directory is already inside
-    site.css's @source list, and it is where the shared shell pieces live.
+    the theme stylesheet's @source list (resources/themes/{theme}/theme.css), and it is where the shared shell pieces live.
 
     The whole card is one stretched link labelled by the title — an <a> wrapped
     around the card instead would hand a screen reader a link whose name is the

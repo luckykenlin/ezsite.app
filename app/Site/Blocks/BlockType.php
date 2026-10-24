@@ -60,9 +60,9 @@ final readonly class BlockType
      *                                       as `LayoutAxis value => default value`.
      *                                       These are the view defaults that used
      *                                       to live as literals in the blade files
-     *                                       — declared here so tools, presets and
+     *                                       — declared here so tools, schemes and
      *                                       the inspector can QUERY them (the
-     *                                       StampPresetDefaults known-limit this
+     *                                       StampSchemeDefaults known-limit this
      *                                       fixes). Chrome declares none.
      * @param  array<string, array<string, string>>  $variantAxes  per-variant
      *                                                             default overrides,
@@ -104,7 +104,7 @@ final readonly class BlockType
      * a model acting on "put a picture of the room in the hero") is expressing an
      * intent, and the variants that say no here all render a chosen image
      * gracefully. What they must not do is receive one nobody asked for and
-     * silently stop being the layout the preset chose.
+     * silently stop being the layout the scheme chose.
      */
     public function wantsAutoImage(?string $variant): bool
     {
@@ -145,7 +145,7 @@ final readonly class BlockType
 
     /**
      * The DEFAULT value for an axis — the variant's override when it has one,
-     * else the type's. Throws on an unsupported axis: only views and presets
+     * else the type's. Throws on an unsupported axis: only views and schemes
      * ask, and both asking for an axis the type never declared is our bug,
      * not tenant data (the from()-vs-tryFrom asymmetry, one level up).
      */
