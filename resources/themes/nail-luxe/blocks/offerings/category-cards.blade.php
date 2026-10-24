@@ -17,9 +17,15 @@
     }
 
     $centered = str_contains($layout->heading(), 'text-center');
+
+    // Four categories in a three-up grid strand the last card on a row of its
+    // own; two by two keeps the set square.
+    $columns = count($groups) === 4 ? 2 : count($groups);
 @endphp
 {{-- The menu at a glance: one rounded card per category with its count and
      the first few names, each card linking through to the full price list.
+     The arched cover is the category's first photographed item; with none,
+     the arch keeps its blush empty state like every other arch here.
      The block holds no link of its own, so "View all" points at the
      theme's services page and the price list's `#services` anchor. --}}
 <x-site.section :appearance="$appearance" :tone="$layout->toneDefault()" :spacing="$layout->spacingDefault()">
@@ -38,9 +44,27 @@
             </div>
         @endif
 
-        <div class="{{ $layout->headerGap() }} grid gap-6 {{ $layout->gridFor(count($groups)) }}">
+        <div class="{{ $layout->headerGap() }} grid gap-6 {{ $layout->gridFor($columns) }}">
             @foreach ($groups as $group => $groupItems)
+                @php
+                    $cover = null;
+
+                    foreach ($groupItems as $groupItem) {
+                        if (is_string($groupItem['image_url'] ?? null) && $groupItem['image_url'] !== '') {
+                            $cover = $groupItem['image_url'];
+
+                            break;
+                        }
+                    }
+                @endphp
                 <a href="/services#services" class="{{ $layout->item() }} site-category-card">
+                    <div class="site-arch site-arch-wide site-category-cover">
+                        @if ($cover)
+                            <img src="{{ $cover }}" alt="" loading="lazy" class="site-arch-img" />
+                        @else
+                            <div class="site-arch-empty"><x-site.ornament /></div>
+                        @endif
+                    </div>
                     <div @class(['site-card-body' => $layout->isCard(), 'site-category-body'])>
                         <x-site.ornament />
                         <h3 class="site-h4">{{ $group }}</h3>

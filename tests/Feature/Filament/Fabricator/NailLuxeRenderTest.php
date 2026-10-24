@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Models\Business;
 use App\Models\Location;
 use App\Models\Tenant;
+use App\Site\Blocks\SectionColumns;
 use App\Themes\Definitions\NailLuxe;
 use App\Themes\Theme;
 use Illuminate\Foundation\Vite;
@@ -146,6 +147,40 @@ it('keeps an unphotographed arch as a designed frame, and frames a photograph wh
 })->with([
     'no photograph' => [null, 'site-arch-empty'],
     'a photograph' => ['https://example.test/hands.jpg', 'class="site-arch-img"'],
+]);
+
+/*
+ * The stock-photo job fills every offerings item's photo, and both price
+ * layouts used to drop it on the floor — a services page with a photograph
+ * for every manicure rendered none. The price list leads a photographed row
+ * with a thumbnail and leaves a bare row bare; a category card is covered by
+ * its group's FIRST photographed item, skipping any without one.
+ */
+it('shows the service photographs in both price layouts', function (string $variant, string $photographed, string $bare): void {
+    [$response] = renderNailLuxeBlock(['type' => 'offerings', 'data' => ['variant' => $variant, 'items' => [
+        ['group' => 'Hands', 'name' => 'Classic manicure', 'price' => '$35'],
+        ['group' => 'Hands', 'name' => 'Gel manicure', 'price' => '$55', 'image_url' => 'https://example.test/gel.jpg'],
+        ['group' => 'Hands', 'name' => 'Builder gel', 'price' => '$70', 'image_url' => 'https://example.test/builder.jpg'],
+        ['group' => 'Feet', 'name' => 'Pedicure', 'price' => '$50'],
+    ]]]);
+
+    $response->assertSeeHtml($photographed)
+        ->assertSeeHtml($bare)
+        ->assertDontSeeHtml('builder.jpg" alt="" loading="lazy" class="site-arch-img"');
+})->with([
+    'price list: thumbnail on the photographed row only' => ['price-list', 'src="https://example.test/gel.jpg" alt="" loading="lazy" class="site-price-thumb"', '<div class="site-price-row">'],
+    'category cards: first photograph covers, an unphotographed group keeps the frame' => ['category-cards', 'src="https://example.test/gel.jpg" alt="" loading="lazy" class="site-arch-img"', 'site-arch-empty'],
+]);
+
+it('sets four categories two by two instead of stranding the fourth card', function (int $groups, SectionColumns $expected): void {
+    $items = array_map(fn (int $group): array => ['group' => 'Group '.$group, 'name' => 'Service'], range(1, $groups));
+
+    [$response] = renderNailLuxeBlock(['type' => 'offerings', 'data' => ['variant' => 'category-cards', 'items' => $items]]);
+
+    $response->assertSeeHtml('grid gap-6 '.$expected->classes().'"');
+})->with([
+    'three across' => [3, SectionColumns::Three],
+    'four, two by two' => [4, SectionColumns::Two],
 ]);
 
 it('draws at most three figures, however many are stored', function (): void {

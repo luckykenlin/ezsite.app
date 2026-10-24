@@ -97,8 +97,8 @@ final readonly class NailLuxe
                     // and an offerings block stored without a variant should
                     // land on it.
                     variants: [
-                        'price-list' => 'Price list — names and prices on hairline rules, grouped by category',
-                        'category-cards' => 'Category cards — one card per group with a count and a link',
+                        'price-list' => 'Price list — names and prices on hairline rules, grouped by category; an item with a photo shows it as a small round thumbnail',
+                        'category-cards' => 'Category cards — one card per group with a count and a link, covered by the group\'s first item photo; a teaser that links to the full price list, not a replacement for it',
                     ],
                     variantAxes: [
                         'price-list' => ['width' => 'normal', 'align' => 'center', 'columns' => 'two', 'item_style' => 'plain'],

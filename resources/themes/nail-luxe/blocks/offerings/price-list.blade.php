@@ -24,7 +24,10 @@
 {{-- The studio's printed price card: a small label per category, then rows
      of name and price on hairline rules, the price in the italic serif at
      the far edge. Dietary-style flags are not drawn — a manicure is not
-     spicy. `#services` is the anchor category cards link to. --}}
+     spicy. A row whose item has a photo leads with it as a small round
+     thumbnail; a row without one keeps the bare printed-card look, so a
+     half-photographed menu still lines up. `#services` is the anchor
+     category cards link to. --}}
 <x-site.section :appearance="$appearance" :tone="$layout->toneDefault()" :spacing="$layout->spacingDefault()">
     <div id="services" class="{{ $layout->container() }}">
         @if ($heading || $intro)
@@ -51,7 +54,13 @@
 
                 <div class="site-price-grid {{ $layout->grid() }}">
                     @foreach ($groupItems as $index => $item)
-                        <div class="site-price-row">
+                        @php
+                            $image = is_string($item['image_url'] ?? null) && $item['image_url'] !== '' ? $item['image_url'] : null;
+                        @endphp
+                        <div @class(['site-price-row', 'site-price-row-thumb' => $image])>
+                            @if ($image)
+                                <img src="{{ $image }}" alt="" loading="lazy" class="site-price-thumb" />
+                            @endif
                             <div class="site-price-head">
                                 <h4 data-editor-field="items.{{ $index }}.name" class="site-price-name">
                                     {{ $item['name'] ?? '' }}
