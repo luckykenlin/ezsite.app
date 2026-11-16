@@ -149,6 +149,13 @@ it("follows a chrome nav link to that page's editor", function (): void {
         PageResource::getUrl('edit', ['record' => $home], isAbsolute: false, panel: 'tenant'),
     ));
 
+    // A Business opens the Site Styles rail, which narrows the canvas below
+    // the theme's `md` breakpoint — the header then folds its links into the
+    // hamburger drawer and the inline link is display:none. Closing the rail
+    // gives the canvas its desktop width back, so the link under test is the
+    // one an operator actually sees.
+    $browser->click('[title="Hide site styles"]');
+
     // Dirty the draft first (inline edit), then follow the link.
     $browser->withinFrame(CANVAS, fn ($canvas) => $canvas->click('First block'));
 
@@ -252,8 +259,13 @@ it('reorders blocks by dragging one over another on the canvas', function (): vo
                 root.removeAttribute('data-editor-drag-mode');
 
                 // Just inside the top edge, so dragover's midpoint split reads
-                // it as "insert before" rather than "insert after".
-                return collapsed + 6 - target.getBoundingClientRect().top;
+                // it as "insert before" rather than "insert after". The edge
+                // is whichever box starts lower: Playwright refuses a drop
+                // point outside the target's pre-collapse box, and under a
+                // real theme the collapse can lift the block a few pixels.
+                const current = target.getBoundingClientRect().top;
+
+                return Math.max(collapsed, current) + 6 - current;
             })()
 JS, $keys[0]));
 
