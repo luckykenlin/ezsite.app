@@ -37,7 +37,7 @@ it('rolls the whole site back when a step throws mid-way', function (): void {
  * the theme the tenant renders through, not the one current where the action
  * happened to be constructed.
  */
-it('validates the draft against the provisioned tenant\'s theme, wherever the action was built', function (): void {
+it("validates the draft against the provisioned tenant's theme, wherever the action was built", function (): void {
     $tenant = Tenant::factory()->create(['theme' => Theme::NailLuxe]);
     $action = resolve(ApplyTemplateToTenant::class);
 

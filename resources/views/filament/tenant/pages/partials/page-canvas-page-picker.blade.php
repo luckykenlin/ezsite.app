@@ -24,7 +24,10 @@
             />
 
             <span class="pc-preset-thumb">
-                <x-filament::icon :icon="\Filament\Support\Icons\Heroicon::OutlinedDocument" class="pc-preset-blank-icon" />
+                <x-filament::icon
+                    :icon="\Filament\Support\Icons\Heroicon::OutlinedDocument"
+                    class="pc-preset-blank-icon"
+                />
             </span>
 
             <span class="pc-preset-card-title">{{ __('Blank') }}</span>

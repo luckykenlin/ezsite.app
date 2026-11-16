@@ -85,7 +85,7 @@ it('keeps every contract of every theme complete', function (Theme $theme): void
 it('offers the credentials block to the nail theme only', function (Theme $theme, bool $offered): void {
     app()->instance(CurrentTheme::class, new CurrentTheme($theme->definition()));
 
-    expect((new BlockVocabulary(BlockRegistry::contracts()))->has('credentials'))->toBe($offered);
+    expect(new BlockVocabulary(BlockRegistry::contracts())->has('credentials'))->toBe($offered);
 })->with([
     'default' => [Theme::Default, false],
     'nail-luxe' => [Theme::NailLuxe, true],

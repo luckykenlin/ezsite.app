@@ -141,6 +141,6 @@ final readonly class ThemeDefinition
      */
     public function defaultScheme(): Scheme
     {
-        return $this->schemes[array_key_first($this->schemes)];
+        return array_first($this->schemes);
     }
 }

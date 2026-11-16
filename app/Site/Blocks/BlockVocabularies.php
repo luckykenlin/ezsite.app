@@ -53,9 +53,7 @@ final class BlockVocabularies
     {
         $id = spl_object_id($definition);
 
-        if (! isset($this->built[$id])) {
-            $this->built[$id] = [$definition, new BlockVocabulary(($this->builder)())];
-        }
+        $this->built[$id] ??= [$definition, new BlockVocabulary(($this->builder)())];
 
         return $this->built[$id][1];
     }

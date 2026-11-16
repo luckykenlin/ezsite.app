@@ -268,7 +268,7 @@ final readonly class SiteDraftValidator
         $definition = $this->theme->definition();
         $scheme = is_string($draft['scheme'] ?? null) ? $definition->scheme($draft['scheme']) : null;
 
-        if ($scheme === null) {
+        if (! $scheme instanceof Scheme) {
             Log::warning('site_draft.scheme_fallback', ['stored' => $draft['scheme'] ?? null]);
 
             return $definition->defaultScheme();

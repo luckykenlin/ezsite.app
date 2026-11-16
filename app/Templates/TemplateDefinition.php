@@ -13,6 +13,7 @@ use App\Design\RadiusScale;
 use App\Design\SectionDivider;
 use App\Design\SpacingDensity;
 use App\Design\TypeStyle;
+use App\Themes\Scheme;
 use App\Themes\Theme;
 use InvalidArgumentException;
 use Spatie\OpeningHours\OpeningHours;
@@ -95,7 +96,7 @@ final readonly class TemplateDefinition
         $scheme = $this->theme->definition()->scheme($this->scheme);
 
         throw_if(
-            $scheme === null,
+            ! $scheme instanceof Scheme,
             InvalidArgumentException::class,
             sprintf('The %s theme has no "%s" scheme.', $this->theme->value, $this->scheme),
         );

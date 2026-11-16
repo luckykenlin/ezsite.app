@@ -29,7 +29,7 @@ test('every theme has a definition with a label and a stylesheet that exists on 
     foreach (Theme::cases() as $theme) {
         $definition = $theme->definition();
 
-        expect($definition->label)->not->toBe('')
+        expect($definition->label)->not->toBeEmpty()
             ->and($theme->label())->toBe($definition->label)
             ->and(file_exists(base_path($definition->stylesheet)))->toBeTrue($theme->value.' stylesheet is missing');
     }
@@ -37,7 +37,7 @@ test('every theme has a definition with a label and a stylesheet that exists on 
 
 test('every theme block only names variants it declares', function (): void {
     foreach (Theme::cases() as $theme) {
-        foreach ($theme->definition()->blocks as $type => $block) {
+        foreach ($theme->definition()->blocks as $block) {
             $variants = array_keys($block->variants);
 
             // A per-variant axis override or an imageless marker for a variant
