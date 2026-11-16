@@ -21,6 +21,12 @@ return new class extends Migration
             // is the question the gallery gets rebuilt on.
             $table->string('template')->nullable();
 
+            // Which design package renders this site — see App\Themes\Theme.
+            // A string cast to the enum, not a DB enum, so a new theme needs
+            // no migration; the default is the transitional theme that draws
+            // every pre-theme site exactly as it looked.
+            $table->string('theme')->default('default');
+
             // The showcase tenants behind /templates. Indexed because the
             // central panel lists real tenants only, so every listing filters
             // on it.

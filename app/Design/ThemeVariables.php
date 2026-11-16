@@ -72,12 +72,11 @@ final class ThemeVariables
      * The same declarations as a `style` ATTRIBUTE body, for an element rather
      * than a document.
      *
-     * The design surfaces render a live specimen per option — a real button at
-     * a candidate corner radius, the palette's actual colours, two lines set in
-     * the font pair being considered — by handing each specimen element the
-     * variables of a hypothetical token set ({@see DesignTokens::withToken()}).
+     * The design surfaces render a live specimen per scheme — its heading face,
+     * its palette's actual colours, a real button at its corner radius — by
+     * handing each specimen element the variables of that scheme's token set.
      * A `<style>` block cannot do that: it would need a generated selector per
-     * option, in a stylesheet, for values that only exist for one render.
+     * scheme, in a stylesheet, for values that only exist for one render.
      *
      * Deliberately not escaped here. Every value comes from a token enum's own
      * `variables()` or from {@see ColorPalette::colors()}, whose one

@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace App\Ai\Tools;
 
 use App\Actions\Pages\CreatePageFromName;
-use App\Actions\Pages\StampPresetDefaults;
-use App\Design\StylePreset;
+use App\Actions\Pages\StampSchemeDefaults;
 use App\Site\Blocks\BlockShape;
 use App\Site\Blocks\BlockType;
 use App\Site\Blocks\BlockVocabulary;
+use App\Themes\Scheme;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Ai\Contracts\Tool;
 use Laravel\Ai\Tools\Request;
@@ -42,8 +42,8 @@ use Laravel\Ai\Tools\Request;
  * The optional `sections` skeleton is what stops this producing a blank page the
  * assistant then cannot fill — the block tools all address the OPEN page, so a new
  * page is out of their reach until the operator switches to it. Each requested
- * section arrives with its sample copy and, when the site is on a preset, that
- * preset's own layouts and section rhythm — so the new page looks like it belongs
+ * section arrives with its sample copy and, when the site is on a scheme, that
+ * scheme's own layouts and section rhythm — so the new page looks like it belongs
  * to the site before anyone has typed a word into it.
  */
 final readonly class CreatePage implements Tool
@@ -51,8 +51,8 @@ final readonly class CreatePage implements Tool
     public function __construct(
         private CreatePageFromName $create,
         private BlockVocabulary $vocabulary,
-        private StampPresetDefaults $stamp,
-        private ?StylePreset $preset,
+        private StampSchemeDefaults $stamp,
+        private ?Scheme $scheme,
     ) {
         //
     }
@@ -125,7 +125,7 @@ final readonly class CreatePage implements Tool
 
     /**
      * The requested sections as stored blocks — sample copy, then the site's own
-     * layouts and section rhythm when it is on a preset — alongside any name that
+     * layouts and section rhythm when it is on a scheme — alongside any name that
      * is not a section at all.
      *
      * Validating and building in ONE pass, deliberately: checking the names
@@ -170,11 +170,11 @@ final readonly class CreatePage implements Tool
             $blocks[] = ['type' => $type, 'data' => $data];
         }
 
-        // A site on a custom palette has no preset to follow, and the defaults
+        // A site on a custom palette has no scheme to follow, and the defaults
         // stamped above are then exactly right.
         return [
-            'blocks' => $this->preset instanceof StylePreset
-                ? $this->stamp->handle($blocks, $this->preset)
+            'blocks' => $this->scheme instanceof Scheme
+                ? $this->stamp->handle($blocks, $this->scheme)
                 : $blocks,
             'unknown' => $unknown,
         ];

@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Templates\Definitions;
 
-use App\Design\StylePreset;
 use App\Enums\PhotoCategory;
 use App\StockPhotos\PhotoOrientation;
 use App\Templates\DemoProfile;
 use App\Templates\PhotoQuery;
 use App\Templates\TemplateDefinition;
 use App\Templates\TemplateField;
+use App\Themes\Definitions\DefaultTheme;
 
 /**
  * An independent hair studio — the template where the typography is the design.
@@ -42,7 +42,7 @@ final readonly class HairStudio
     public static function definition(): TemplateDefinition
     {
         return new TemplateDefinition(
-            preset: StylePreset::QuietLuxe,
+            scheme: DefaultTheme::QUIET_LUXE,
             brandPrimary: '#1C1917',
             brandSecondary: '#78716C',
             brandAccent: '#D6D3D1',

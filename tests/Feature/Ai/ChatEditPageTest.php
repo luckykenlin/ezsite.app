@@ -6,7 +6,6 @@ use App\Actions\Pages\ChatEditPage;
 use App\Actions\SaveSiteChrome;
 use App\Ai\Agents\PageEditorAgent;
 use App\Design\DesignTokens;
-use App\Design\StylePreset;
 use App\Enums\ChatRole;
 use App\Enums\PageStatus;
 use App\Models\Business;
@@ -16,6 +15,9 @@ use App\Models\PageChatMessage;
 use App\Models\SiteSetting;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Templates\SiteTemplate;
+use App\Themes\CurrentTheme;
+use App\Themes\Definitions\DefaultTheme;
 use Illuminate\Support\Facades\Log;
 use Laravel\Ai\Prompts\AgentPrompt;
 use Laravel\Ai\Responses\Data\ToolCall;
@@ -418,24 +420,29 @@ it('stages a site style without writing it to the business', function (): void {
     $this->createTenantBusiness($this->tenant, ['design_tokens' => DesignTokens::default()], 0);
 
     PageEditorAgent::fake([
-        toolCall('SetSiteStyle', ['preset' => 'warm-craft']),
+        toolCall('SetSiteStyle', ['scheme' => 'warm-craft']),
         'Warmed the whole site up.',
     ])->preventStrayPrompts();
 
     $result = chatTurn(chatBlocks(), 'make it warmer');
 
-    expect($result['design'])->toBe(StylePreset::WarmCraft->tokens()->toArray())
+    // A selection, not tokens: the picked slug alone, which every reader
+    // resolves through the current theme.
+    expect($result['design'])->toBe(['scheme' => DefaultTheme::WARM_CRAFT])
         // Untouched on disk — the "Apply to site" click is what writes it.
-        ->and(Business::query()->sole()->design_tokens->preset)->toBeNull();
+        ->and(Business::query()->sole()->design_tokens->scheme)->toBeNull();
 });
 
 /*
- * "把主色换成深蓝" end to end: a named colour becomes a staged brand hex plus
- * the brand palette, riding in the same design draft — and still nothing on
- * disk until "Apply to site".
+ * "把主色换成深蓝" end to end: a named colour becomes a staged brand hex — and
+ * still nothing on disk until "Apply to site". The look itself does not move,
+ * and no scheme rides along: the draft is the hex alone, so applying it cannot
+ * re-apply a scheme over the template's own palette (DimSumHouse: WarmCraft's
+ * marker on the Brand palette).
  */
-it('stages an exact brand colour the operator named, unwritten', function (): void {
-    $this->createTenantBusiness($this->tenant, ['design_tokens' => DesignTokens::default(), 'brand_primary' => null], 0);
+it('stages an exact brand colour the operator named, unwritten, on a brand-palette look', function (): void {
+    $provisioned = SiteTemplate::DimSumHouse->definition()->tokens();
+    $this->createTenantBusiness($this->tenant, ['design_tokens' => $provisioned, 'brand_primary' => null], 0);
 
     PageEditorAgent::fake([
         toolCall('SetSiteStyle', ['brand_primary' => '#16305e']),
@@ -444,9 +451,25 @@ it('stages an exact brand colour the operator named, unwritten', function (): vo
 
     $result = chatTurn(chatBlocks(), 'make the primary colour deep blue');
 
-    expect($result['design']['palette'])->toBe('brand')
-        ->and($result['design']['brand_primary'])->toBe('#16305e')
-        ->and(Business::query()->sole()->brand_primary)->toBeNull();
+    expect($result['design'])->toBe(['brand_primary' => '#16305e'])
+        ->and(Business::query()->sole()->brand_primary)->toBeNull()
+        ->and(Business::query()->sole()->design_tokens->toArray())->toBe($provisioned->toArray());
+});
+
+/*
+ * The other half: on a look that does not read the brand columns the hex
+ * would be staged, saved and never seen, so the tool refuses and the turn
+ * stages nothing — the operator is not offered an Apply that changes nothing.
+ */
+it('stages nothing for a brand colour on a look that does not use brand colours', function (): void {
+    $this->createTenantBusiness($this->tenant, ['design_tokens' => DesignTokens::default(), 'brand_primary' => null], 0);
+
+    PageEditorAgent::fake([
+        toolCall('SetSiteStyle', ['brand_primary' => '#16305e']),
+        'That style does not use brand colours.',
+    ])->preventStrayPrompts();
+
+    expect(chatTurn(chatBlocks(), 'make the primary colour deep blue')['design'])->toBeNull();
 });
 
 it('reports no staged style when the turn only edited content', function (): void {
@@ -461,28 +484,34 @@ it('reports no staged style when the turn only edited content', function (): voi
 });
 
 /*
- * Cross-turn continuity: "a bit rounder" after an unapplied "make it bold" must
- * refine the bold preview the operator is looking at — the turn seeds from the
- * editor's chat-staged draft instead of restarting from the saved tokens.
+ * Cross-turn continuity: "and make the main colour navy" after an unapplied
+ * "make it bold" must refine the bold preview the operator is looking at — the
+ * turn seeds from the editor's chat-staged draft, resolving its slug through
+ * the theme, instead of restarting from the saved tokens.
  */
 it('refines a still-unapplied style from an earlier turn instead of restarting', function (): void {
+    // The seeded scheme has to be on the Brand palette for a brand hex to
+    // land on it; the default theme has none, so the test theme adds one.
+    app()->instance(CurrentTheme::class, new CurrentTheme(brandSchemeTheme()));
     $this->createTenantBusiness($this->tenant, ['design_tokens' => DesignTokens::default()], 0);
 
     PageEditorAgent::fake([
-        toolCall('SetSiteStyle', ['radius' => 'none']),
-        'Squared the corners off.',
+        toolCall('SetSiteStyle', ['brand_primary' => '#16305e']),
+        'Made the main colour navy.',
     ])->preventStrayPrompts();
 
     $result = $this->runInTenant($this->tenant, fn (): array => resolve(ChatEditPage::class)->handle(
         $this->page,
         chatBlocks(),
-        'square corners',
-        designDraft: StylePreset::BoldEditorial->tokens()->toArray(),
+        'make the main colour navy',
+        // The editor's draft is the normalised shape: a slug, no axes.
+        designDraft: ['scheme' => 'house-colours'],
     ));
 
-    // The fine-tune landed ON the seeded preview, not on the saved default.
-    expect($result['design']['palette'])->toBe(StylePreset::BoldEditorial->tokens()->palette->value)
-        ->and($result['design']['radius'])->toBe('none');
+    // The hex landed ON the seeded preview, not on the saved default — and
+    // the seeded scheme rides back with it, because the editor's draft is
+    // replaced by this one.
+    expect($result['design'])->toBe(['scheme' => 'house-colours', 'brand_primary' => '#16305e']);
 
     // And the model was told the style it sees is an unapplied preview.
     PageEditorAgent::assertPrompted(fn (AgentPrompt $prompt): bool => $prompt->contains('PREVIEW you staged earlier'));
@@ -505,7 +534,7 @@ it('does not re-stage a seeded style the turn left alone', function (): void {
         $this->page,
         chatBlocks(),
         'rewrite the headline',
-        designDraft: StylePreset::BoldEditorial->tokens()->toArray(),
+        designDraft: ['scheme' => DefaultTheme::BOLD_EDITORIAL],
     ));
 
     expect($result['design'])->toBeNull();
@@ -541,7 +570,7 @@ it('discards a half-chosen style when the turn fails', function (): void {
     expect($result['failed'])->toBeTrue()
         ->and($result['design'])->toBeNull()
         ->and($result['blocks'])->toBe(chatBlocks())
-        ->and(Business::query()->sole()->design_tokens->preset)->toBeNull();
+        ->and(Business::query()->sole()->design_tokens->scheme)->toBeNull();
 });
 
 /*
@@ -552,15 +581,15 @@ it('re-lays the page in the same call that stages the style', function (): void 
     $this->createTenantBusiness($this->tenant, [], 0);
 
     PageEditorAgent::fake([
-        toolCall('SetSiteStyle', ['preset' => 'bold-editorial', 'align_layouts' => true]),
+        toolCall('SetSiteStyle', ['scheme' => 'bold-editorial', 'align_layouts' => true]),
         'Went bold, and re-laid the sections to match.',
     ])->preventStrayPrompts();
 
     $result = chatTurn(chatBlocks(), 'make it dramatic');
 
     expect($result['blocks'][0]['data']['variant'])
-        ->toBe(StylePreset::BoldEditorial->blockVariantDefaults()['hero'])
-        ->and($result['design']['preset'])->toBe('bold-editorial');
+        ->toBe(defaultScheme(DefaultTheme::BOLD_EDITORIAL)->blockVariantDefaults['hero'])
+        ->and($result['design']['scheme'])->toBe('bold-editorial');
 });
 
 it('switches one section layout without touching the site style', function (): void {

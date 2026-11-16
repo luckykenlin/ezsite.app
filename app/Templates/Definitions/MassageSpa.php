@@ -4,21 +4,21 @@ declare(strict_types=1);
 
 namespace App\Templates\Definitions;
 
-use App\Design\StylePreset;
 use App\Enums\PhotoCategory;
 use App\StockPhotos\PhotoOrientation;
 use App\Templates\DemoProfile;
 use App\Templates\PhotoQuery;
 use App\Templates\TemplateDefinition;
 use App\Templates\TemplateField;
+use App\Themes\Definitions\DefaultTheme;
 
 /**
  * Massage and day spa — the template that wins by leaving things out.
  *
- * Where {@see ChineseRestaurant} fills the first viewport with a photograph and
- * {@see DesignerPortfolio} puts work on black, this one is the quiet case: a
- * priced treatment menu, a single booking phone number, and a home page that
- * asks once. Wellness sites fail in a very specific way — banner offers,
+ * Where {@see ChineseRestaurant} fills the first viewport with a photograph,
+ * this one is the quiet case: a priced treatment menu, a single booking phone
+ * number, and a home page that asks once. Wellness sites fail in a very
+ * specific way — banner offers,
  * membership tiers, three competing buttons above the fold — and a visitor
  * reads all of that as pressure, which is the opposite of the thing being sold.
  *
@@ -35,7 +35,7 @@ final readonly class MassageSpa
     public static function definition(): TemplateDefinition
     {
         return new TemplateDefinition(
-            preset: StylePreset::CalmCoastal,
+            scheme: DefaultTheme::CALM_COASTAL,
             brandPrimary: '#3F7A8C',
             brandSecondary: '#2B3A42',
             brandAccent: '#A8C6C9',
@@ -162,16 +162,6 @@ final readonly class MassageSpa
                     'button_label' => 'Send my code',
                     'success_message' => 'Sent — check your inbox for the code.',
                     'fine_print' => 'One email a month at most. Unsubscribe any time.',
-                ]],
-                ['type' => 'steps', 'variant' => 'timeline', 'data' => [
-                    'heading' => 'What a first visit looks like',
-                    'intro' => 'No membership, no consultation fee, no forms you have not seen before.',
-                    'steps' => [
-                        ['title' => 'Arrive ten minutes early', 'description' => 'Long enough for tea and a short intake form about anything that hurts. There is no hurry built into the schedule.'],
-                        ['title' => 'Say what you want from the hour', 'description' => 'Pressure, the areas to work on, whether you would rather not talk. All of it is fair to say out loud, and none of it is a special request.'],
-                        ['title' => 'The room is yours for the whole session', 'description' => 'Appointments are booked with a gap either side, so nobody knocks and nothing gets trimmed at the end.'],
-                        ['title' => 'Leave when you are ready', 'description' => 'Water, a quiet chair in the hallway, and the front desk only when you come to it.'],
-                    ],
                 ]],
                 ['type' => 'prose', 'variant' => 'stacked', 'data' => [
                     'heading' => 'Why the short massage is not on the menu',

@@ -41,7 +41,7 @@ use App\StockPhotos\StockPhotoProvider;
  *
  * Deliberately UNFILLED: `team` and `testimonials` avatars — a stock face
  * posing as a real employee or a real reviewer is a fabricated fact in image
- * form — and `logos`, because a stock photo is never anyone's logo.
+ * form.
  */
 final readonly class PopulateDraftImages
 {

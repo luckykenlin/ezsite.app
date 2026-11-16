@@ -32,8 +32,8 @@ use App\Models\Page;
  * menu, a reservation CTA, reviews — cannot say anything actionable against the
  * current block vocabulary, and an assistant that offers to add a section the
  * product has no block for is worse than one that stays quiet.
- * {@see \App\Design\StylePreset::vibes()} already does industry-noun matching
- * for the first-draft path.
+ * The theme schemes' vibes ({@see \App\Themes\Scheme::$vibes}) already do
+ * industry-noun matching for the first-draft path.
  */
 final class SiteContext
 {

@@ -8,14 +8,12 @@ use App\Templates\Definitions\BubbleTea;
 use App\Templates\Definitions\BurgerJoint;
 use App\Templates\Definitions\CafeBrunch;
 use App\Templates\Definitions\ChineseRestaurant;
-use App\Templates\Definitions\DesignerPortfolio;
 use App\Templates\Definitions\DimSumHouse;
 use App\Templates\Definitions\FamilyBistro;
 use App\Templates\Definitions\FineDining;
 use App\Templates\Definitions\HairStudio;
 use App\Templates\Definitions\MassageSpa;
 use App\Templates\Definitions\NailSalon;
-use App\Templates\Definitions\PersonalResume;
 use App\Templates\Definitions\PizzaShop;
 use App\Templates\Definitions\SushiBar;
 use Illuminate\Support\Facades\Lang;
@@ -23,7 +21,7 @@ use Illuminate\Support\Facades\Lang;
 /**
  * The hand-curated industry templates: the whole library, enumerable.
  *
- * A PHP enum for the same reason {@see \App\Design\StylePreset} is one —
+ * A PHP enum for the same reason {@see \App\Themes\Theme} is one —
  * templates are designed artifacts, not user data. Nothing about a template
  * varies per install, so a row in a table would buy nothing and cost the
  * enumerability that the gallery, the router (`/templates/{template}` binds
@@ -49,8 +47,6 @@ enum SiteTemplate: string
     case NailSalon = 'nail-salon';
     case HairStudio = 'hair-studio';
     case MassageSpa = 'massage-spa';
-    case PersonalResume = 'personal-resume';
-    case DesignerPortfolio = 'designer-portfolio';
 
     /**
      * How many templates the library holds — for the marketing copy that counts
@@ -102,8 +98,6 @@ enum SiteTemplate: string
             self::NailSalon => NailSalon::definition(),
             self::HairStudio => HairStudio::definition(),
             self::MassageSpa => MassageSpa::definition(),
-            self::PersonalResume => PersonalResume::definition(),
-            self::DesignerPortfolio => DesignerPortfolio::definition(),
         };
     }
 
@@ -114,7 +108,7 @@ enum SiteTemplate: string
      * HasLabel::getLabel() instead. Two styles, one rule: HasLabel when a
      * Filament component consumes the case, label() when the site does.
      *
-     * Translated, unlike {@see \App\Design\StylePreset::label()}: this text is
+     * Translated, unlike {@see \App\Themes\Scheme::$label}: this text is
      * only ever read by a person on the marketing site. It reaches no AI prompt
      * and no database column — the only thing stored about a template is the
      * enum's own `value` (`tenants.template`).

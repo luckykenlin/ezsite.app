@@ -3,11 +3,11 @@
 declare(strict_types=1);
 
 use App\Design\ColorPalette;
-use App\Design\StylePreset;
 use App\Models\Business;
 use App\Models\Location;
 use App\Models\Media;
 use App\Models\Tenant;
+use App\Themes\Definitions\DefaultTheme;
 use Illuminate\Database\QueryException;
 
 test('a tenant can only have one business (unique tenant_id)', function (): void {
@@ -146,11 +146,11 @@ test('design tokens are cast to the value object', function (): void {
     $tenant = Tenant::factory()->create();
 
     $business = $this->runInTenant($tenant, fn (): Business => Business::factory()
-        ->themed(StylePreset::WarmCraft)
+        ->themed(DefaultTheme::WARM_CRAFT)
         ->create(['tenant_id' => $tenant->id]));
     $business = Business::query()->findOrFail($business->getKey());
 
-    expect($business->design_tokens->preset)->toBe(StylePreset::WarmCraft)
+    expect($business->design_tokens->scheme)->toBe(DefaultTheme::WARM_CRAFT)
         ->and($business->design_tokens->palette)->toBe(ColorPalette::WarmSand);
 });
 
@@ -168,19 +168,19 @@ test('malformed stored design tokens hydrate as the defaults', function (): void
     $business = Business::query()->findOrFail($business->getKey());
 
     expect($business->design_tokens->palette)->toBe(ColorPalette::Default)
-        ->and($business->design_tokens->preset)->toBeNull();
+        ->and($business->design_tokens->scheme)->toBeNull();
 });
 
 test('design tokens can be reset to null, hydrating as the defaults', function (): void {
     $tenant = Tenant::factory()->create();
     $business = $this->runInTenant($tenant, fn (): Business => Business::factory()
-        ->themed(StylePreset::WarmCraft)
+        ->themed(DefaultTheme::WARM_CRAFT)
         ->create(['tenant_id' => $tenant->id]));
 
     $this->runInTenant($tenant, fn (): bool => $business->update(['design_tokens' => null]));
     $business = Business::query()->findOrFail($business->getKey());
 
-    expect($business->design_tokens->preset)->toBeNull()
+    expect($business->design_tokens->scheme)->toBeNull()
         ->and($business->design_tokens->palette)->toBe(ColorPalette::Default);
 });
 

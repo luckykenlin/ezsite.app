@@ -108,7 +108,7 @@ enum SectionColumns: string
             self::One => 'a single column — items read as a list, one after another',
             self::Two => 'two columns — roomy items with space for description',
             self::Three => 'three columns — the default card-grid rhythm',
-            self::Four => 'four columns — dense, for compact items like logos or stats',
+            self::Four => 'four columns — dense, for compact items',
         };
     }
 }

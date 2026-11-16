@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace Database\Factories;
 
-use App\Design\StylePreset;
 use App\Models\Business;
 use App\Models\Tenant;
+use App\Themes\Definitions\DefaultTheme;
+use App\Themes\Theme;
 use Illuminate\Database\Eloquent\Factories\Factory;
+use InvalidArgumentException;
 
 /**
  * @extends Factory<Business>
@@ -42,10 +44,15 @@ final class BusinessFactory extends Factory
     }
 
     /**
-     * A business themed with a style preset's tokens.
+     * A business on one of a theme's schemes, by slug — the default theme's
+     * unless told otherwise. Throws on a slug the theme does not offer, so a
+     * test cannot silently build a business with no tokens.
      */
-    public function themed(StylePreset $preset = StylePreset::WarmCraft): self
+    public function themed(string $scheme = DefaultTheme::WARM_CRAFT, Theme $theme = Theme::Default): self
     {
-        return $this->state(fn (): array => ['design_tokens' => $preset->tokens()]);
+        $resolved = $theme->definition()->scheme($scheme)
+            ?? throw new InvalidArgumentException(sprintf('The %s theme has no "%s" scheme.', $theme->value, $scheme));
+
+        return $this->state(fn (): array => ['design_tokens' => $resolved->tokens]);
     }
 }

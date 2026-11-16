@@ -7,6 +7,7 @@ use App\Models\Domain;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Templates\SiteTemplate;
+use App\Themes\Theme;
 
 test('business relation returns the tenant business', function (): void {
     $tenant = Tenant::factory()->create();
@@ -73,9 +74,17 @@ test('to array', function (): void {
             'name',
             'email',
             'template',
+            'theme',
             'is_demo',
             'created_at',
             'updated_at',
             'data',
         ]);
+});
+
+test('a tenant renders through the default theme unless told otherwise', function (): void {
+    $tenant = Tenant::factory()->create();
+    $tenant = Tenant::query()->findOrFail($tenant->getKey());
+
+    expect($tenant->theme)->toBe(Theme::Default);
 });

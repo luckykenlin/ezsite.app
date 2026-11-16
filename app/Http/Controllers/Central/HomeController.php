@@ -30,7 +30,7 @@ final class HomeController extends Controller
     private const array FEATURED = [
         SiteTemplate::ChineseRestaurant,
         SiteTemplate::NailSalon,
-        SiteTemplate::DesignerPortfolio,
+        SiteTemplate::MassageSpa,
     ];
 
     public function __invoke(LocaleUrls $localeUrls): View

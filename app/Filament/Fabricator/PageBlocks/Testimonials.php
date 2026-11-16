@@ -43,15 +43,6 @@ final class Testimonials extends Block
     /**
      * @var array<string, string>
      */
-    protected static array $variants = [
-        'grid' => 'Two-column cards',
-        'carousel' => 'Horizontal carousel',
-        'spotlight' => 'Spotlight quote',
-    ];
-
-    /**
-     * @var array<string, string>
-     */
     protected static array $axes = [
         'tone' => 'muted',
         'spacing' => 'normal',
@@ -59,13 +50,6 @@ final class Testimonials extends Block
         'align' => 'center',
         'columns' => 'two',
         'item_style' => 'card',
-    ];
-
-    /**
-     * @var array<string, array<string, string>>
-     */
-    protected static array $variantAxes = [
-        'spotlight' => ['width' => 'narrow', 'columns' => 'one', 'item_style' => 'plain'],
     ];
 
     /**

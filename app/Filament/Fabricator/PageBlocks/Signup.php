@@ -49,26 +49,11 @@ final class Signup extends Block
     /**
      * @var array<string, string>
      */
-    protected static array $variants = [
-        'banner' => 'Form beside the offer',
-        'stacked' => 'Form below the offer',
-    ];
-
-    /**
-     * @var array<string, string>
-     */
     protected static array $axes = [
         'tone' => 'accent',
         'spacing' => 'tight',
         'width' => 'normal',
         'align' => 'start',
-    ];
-
-    /**
-     * @var array<string, array<string, string>>
-     */
-    protected static array $variantAxes = [
-        'stacked' => ['align' => 'center', 'width' => 'narrow'],
     ];
 
     /**

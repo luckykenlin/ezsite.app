@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Database\Seeders;
 
 use App\Models\User;
+use App\Templates\SiteTemplate;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Artisan;
 
 final class DatabaseSeeder extends Seeder
 {
@@ -22,9 +24,15 @@ final class DatabaseSeeder extends Seeder
             'password' => 'password',
         ]);
 
-        // The showcase sites the /templates gallery links at. Photos are
-        // skipped here so a fresh clone with no provider key seeds in seconds;
-        // run `demo:seed` on its own to fill them in.
-        $this->command->call('demo:seed', ['--skip-photos' => true]);
+        // Only the verticals that have their own theme are seeded — the
+        // product is built one vertical at a time, and the remaining
+        // templates still render through the transitional default theme.
+        // Add a slug here when its vertical theme ships. Photos are skipped
+        // so a fresh clone with no provider key seeds in seconds; run
+        // `demo:seed nail-salon` on its own to fill them in.
+        Artisan::call('demo:seed', [
+            'template' => [SiteTemplate::NailSalon->value],
+            '--skip-photos' => true,
+        ]);
     }
 }

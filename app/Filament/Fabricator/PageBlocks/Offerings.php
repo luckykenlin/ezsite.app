@@ -76,19 +76,6 @@ final class Offerings extends Block
     ];
 
     /**
-     * `simple` first: every offerings block stored before variants existed has
-     * no variant key, and the default (first declared) is what keeps them — and
-     * every template definition that says only `'type' => 'offerings'` —
-     * rendering exactly as they did.
-     *
-     * @var array<string, string>
-     */
-    protected static array $variants = [
-        'simple' => 'Simple — plain priced list or cards',
-        'menu-card' => 'Menu card — the whole menu as one framed card, with course tabs',
-    ];
-
-    /**
      * @var array<string, string>
      */
     protected static array $axes = [
@@ -99,23 +86,6 @@ final class Offerings extends Block
         'columns' => 'three',
         'item_style' => 'card',
         'image_shape' => 'wide',
-    ];
-
-    /**
-     * The menu card is always a two-up printed menu inside its frame: rows, not
-     * cards (the frame is the card), wide because the card supplies its own
-     * measure, centred because that is how a menu is set.
-     *
-     * @var array<string, array<string, string>>
-     */
-    protected static array $variantAxes = [
-        'menu-card' => [
-            'spacing' => 'airy',
-            'width' => 'wide',
-            'align' => 'center',
-            'columns' => 'two',
-            'item_style' => 'plain',
-        ],
     ];
 
     /**

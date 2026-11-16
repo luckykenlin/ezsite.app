@@ -6,18 +6,19 @@ use App\Ai\ChatAttachment;
 use App\Ai\PageDraft;
 use App\Ai\Prompts\PageEditPrompt;
 use App\Ai\SiteStyleDraft;
-use App\Design\StylePreset;
 use App\Models\Business;
 use App\Models\Page;
 use App\Models\Tenant;
 use App\Site\Blocks\BlockVocabulary;
 use App\Site\SiteContext;
+use App\Themes\Definitions\DefaultTheme;
+use App\Themes\Theme;
 
 function editPrompt(PageDraft $draft, ?Business $business = null, string $message = 'Shorten the headline'): string
 {
     $page = Page::factory()->make(['title' => 'Home', 'slug' => '/', 'status' => 'draft']);
 
-    return (string) new PageEditPrompt($page, $draft, resolve(BlockVocabulary::class)->all(), $business, $message);
+    return (string) new PageEditPrompt($page, $draft, resolve(BlockVocabulary::class)->all(), $business, $message, Theme::Default->definition());
 }
 
 function heroPageDraft(): PageDraft
@@ -36,7 +37,7 @@ it('states which page is open and whether it is live', function (): void {
 it('marks a published page as published', function (): void {
     $page = Page::factory()->make(['title' => 'Home', 'slug' => '/', 'status' => 'published']);
 
-    expect((string) new PageEditPrompt($page, heroPageDraft(), resolve(BlockVocabulary::class)->all(), null, 'hi'))
+    expect((string) new PageEditPrompt($page, heroPageDraft(), resolve(BlockVocabulary::class)->all(), null, 'hi', Theme::Default->definition()))
         ->toContain('Status: published');
 });
 
@@ -57,6 +58,7 @@ it('names the selected section as the referent for unaddressed requests', functi
         resolve(BlockVocabulary::class)->all(),
         null,
         'Make it shorter',
+        Theme::Default->definition(),
         selectedBlockKey: 'k1',
     );
 
@@ -75,6 +77,7 @@ it('drops a selection that no longer resolves to a block', function (?string $ke
         resolve(BlockVocabulary::class)->all(),
         null,
         'Make it shorter',
+        Theme::Default->definition(),
         selectedBlockKey: $key,
     );
 
@@ -135,6 +138,7 @@ it('announces this message attachments right above the request', function (): vo
         resolve(BlockVocabulary::class)->all(),
         null,
         'Use this as the hero image',
+        Theme::Default->definition(),
         attachments: [
             new ChatAttachment('image', 'kitchen.jpg', [], mediaId: 42, width: 1600, height: 900),
             new ChatAttachment('document', 'menu.pdf', []),
@@ -257,8 +261,9 @@ it('publishes the style menu and where the site currently stands', function (): 
         resolve(BlockVocabulary::class)->all(),
         null,
         'make it premium',
+        Theme::Default->definition(),
         null,
-        new SiteStyleDraft(StylePreset::CalmCoastal->tokens()),
+        new SiteStyleDraft(defaultScheme(DefaultTheme::CALM_COASTAL)->tokens),
     );
 
     expect($prompt)->toContain('## Site style')
@@ -269,11 +274,11 @@ it('publishes the style menu and where the site currently stands', function (): 
         ->toContain('premium')
         // A named brand is translated into those words, never stored or echoed.
         ->toContain('never stored or repeated back')
-        // The colour grounding: "deep blue" has to land on a palette slug, and
-        // the slugs alone don't say which. A named colour is a fine-tune, so
-        // the model must not answer it by switching the whole style.
-        ->toContain('deep blue')
-        ->toContain('is a palette fine-tune, NOT a style change');
+        // A scheme and brand colours are the whole vocabulary; the tool used
+        // to take individual settings, and a model that remembers that must
+        // be told outright that they are gone.
+        ->toContain('There are no individual settings to fine-tune')
+        ->toContain('is a brand colour');
 });
 
 it('tells the model which page addresses actually exist', function (): void {
@@ -287,6 +292,7 @@ it('tells the model which page addresses actually exist', function (): void {
         resolve(BlockVocabulary::class)->all(),
         null,
         'link to the contact page',
+        Theme::Default->definition(),
         new SiteContext,
     );
 

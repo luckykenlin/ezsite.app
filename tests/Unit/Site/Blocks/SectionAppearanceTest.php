@@ -38,7 +38,7 @@ it('lets a stored appearance override both view defaults', function (): void {
     $appearance = SectionAppearance::resolve(['tone' => 'accent', 'spacing' => 'tall'], 'base', 'normal');
 
     // Accent is a component class, not a utility pair: its surface is the
-    // AccentStyle token's to paint (a var-driven gradient needs site.css).
+    // AccentStyle token's to paint (a var-driven gradient needs the theme stylesheet).
     expect($appearance->toneClasses())->toBe('site-tone-accent')
         ->and($appearance->spacingClasses())->toBe('py-32 md:py-48');
 });
@@ -79,7 +79,7 @@ it('pairs a foreground with every background so text stays legible on it', funct
     }
 
     if ($tone === SectionTone::Accent) {
-        // Accent's background/foreground pair lives in site.css
+        // Accent's background/foreground pair lives in the theme stylesheet
         // (.site-tone-accent), where the AccentStyle token can paint a
         // var-driven gradient no Tailwind utility could carry.
         expect($classes)->toBe('site-tone-accent');

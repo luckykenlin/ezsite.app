@@ -4,13 +4,14 @@ declare(strict_types=1);
 
 namespace App\Ai\Prompts;
 
-use App\Design\StylePreset;
 use App\Models\Business;
 use App\Models\Location;
 use App\Site\Blocks\BlockType;
 use App\Site\Blocks\SectionSpacing;
 use App\Site\Blocks\SectionTone;
 use App\Site\OpeningHoursForm;
+use App\Themes\Scheme;
+use App\Themes\ThemeDefinition;
 use Illuminate\Support\Collection;
 use Stringable;
 
@@ -18,8 +19,9 @@ use Stringable;
  * The dynamic context handed to {@see \App\Ai\Agents\SiteDraftAgent}: the
  * business profile, a locations digest, the block vocabulary (the agent's
  * entire allowed space), design guidance for the layout choices the schema
- * now offers, the preset menu with vibe tags, a composition brief, and the
- * output language.
+ * now offers, the theme's scheme menu with vibe tags, a composition brief
+ * (whose supporting-page menu is the theme's draft pages), and the output
+ * language.
  */
 final readonly class SiteDraftPrompt implements Stringable
 {
@@ -31,6 +33,7 @@ final readonly class SiteDraftPrompt implements Stringable
         private Business $business,
         private Collection $locations,
         private array $vocabulary,
+        private ThemeDefinition $theme,
     ) {
         //
     }
@@ -42,7 +45,7 @@ final readonly class SiteDraftPrompt implements Stringable
             $this->locationsSection(),
             $this->vocabularySection(),
             $this->designSection(),
-            $this->presetsSection(),
+            $this->schemesSection(),
             $this->briefSection(),
             $this->languageSection(),
         ]);
@@ -161,7 +164,7 @@ final readonly class SiteDraftPrompt implements Stringable
             .'ONE section stand out with accent or inverted — usually the call to action or the '
             .'strongest trust section — and leave the others alone. Never put two dark bands next '
             .'to each other. A page where every section claims its own colour has no rhythm at '
-            .'all. When unsure, omit variant, tone and spacing: the style preset supplies a '
+            .'all. When unsure, omit variant, tone and spacing: the style scheme supplies a '
             .'considered default.';
     }
 
@@ -178,19 +181,19 @@ final readonly class SiteDraftPrompt implements Stringable
         ));
     }
 
-    private function presetsSection(): string
+    private function schemesSection(): string
     {
         $lines = array_map(
-            fn (StylePreset $preset): string => sprintf(
+            fn (Scheme $scheme): string => sprintf(
                 '- %s — %s (vibes: %s)',
-                $preset->value,
-                $preset->description(),
-                implode(', ', $preset->vibes()),
+                $scheme->slug,
+                $scheme->description,
+                implode(', ', $scheme->vibes),
             ),
-            StylePreset::cases(),
+            array_values($this->theme->schemes),
         );
 
-        return "## Style presets\nPick the preset whose vibes best match the business.\n".implode("\n", $lines);
+        return "## Style schemes\nPick the scheme whose vibes best match the business.\n".implode("\n", $lines);
     }
 
     private function briefSection(): string
@@ -206,16 +209,37 @@ final readonly class SiteDraftPrompt implements Stringable
             .'Include a contact section when the business has a location. '
             .'Use testimonials only if the profile provides real quotes — never fabricate them. '
             ."\n\n"
-            .'Then, ONLY where the profile gives real material for one, add supporting pages from '
-            .'this fixed menu: "/about" (the story and the people), "/services" (what is offered, '
-            .'in depth), "/contact" (how to reach and find the business). Each needs at least 3 '
-            .'sections of substance — a page you would have to pad does not belong in the draft; '
-            .'a sparse profile means the home page alone, and that is a good draft too. Do not '
-            .'repeat the home page: a supporting page goes DEEPER on its one topic. '
-            ."\n\n"
+            .$this->supportingPagesBrief()
             .'For every page also write meta_description: one plain sentence (max 160 characters, no '
             .'marketing punctuation runs) naming the business, what that page covers and its city '
             .'— this is the summary Google shows under the search result.';
+    }
+
+    /**
+     * The supporting-page menu, read off the theme: each page it designs with
+     * a draft slug, described by its own picker line, so the prompt can never
+     * offer a slug the schema enum and the validator would reject. A theme
+     * with no draft pages gets no paragraph at all — a menu with nothing on it
+     * would only invite the model to invent one.
+     */
+    private function supportingPagesBrief(): string
+    {
+        $menu = [];
+
+        foreach ($this->theme->draftPages() as $page) {
+            $menu[] = sprintf('"%s" (%s)', $page->draftSlug, mb_rtrim($page->description, '.'));
+        }
+
+        if ($menu === []) {
+            return '';
+        }
+
+        return 'Then, ONLY where the profile gives real material for one, add supporting pages from '
+            .'this fixed menu: '.implode(', ', $menu).'. Each needs at least 3 '
+            .'sections of substance — a page you would have to pad does not belong in the draft; '
+            .'a sparse profile means the home page alone, and that is a good draft too. Do not '
+            .'repeat the home page: a supporting page goes DEEPER on its one topic. '
+            ."\n\n";
     }
 
     private function languageSection(): string

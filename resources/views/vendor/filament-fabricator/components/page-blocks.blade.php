@@ -58,7 +58,7 @@
         $editorKey = is_array($editorKeys) ? ($editorKeys[$blockIndex] ?? null) : null;
 
         $component = is_array($block)
-            ? \App\Filament\Fabricator\BlockRegistry::resolveComponent($block)
+            ? \App\Filament\Fabricator\BlockRegistry::resolveView($block)
             : null;
 
         if ($editorKey === null) {
@@ -85,10 +85,9 @@
             );
             $bindAttributes = \App\Filament\Fabricator\BlockRegistry::bindAttributes($block);
 
-            // Every block component is one of our own anonymous views, so its
-            // view name is the component name under `components.` — see
-            // BlockRegistry::resolveComponent(), which composes that name.
-            $blockView = 'components.'.$component;
+            // A themed view name (`themes::{theme}.blocks.{type}.{variant}`),
+            // composed by BlockRegistry::resolveView() from the current theme.
+            $blockView = $component;
 
             if ($bindAttributes === null && $editorKey === null) {
                 \Illuminate\Support\Facades\Log::warning('fabricator.block_skipped', [

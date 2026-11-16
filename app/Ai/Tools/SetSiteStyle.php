@@ -4,15 +4,13 @@ declare(strict_types=1);
 
 namespace App\Ai\Tools;
 
-use App\Actions\Pages\StampPresetDefaults;
+use App\Actions\Pages\StampSchemeDefaults;
 use App\Ai\PageDraft;
 use App\Ai\SiteStyleDraft;
 use App\Design\ColorPalette;
-use App\Design\StylePreset;
-use App\Design\TokenKey;
-use App\Design\TokenOptions;
 use App\Design\TokenSelection;
-use BackedEnum;
+use App\Themes\CurrentTheme;
+use App\Themes\Scheme;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Support\Str;
 use Laravel\Ai\Contracts\Tool;
@@ -30,13 +28,16 @@ use Laravel\Ai\Tools\Request;
  * public render, so a tool that persisted would restyle a live website while
  * its owner was still reading the reply.
  *
- * Presets first, tokens second, by design. A preset is a combination that was
- * designed together, and {@see StylePreset}'s docblock names them "the guard
- * rail against jarring free-form variant × token combinations" — so an
- * adjective resolves to a preset, and fine-tuning is for when the operator
- * named the thing itself ("rounder corners"). Fine-tuning detaches the preset
- * marker, exactly as it does through the Design modal, because
- * {@see \App\Design\DesignTokens::with()} says so.
+ * The model picks a designed scheme, never an individual setting. A scheme is
+ * a combination that was designed together — the guard rail against jarring
+ * free-form variant × token combinations — so an adjective resolves to a
+ * scheme and that is the whole vocabulary; the per-axis fields this tool used
+ * to carry ("rounder corners", "a different font") were the way a look nobody
+ * designed got onto a live site, and they are gone. The menu is the current
+ * theme's ({@see Scheme}), so the model is only ever offered looks the
+ * tenant's theme can draw. The brand hexes are the one exact-colour lever,
+ * and they show only on a look built on the brand palette — which is why a
+ * hex aimed at any other look is refused rather than staged.
  *
  * `align_layouts` is what keeps a whole-site restyle to ONE call. Without it an
  * eight-block page needs nine, against `#[MaxSteps(12)]` and a 90-second turn
@@ -48,17 +49,18 @@ final readonly class SetSiteStyle implements Tool
     public function __construct(
         private SiteStyleDraft $style,
         private PageDraft $draft,
-        private StampPresetDefaults $stampPresetDefaults,
+        private StampSchemeDefaults $stampSchemeDefaults,
+        private CurrentTheme $theme,
     ) {
         //
     }
 
     public function description(): string
     {
-        return 'Change how the whole site looks: its colours, fonts, corner shapes and spacing. '
+        return 'Change how the whole site looks by picking one of its designed styles — each sets the colours, '
+            .'fonts, corner shapes and spacing together — and, for an exact colour the operator named, its brand colours. '
             .'This affects every page, not just the open one, and the operator has to apply it separately. '
-            .'Pick a style by matching the words they used; only fine-tune an individual setting when they '
-            .'named that setting themselves.';
+            .'Pick the style by matching the words they used; there are no individual settings to fine-tune.';
     }
 
     /**
@@ -67,27 +69,16 @@ final readonly class SetSiteStyle implements Tool
     public function schema(JsonSchema $schema): array
     {
         $fields = [
-            'preset' => $schema->string()
-                ->description("The overall look, chosen by matching the operator's words against these: ".$this->presetGuide()
-                    .' Omit to keep the current look and only fine-tune.')
-                ->enum(array_map(static fn (StylePreset $preset): string => $preset->value, StylePreset::cases())),
+            'scheme' => $schema->string()
+                ->description("The overall look, chosen by matching the operator's words against these: ".$this->schemeGuide()
+                    .' Omit to keep the current look and only set brand colours.')
+                ->enum(array_keys($this->theme->definition()->schemes)),
             'align_layouts' => $schema->boolean()
                 ->description('Re-lay every section on this page to the layouts AND section backgrounds the chosen '
                     .'style was designed with. Prefer this over changing sections one at a time — a style whose '
                     .'layouts are applied but whose backgrounds are not looks worse than either alone. '
                     .'Ignored when no style is given.'),
         ];
-
-        foreach (TokenKey::cases() as $key) {
-            $fields[$key->value] = $schema->string()
-                ->description($key === TokenKey::Palette
-                    // The palette gets colour words, not just its label: "make it
-                    // deep blue" is the request this tool most often fails, and a
-                    // bare slug list gives the model nothing to match "blue" against.
-                    ? 'Palette. Only set this when the operator asked for a colour, matching their words against: '.$this->paletteGuide()
-                    : $key->label().'. Only set this when the operator asked for this specific thing.')
-                ->enum(array_keys(TokenOptions::for($key)));
-        }
 
         // The exact-colour lever. Free-form by necessity — a specific colour
         // has no enum — but validated against the same hex pattern that guards
@@ -96,7 +87,8 @@ final readonly class SetSiteStyle implements Tool
             $fields[$key] = $schema->string()
                 ->description(Str::headline($key).' as a six-digit hex like #1a2b3c. ONLY when the operator '
                     .'asked for that specific colour ("make the main colour deep blue", a hex they pasted). '
-                    .'Setting any brand colour switches the palette to brand.');
+                    .'Brand colours only show on a style built on the brand palette and do not change the style itself; '
+                    .'on any other style they are refused and nothing changes.');
         }
 
         return $fields;
@@ -106,22 +98,20 @@ final readonly class SetSiteStyle implements Tool
     {
         $arguments = $request->toArray();
 
-        $requestedPreset = $arguments['preset'] ?? null;
-        $preset = is_string($requestedPreset) ? StylePreset::tryFrom($requestedPreset) : null;
+        $definition = $this->theme->definition();
+        $requestedScheme = $arguments['scheme'] ?? null;
+        $scheme = is_string($requestedScheme) ? $definition->scheme($requestedScheme) : null;
 
-        if (is_string($requestedPreset) && ! $preset instanceof StylePreset) {
+        if (is_string($requestedScheme) && ! $scheme instanceof Scheme) {
             return $this->draft->reply(sprintf(
                 "There is no '%s' style, so nothing changed. The styles are: %s.",
-                $requestedPreset,
-                implode(', ', array_map(static fn (StylePreset $case): string => $case->value, StylePreset::cases())),
+                $requestedScheme,
+                implode(', ', array_keys($definition->schemes)),
             ));
         }
 
-        ['accepted' => $changes, 'rejected' => $rejected] = $this->partitionTokens(TokenSelection::changes($arguments));
-
-        // The hexes are all-or-nothing, unlike the tokens: a specific colour IS
-        // the request, so applying half of it would report success on the half
-        // that failed.
+        // The hexes are all-or-nothing: a specific colour IS the request, so
+        // applying half of it would report success on the half that failed.
         $brand = [];
 
         foreach (TokenSelection::BRAND_KEYS as $key) {
@@ -143,76 +133,62 @@ final readonly class SetSiteStyle implements Tool
             $brand[$key] = $hex;
         }
 
-        // A hex implies the brand palette — a staged colour nobody renders is a
-        // change the model would report and the operator would never see.
-        if ($brand !== []) {
-            $changes[TokenKey::Palette->value] = ColorPalette::Brand->value;
+        if (! $scheme instanceof Scheme && $brand === []) {
+            return $this->draft->reply('No style was given, so nothing changed.');
         }
 
-        // The silent-fallback trap: `palette: brand` with no primary anywhere
-        // renders the Default palette while the reply claims a brand look.
-        // Refuse it with directions instead.
-        if (($changes[TokenKey::Palette->value] ?? null) === ColorPalette::Brand->value
-            && ($brand['brand_primary'] ?? $this->style->brand()['brand_primary'] ?? null) === null) {
-            return $this->draft->reply(
-                'The brand palette needs a primary colour first, so nothing changed. '
-                .'Give brand_primary as a hex, or tell the operator to set their brand colours on the business profile.',
-            );
+        // Brand hexes only paint a look built on the brand palette. On any
+        // other they would be staged, saved and never seen — a silent no-op
+        // the model would still report as done — so the call is refused whole,
+        // judged against the look it would land on.
+        $landsOn = $scheme instanceof Scheme ? $scheme->tokens : $this->style->current();
+
+        if ($brand !== [] && $landsOn->palette !== ColorPalette::Brand) {
+            return $this->draft->reply($this->brandRefusal($definition->schemes));
         }
 
-        if (! $preset instanceof StylePreset && $changes === []) {
-            return $this->draft->reply($rejected === []
-                ? 'No style was given, so nothing changed.'
-                : 'Nothing changed. '.implode(' ', $rejected));
-        }
-
-        if ($preset instanceof StylePreset) {
-            $this->style->applyPreset($preset);
+        if ($scheme instanceof Scheme) {
+            $this->style->applyScheme($scheme);
         }
 
         if ($brand !== []) {
             $this->style->stageBrand($brand);
         }
 
-        if ($changes !== []) {
-            $this->style->apply($changes);
-        }
-
-        $aligned = $preset instanceof StylePreset && ($arguments['align_layouts'] ?? false) === true;
+        $aligned = $scheme instanceof Scheme && ($arguments['align_layouts'] ?? false) === true;
 
         if ($aligned) {
-            $this->draft->replace($this->alignedBlocks($preset));
+            $this->draft->replace($this->alignedBlocks($scheme));
         }
 
         return $this->draft->reply(sprintf(
-            'The site style is now %s%s%s.%s It is staged on the canvas only — tell the operator it affects every page and that they need to apply it.',
+            'The site style is now %s%s%s. It is staged on the canvas only — tell the operator it affects every page and that they need to apply it.',
             $this->style->current()->describe(),
             isset($brand['brand_primary']) ? ' with brand primary '.$brand['brand_primary'] : '',
             $aligned ? ", and this page's section layouts and backgrounds were aligned to it" : '',
-            $rejected === [] ? '' : ' '.implode(' ', $rejected),
         ));
     }
 
     /**
-     * Every block re-laid to the preset's layouts AND section backgrounds,
+     * Every block re-laid to the scheme's layouts AND section backgrounds,
      * keeping the editor's keys.
      *
-     * The per-block rule lives in {@see StampPresetDefaults::stamp()}; only the
+     * The per-block rule lives in {@see StampSchemeDefaults::stamp()}; only the
      * iteration is here, because PHPStan's array shapes are sealed and the draft's
      * `{key, type, data}` is not a subtype of the `{type, data}` that action's
      * `handle()` takes.
      *
      * @return list<array{key: string, type: string, data: array<string, mixed>}>
      */
-    private function alignedBlocks(StylePreset $preset): array
+    private function alignedBlocks(Scheme $scheme): array
     {
         $blocks = $this->draft->blocks();
 
         foreach ($blocks as $index => $block) {
-            $blocks[$index]['data'] = $this->stampPresetDefaults->stamp(
+            $blocks[$index]['data'] = $this->stampSchemeDefaults->stamp(
                 $block['data'],
                 $block['type'],
-                $preset,
+                $scheme,
             );
         }
 
@@ -220,73 +196,36 @@ final readonly class SetSiteStyle implements Tool
     }
 
     /**
-     * Split the requested tokens into the ones that can apply and one line of
-     * report per one that cannot. Partial, not all-or-nothing: one bad value
-     * used to void the whole call and burn a step of `#[MaxSteps]` re-sending
-     * six good ones — but the rejection is REPORTED, never silently dropped,
-     * because a model that believes an unrecognised value landed builds its
-     * next call on a false premise.
+     * Why brand hexes changed nothing, and where they would: the theme's
+     * brand-palette schemes by slug, or the plain fact that it has none — so
+     * the model can offer a real alternative rather than retry the same call.
      *
-     * @param  array<string, string>  $changes
-     * @return array{accepted: array<string, string>, rejected: list<string>}
+     * @param  array<string, Scheme>  $schemes
      */
-    private function partitionTokens(array $changes): array
+    private function brandRefusal(array $schemes): string
     {
-        $accepted = [];
-        $rejected = [];
-
-        foreach (TokenKey::cases() as $key) {
-            $value = $changes[$key->value] ?? null;
-
-            if ($value === null) {
-                continue;
-            }
-
-            if ($key->tryValue($value) instanceof BackedEnum) {
-                $accepted[$key->value] = $value;
-
-                continue;
-            }
-
-            $rejected[] = sprintf(
-                "'%s' is not a valid %s and was not applied — the options are: %s.",
-                $value,
-                mb_strtolower($key->label()),
-                // The palette rejection repeats the colour guide, not just the
-                // slugs: a model that guessed "navy" needs the hue words to make
-                // its NEXT call the right one instead of a second guess.
-                $key === TokenKey::Palette
-                    ? $this->paletteGuide()
-                    : implode(', ', array_keys(TokenOptions::for($key))),
-            );
-        }
-
-        return ['accepted' => $accepted, 'rejected' => $rejected];
-    }
-
-    /**
-     * The palette menu the model matches a colour word against — the colour
-     * counterpart of {@see presetGuide()}, grounded on the enum for the same
-     * reason.
-     */
-    private function paletteGuide(): string
-    {
-        return implode(' ', array_map(
-            static fn (ColorPalette $palette): string => $palette->value.': '.$palette->guide().'.',
-            ColorPalette::cases(),
+        $brandSchemes = array_keys(array_filter(
+            $schemes,
+            static fn (Scheme $scheme): bool => $scheme->tokens->palette === ColorPalette::Brand,
         ));
+
+        return 'Nothing changed: this style does not use brand colours, so they would not show. '
+            .($brandSchemes === []
+                ? 'None of the styles in this theme uses brand colours.'
+                : 'The styles that do are: '.implode(', ', $brandSchemes).'.');
     }
 
     /**
-     * The preset menu the model matches an adjective against. Built from
-     * {@see StylePreset::synonyms()} so the grounding lives on the enum, next
-     * to the tokens it selects, rather than being restated in prose here.
+     * The scheme menu the model matches an adjective against. Built from the
+     * current theme's {@see Scheme::$synonyms} so the grounding lives on the
+     * scheme, next to the tokens it selects, rather than being restated in
+     * prose here.
      */
-    private function presetGuide(): string
+    private function schemeGuide(): string
     {
         return implode(' ', array_map(
-            static fn (StylePreset $preset): string => $preset->value.': '.implode(', ', $preset->synonyms()).'.',
-            StylePreset::cases(),
+            static fn (Scheme $scheme): string => $scheme->slug.': '.implode(', ', $scheme->synonyms).'.',
+            array_values($this->theme->definition()->schemes),
         ));
     }
 }

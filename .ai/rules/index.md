@@ -11,10 +11,9 @@ Before planning or editing, find the row whose globs match the file's path and r
 | app/Models/** | .ai/rules/boost/models.md |
 | tests/** | .ai/rules/boost/tests.md |
 | app/Http/Controllers/** | .ai/rules/controllers.md |
-| resources/css/** | .ai/rules/css.md |
+| resources/css/**, resources/themes/*/theme.css | .ai/rules/css.md |
 | app/Templates/Definitions/** | .ai/rules/definitions.md |
-| app/Design/StylePreset.php | .ai/rules/design.md |
-| resources/views/components/filament-fabricator/page-blocks/** | .ai/rules/filament-fabricator-page-blocks.md |
+| app/Themes/Definitions/** | .ai/rules/design.md |
 | app/Filament/** | .ai/rules/filament.md |
 | app/Http/** | .ai/rules/http.md |
 | app/Jobs/** | .ai/rules/jobs.md |
@@ -22,10 +21,12 @@ Before planning or editing, find the row whose globs match the file's path and r
 | database/migrations/** | .ai/rules/migrations.md |
 | app/Models/** | .ai/rules/models.md |
 | app/Filament/Fabricator/PageBlocks/** | .ai/rules/page-blocks.md |
-| app/Templates/PagePresets/** | .ai/rules/page-presets.md |
+| app/Themes/Definitions/*/Pages/** | .ai/rules/page-presets.md |
 | app/Filament/Tenant/Resources/PageResource/** | .ai/rules/page-resource.md |
 | routes/** | .ai/rules/routes.md |
 | resources/js/site/** | .ai/rules/site.md |
 | .claude/skills/**, .ai/skills/**, .ai/rules/** | .ai/rules/skills.md |
 | tests/** | .ai/rules/tests.md |
+| resources/themes/*/blocks/** | .ai/rules/theme-block-views.md |
+| app/Themes/** | .ai/rules/themes.md |
 | resources/views/** | .ai/rules/views.md |

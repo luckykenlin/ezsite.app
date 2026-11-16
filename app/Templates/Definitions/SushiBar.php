@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Templates\Definitions;
 
-use App\Design\StylePreset;
 use App\Enums\PhotoCategory;
 use App\StockPhotos\PhotoOrientation;
 use App\Templates\DemoProfile;
 use App\Templates\PhotoQuery;
 use App\Templates\TemplateDefinition;
 use App\Templates\TemplateField;
+use App\Themes\Definitions\DefaultTheme;
 
 /**
  * An omakase sushi counter — the quietest restaurant in the library.
@@ -38,7 +38,7 @@ final readonly class SushiBar
     public static function definition(): TemplateDefinition
     {
         return new TemplateDefinition(
-            preset: StylePreset::QuietLuxe,
+            scheme: DefaultTheme::QUIET_LUXE,
             brandPrimary: '#3F3A33',
             brandSecondary: '#191713',
             brandAccent: '#9A4A32',
@@ -243,16 +243,6 @@ final readonly class SushiBar
                         ['text' => 'Twelve seats is the number one chef can serve without a piece ever waiting. Each course is finished when the chair in front of it is ready and not a moment before — which is the whole argument for a counter over a table.'],
                         ['text' => 'The rice took longer to get right than anything else in the room. It is a blend of two crops, washed until the water runs clear, cooked in small pots through service, and seasoned differently for the lean fish than for the rich.'],
                         ['text' => 'The fish is bought whole where the size allows and broken down in the back each morning. Some of it is served within hours; some is salted, cured or aged for days first, because a good piece of mackerel is made, not found.'],
-                    ],
-                ]],
-                ['type' => 'steps', 'variant' => 'timeline', 'tone' => 'muted', 'data' => [
-                    'heading' => 'A day, in order',
-                    'intro' => 'The same loop five days a week, and the reason the card is never written before ten in the morning.',
-                    'steps' => [
-                        ['title' => 'Market', 'description' => 'At the stalls by six. What is bought is whatever was best that morning, not whatever the menu promised.'],
-                        ['title' => 'Rice', 'description' => 'Washed, rested, cooked in small batches and seasoned while warm. The pot is remade through the night rather than held.'],
-                        ['title' => 'Cut', 'description' => "The morning's fish broken down, cured or set aside to age. The card is written only after the last box is open."],
-                        ['title' => 'Serve', 'description' => 'Two seatings, twelve chairs each, one piece at a time. Nothing leaves the board until the person it is for is ready.'],
                     ],
                 ]],
                 ['type' => 'gallery', 'variant' => 'grid', 'data' => [

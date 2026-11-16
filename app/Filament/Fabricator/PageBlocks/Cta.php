@@ -39,27 +39,12 @@ final class Cta extends Block
     /**
      * @var array<string, string>
      */
-    protected static array $variants = [
-        'banner' => 'Full-width banner',
-        'full-photo' => 'Full-bleed photo',
-    ];
-
-    /**
-     * @var array<string, string>
-     */
     protected static array $axes = [
         'tone' => 'accent',
         'spacing' => 'tight',
         'width' => 'normal',
         'align' => 'center',
         'item_style' => 'plain',
-    ];
-
-    /**
-     * @var array<string, array<string, string>>
-     */
-    protected static array $variantAxes = [
-        'full-photo' => ['tone' => 'inverted', 'spacing' => 'tall', 'width' => 'narrow'],
     ];
 
     /**

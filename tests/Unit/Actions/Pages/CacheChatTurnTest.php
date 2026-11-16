@@ -154,30 +154,24 @@ it('reads a structurally broken payload as nothing rather than throwing', functi
 
 /*
  * The staged style crosses the same untrusted boundary the blocks do, and lands
- * in $designDraft — from which ThemeVariables compiles a <style> tag. Every value
- * is re-resolved against a token enum downstream, so junk cannot reach CSS; an
- * unexpected KEY would still ride into the editor's state, so only known ones
- * survive the read.
+ * in $designDraft — from which the canvas resolves a scheme through the theme
+ * and ThemeVariables compiles a <style> tag. A selection is a slug plus brand
+ * hexes: an axis riding in the payload is dropped (there is no per-axis path
+ * for it to take), an unexpected KEY would still ride into the editor's state,
+ * and a hex that is not a hex would land inside the style tag.
  */
 it('round-trips a staged style and keeps only the keys the editor knows', function (): void {
     chatTurns()->handle('tok', 'Done.', [], design: [
-        'preset' => 'warm-craft',
+        'scheme' => 'warm-craft',
         'palette' => 'warm-sand',
-        'font_pair' => 42,
+        'brand_primary' => '#1A2B3C',
+        'brand_accent' => 'not-a-hex',
         'smuggled' => 'value',
     ]);
 
     expect(chatTurns()->read('tok')['design'])->toBe([
-        'preset' => 'warm-craft',
-        'palette' => 'warm-sand',
-        // Non-strings become null rather than being passed along.
-        'font_pair' => null,
-        'type_style' => null,
-        'radius' => null,
-        'density' => null,
-        'divider' => null,
-        'accent' => null,
-        'motion' => null,
+        'scheme' => 'warm-craft',
+        'brand_primary' => '#1a2b3c',
     ]);
 });
 

@@ -5,7 +5,6 @@ declare(strict_types=1);
 use App\Actions\GenerateSiteDraft;
 use App\Actions\SaveSiteChrome;
 use App\Ai\Agents\SiteDraftAgent;
-use App\Design\StylePreset;
 use App\Enums\PageStatus;
 use App\Exceptions\SiteDraftRefused;
 use App\Exceptions\SiteDraftUnusable;
@@ -14,13 +13,14 @@ use App\Models\Page;
 use App\Models\SiteSetting;
 use App\Models\Tenant;
 use App\Tenancy\RunInTenant;
+use App\Themes\Definitions\DefaultTheme;
 use Illuminate\Support\Facades\Log;
 use Laravel\Ai\Prompts\AgentPrompt;
 
 function fakeDraftResponse(array $overrides = []): array
 {
     return array_replace_recursive([
-        'preset' => 'warm-craft',
+        'scheme' => 'warm-craft',
         'rationale' => 'Earthy tones suit a bakery.',
         'pages' => [[
             'title' => 'Corner Cafe — Home',
@@ -78,7 +78,7 @@ it("persists a draft home page where the model's layout choices survive and the 
         ->and($page->blocks[1]['data']['appearance'])->toBe(['tone' => 'muted', 'spacing' => 'airy'])
         ->and($page->blocks[2]['data']['appearance'])->toBe(['tone' => 'base', 'spacing' => 'airy'])
         ->and($page->blocks[0]['data'])->not->toHaveKey('appearance')
-        ->and(Business::query()->sole()->design_tokens->preset)->toBe(StylePreset::WarmCraft);
+        ->and(Business::query()->sole()->design_tokens->scheme)->toBe(DefaultTheme::WARM_CRAFT);
 
     SiteDraftAgent::assertPrompted(fn (AgentPrompt $prompt): bool => $prompt->contains('Corner Cafe'));
 });

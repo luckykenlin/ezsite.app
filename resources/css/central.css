@@ -56,7 +56,7 @@
         outline-offset: 3px;
     }
 
-    /* Same step site.css gives tenant sites: 16px body copy reads as a
+    /* Same step the theme stylesheet gives tenant sites: 16px body copy reads as a
        phone size across a laptop measure. Absolute rem so text-sm/text-xs
        utilities are unaffected. */
     @media (width >= 64rem) {

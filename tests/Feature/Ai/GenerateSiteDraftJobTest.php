@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\Log;
 
 it('generates the draft on the worker and notifies the triggering user', function (): void {
     SiteDraftAgent::fake([[
-        'preset' => 'fresh-modern',
+        'scheme' => 'fresh-modern',
         'rationale' => 'Modern fits.',
         'pages' => [[
             'title' => 'Home',
@@ -40,7 +40,7 @@ it('generates the draft on the worker and notifies the triggering user', functio
 
 it('dispatches the photo follow-up only when stock photos are enabled', function (): void {
     $draft = [
-        'preset' => 'fresh-modern',
+        'scheme' => 'fresh-modern',
         'rationale' => 'Modern fits.',
         'pages' => [[
             'title' => 'Home',
@@ -79,7 +79,7 @@ it('notifies about a rejected draft instead of failing the job', function (): vo
     // Survives with too few blocks -> SiteDraftInvalid, on the first attempt
     // AND on the automatic retry.
     $thinDraft = [
-        'preset' => 'fresh-modern',
+        'scheme' => 'fresh-modern',
         'rationale' => 'Too thin.',
         'pages' => [[
             'title' => 'Home',

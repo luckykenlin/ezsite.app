@@ -327,8 +327,8 @@ monotonically, a declared default exists in the referenced vocabulary. A new
 case is then covered automatically; a test that copies each constant is a
 change detector that a new case silently escapes. See
 `Unit/Design/TokenScalesTest` (radius/spacing scales), `ColorPaletteTest`
-("every palette emits all 12 variables"), and `StylePresetTest` (every preset's
-`blockVariantDefaults()` cross-checked against `BlockRegistry::vocabulary()` —
+("every palette emits all 12 variables"), and `Unit/Themes/ThemeTest` (every
+scheme's `blockVariantDefaults` cross-checked against the theme's own blocks —
 a typo there would silently fall back to the wrong layout).
 
 **2. A `scoped` container binding is guarded by its consequence, not its
@@ -363,7 +363,7 @@ while the contract lives under the primitive's own name.
 BlockRegistry::vocabulary()), ['header', 'footer'])))` restates the method body,
 so it passes by construction and can never fail. Write what the answer *is*
 (`->toContain('hero', 'features')->not->toContain('header')`) or an invariant
-that survives a rewrite (`->toHaveCount(count(StylePreset::cases()))`). The
+that survives a rewrite (`->toHaveSameSize(Theme::Default->definition()->schemes)`). The
 same rule kills `->and($tool->description())->not->toBeEmpty()`: a description
 exists to carry ONE load-bearing instruction to the model — pin that clause
 (`->toContain('Send only the fields you want to change')`), not its length.

@@ -2,46 +2,37 @@
 
 declare(strict_types=1);
 
-use App\Design\StylePreset;
-use App\Design\TokenKey;
 use App\Design\TokenSelection;
+use App\Themes\Definitions\DefaultTheme;
 
 /*
- * Both readings are driven off TokenKey::cases() rather than a copy of the four
- * keys, so a fifth token has to satisfy all of this on the day it is added —
- * the same reason the enum exists.
+ * A selection is a scheme slug plus brand hexes, never axes: the eight axes on
+ * DesignTokens ride in from a scheme's toArray() and are dropped here, so a
+ * staged selection has nowhere to carry a single changed axis.
  */
-it('normalises a selection to the preset and every token key', function (): void {
-    $normalised = TokenSelection::normalise(StylePreset::WarmCraft->tokens()->toArray());
+it('normalises a selection to the scheme alone, dropping the axes', function (): void {
+    $normalised = TokenSelection::normalise(defaultScheme(DefaultTheme::WARM_CRAFT)->tokens->toArray());
 
-    expect(array_keys((array) $normalised))->toBe(['preset', ...TokenKey::values()])
-        ->and($normalised['preset'])->toBe('warm-craft');
+    expect($normalised)->toBe(['scheme' => 'warm-craft']);
 });
 
-it('keeps every known key even when the selection is empty', function (): void {
-    $normalised = TokenSelection::normalise([]);
-
-    expect(array_keys((array) $normalised))->toBe(['preset', ...TokenKey::values()])
-        ->and(array_filter((array) $normalised))->toBeEmpty();
+it('keeps the scheme key even when the selection is empty', function (): void {
+    expect(TokenSelection::normalise([]))->toBe(['scheme' => null]);
 });
 
 /*
  * A key the design surfaces do not know would ride along into the editor's
  * Livewire state and from there into a write; a non-string value would reach a
- * token resolver that expects one. Both are dropped here rather than downstream.
+ * theme lookup that expects one. Both are dropped here rather than downstream.
  */
 it('drops unknown keys and non-string values', function (): void {
     $normalised = TokenSelection::normalise([
-        'preset' => 42,
+        'scheme' => 42,
         'palette' => 'ocean',
-        'radius' => ['nested'],
         'shadow' => 'heavy',
     ]);
 
-    expect($normalised)->not->toHaveKey('shadow')
-        ->and($normalised['preset'])->toBeNull()
-        ->and($normalised['palette'])->toBe('ocean')
-        ->and($normalised['radius'])->toBeNull();
+    expect($normalised)->toBe(['scheme' => null]);
 });
 
 /*
@@ -52,19 +43,17 @@ it('drops unknown keys and non-string values', function (): void {
  */
 it('passes brand hexes through only when they are hexes', function (): void {
     $normalised = TokenSelection::normalise([
-        'palette' => 'brand',
+        'scheme' => 'warm-craft',
         'brand_primary' => '#1A2B3C',
         'brand_secondary' => 'not-a-colour',
         'brand_accent' => ['#123456'],
     ]);
 
-    expect($normalised['brand_primary'])->toBe('#1a2b3c')
-        ->and($normalised)->not->toHaveKey('brand_secondary')
-        ->and($normalised)->not->toHaveKey('brand_accent');
+    expect($normalised)->toBe(['scheme' => 'warm-craft', 'brand_primary' => '#1a2b3c']);
 });
 
 it('emits no brand keys for a selection without them', function (): void {
-    expect(TokenSelection::normalise(['palette' => 'ocean']))
+    expect(TokenSelection::normalise(['scheme' => 'warm-craft']))
         ->not->toHaveKey('brand_primary')
         ->not->toHaveKey('brand_secondary')
         ->not->toHaveKey('brand_accent');
@@ -78,22 +67,3 @@ it('emits no brand keys for a selection without them', function (): void {
 it('answers null only for input that is not an array', function (mixed $input): void {
     expect(TokenSelection::normalise($input))->toBeNull();
 })->with([null, 'warm-craft', 7, true]);
-
-/*
- * The absences are the point: an omitted key means "leave this token alone", so
- * a hidden form field or an unset tool argument must not be written as null.
- */
-it('reads changes as only the token keys actually supplied', function (): void {
-    $changes = TokenSelection::changes([
-        'preset' => 'warm-craft',
-        'palette' => 'ocean',
-        'radius' => null,
-        'density' => 12,
-    ]);
-
-    expect($changes)->toBe(['palette' => 'ocean']);
-});
-
-it('reads no changes from a selection that supplied none', function (): void {
-    expect(TokenSelection::changes([]))->toBeEmpty();
-});

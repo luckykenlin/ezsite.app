@@ -33,6 +33,15 @@ use Illuminate\Support\Facades\DB;
  * none. Saving the template's own header first is what keeps its hand-written
  * nav labels ("Work", "Visit") instead of page titles.
  *
+ * The validator and the draft writer are resolved INSIDE {@see handle()},
+ * not injected. Both read the block vocabulary of the current tenant's
+ * theme, and a constructor-injected one is a snapshot taken wherever this
+ * action was built — which for both callers is the central context, where
+ * the theme is the default one. A template on a vertical theme then had
+ * every one of its layouts dropped as unknown and its exclusive blocks
+ * thrown away. Resolving them here, under RunInTenant, is what makes them
+ * see the theme the provisioned tenant actually renders through.
+ *
  * IDEMPOTENT: business and location are `updateOrCreate`d, so the demo seeds
  * can re-run on every deploy without duplicating rows. For a fresh signup
  * tenant the same calls simply create.
@@ -42,8 +51,6 @@ final readonly class ApplyTemplateToTenant
     public function __construct(
         private FillTemplatePlaceholders $fillPlaceholders,
         private SaveSiteChrome $saveSiteChrome,
-        private SiteDraftValidator $validator,
-        private ApplySiteDraft $applySiteDraft,
     ) {
         //
     }
@@ -99,12 +106,12 @@ final readonly class ApplyTemplateToTenant
 
             $this->saveSiteChrome->handle($content['header'], $content['footer']);
 
-            $draft = $this->validator->handle(
-                ['preset' => $definition->preset->value, 'pages' => $content['pages']],
+            $draft = resolve(SiteDraftValidator::class)->handle(
+                ['scheme' => $definition->scheme, 'pages' => $content['pages']],
                 $details->businessName ?? $definition->demoProfile->name,
             );
 
-            $this->applySiteDraft->handle($business, $draft, overwritePublished: $overwritePublished);
+            resolve(ApplySiteDraft::class)->handle($business, $draft, overwritePublished: $overwritePublished);
 
             return $business;
         });

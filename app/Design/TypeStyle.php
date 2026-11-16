@@ -11,13 +11,13 @@ namespace App\Design;
  * FAMILY, so before this token every site set every heading in
  * `700 / -0.025em / sentence case` regardless of look.
  *
- * Packages rather than free axes on purpose (the same argument as
- * {@see StylePreset}): weight, tracking and case interact — 800 wants tighter
+ * Packages rather than free axes on purpose (the same argument as a theme
+ * scheme, {@see \App\Themes\Scheme}): weight, tracking and case interact — 800 wants tighter
  * tracking, uppercase wants a smaller size — and letting the operator or the
  * AI dial them independently is how a site starts to look wrong.
  *
  * `variables()` fills the `--type-*` contract consumed by the `.site-h*` /
- * `.site-eyebrow` / `.site-intro` classes in resources/css/site.css. Classic
+ * `.site-eyebrow` / `.site-intro` classes in resources/themes/{theme}/theme.css. Classic
  * emits exactly those classes' fallback values, so a site that has never
  * chosen a type style renders byte-identically to the pre-token markup —
  * the same zero-regression strategy as {@see \App\Site\Blocks\SectionAppearance}.
@@ -48,8 +48,7 @@ enum TypeStyle: string
      * decision of its own: a hero headline can be twice the size of a section
      * title or four times it, and before this axis the only way to grow one was
      * to grow the whole page's type with it — which is how "make the headline
-     * enormous" turned into 20px body copy. Kept off `.site-stat`, whose
-     * three-or-four-across row overflows long before a headline does.
+     * enormous" turned into 20px body copy.
      *
      * The ceiling on it is set by real copy, not by taste. A magazine can set a
      * headline at 8rem because an editor wrote it to two words; a tenant's

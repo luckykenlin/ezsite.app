@@ -92,7 +92,7 @@ test('a draft card is marked as one', function (): void {
 
 test('creating a blank page asks for a name and nothing else', function (): void {
     Livewire::test(PageCanvas::class)
-        ->callAction(TestAction::make('newPage'), ['preset' => 'blank', 'title' => 'Our Services'])
+        ->callAction(TestAction::make('newPage'), ['page' => 'blank', 'title' => 'Our Services'])
         ->assertHasNoFormErrors()
         ->assertDispatched('page-canvas:page-created');
 
@@ -106,7 +106,7 @@ test('creating a blank page asks for a name and nothing else', function (): void
 });
 
 test('a blank page with no name lands as an untitled draft', function (): void {
-    // The title went optional when the preset picker arrived: picking a
+    // The title went optional when the page picker arrived: picking a
     // layout and pressing Create is the one-click path, and Blank keeps the
     // same contract rather than being the one card that argues.
     Livewire::test(PageCanvas::class)
@@ -117,9 +117,9 @@ test('a blank page with no name lands as an untitled draft', function (): void {
     expect(Page::query()->firstOrFail()->title)->toBe('Untitled page');
 });
 
-test('creating a page from a preset seeds its designed blocks', function (): void {
+test('creating a page from a theme page seeds its designed blocks', function (): void {
     Livewire::test(PageCanvas::class)
-        ->callAction(TestAction::make('newPage'), ['preset' => 'about', 'title' => null])
+        ->callAction(TestAction::make('newPage'), ['page' => 'about', 'title' => null])
         ->assertHasNoFormErrors()
         ->assertDispatched('page-canvas:page-created');
 
@@ -130,10 +130,10 @@ test('creating a page from a preset seeds its designed blocks', function (): voi
         ->and(array_column($page->blocks, 'type'))->toContain('hero', 'prose', 'team');
 });
 
-test('an unknown preset is rejected, not silently blanked', function (): void {
+test('an unknown page key is rejected, not silently blanked', function (): void {
     Livewire::test(PageCanvas::class)
-        ->callAction(TestAction::make('newPage'), ['preset' => 'moodboard', 'title' => null])
-        ->assertHasFormErrors(['preset']);
+        ->callAction(TestAction::make('newPage'), ['page' => 'moodboard', 'title' => null])
+        ->assertHasFormErrors(['page']);
 
     expect(Page::query()->count())->toBe(0);
 });
@@ -152,7 +152,7 @@ test('the new page modal mounts with Blank pre-selected and a live payload behin
     // blank-page gesture — and a re-put preview payload for the thumbnails.
     $component = Livewire::test(PageCanvas::class)->mountAction('newPage');
 
-    $component->assertSchemaStateSet(['preset' => 'blank']);
+    $component->assertSchemaStateSet(['page' => 'blank']);
 
     expect(Cache::get(CachePageEditorPreview::key($component->instance()->previewToken)))->toBeArray();
 });

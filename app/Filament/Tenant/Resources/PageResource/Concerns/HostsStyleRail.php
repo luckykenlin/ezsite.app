@@ -12,7 +12,7 @@ use App\Models\Business;
  * The editor's half of the Site Styles panel: the right rail's only face,
  * openable and closable like Squarespace's, and the canvas preview behind it.
  *
- * The panel itself — groups, specimens, staging rules, the single write path —
+ * The panel itself — schemes, specimens, staging rules, the single write path —
  * is {@see EditsSiteStyles}, shared with {@see \App\Filament\Tenant\Pages\Design}.
  * What is here is only what the EDITOR adds: a staged selection is pushed
  * straight onto the canvas, so a look is judged against the operator's real page
@@ -58,7 +58,6 @@ trait HostsStyleRail
     public function closeSiteStyles(): void
     {
         $this->showingSiteStyles = false;
-        $this->styleGroup = null;
     }
 
     public function styleBusiness(): Business

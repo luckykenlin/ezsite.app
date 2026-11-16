@@ -7,7 +7,7 @@ namespace App\Design;
 /**
  * How the brand-colour surface is painted — the second "signature treatment"
  * token. It fills `--accent-surface`, which the `.site-tone-accent` class in
- * resources/css/site.css uses as the background of every `accent` section
+ * resources/themes/{theme}/theme.css uses as the background of every `accent` section
  * (see {@see \App\Site\Blocks\SectionTone::Accent}).
  *
  * Every value is palette-DERIVED, never authored: gradients are built from

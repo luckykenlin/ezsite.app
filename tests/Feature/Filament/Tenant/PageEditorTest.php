@@ -9,8 +9,6 @@ use App\Actions\Pages\CachePageEditorPreview;
 use App\Ai\Agents\PageEditorAgent;
 use App\Design\ColorPalette;
 use App\Design\DesignTokens;
-use App\Design\StyleGroup;
-use App\Design\StylePreset;
 use App\Enums\ChatMode;
 use App\Enums\ChatRole;
 use App\Enums\ChromeSlot;
@@ -29,6 +27,9 @@ use App\Models\SiteSetting;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Site\Blocks\BlockVocabulary;
+use App\Templates\SiteTemplate;
+use App\Themes\Definitions\DefaultTheme;
+use App\Themes\Theme;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
@@ -892,7 +893,7 @@ describe('surviving a reload', function (): void {
 
         Livewire::test(PageEditor::class, ['record' => $page->id])
             ->call('addBlock', 'cta')
-            ->call('stageToken', 'palette', 'ocean');
+            ->call('stageScheme', 'calm-coastal');
 
         expect(Livewire::test(PageEditor::class, ['record' => $page->id])->get('designDraft'))->toBeNull();
     });
@@ -912,17 +913,17 @@ describe('a chat-staged style across a reload', function (): void {
         // `isDirty` stays false and nothing else in hasUnsavedWork() would have said
         // there was anything worth keeping.
         Livewire::test(PageEditor::class, ['record' => $page->id])
-            ->call('applyTurn', null, StylePreset::WarmCraft->tokens()->toArray());
+            ->call('applyTurn', null, defaultScheme(DefaultTheme::WARM_CRAFT)->tokens->toArray());
 
         $reloaded = Livewire::test(PageEditor::class, ['record' => $page->id]);
 
-        expect($reloaded->get('designDraft')['preset'])->toBe('warm-craft')
+        expect($reloaded->get('designDraft')['scheme'])->toBe('warm-craft')
             // Back on the canvas...
-            ->and(cachedPreview($reloaded)['design_tokens']['preset'])->toBe('warm-craft')
+            ->and(cachedPreview($reloaded)['design_tokens']['scheme'])->toBe('warm-craft')
             // ...with the way to accept or reject it back too.
             ->and($reloaded->get('chatDesignAwaitingApply'))->toBeTrue()
             // And still nowhere near the businesses row.
-            ->and(Business::query()->sole()->design_tokens->preset)->toBeNull();
+            ->and(Business::query()->sole()->design_tokens->scheme)->toBeNull();
     });
 
     it('discards a restored style along with the rest of the draft', function (): void {
@@ -930,7 +931,7 @@ describe('a chat-staged style across a reload', function (): void {
         $page = editorPage([['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']]]);
 
         Livewire::test(PageEditor::class, ['record' => $page->id])
-            ->call('applyTurn', null, StylePreset::WarmCraft->tokens()->toArray());
+            ->call('applyTurn', null, defaultScheme(DefaultTheme::WARM_CRAFT)->tokens->toArray());
 
         $reloaded = Livewire::test(PageEditor::class, ['record' => $page->id]);
         $reloaded->call('discardDraft');
@@ -1334,125 +1335,124 @@ describe('site chrome in the inspector', function (): void {
 });
 
 describe('the site styles rail', function (): void {
-    it('shows the saved tokens until something is staged, then the draft', function (): void {
+    it('shows the saved tokens until something is staged, then the staged scheme resolved through the theme', function (): void {
         $this->createTenantBusiness($this->tenant, ['name' => 'Corner Cafe']);
         $page = editorPage([]);
 
         $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
 
-        expect($component->instance()->styleSelection()['palette'])
-            ->toBe(Business::query()->sole()->design_tokens->palette->value)
+        // Nothing staged is an EMPTY selection, never the saved tokens dressed
+        // up as one; which scheme is on is activeScheme()'s answer.
+        expect($component->instance()->styleSelection())->toBe([])
+            ->and($component->instance()->activeScheme())->toBe(Business::query()->sole()->design_tokens->scheme)
             ->and($component->instance()->hasStagedStyles())->toBeFalse();
 
-        $component->call('stageToken', 'palette', 'ocean');
+        $component->call('stageScheme', 'calm-coastal');
 
-        expect($component->instance()->styleSelection()['palette'])->toBe('ocean')
+        // The staged selection is the slug alone; the specimen backdrop and the
+        // canvas get the scheme's tokens by resolving it through the theme.
+        expect($component->instance()->styleSelection())->toBe(['scheme' => 'calm-coastal'])
             ->and($component->instance()->styleTokens()->palette)->toBe(ColorPalette::Ocean)
             ->and($component->instance()->hasStagedStyles())->toBeTrue();
     });
 
-    it('stages a token onto the canvas without writing anything', function (): void {
+    it('stages a whole scheme from one click, and applies it to the site', function (): void {
         $this->createTenantBusiness($this->tenant, ['name' => 'Corner Cafe']);
         $page = editorPage([]);
 
-        $component = Livewire::test(PageEditor::class, ['record' => $page->id])
-            ->call('stageToken', 'palette', 'ocean');
-
-        expect($component->get('designDraft')['palette'])->toBe('ocean')
-            ->and(cachedPreview($component)['design_tokens']['palette'])->toBe('ocean')
-            ->and(Business::query()->sole()->design_tokens->palette)->not->toBe(ColorPalette::Ocean);
-    });
-
-    it('ignores a token key or value the browser invented', function (): void {
-        // The pair reaches the canvas as a silent fallback to the default token
-        // and only fails on save, so it is refused here instead.
-        $this->createTenantBusiness($this->tenant, ['name' => 'Corner Cafe']);
-        $page = editorPage([]);
+        $tokens = defaultScheme(DefaultTheme::BOLD_EDITORIAL)->tokens;
 
         $component = Livewire::test(PageEditor::class, ['record' => $page->id])
-            ->call('stageToken', 'palette', 'no-such-palette')
-            ->call('stageToken', 'no_such_key', 'ocean');
+            ->call('stageScheme', 'bold-editorial');
 
-        expect($component->get('designDraft'))->toBeNull();
-    });
-
-    it('stages a whole preset from one click, and applies it to the site', function (): void {
-        $this->createTenantBusiness($this->tenant, ['name' => 'Corner Cafe']);
-        $page = editorPage([]);
-
-        $tokens = StylePreset::BoldEditorial->tokens();
-
-        $component = Livewire::test(PageEditor::class, ['record' => $page->id])
-            ->call('stagePreset', 'bold-editorial');
-
-        expect($component->get('designDraft')['preset'])->toBe('bold-editorial')
-            ->and($component->get('designDraft')['palette'])->toBe($tokens->palette->value)
-            ->and(Business::query()->sole()->design_tokens->preset)->not->toBe(StylePreset::BoldEditorial);
+        expect($component->get('designDraft'))->toBe(['scheme' => 'bold-editorial'])
+            ->and(cachedPreview($component)['design_tokens'])->toBe(['scheme' => 'bold-editorial'])
+            ->and(Business::query()->sole()->design_tokens->scheme)->not->toBe(DefaultTheme::BOLD_EDITORIAL);
 
         $component->call('applySiteStyles')->assertNotified();
 
         $saved = Business::query()->sole()->design_tokens;
 
-        expect($saved->preset)->toBe(StylePreset::BoldEditorial)
+        expect($saved->scheme)->toBe(DefaultTheme::BOLD_EDITORIAL)
             ->and($saved->palette)->toBe($tokens->palette)
             // Applied means no longer staged: the footer bar goes away with it.
             ->and($component->get('designDraft'))->toBeNull();
     });
 
-    it('ignores a preset the browser invented', function (): void {
+    it('ignores a scheme the browser invented', function (): void {
         $this->createTenantBusiness($this->tenant, ['name' => 'Corner Cafe']);
         $page = editorPage([]);
 
         $component = Livewire::test(PageEditor::class, ['record' => $page->id])
-            ->call('stagePreset', 'no-such-preset');
+            ->call('stageScheme', 'no-such-scheme');
 
         expect($component->get('designDraft'))->toBeNull();
     });
 
-    it('keeps the preset marker on a token change, so changing it back saves as the preset again', function (): void {
-        // SaveDesignSelection decides preset-vs-custom by comparing the whole
-        // selection. Clearing the marker on the first token click would make
-        // that a one-way door.
-        $this->createTenantBusiness($this->tenant, ['name' => 'Corner Cafe']);
-        $page = editorPage([]);
-
-        $preset = StylePreset::BoldEditorial->tokens();
-
-        $component = Livewire::test(PageEditor::class, ['record' => $page->id])
-            ->call('stagePreset', 'bold-editorial')
-            ->call('stageToken', 'palette', 'ocean');
-
-        expect($component->get('designDraft')['preset'])->toBe('bold-editorial');
-
-        $component->call('applySiteStyles');
-
-        expect(Business::query()->sole()->design_tokens->preset)->toBeNull();
-
-        $component->call('stagePreset', 'bold-editorial')
-            ->call('stageToken', 'palette', 'ocean')
-            ->call('stageToken', 'palette', $preset->palette->value)
-            ->call('applySiteStyles');
-
-        expect(Business::query()->sole()->design_tokens->preset)->toBe(StylePreset::BoldEditorial);
-    });
-
     it('applies a staged brand hex to the business column', function (): void {
-        $this->createTenantBusiness($this->tenant, ['name' => 'Corner Cafe', 'brand_primary' => '#111111']);
+        $this->createTenantBusiness($this->tenant, [
+            'name' => 'Corner Cafe',
+            'brand_primary' => '#111111',
+            'design_tokens' => DesignTokens::fromArray([...DesignTokens::default()->toArray(), 'palette' => 'brand']),
+        ]);
         $page = editorPage([]);
 
         $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
 
         expect($component->instance()->brandColor('brand_primary'))->toBe('#111111');
 
-        $component->call('stageToken', 'palette', 'brand')
-            ->call('stageBrandColor', 'brand_primary', '#ff6b35');
+        $component->call('stageBrandColor', 'brand_primary', '#ff6b35');
 
-        // Staged, so the swatch shows the new hex before it is applied.
-        expect($component->instance()->brandColor('brand_primary'))->toBe('#ff6b35');
+        // Staged, so the swatch shows the new hex before it is applied — and
+        // the draft names no scheme, so the saved look is what it paints over.
+        expect($component->instance()->brandColor('brand_primary'))->toBe('#ff6b35')
+            ->and($component->get('designDraft'))->toBe(['scheme' => null, 'brand_primary' => '#ff6b35'])
+            ->and($component->instance()->styleTokens()->palette)->toBe(ColorPalette::Brand);
 
         $component->call('applySiteStyles');
 
-        expect(Business::query()->sole()->brand_primary)->toBe('#ff6b35');
+        expect(Business::query()->sole()->brand_primary)->toBe('#ff6b35')
+            ->and(Business::query()->sole()->design_tokens->palette)->toBe(ColorPalette::Brand);
+    });
+
+    /*
+     * The regression this pins: a brand edit used to stage the SAVED slug as
+     * if it had been picked, so the canvas drew the scheme's bare bundle and
+     * Apply re-ran ApplyScheme — wiping whatever a template folded in on top
+     * (DimSumHouse's Brand palette, the very palette the swatch exists for).
+     */
+    it('keeps a template s overridden look through a brand edit, in the preview and after apply', function (): void {
+        $provisioned = SiteTemplate::DimSumHouse->definition()->tokens();
+        $this->createTenantBusiness($this->tenant, ['name' => 'Golden Lotus', 'design_tokens' => $provisioned]);
+        $page = editorPage([]);
+
+        $component = Livewire::test(PageEditor::class, ['record' => $page->id])
+            ->call('showSiteStyles')
+            ->call('stageBrandColor', 'brand_primary', '#ff6b35');
+
+        expect($component->get('designDraft'))->toBe(['scheme' => null, 'brand_primary' => '#ff6b35'])
+            ->and($component->instance()->styleTokens()->toArray())->toBe($provisioned->toArray())
+            // Still the template's scheme in the picker, and the swatches stay.
+            ->and($component->instance()->activeScheme())->toBe(DefaultTheme::WARM_CRAFT);
+
+        $component->assertSee('Your brand colours')->call('applySiteStyles');
+
+        expect(Business::query()->sole()->design_tokens->toArray())->toBe($provisioned->toArray())
+            ->and(Business::query()->sole()->brand_primary)->toBe('#ff6b35');
+    });
+
+    it('carries a staged brand hex forward when a scheme is picked after it', function (): void {
+        $this->createTenantBusiness($this->tenant, [
+            'name' => 'Corner Cafe',
+            'design_tokens' => DesignTokens::fromArray([...DesignTokens::default()->toArray(), 'palette' => 'brand']),
+        ]);
+        $page = editorPage([]);
+
+        $component = Livewire::test(PageEditor::class, ['record' => $page->id])
+            ->call('stageBrandColor', 'brand_primary', '#ff6b35')
+            ->call('stageScheme', 'calm-coastal');
+
+        expect($component->get('designDraft'))->toBe(['scheme' => 'calm-coastal', 'brand_primary' => '#ff6b35']);
     });
 
     it('ignores a brand colour key the browser invented', function (): void {
@@ -1470,7 +1470,7 @@ describe('the site styles rail', function (): void {
         $page = editorPage([]);
 
         $component = Livewire::test(PageEditor::class, ['record' => $page->id])
-            ->call('stageToken', 'palette', 'ocean')
+            ->call('stageScheme', 'calm-coastal')
             ->call('resetSiteStyles');
 
         expect($component->get('designDraft'))->toBeNull()
@@ -1495,44 +1495,11 @@ describe('the site styles rail', function (): void {
         $page = editorPage([]);
 
         $component = Livewire::test(PageEditor::class, ['record' => $page->id])
-            ->call('stageToken', 'palette', 'ocean')
+            ->call('stageScheme', 'calm-coastal')
             ->mountAction('pageSettings')
             ->unmountAction();
 
-        expect($component->get('designDraft')['palette'])->toBe('ocean');
-    });
-
-    it('opens a style group, drills back out, and keeps the staged look across both', function (): void {
-        $this->createTenantBusiness($this->tenant, ['name' => 'Corner Cafe']);
-        $page = editorPage([]);
-
-        $component = Livewire::test(PageEditor::class, ['record' => $page->id])
-            ->call('showSiteStyles')
-            ->call('stageToken', 'palette', 'ocean')
-            ->call('openStyleGroup', 'theme');
-
-        expect($component->get('styleGroup'))->toBe('theme')
-            ->and($component->instance()->openedStyleGroup())->toBe(StyleGroup::Theme);
-
-        $component->call('closeStyleGroup');
-
-        expect($component->get('styleGroup'))->toBeNull()
-            ->and($component->instance()->openedStyleGroup())->toBeNull()
-            ->and($component->get('designDraft')['palette'])->toBe('ocean');
-    });
-
-    it('reads a group the browser invented as the top level', function (): void {
-        $this->createTenantBusiness($this->tenant, ['name' => 'Corner Cafe']);
-        $page = editorPage([]);
-
-        $component = Livewire::test(PageEditor::class, ['record' => $page->id])
-            ->call('openStyleGroup', 'no-such-group');
-
-        expect($component->get('styleGroup'))->toBeNull();
-
-        $component->set('styleGroup', 'still-not-a-group');
-
-        expect($component->instance()->openedStyleGroup())->toBeNull();
+        expect($component->get('designDraft')['scheme'])->toBe('calm-coastal');
     });
 
     it('stays open across selection changes, closing only on demand', function (): void {
@@ -1561,68 +1528,59 @@ describe('the site styles rail', function (): void {
         expect($component->get('showingSiteStyles'))->toBeFalse();
     });
 
-    it('renders every group card and every preset as a live specimen', function (): void {
+    it('offers every scheme of the current theme at the top level, each drawn as itself', function (): void {
         $this->createTenantBusiness($this->tenant, ['name' => 'Corner Cafe']);
         $page = editorPage([]);
 
         $component = Livewire::test(PageEditor::class, ['record' => $page->id])
             ->call('showSiteStyles');
 
-        // Each card carries the facet it previews, so the strip is five
-        // different specimens rather than five copies of one.
-        foreach (StyleGroup::cases() as $group) {
-            $component->assertSee($group->label());
+        // One level: no group card to open, no way back. Every scheme is
+        // drawn with its OWN tokens — the palettes that only Bold Editorial and
+        // Calm Coastal have prove the tile is not the current look repeated.
+        foreach (Theme::Default->definition()->schemes as $slug => $scheme) {
+            $component->assertSee($scheme->label)
+                ->assertSeeHtml("stageScheme('{$slug}')");
         }
 
-        $component->assertSeeHtml('data-facet="theme"')
-            ->assertSeeHtml('data-facet="font_pair"')
-            ->assertSeeHtml('data-facet="palette"');
-
-        // Drilled in, every preset is drawn with its OWN tokens — the palette
-        // that only Bold Editorial has proves the tile is not the current look
-        // repeated eight times.
-        $component->call('openStyleGroup', 'theme')
-            ->assertSeeHtml(StylePreset::BoldEditorial->tokens()->palette->colors()['--color-primary'])
-            ->assertSeeHtml(StylePreset::CalmCoastal->tokens()->palette->colors()['--color-primary']);
+        $component->assertSeeHtml(defaultScheme(DefaultTheme::BOLD_EDITORIAL)->tokens->palette->colors()['--color-primary'])
+            ->assertSeeHtml(defaultScheme(DefaultTheme::CALM_COASTAL)->tokens->palette->colors()['--color-primary'])
+            ->assertDontSee('All styles');
     });
 
-    it('offers every option of every token in its group, each drawn as itself', function (StyleGroup $group): void {
-        $this->createTenantBusiness($this->tenant, ['name' => 'Corner Cafe']);
+    it('marks the scheme in force as active, staged over saved', function (): void {
+        $this->createTenantBusiness($this->tenant, [
+            'name' => 'Corner Cafe',
+            'design_tokens' => defaultScheme(DefaultTheme::WARM_CRAFT)->tokens,
+        ]);
+        $page = editorPage([]);
+
+        $component = Livewire::test(PageEditor::class, ['record' => $page->id])
+            ->call('showSiteStyles');
+
+        expect($component->html())->toMatch('/wire:key="scheme-warm-craft"\s+data-active/');
+
+        $component->call('stageScheme', 'calm-coastal');
+
+        expect($component->html())->toMatch('/wire:key="scheme-calm-coastal"\s+data-active/')
+            ->not->toMatch('/wire:key="scheme-warm-craft"\s+data-active/');
+    });
+
+    it('offers the brand hexes only while the look in force is built on the brand palette', function (): void {
+        // The default theme has no brand-palette scheme, so the only way onto
+        // that palette is the saved tokens — and staging a scheme moves off it.
+        $this->createTenantBusiness($this->tenant, [
+            'name' => 'Corner Cafe',
+            'design_tokens' => DesignTokens::fromArray([...DesignTokens::default()->toArray(), 'palette' => 'brand']),
+        ]);
         $page = editorPage([]);
 
         $component = Livewire::test(PageEditor::class, ['record' => $page->id])
             ->call('showSiteStyles')
-            ->call('openStyleGroup', $group->value);
-
-        foreach ($group->keys() as $axis) {
-            $component->assertSee($axis->label());
-
-            foreach ($axis->tokenClass()::cases() as $option) {
-                // The click that stages it, and the specimen drawn for the
-                // facet it belongs to — an option rendered without either is a
-                // label, which is the thing this rail exists to stop being.
-                $component->assertSeeHtml("stageToken('{$axis->value}', '{$option->value}')")
-                    ->assertSeeHtml('data-facet="'.$axis->value.'"');
-            }
-        }
-    })->with([
-        'fonts' => StyleGroup::Fonts,
-        'colors' => StyleGroup::Colors,
-        'shapes' => StyleGroup::Shapes,
-        'layout' => StyleGroup::Layout,
-    ]);
-
-    it('offers the brand hexes only once the brand palette is chosen', function (): void {
-        $this->createTenantBusiness($this->tenant, ['name' => 'Corner Cafe']);
-        $page = editorPage([]);
-
-        $component = Livewire::test(PageEditor::class, ['record' => $page->id])
-            ->call('showSiteStyles')
-            ->call('openStyleGroup', 'colors')
-            ->assertDontSee('Your brand colours');
-
-        $component->call('stageToken', 'palette', ColorPalette::Brand->value)
             ->assertSee('Your brand colours');
+
+        $component->call('stageScheme', 'calm-coastal')
+            ->assertDontSee('Your brand colours');
     });
 
     it('is not offered until a business profile exists', function (): void {
@@ -2636,15 +2594,16 @@ describe('the selection that rides with a turn', function (): void {
 
         $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
 
-        $component->call('applyTurn', null, StylePreset::WarmCraft->tokens()->toArray(), [
+        $component->call('applyTurn', null, defaultScheme(DefaultTheme::WARM_CRAFT)->tokens->toArray(), [
             'header' => ['type' => 'header', 'data' => ['nav_links' => [['label' => 'Services', 'url' => '/services']]]],
         ]);
 
         $component->call('sendChatMessage', 'a bit darker');
 
+        // The draft travels normalised — the slug, not the scheme's axes.
         Queue::assertPushed(
             ChatEditPageJob::class,
-            fn (ChatEditPageJob $job): bool => $job->designDraft === StylePreset::WarmCraft->tokens()->toArray()
+            fn (ChatEditPageJob $job): bool => $job->designDraft === ['scheme' => DefaultTheme::WARM_CRAFT]
                 && ($job->chromeDraft['header']['data']['nav_links'] ?? null) === [['label' => 'Services', 'url' => '/services']],
         );
     });
@@ -2659,7 +2618,7 @@ describe('the selection that rides with a turn', function (): void {
 
         $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
 
-        $component->call('stagePreset', StylePreset::WarmCraft->value);
+        $component->call('stageScheme', DefaultTheme::WARM_CRAFT);
 
         $component->call('sendChatMessage', 'shorten the headline');
 
@@ -3126,14 +3085,14 @@ describe('design authority from the chat', function (): void {
         $page = editorPage([]);
 
         $component = Livewire::test(PageEditor::class, ['record' => $page->id])
-            ->call('applyTurn', null, StylePreset::WarmCraft->tokens()->toArray());
+            ->call('applyTurn', null, defaultScheme(DefaultTheme::WARM_CRAFT)->tokens->toArray());
 
-        expect($component->get('designDraft')['preset'])->toBe('warm-craft')
+        expect($component->get('designDraft')['scheme'])->toBe('warm-craft')
             ->and($component->get('chatDesignAwaitingApply'))->toBeTrue()
             // Previewed on the canvas...
-            ->and(cachedPreview($component)['design_tokens']['preset'])->toBe('warm-craft')
+            ->and(cachedPreview($component)['design_tokens']['scheme'])->toBe('warm-craft')
             // ...and nowhere else. Save must not be a route to the businesses row.
-            ->and(Business::query()->sole()->design_tokens->preset)->toBeNull();
+            ->and(Business::query()->sole()->design_tokens->scheme)->toBeNull();
     });
 
     it('applies a chat turn style to the whole site only when asked', function (): void {
@@ -3141,12 +3100,12 @@ describe('design authority from the chat', function (): void {
         $page = editorPage([]);
 
         $component = Livewire::test(PageEditor::class, ['record' => $page->id])
-            ->call('applyTurn', null, StylePreset::WarmCraft->tokens()->toArray())
+            ->call('applyTurn', null, defaultScheme(DefaultTheme::WARM_CRAFT)->tokens->toArray())
             ->call('applyChatDesign');
 
         // Through SaveDesignSelection, so an AI-chosen preset is stored AS a preset
         // and stays re-selectable rather than landing as an equivalent custom set.
-        expect(Business::query()->sole()->design_tokens->preset)->toBe(StylePreset::WarmCraft)
+        expect(Business::query()->sole()->design_tokens->scheme)->toBe(DefaultTheme::WARM_CRAFT)
             ->and($component->get('chatDesignAwaitingApply'))->toBeFalse()
             ->and($component->get('designDraft'))->toBeNull();
     });
@@ -3158,7 +3117,7 @@ describe('design authority from the chat', function (): void {
         $component = Livewire::test(PageEditor::class, ['record' => $page->id])
             ->call('applyTurn', [
                 ['key' => 'k1', 'type' => 'heading', 'data' => ['content' => 'Kept', 'level' => 'h2']],
-            ], StylePreset::WarmCraft->tokens()->toArray())
+            ], defaultScheme(DefaultTheme::WARM_CRAFT)->tokens->toArray())
             ->call('discardChatDesign');
 
         expect($component->get('designDraft'))->toBeNull()
@@ -3170,16 +3129,17 @@ describe('design authority from the chat', function (): void {
     it('writes a staged brand hex to the business when the chat style is applied', function (): void {
         // The end of the "把主色换成深蓝" thread: the turn staged a hex, the
         // operator clicks Apply, and SaveDesignSelection — still the single
-        // design write path — lands both the palette and the colour.
-        $this->createTenantBusiness($this->tenant, ['name' => 'Corner Cafe', 'brand_primary' => null]);
+        // design write path — lands the colour while leaving the look alone.
+        $this->createTenantBusiness($this->tenant, [
+            'name' => 'Corner Cafe',
+            'brand_primary' => null,
+            'design_tokens' => DesignTokens::fromArray([...DesignTokens::default()->toArray(), 'palette' => 'brand']),
+        ]);
         $page = editorPage([['type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'Welcome']]]);
 
         $component = Livewire::test(PageEditor::class, ['record' => $page->id]);
 
-        $component->call('applyTurn', null, [
-            ...DesignTokens::default()->with(palette: ColorPalette::Brand)->toArray(),
-            'brand_primary' => '#16305e',
-        ]);
+        $component->call('applyTurn', null, ['scheme' => null, 'brand_primary' => '#16305e']);
 
         // Staged only: the draft carries the hex, the row does not.
         expect($component->get('designDraft')['brand_primary'])->toBe('#16305e')
@@ -3206,7 +3166,7 @@ describe('design authority from the chat', function (): void {
 
         $component->call('applyTurn', [
             ['key' => 'k1', 'type' => 'hero', 'data' => ['variant' => 'full-bleed-overlay', 'heading' => 'After']],
-        ], StylePreset::WarmCraft->tokens()->toArray());
+        ], defaultScheme(DefaultTheme::WARM_CRAFT)->tokens->toArray());
 
         expect($component->get('undoDepth'))->toBe(1);
     });
@@ -3224,7 +3184,7 @@ describe('design authority from the chat', function (): void {
 
         $component->call('applyTurn', [
             ['key' => 'k1', 'type' => 'hero', 'data' => ['variant' => 'centered-minimal', 'heading' => 'After']],
-        ], StylePreset::WarmCraft->tokens()->toArray());
+        ], defaultScheme(DefaultTheme::WARM_CRAFT)->tokens->toArray());
 
         $component->call('undo');
 
@@ -3250,11 +3210,11 @@ describe('design authority from the chat', function (): void {
         $page = editorPage([]);
 
         $component = Livewire::test(PageEditor::class, ['record' => $page->id])
-            ->call('applyTurn', null, StylePreset::WarmCraft->tokens()->toArray())
+            ->call('applyTurn', null, defaultScheme(DefaultTheme::WARM_CRAFT)->tokens->toArray())
             ->mountAction('pageSettings')
             ->unmountAction();
 
-        expect($component->get('designDraft')['preset'])->toBe('warm-craft')
+        expect($component->get('designDraft')['scheme'])->toBe('warm-craft')
             ->and($component->get('chatDesignAwaitingApply'))->toBeTrue();
     });
 
@@ -3264,14 +3224,14 @@ describe('design authority from the chat', function (): void {
 
         Livewire::test(PageEditor::class, ['record' => $page->id])->call('applyChatDesign');
 
-        expect(Business::query()->sole()->design_tokens->preset)->toBeNull();
+        expect(Business::query()->sole()->design_tokens->scheme)->toBeNull();
     });
 
     it('ignores an apply when there is no business to write to', function (): void {
         $page = editorPage([]);
 
         Livewire::test(PageEditor::class, ['record' => $page->id])
-            ->call('applyTurn', null, StylePreset::WarmCraft->tokens()->toArray())
+            ->call('applyTurn', null, defaultScheme(DefaultTheme::WARM_CRAFT)->tokens->toArray())
             ->call('applyChatDesign')
             ->assertOk();
     });
@@ -3639,7 +3599,7 @@ describe('the canvas toolbar', function (): void {
 
         Livewire::test(PageEditor::class, ['record' => $page->id])
             ->call('showSiteStyles')
-            ->call('stageToken', 'palette', 'ocean')
+            ->call('stageScheme', 'calm-coastal')
             ->call('closeSiteStyles')
             ->assertSeeHtml('pe-rail-dot');
     });

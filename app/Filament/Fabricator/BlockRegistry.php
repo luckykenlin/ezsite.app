@@ -14,6 +14,7 @@ use App\Site\Blocks\BlockType;
 use App\Site\Blocks\BlockVocabulary;
 use App\Site\MediaResolver;
 use App\Site\UrlScheme;
+use App\Themes\CurrentTheme;
 use Illuminate\Support\Facades\Log;
 use Z3d0X\FilamentFabricator\Facades\FilamentFabricator;
 
@@ -56,17 +57,25 @@ final class BlockRegistry
      * {@see BlockVocabulary}, which is what the rest of the app actually reads.
      *
      * Lives here because this is the side that can enumerate the Filament block
-     * classes; it is assembled into the domain-layer vocabulary once per request
-     * by {@see \App\Providers\AppServiceProvider}.
+     * classes; {@see \App\Providers\AppServiceProvider} hands it to
+     * {@see \App\Site\Blocks\BlockVocabularies} as the builder, which
+     * assembles the domain-layer vocabulary once per theme.
      *
      * @return array<string, BlockType>
      */
     public static function contracts(): array
     {
+        $theme = resolve(CurrentTheme::class)->definition();
         $contracts = [];
 
+        // Fabricator registers every block class it finds; the THEME decides
+        // which of them this site may use. A type the theme does not list is
+        // absent from the vocabulary and therefore from the block library, the
+        // AI's tools and the validator alike — which is also how a block
+        // exclusive to one theme works: it is an ordinary class here, listed by
+        // one theme and no other.
         foreach (FilamentFabricator::getPageBlocksRaw() as $class) {
-            if (is_string($class) && is_subclass_of($class, Block::class)) {
+            if (is_string($class) && is_subclass_of($class, Block::class) && $theme->supports($class::getName())) {
                 $contracts[$class::getName()] = $class::contract();
             }
         }
@@ -75,7 +84,7 @@ final class BlockRegistry
     }
 
     /**
-     * Resolve the Blade component a stored block should render into, or null if
+     * Resolve the themed Blade view a stored block should render into, or null if
      * the block cannot be safely rendered: an unknown type, a type not backed by
      * an app {@see Block} (never authorable by tenants), or an explicitly invalid
      * variant. A *missing* variant falls back to the block's default; only a
@@ -83,7 +92,7 @@ final class BlockRegistry
      *
      * @param  array<string, mixed>  $block
      */
-    public static function resolveComponent(array $block): ?string
+    public static function resolveView(array $block): ?string
     {
         $blockType = self::blockTypeFor($block);
 
@@ -91,22 +100,22 @@ final class BlockRegistry
             return null;
         }
 
-        $base = 'filament-fabricator.page-blocks.'.$blockType->type;
+        $theme = resolve(CurrentTheme::class)->theme();
 
         if ($blockType->variants === []) {
-            return $base;
+            return $theme->blockView($blockType->type);
         }
 
         $data = is_array($block['data'] ?? null) ? $block['data'] : [];
         $variant = $blockType->resolveVariant($data[BlockShape::VARIANT_KEY] ?? null);
 
-        return $variant === null ? null : $base.'.'.$variant;
+        return $variant === null ? null : $theme->blockView($blockType->type, $variant);
     }
 
     /**
      * The block's `data`, guaranteed to be an array and with the variant reserved
      * key backfilled to the block's default when absent. Used to build the
-     * component's attributes after {@see resolveComponent()} has accepted it.
+     * component's attributes after {@see resolveView()} has accepted it.
      *
      * @param  array<string, mixed>  $block
      * @return array<array-key, mixed>

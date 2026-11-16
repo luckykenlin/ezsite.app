@@ -30,7 +30,7 @@
     </div>
 
     <div class="flex flex-1 flex-col gap-2 p-6">
-        <p class="central-eyebrow">{{ __('marketing.presets.'.$definition->preset->value.'.label') }}</p>
+        <p class="central-eyebrow">{{ __('marketing.presets.'.$definition->scheme.'.label') }}</p>
         <h3 class="central-h3">{{ $template->label() }}</h3>
         <p class="flex-1 text-sm opacity-70">{{ $template->description() }}</p>
         <span class="central-link mt-2 text-sm">{{ __('marketing.card.cta') }}</span>

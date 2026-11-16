@@ -4,22 +4,22 @@ declare(strict_types=1);
 
 namespace App\Templates\Definitions;
 
-use App\Design\StylePreset;
 use App\Enums\PhotoCategory;
 use App\StockPhotos\PhotoOrientation;
 use App\Templates\DemoProfile;
 use App\Templates\PhotoQuery;
 use App\Templates\TemplateDefinition;
 use App\Templates\TemplateField;
+use App\Themes\Definitions\DefaultTheme;
 
 /**
  * Bubble tea shop — the product-shot pilot.
  *
  * A counter trade whose entire storefront is one cup photographed well, and a
  * menu that changes with the season. Where {@see ChineseRestaurant} proves the
- * bound-Location shape and {@see DesignerPortfolio} proves the no-shopfront
- * one, this proves the middle: a short priced menu that rotates, a walk-up
- * address, and a hero whose job is to hold a single drink at eye level.
+ * bound-Location shape, this proves the middle: a short priced menu that
+ * rotates, a walk-up address, and a hero whose job is to hold a single drink at
+ * eye level.
  *
  * FreshModern, unmodified: geometric type over the green-tinted Forest palette
  * is the closest the preset library comes to a tiled counter with plants on it,
@@ -36,7 +36,7 @@ final readonly class BubbleTea
     public static function definition(): TemplateDefinition
     {
         return new TemplateDefinition(
-            preset: StylePreset::FreshModern,
+            scheme: DefaultTheme::FRESH_MODERN,
             brandPrimary: '#4E9B76',
             brandSecondary: '#26332C',
             brandAccent: '#F4C9DA',
@@ -223,25 +223,6 @@ final readonly class BubbleTea
                         ['text' => 'We opened {business_name} because every bubble tea within walking distance came out of a powder tin, and you could taste the tin. Ours starts with leaves, a scale and a timer.'],
                         ['text' => 'The seasonal slot exists so the menu has somewhere to be curious. Strawberry in spring, yuzu when the citrus is good, roasted oolong the week it turns cold. If a special sells out three days running it usually earns a permanent spot.'],
                         ['text' => 'Everything else stays exactly where it is, because the person who orders the same drink every Tuesday should be able to.'],
-                    ],
-                ]],
-                ['type' => 'steps', 'variant' => 'timeline', 'data' => [
-                    'heading' => 'What happens after you order',
-                    'intro' => 'Four minutes, more or less, and none of it happens before you ask.',
-                    'steps' => [
-                        ['title' => 'Tea off the batch', 'description' => 'Poured from whatever was brewed in the last two hours. If it is older than that it went down the drain.'],
-                        ['title' => 'Sugar measured', 'description' => 'Your percentage, pumped not poured, so 50 means 50 every time.'],
-                        ['title' => 'Pearls scooped warm', 'description' => 'Straight from the rest pot, still soft, into the bottom of the cup.'],
-                        ['title' => 'Sealed and shaken', 'description' => 'Shaken cold, sealed flat, and handed over with a wide straw and a napkin you will probably need.'],
-                    ],
-                ]],
-                ['type' => 'stats', 'data' => [
-                    'heading' => 'The bar in four numbers',
-                    'stats' => [
-                        ['value' => '2 hrs', 'label' => 'Between tea brews'],
-                        ['value' => '20 min', 'label' => 'Per pearl batch'],
-                        ['value' => '5', 'label' => 'Sugar levels, measured'],
-                        ['value' => '0', 'label' => 'Powdered mixes'],
                     ],
                 ]],
                 ['type' => 'gallery', 'variant' => 'grid', 'data' => [

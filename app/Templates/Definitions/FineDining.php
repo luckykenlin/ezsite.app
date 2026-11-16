@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Templates\Definitions;
 
-use App\Design\StylePreset;
 use App\Enums\PhotoCategory;
 use App\StockPhotos\PhotoOrientation;
 use App\Templates\DemoProfile;
 use App\Templates\PhotoQuery;
 use App\Templates\TemplateDefinition;
 use App\Templates\TemplateField;
+use App\Themes\Definitions\DefaultTheme;
 
 /**
  * Fine dining — the reservation-first restaurant.
@@ -33,7 +33,7 @@ final readonly class FineDining
     public static function definition(): TemplateDefinition
     {
         return new TemplateDefinition(
-            preset: StylePreset::NightLounge,
+            scheme: DefaultTheme::NIGHT_LOUNGE,
             brandPrimary: '#B08D3E',
             brandSecondary: '#16130E',
             brandAccent: '#6E2C2A',
@@ -239,14 +239,6 @@ final readonly class FineDining
                     'members' => [
                         ['name' => 'Elena Marchetti', 'role' => 'Chef & owner', 'bio' => 'Fifteen years in other people’s kitchens, eight tables of her own. Writes the menu daily and still works the pass every service.'],
                         ['name' => 'Jonah Wells', 'role' => 'Head of wine', 'bio' => 'Keeps the cellar and the room’s pace. Will find you something better than the bottle you came in wanting, one shelf down in price.'],
-                    ],
-                ]],
-                ['type' => 'stats', 'tone' => 'base', 'data' => [
-                    'heading' => 'The room in numbers',
-                    'stats' => [
-                        ['value' => '8', 'label' => 'Tables in the dining room'],
-                        ['value' => '1', 'label' => 'Page on the menu, rewritten daily'],
-                        ['value' => '400+', 'label' => 'Bins in the cellar'],
                     ],
                 ]],
                 ['type' => 'gallery', 'variant' => 'grid', 'data' => [

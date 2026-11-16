@@ -1,6 +1,7 @@
 import tailwindcss from '@tailwindcss/vite';
 import laravel from 'laravel-vite-plugin';
 import { bunny } from 'laravel-vite-plugin/fonts';
+import { globSync } from 'node:fs';
 import { defineConfig } from 'vite-plus';
 
 export default defineConfig({
@@ -33,7 +34,7 @@ export default defineConfig({
             },
         ],
         sortTailwindcss: {
-            stylesheet: 'resources/css/site.css',
+            stylesheet: 'resources/themes/default/theme.css',
         },
         sortImports: {
             groups: [
@@ -50,7 +51,9 @@ export default defineConfig({
     plugins: [
         laravel({
             input: [
-                'resources/css/site.css',
+                // One public-site stylesheet per theme; a new theme is picked
+                // up by adding its directory, not by editing this list.
+                ...globSync('resources/themes/*/theme.css'),
                 'resources/css/central.css',
                 'resources/css/page-editor-canvas.css',
                 'resources/css/page-editor.css',
@@ -83,8 +86,13 @@ export default defineConfig({
                 // TypeStyle::Serene sets its display at 300, and a
                 // high-contrast serif snapped up to 500 is not a softer
                 // version of that look but a different one.
+                // Italic too: the nail-luxe theme sets one phrase of every
+                // headline in italic, and a synthesised slant on a
+                // high-contrast serif is the cheapest-looking thing a
+                // browser can draw. Same for the two faces below.
                 bunny('Newsreader', {
                     weights: [300, 400, 500, 600, 700],
+                    styles: ['normal', 'italic'],
                 }),
                 bunny('Figtree', {
                     weights: [400, 500, 600],
@@ -93,6 +101,7 @@ export default defineConfig({
                 // High contrast.
                 bunny('Bodoni Moda', {
                     weights: [400, 500, 600, 700],
+                    styles: ['normal', 'italic'],
                 }),
                 bunny('Karla', {
                     weights: [400, 500, 600],
@@ -122,6 +131,7 @@ export default defineConfig({
                 // face by design, same argument as Archivo Black.
                 bunny('Instrument Serif', {
                     weights: [400],
+                    styles: ['normal', 'italic'],
                 }),
                 bunny('Instrument Sans', {
                     weights: [400, 500, 600, 700],
